@@ -42,10 +42,26 @@ When running in agent team mode:
 - Any API change MUST update api-spec.md FIRST, then implement
 - Both BE and FE must conform to api-spec.md
 
-## Git Conventions
+## Git Branch Strategy
+- **main**: 프로덕션 배포 브랜치 (main 머지 시 자동 배포)
+- **develop**: 개발 통합 브랜치 (CI 자동 실행)
+- **feature/\***: 기능 브랜치 (develop에서 분기 → develop으로 PR)
 - Branch naming: `feature/{feature-name}`, `fix/{bug-name}`, `chore/{task-name}`
 - Commit messages: conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`)
-- Always create feature branches from `main`
+- Always create feature branches from `develop`, NOT from `main`
+- Feature → develop: CI 통과 + Code Review 필수
+- develop → main: 릴리즈 단위, 모든 CI 통과 필수
+
+## Deployment
+- **main 머지 시 자동 배포**:
+  - `backend/**` 변경 → Render 자동 배포 (deploy-backend.yml)
+  - `frontend/**` 변경 → Vercel 자동 배포 (deploy-frontend.yml)
+- 배포 확인: BE `/actuator/health`, FE Vercel 프리뷰 URL
+
+## CI Failure Recovery
+- 테스트 실패 시 해당 teammate에게 에러 메시지와 함께 재할당
+- 최대 3회 재수정 루프 → 초과 시 Lead 직접 디버깅
+- 자세한 프로세스: `docs/agent-playbook.md` 참고
 
 ## Build & Test Commands
 - Backend: `cd backend && ./gradlew build` / `./gradlew test`
