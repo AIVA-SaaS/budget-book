@@ -31,7 +31,12 @@ jobs:
         run: flutter analyze
 
       - name: Test
-        run: flutter test --no-pub || echo "No tests found, skipping"
+        run: |
+          if find test -name "*_test.dart" | grep -q .; then
+            flutter test --no-pub
+          else
+            echo "No test files found, skipping"
+          fi
 
       - name: Build Web
         run: flutter build web --release
