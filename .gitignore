@@ -1,0 +1,49 @@
+# Backend - Kotlin/Gradle
+backend/.gradle/
+backend/build/
+backend/out/
+backend/bin/
+backend/*.iml
+backend/.idea/
+
+# Frontend - Flutter/Dart
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.idea/
+frontend/*.iml
+frontend/pubspec.lock
+
+# Infrastructure
+infra/.env
+infra/.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# Claude Code
+.claude/settings.local.json
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
