@@ -1,0 +1,73 @@
+name: budget_book
+description: Shared household budget management app for couples.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Networking
+  dio: ^5.4.3+1
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Dependency Injection
+  get_it: ^7.7.0
+  injectable: ^2.4.4
+
+  # Storage
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.2
+
+  # Charts
+  fl_chart: ^0.69.0
+
+  # UI
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+
+  # Functional Programming
+  dartz: ^0.10.1
+
+  # WebSocket
+  web_socket_channel: ^3.0.1
+  stomp_dart_client: ^2.0.0
+
+  # Localization
+  intl: any
+
+  # Utils
+  uuid: ^4.5.1
+  logger: ^2.4.0
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  bloc_test: ^9.1.7
+  mockito: ^5.4.4
+  build_runner: ^2.4.12
+  injectable_generator: ^2.6.2
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
