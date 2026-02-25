@@ -13,10 +13,14 @@ spring:
       hibernate:
         format_sql: true
         default_batch_fetch_size: 100
+    defer-datasource-initialization: true
 
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+  autoconfigure:
+    exclude:
 
   jackson:
     property-naming-strategy: LOWER_CAMEL_CASE

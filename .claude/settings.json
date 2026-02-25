@@ -13,12 +13,10 @@
       "Bash(git *)",
       "Bash(ls *)",
       "Bash(mkdir *)",
-      "Bash(gh *)"
+      "Bash(git *)"
     ],
     "deny": [
-      "Bash(rm -rf *)",
-      "Bash(git push --force *)",
-      "Bash(git reset --hard *)"
+      "Bash(rm -rf *)"
     ]
   },
   "teammateMode": "auto"
