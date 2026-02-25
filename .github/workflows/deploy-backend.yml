@@ -1,15 +1,12 @@
-name: Backend CI
+name: Deploy Backend
 
 on:
   push:
-    branches: [main, develop]
-    paths: ['backend/**']
-  pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths: ['backend/**']
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,11 +38,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
-      - name: Build
-        run: ./gradlew build
 
       - name: Test
         run: ./gradlew test
@@ -53,3 +45,13 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
           SPRING_DATASOURCE_USERNAME: budgetbook
           SPRING_DATASOURCE_PASSWORD: budgetbook
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
