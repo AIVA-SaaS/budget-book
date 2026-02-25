@@ -1,0 +1,23 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
+
+  flyway:
+    enabled: false
+
+jwt:
+  secret: deploy-init-secret-key-that-is-at-least-256-bits-long
+  access-token-expiry: 3600000
+  refresh-token-expiry: 604800000
+
+server:
+  port: ${PORT:8080}
+
+logging:
+  level:
+    com.budgetbook: INFO
