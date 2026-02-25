@@ -58,8 +58,12 @@ When running in agent team mode:
   - `frontend/**` 변경 → Vercel 자동 배포 (deploy-frontend.yml)
 - 배포 확인: BE `/actuator/health`, FE Vercel 프리뷰 URL
 
-## CI Failure Recovery
-- 테스트 실패 시 해당 teammate에게 에러 메시지와 함께 재할당
+## CI Failure Recovery (Automated)
+- CI 실패 시 GitHub Issue가 자동 생성됨 (label: `ci-failure`)
+- **세션 시작 시 반드시 확인**: `gh issue list --label ci-failure --state open`
+- 열린 ci-failure Issue가 있으면 다른 작업보다 우선 처리
+- 해당 teammate에게 에러 로그와 함께 수정 할당
+- 수정 완료 + CI 통과 후 Issue 자동 close
 - 최대 3회 재수정 루프 → 초과 시 Lead 직접 디버깅
 - 자세한 프로세스: `docs/agent-playbook.md` 참고
 
