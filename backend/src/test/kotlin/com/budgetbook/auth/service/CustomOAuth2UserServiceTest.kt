@@ -4,6 +4,7 @@ import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.auth.security.CustomOAuth2User
+import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -24,6 +25,8 @@ import org.springframework.security.oauth2.core.user.OAuth2UserAuthority
 import java.time.Instant
 
 class CustomOAuth2UserServiceTest : BehaviorSpec({
+
+    isolationMode = IsolationMode.InstancePerLeaf
 
     val userRepository = mockk<UserRepository>()
 
