@@ -40,6 +40,9 @@ jwt:
   access-token-expiry: 3600000
   refresh-token-expiry: 604800000
 
+app:
+  frontend-url: http://localhost:5000
+
 logging:
   level:
     com.budgetbook: DEBUG

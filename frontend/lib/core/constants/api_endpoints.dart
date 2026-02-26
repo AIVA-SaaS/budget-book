@@ -11,6 +11,7 @@ class ApiEndpoints {
   static const String authKakao = '/oauth2/authorization/kakao';
   static const String authRefresh = '/api/v1/auth/refresh';
   static const String authMe = '/api/v1/auth/me';
+  static const String authLogout = '/api/v1/auth/logout';
 
   // Couple
   static const String couples = '/api/v1/couples';

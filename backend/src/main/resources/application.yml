@@ -21,6 +21,8 @@ spring:
 
   autoconfigure:
     exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
   jackson:
     property-naming-strategy: LOWER_CAMEL_CASE
@@ -35,3 +37,6 @@ management:
     web:
       exposure:
         include: health,info
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5000}
