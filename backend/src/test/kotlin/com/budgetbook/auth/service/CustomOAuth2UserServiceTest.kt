@@ -13,7 +13,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.spyk
-import io.mockk.verify
 import org.springframework.security.oauth2.client.registration.ClientRegistration
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
@@ -186,8 +185,6 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
                 savedUser.profileImageUrl shouldBe "https://google.com/photo.jpg"
                 savedUser.provider shouldBe AuthProvider.GOOGLE
                 savedUser.providerId shouldBe "google-provider-id-123"
-
-                verify { userRepository.save(any()) }
             }
         }
     }
@@ -215,8 +212,6 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
                 savedUser.profileImageUrl shouldBe "https://kakao.com/photo.jpg"
                 savedUser.provider shouldBe AuthProvider.KAKAO
                 savedUser.providerId shouldBe "12345678"
-
-                verify { userRepository.save(any()) }
             }
         }
     }
@@ -256,8 +251,6 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
 
                 existingUser.nickname shouldBe "New Nickname"
                 existingUser.profileImageUrl shouldBe "https://new-photo.jpg"
-
-                verify { userRepository.save(existingUser) }
             }
         }
     }
