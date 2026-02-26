@@ -39,6 +39,8 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: frontend
@@ -57,13 +59,14 @@ jobs:
         run: flutter pub get
 
       - name: Build Web
-        run: flutter build web --release
+        run: flutter build web --release --base-href=/budget-book/ --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
 
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
+      - name: Create 404.html for SPA routing
+        run: cp build/web/index.html build/web/404.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: frontend/build/web
-          vercel-args: '--prod'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: frontend/build/web
+          publish_branch: gh-pages
