@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}?sslmode=require
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
@@ -12,10 +12,6 @@ spring:
 
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
-
-  data:
-    redis:
-      url: ${REDIS_URL:}
 
   security:
     oauth2:
