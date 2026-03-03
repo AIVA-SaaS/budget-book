@@ -5,6 +5,7 @@ import com.budgetbook.auth.security.JwtAuthenticationFilter
 import com.budgetbook.auth.security.OAuth2AuthenticationFailureHandler
 import com.budgetbook.auth.security.OAuth2AuthenticationSuccessHandler
 import com.budgetbook.auth.service.CustomOAuth2UserService
+import com.budgetbook.auth.service.CustomOidcUserService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -21,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
     private val customOAuth2UserService: CustomOAuth2UserService,
+    private val customOidcUserService: CustomOidcUserService,
     private val oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler,
     private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler,
     private val appProperties: AppProperties
@@ -43,7 +45,10 @@ class SecurityConfig(
             }
             .oauth2Login { oauth2 ->
                 oauth2
-                    .userInfoEndpoint { it.userService(customOAuth2UserService) }
+                    .userInfoEndpoint {
+                        it.userService(customOAuth2UserService)
+                        it.oidcUserService(customOidcUserService)
+                    }
                     .successHandler(oAuth2AuthenticationSuccessHandler)
                     .failureHandler(oAuth2AuthenticationFailureHandler)
             }

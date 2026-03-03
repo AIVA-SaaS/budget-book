@@ -2,7 +2,9 @@ package com.budgetbook.auth.security
 
 import com.budgetbook.auth.config.AppProperties
 import com.budgetbook.auth.domain.RefreshToken
+import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.RefreshTokenRepository
+import com.budgetbook.auth.service.CustomOidcUser
 import com.budgetbook.auth.service.JwtTokenProvider
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -28,8 +30,11 @@ class OAuth2AuthenticationSuccessHandler(
         response: HttpServletResponse,
         authentication: Authentication
     ) {
-        val customOAuth2User = authentication.principal as CustomOAuth2User
-        val user = customOAuth2User.getUser()
+        val user: User = when (val principal = authentication.principal) {
+            is CustomOAuth2User -> principal.getUser()
+            is CustomOidcUser -> principal.getUser()
+            else -> throw IllegalStateException("Unexpected principal type: ${principal::class}")
+        }
 
         val accessToken = jwtTokenProvider.generateAccessToken(user.id, user.email)
         val refreshTokenValue = jwtTokenProvider.generateRefreshToken()
