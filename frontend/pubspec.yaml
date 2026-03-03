@@ -54,12 +54,16 @@ dependencies:
   logger: ^2.4.0
   url_launcher: ^6.3.0
 
+  # Web platform
+  web: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
   bloc_test: ^9.1.7
   mockito: ^5.4.4
+  mocktail: ^1.0.4
   build_runner: ^2.4.12
   injectable_generator: ^2.6.2
   flutter_launcher_icons: ^0.14.1
