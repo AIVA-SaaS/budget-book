@@ -9,6 +9,7 @@ import io.jsonwebtoken.security.Keys
 import io.jsonwebtoken.security.SecurityException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.security.MessageDigest
 import java.util.Date
 import java.util.UUID
 import javax.crypto.SecretKey
@@ -20,7 +21,9 @@ class JwtTokenProvider(
     private val log = LoggerFactory.getLogger(javaClass)
 
     private val key: SecretKey by lazy {
-        Keys.hmacShaKeyFor(jwtProperties.secret.toByteArray())
+        val sha256 = MessageDigest.getInstance("SHA-256")
+        val keyBytes = sha256.digest(jwtProperties.secret.toByteArray())
+        Keys.hmacShaKeyFor(keyBytes)
     }
 
     fun generateAccessToken(userId: UUID, email: String): String {
