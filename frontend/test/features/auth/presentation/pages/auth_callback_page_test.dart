@@ -163,7 +163,11 @@ void main() {
         accessToken: 'test-token',
         refreshToken: 'test-refresh',
       ));
-      await tester.pumpAndSettle();
+      // Use pump() instead of pumpAndSettle() because the page stays
+      // on the callback screen with a CircularProgressIndicator that
+      // never settles.
+      await tester.pump();
+      await tester.pump();
 
       // Should stay on callback page, not redirect to login
       expect(find.text('로그인 처리 중...'), findsOneWidget);
