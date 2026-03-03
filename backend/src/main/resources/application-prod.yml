@@ -1,9 +1,15 @@
 spring:
+  main:
+    lazy-initialization: true
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:postgres}?sslmode=require
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 5
 
   jpa:
     show-sql: false
@@ -12,6 +18,8 @@ spring:
 
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
+    connect-retries: 3
+    connect-retries-interval: 5
 
   security:
     oauth2:
