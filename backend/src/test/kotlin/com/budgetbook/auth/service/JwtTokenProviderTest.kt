@@ -106,4 +106,19 @@ class JwtTokenProviderTest : FunSpec({
     test("getRefreshTokenExpiry returns configured value") {
         jwtTokenProvider.getRefreshTokenExpiry() shouldBe 604800000L
     }
+
+    test("works with short secret key (SHA-256 derived)") {
+        val shortSecretProps = JwtProperties(
+            secret = "short",
+            accessTokenExpiry = 3600000,
+            refreshTokenExpiry = 604800000
+        )
+        val provider = JwtTokenProvider(shortSecretProps)
+
+        val userId = UUID.randomUUID()
+        val token = provider.generateAccessToken(userId, "test@example.com")
+        token.shouldNotBeBlank()
+        provider.validateToken(token) shouldBe true
+        provider.getUserIdFromToken(token) shouldBe userId
+    }
 })
