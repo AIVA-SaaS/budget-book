@@ -146,7 +146,11 @@ void main() {
       expect(find.text('Login'), findsOneWidget);
     });
 
-    testWidgets('navigates to /login on AuthUnauthenticated', (tester) async {
+    testWidgets(
+        'ignores AuthUnauthenticated when callback tokens are provided',
+        (tester) async {
+      // When tokens are provided, AuthUnauthenticated from AuthCheckRequested
+      // should NOT redirect — the callback is still being processed.
       whenListen(
         mockAuthBloc,
         Stream<AuthState>.fromIterable([
@@ -159,6 +163,24 @@ void main() {
         accessToken: 'test-token',
         refreshToken: 'test-refresh',
       ));
+      await tester.pumpAndSettle();
+
+      // Should stay on callback page, not redirect to login
+      expect(find.text('로그인 처리 중...'), findsOneWidget);
+    });
+
+    testWidgets(
+        'navigates to /login on AuthUnauthenticated when no tokens provided',
+        (tester) async {
+      whenListen(
+        mockAuthBloc,
+        Stream<AuthState>.fromIterable([
+          const AuthUnauthenticated(),
+        ]),
+        initialState: const AuthLoading(),
+      );
+
+      await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Login'), findsOneWidget);
