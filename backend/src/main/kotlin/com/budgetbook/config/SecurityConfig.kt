@@ -59,8 +59,12 @@ class SecurityConfig(
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
+        // Extract origin (scheme + host + port) from frontendUrl which may contain a path
+        val uri = java.net.URI(appProperties.frontendUrl)
+        val origin = if (uri.port > 0) "${uri.scheme}://${uri.host}:${uri.port}" else "${uri.scheme}://${uri.host}"
+
         val configuration = CorsConfiguration().apply {
-            allowedOrigins = listOf(appProperties.frontendUrl)
+            allowedOrigins = listOf(origin)
             allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             allowedHeaders = listOf("*")
             allowCredentials = true
