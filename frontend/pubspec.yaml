@@ -60,6 +60,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   bloc_test: ^9.1.7
   mockito: ^5.4.4
+  mocktail: ^1.0.4
   build_runner: ^2.4.12
   injectable_generator: ^2.6.2
   flutter_launcher_icons: ^0.14.1

@@ -137,21 +137,28 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
                 }
             }
 
-            // Find or create user using the real repository mock
-            val existingUser = userRepository.findByProviderAndProviderId(provider, userInfo.providerId)
-            val user = if (existingUser != null) {
-                existingUser.nickname = userInfo.name
-                existingUser.profileImageUrl = userInfo.profileImageUrl
-                userRepository.save(existingUser)
+            // Find or create user using the real repository mock (matches new email-first logic)
+            val byProvider = userRepository.findByProviderAndProviderId(provider, userInfo.providerId)
+            val user = if (byProvider != null) {
+                byProvider.nickname = userInfo.name
+                byProvider.profileImageUrl = userInfo.profileImageUrl
+                userRepository.save(byProvider)
             } else {
-                val newUser = User(
-                    email = userInfo.email,
-                    nickname = userInfo.name,
-                    profileImageUrl = userInfo.profileImageUrl,
-                    provider = provider,
-                    providerId = userInfo.providerId
-                )
-                userRepository.save(newUser)
+                val byEmail = userRepository.findByEmail(userInfo.email)
+                if (byEmail != null) {
+                    byEmail.nickname = userInfo.name
+                    byEmail.profileImageUrl = userInfo.profileImageUrl
+                    userRepository.save(byEmail)
+                } else {
+                    val newUser = User(
+                        email = userInfo.email,
+                        nickname = userInfo.name,
+                        profileImageUrl = userInfo.profileImageUrl,
+                        provider = provider,
+                        providerId = userInfo.providerId
+                    )
+                    userRepository.save(newUser)
+                }
             }
 
             CustomOAuth2User(oAuth2User, user)
@@ -169,6 +176,7 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
         stubSuperLoadUser(userRequest, googleOAuth2User)
 
         every { userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-provider-id-123") } returns null
+        every { userRepository.findByEmail("user@gmail.com") } returns null
 
         val userSlot = slot<User>()
         every { userRepository.save(capture(userSlot)) } answers { userSlot.captured }
@@ -196,6 +204,7 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
         stubSuperLoadUser(userRequest, kakaoOAuth2User)
 
         every { userRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345678") } returns null
+        every { userRepository.findByEmail("user@kakao.com") } returns null
 
         val userSlot = slot<User>()
         every { userRepository.save(capture(userSlot)) } answers { userSlot.captured }
@@ -212,6 +221,51 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
                 savedUser.profileImageUrl shouldBe "https://kakao.com/photo.jpg"
                 savedUser.provider shouldBe AuthProvider.KAKAO
                 savedUser.providerId shouldBe "12345678"
+            }
+        }
+    }
+
+    Given("a Kakao login with the same email as an existing Google user") {
+        val existingGoogleUser = User(
+            email = "shared@example.com",
+            nickname = "Google Name",
+            profileImageUrl = "https://google.com/photo.jpg",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-id-999"
+        )
+
+        val kakaoOAuth2User = run {
+            val attributes = mapOf<String, Any>(
+                "id" to 99999999L,
+                "kakao_account" to mapOf(
+                    "email" to "shared@example.com",
+                    "profile" to mapOf(
+                        "nickname" to "Kakao Name",
+                        "thumbnail_image_url" to "https://kakao.com/photo.jpg"
+                    )
+                )
+            )
+            val authorities = listOf(OAuth2UserAuthority(attributes))
+            DefaultOAuth2User(authorities, attributes, "id")
+        }
+
+        val userRequest = createOAuth2UserRequest("kakao")
+
+        stubSuperLoadUser(userRequest, kakaoOAuth2User)
+
+        every { userRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "99999999") } returns null
+        every { userRepository.findByEmail("shared@example.com") } returns existingGoogleUser
+        every { userRepository.save(existingGoogleUser) } returns existingGoogleUser
+
+        When("loadUser is called") {
+            val result = customOAuth2UserService.loadUser(userRequest)
+
+            Then("auto-links to the existing Google user account") {
+                result.shouldBeInstanceOf<CustomOAuth2User>()
+
+                existingGoogleUser.nickname shouldBe "Kakao Name"
+                existingGoogleUser.profileImageUrl shouldBe "https://kakao.com/photo.jpg"
+                existingGoogleUser.provider shouldBe AuthProvider.GOOGLE
             }
         }
     }

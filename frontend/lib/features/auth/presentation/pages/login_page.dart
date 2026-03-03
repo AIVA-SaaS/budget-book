@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:budget_book/core/utils/web_navigation_stub.dart'
+    if (dart.library.js_interop) 'package:budget_book/core/utils/web_navigation_web.dart'
+    as web_nav;
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -110,8 +114,10 @@ class LoginPage extends StatelessWidget {
   }
 
   Future<void> _launchOAuth(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    if (kIsWeb) {
+      web_nav.setWindowLocation(url);
+    } else {
+      final uri = Uri.parse(url);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
