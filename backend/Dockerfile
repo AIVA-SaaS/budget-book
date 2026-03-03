@@ -12,4 +12,8 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", \
+  "-Xms128m", "-Xmx384m", \
+  "-XX:+UseSerialGC", \
+  "-Dspring.jmx.enabled=false", \
+  "-jar", "app.jar"]
