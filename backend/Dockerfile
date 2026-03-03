@@ -15,5 +15,6 @@ EXPOSE 8080
 ENTRYPOINT ["java", \
   "-Xms128m", "-Xmx384m", \
   "-XX:+UseSerialGC", \
+  "-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", \
   "-Dspring.jmx.enabled=false", \
   "-jar", "app.jar"]
