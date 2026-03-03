@@ -61,7 +61,7 @@ class CustomOAuth2UserService(
         )
     }
 
-    private fun findOrCreateUser(provider: AuthProvider, userInfo: OAuth2UserInfo): User {
+    fun findOrCreateUser(provider: AuthProvider, userInfo: OAuth2UserInfo): User {
         // 1. Exact provider match
         val byProvider = userRepository.findByProviderAndProviderId(provider, userInfo.providerId)
         if (byProvider != null) {
@@ -90,7 +90,7 @@ class CustomOAuth2UserService(
         return userRepository.save(newUser)
     }
 
-    private data class OAuth2UserInfo(
+    data class OAuth2UserInfo(
         val providerId: String,
         val email: String,
         val name: String,
