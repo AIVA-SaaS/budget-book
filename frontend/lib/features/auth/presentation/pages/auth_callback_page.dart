@@ -20,6 +20,8 @@ class AuthCallbackPage extends StatefulWidget {
 }
 
 class _AuthCallbackPageState extends State<AuthCallbackPage> {
+  bool _callbackDispatched = false;
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +33,7 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
     final refreshToken = widget.refreshToken;
 
     if (accessToken != null && refreshToken != null) {
+      _callbackDispatched = true;
       context.read<AuthBloc>().add(
             AuthCallbackReceived(
               accessToken: accessToken,
@@ -55,7 +58,10 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
           context.go('/home');
         } else if (state is AuthError) {
           context.go('/login');
-        } else if (state is AuthUnauthenticated) {
+        } else if (state is AuthUnauthenticated && !_callbackDispatched) {
+          // Only redirect to login if we didn't dispatch a callback.
+          // AuthCheckRequested may emit AuthUnauthenticated before
+          // AuthCallbackReceived is processed — ignore that.
           context.go('/login');
         }
       },
