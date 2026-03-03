@@ -19,3 +19,6 @@ class ForbiddenException(code: String, message: String) :
 
 class ConflictException(code: String, message: String) :
     BusinessException(code, message, HttpStatus.CONFLICT)
+
+class GoneException(code: String, message: String) :
+    BusinessException(code, message, HttpStatus.GONE)
