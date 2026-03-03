@@ -9,6 +9,7 @@ import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserServ
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
 import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class CustomOAuth2UserService(
@@ -17,6 +18,7 @@ class CustomOAuth2UserService(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional
     override fun loadUser(userRequest: OAuth2UserRequest): OAuth2User {
         val oAuth2User = super.loadUser(userRequest)
         val registrationId = userRequest.clientRegistration.registrationId
@@ -60,22 +62,32 @@ class CustomOAuth2UserService(
     }
 
     private fun findOrCreateUser(provider: AuthProvider, userInfo: OAuth2UserInfo): User {
-        val existingUser = userRepository.findByProviderAndProviderId(provider, userInfo.providerId)
-
-        return if (existingUser != null) {
-            existingUser.nickname = userInfo.name
-            existingUser.profileImageUrl = userInfo.profileImageUrl
-            userRepository.save(existingUser)
-        } else {
-            val newUser = User(
-                email = userInfo.email,
-                nickname = userInfo.name,
-                profileImageUrl = userInfo.profileImageUrl,
-                provider = provider,
-                providerId = userInfo.providerId
-            )
-            userRepository.save(newUser)
+        // 1. Exact provider match
+        val byProvider = userRepository.findByProviderAndProviderId(provider, userInfo.providerId)
+        if (byProvider != null) {
+            byProvider.nickname = userInfo.name
+            byProvider.profileImageUrl = userInfo.profileImageUrl
+            return userRepository.save(byProvider)
         }
+
+        // 2. Email-first lookup: auto-link if same email exists from different provider
+        val byEmail = userRepository.findByEmail(userInfo.email)
+        if (byEmail != null) {
+            log.info("Auto-linking OAuth2 account: email={}, existingProvider={}, newProvider={}", userInfo.email, byEmail.provider, provider)
+            byEmail.nickname = userInfo.name
+            byEmail.profileImageUrl = userInfo.profileImageUrl
+            return userRepository.save(byEmail)
+        }
+
+        // 3. New user
+        val newUser = User(
+            email = userInfo.email,
+            nickname = userInfo.name,
+            profileImageUrl = userInfo.profileImageUrl,
+            provider = provider,
+            providerId = userInfo.providerId
+        )
+        return userRepository.save(newUser)
     }
 
     private data class OAuth2UserInfo(

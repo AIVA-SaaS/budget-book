@@ -1,10 +1,20 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
 import 'package:budget_book/features/auth/presentation/pages/auth_callback_page.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
+import 'package:budget_book/features/couple/presentation/pages/couple_page.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
+import 'package:budget_book/features/category/presentation/pages/category_page.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
+import 'package:budget_book/features/transaction/presentation/pages/transaction_form_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -43,9 +53,69 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/home',
-      builder: (context, state) => const Scaffold(
-        body: Center(child: Text('Home Page - TODO')),
+      builder: (context, state) {
+        final now = DateTime.now();
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TransactionBloc>(
+              create: (_) => getIt<TransactionBloc>()
+                ..add(LoadTransactions(year: now.year, month: now.month)),
+            ),
+          ],
+          child: const TransactionListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/couple',
+      builder: (context, state) => BlocProvider<CoupleBloc>(
+        create: (context) =>
+            getIt<CoupleBloc>()..add(const LoadCouple()),
+        child: const CouplePage(),
       ),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => BlocProvider<CategoryBloc>(
+        create: (context) =>
+            getIt<CategoryBloc>()..add(const LoadCategories()),
+        child: const CategoryPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/transactions/create',
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<TransactionBloc>(
+            create: (_) => getIt<TransactionBloc>(),
+          ),
+          BlocProvider<CategoryBloc>(
+            create: (_) =>
+                getIt<CategoryBloc>()..add(const LoadCategories()),
+          ),
+        ],
+        child: const TransactionFormPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/transactions/edit/:id',
+      builder: (context, state) {
+        // The transaction will be passed via extra
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TransactionBloc>(
+              create: (_) => getIt<TransactionBloc>(),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+          ],
+          child: TransactionFormPage(
+            transaction: state.extra as dynamic,
+          ),
+        );
+      },
     ),
   ],
 );
