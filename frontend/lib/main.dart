@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:budget_book/app.dart';
 import 'package:budget_book/core/di/injection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   await configureDependencies();
   Bloc.observer = AppBlocObserver();
   runApp(const BudgetBookApp());
