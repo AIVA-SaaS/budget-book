@@ -5,6 +5,18 @@ import 'package:budget_book/features/auth/data/datasources/auth_remote_datasourc
 import 'package:budget_book/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:budget_book/features/auth/domain/repositories/auth_repository.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/features/couple/data/datasources/couple_remote_datasource.dart';
+import 'package:budget_book/features/couple/data/repositories/couple_repository_impl.dart';
+import 'package:budget_book/features/couple/domain/repositories/couple_repository.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
+import 'package:budget_book/features/category/data/datasources/category_remote_datasource.dart';
+import 'package:budget_book/features/category/data/repositories/category_repository_impl.dart';
+import 'package:budget_book/features/category/domain/repositories/category_repository.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/transaction/data/datasources/transaction_remote_datasource.dart';
+import 'package:budget_book/features/transaction/data/repositories/transaction_repository_impl.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -29,5 +41,42 @@ Future<void> configureDependencies() async {
       authRepository: getIt<AuthRepository>(),
       storageService: getIt<SecureStorageService>(),
     ),
+  );
+
+  // Couple feature
+  getIt.registerLazySingleton<CoupleRemoteDataSource>(
+    () => CoupleRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<CoupleRepository>(
+    () => CoupleRepositoryImpl(
+        remoteDataSource: getIt<CoupleRemoteDataSource>()),
+  );
+  getIt.registerFactory<CoupleBloc>(
+    () => CoupleBloc(coupleRepository: getIt<CoupleRepository>()),
+  );
+
+  // Category feature
+  getIt.registerLazySingleton<CategoryRemoteDataSource>(
+    () => CategoryRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<CategoryRepository>(
+    () => CategoryRepositoryImpl(
+        remoteDataSource: getIt<CategoryRemoteDataSource>()),
+  );
+  getIt.registerFactory<CategoryBloc>(
+    () => CategoryBloc(categoryRepository: getIt<CategoryRepository>()),
+  );
+
+  // Transaction feature
+  getIt.registerLazySingleton<TransactionRemoteDataSource>(
+    () => TransactionRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<TransactionRepository>(
+    () => TransactionRepositoryImpl(
+        remoteDataSource: getIt<TransactionRemoteDataSource>()),
+  );
+  getIt.registerFactory<TransactionBloc>(
+    () => TransactionBloc(
+        transactionRepository: getIt<TransactionRepository>()),
   );
 }
