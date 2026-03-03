@@ -37,7 +37,12 @@ T5: [Frontend] Widget/BLoC 테스트 작성               (blocked by: T3)
 ### 4. 전체 완료 후
 - Code Reviewer subagent spawn → 리뷰
 - 필요 시 Refactorer subagent spawn → 코드 정리
+- **⚠️ [MANDATORY] OAuth2/OIDC 프로토콜 구분 확인**:
+  - Google 등 `openid` scope 사용 provider → `oidcUserService()` 등록 필수
+  - Kakao 등 일반 OAuth2 provider → `userService()` 등록
+  - SecurityConfig에 **두 가지 모두** 등록되어야 함
 - **⚠️ [MANDATORY] 로컬 전체 검증 실행** → `bash scripts/pre-deploy-check.sh`
+- **⚠️ [MANDATORY] 배포 후 E2E 동작 확인** → 실제 로그인 플로우까지 검증
 - 검증 통과 후에만 Lead가 커밋/PR 생성
 
 ## Git Branch Strategy & Deployment Flow
@@ -126,6 +131,17 @@ cd frontend && flutter analyze
 # Frontend 웹 빌드
 cd frontend && flutter build web
 ```
+
+## Auth/Security Checklist (기능 추가 시 필수 확인)
+
+| 체크 항목 | 설명 |
+|----------|------|
+| OIDC vs OAuth2 | Google(openid scope) = OIDC → `oidcUserService()` 필수 |
+| SecurityConfig 등록 | `userService()` + `oidcUserService()` 둘 다 등록 확인 |
+| Principal 타입 | SuccessHandler에서 CustomOAuth2User, CustomOidcUser 모두 처리 |
+| Render 메모리 제한 | free tier 512MB → JVM 플래그 필수 (-Xms128m -Xmx384m) |
+| DB 연결 타임아웃 | Hikari connection-timeout 설정 → hang 방지 |
+| 배포 후 E2E 확인 | health check + 실제 로그인 플로우 검증 |
 
 ## Decision Matrix
 
