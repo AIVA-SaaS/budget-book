@@ -55,3 +55,90 @@ jobs:
         with:
           service-id: ${{ secrets.RENDER_SERVICE_ID }}
           api-key: ${{ secrets.RENDER_API_KEY }}
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Render build (4 min)
+        run: sleep 240
+
+      - name: Verify health endpoint
+        run: |
+          echo "Checking health endpoint..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" \
+              --connect-timeout 10 --max-time 30 \
+              https://budget-book-api.onrender.com/actuator/health 2>/dev/null || echo "000")
+
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check returned 200"
+              cat /tmp/health.json
+              echo ""
+
+              # Verify DB is connected
+              DB_STATUS=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('components',{}).get('db',{}).get('status','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
+
+              if [ "$DB_STATUS" = "UP" ]; then
+                echo "DB status: UP - Deployment verified!"
+                exit 0
+              else
+                echo "WARNING: Health is UP but DB status is: $DB_STATUS"
+                echo "Retrying in 20s... (attempt $i/30)"
+              fi
+            else
+              echo "Health check returned $STATUS, retrying in 20s... (attempt $i/30)"
+            fi
+            sleep 20
+          done
+
+          echo "FAILED: Health check did not pass after 10 minutes"
+          exit 1
+
+      - name: Verify OAuth2 endpoints accessible
+        run: |
+          # Check that OAuth2 authorization endpoint returns redirect (not 404/500)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --connect-timeout 10 --max-time 15 \
+            https://budget-book-api.onrender.com/oauth2/authorization/google 2>/dev/null || echo "000")
+
+          if [ "$STATUS" = "302" ]; then
+            echo "OAuth2 Google endpoint: OK (302 redirect)"
+          else
+            echo "FAILED: OAuth2 Google endpoint returned $STATUS (expected 302)"
+            exit 1
+          fi
+
+      - name: Create Issue on Verification Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `[DEPLOY FAIL] Backend verification failed - ${context.sha.substring(0, 7)}`;
+            const body = [
+              '## Deployment Verification Failure',
+              '',
+              `**Commit:** ${context.sha}`,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              '### What happened',
+              'Render deploy was triggered but post-deploy verification failed.',
+              'Possible causes:',
+              '- Render build timeout (port scan timeout)',
+              '- DB connection failure',
+              '- Flyway migration error',
+              '- Spring Boot startup crash',
+              '',
+              '### Action Required',
+              '- [ ] Check Render dashboard logs',
+              '- [ ] Verify DB env vars are set correctly',
+              '- [ ] Fix and redeploy',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure', 'deploy', 'backend'],
+            });
