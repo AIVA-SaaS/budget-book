@@ -28,9 +28,9 @@ class ApiEndpoints {
   static const String budgets = '/api/v1/budgets';
 
   // Statistics
-  static const String statisticsMonthly = '/api/v1/statistics/monthly';
-  static const String statisticsYearly = '/api/v1/statistics/yearly';
-  static const String statisticsCategory = '/api/v1/statistics/category';
+  static const String statisticsSummary = '/api/v1/statistics/summary';
+  static const String statisticsByCategory = '/api/v1/statistics/by-category';
+  static const String statisticsMonthlyTrend = '/api/v1/statistics/monthly-trend';
 
   // Export
   static const String exportCsv = '/api/v1/export/csv';
