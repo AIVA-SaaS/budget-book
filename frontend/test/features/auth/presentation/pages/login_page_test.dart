@@ -103,6 +103,7 @@ void main() {
         nickname: 'TestUser',
         provider: 'GOOGLE',
         role: 'USER',
+        coupleId: 'couple-id',
         createdAt: DateTime(2024),
       );
 

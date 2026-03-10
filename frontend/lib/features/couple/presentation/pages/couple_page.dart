@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
@@ -27,6 +30,7 @@ class _CouplePageState extends State<CouplePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('커플 연결'),
+        automaticallyImplyLeading: Navigator.canPop(context),
       ),
       body: BlocConsumer<CoupleBloc, CoupleState>(
         listener: (context, state) {
@@ -38,9 +42,13 @@ class _CouplePageState extends State<CouplePage> {
               ),
             );
           } else if (state is CoupleLinked) {
+            // Refresh auth state to update coupleId
+            context.read<AuthBloc>().add(const AuthRefreshUser());
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('커플이 연결되었습니다!')),
             );
+            // Navigate to home after couple linking
+            context.go('/home');
           }
         },
         builder: (context, state) {
