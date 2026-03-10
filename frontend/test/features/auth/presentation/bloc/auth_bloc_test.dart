@@ -297,6 +297,39 @@ void main() {
       );
     });
 
+    group('AuthRefreshUser', () {
+      blocTest<AuthBloc, AuthState>(
+        'emits [AuthAuthenticated] when user fetch succeeds',
+        build: () {
+          when(mockAuthRepository.getCurrentUser())
+              .thenAnswer((_) async => Right(tUser));
+          return authBloc;
+        },
+        act: (bloc) => bloc.add(const AuthRefreshUser()),
+        expect: () => [
+          AuthAuthenticated(tUser),
+        ],
+        verify: (_) {
+          verify(mockAuthRepository.getCurrentUser()).called(1);
+        },
+      );
+
+      blocTest<AuthBloc, AuthState>(
+        'emits nothing when user fetch fails (keeps current state)',
+        build: () {
+          when(mockAuthRepository.getCurrentUser())
+              .thenAnswer((_) async =>
+                  const Left(ServerFailure('Failed to get user')));
+          return authBloc;
+        },
+        act: (bloc) => bloc.add(const AuthRefreshUser()),
+        expect: () => [],
+        verify: (_) {
+          verify(mockAuthRepository.getCurrentUser()).called(1);
+        },
+      );
+    });
+
     group('AuthTokenRefreshRequested', () {
       blocTest<AuthBloc, AuthState>(
         'emits [AuthUnauthenticated] when no refresh token stored',

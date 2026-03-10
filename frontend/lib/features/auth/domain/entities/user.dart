@@ -7,6 +7,7 @@ class User extends Equatable {
   final String? profileImageUrl;
   final String provider;
   final String role;
+  final String? coupleId;
   final DateTime createdAt;
 
   const User({
@@ -16,6 +17,7 @@ class User extends Equatable {
     this.profileImageUrl,
     required this.provider,
     required this.role,
+    this.coupleId,
     required this.createdAt,
   });
 
@@ -27,6 +29,7 @@ class User extends Equatable {
         profileImageUrl,
         provider,
         role,
+        coupleId,
         createdAt,
       ];
 }

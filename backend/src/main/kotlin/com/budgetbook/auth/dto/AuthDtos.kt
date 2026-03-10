@@ -28,16 +28,18 @@ data class UserResponse(
     val profileImageUrl: String?,
     val provider: String,
     val role: String,
+    val coupleId: UUID?,
     val createdAt: Instant
 ) {
     companion object {
-        fun from(user: User): UserResponse = UserResponse(
+        fun from(user: User, coupleId: UUID? = null): UserResponse = UserResponse(
             id = user.id,
             email = user.email,
             nickname = user.nickname,
             profileImageUrl = user.profileImageUrl,
             provider = user.provider.name,
             role = user.role.name,
+            coupleId = coupleId,
             createdAt = user.createdAt
         )
     }

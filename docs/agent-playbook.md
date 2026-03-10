@@ -37,7 +37,13 @@ T5: [Frontend] Widget/BLoC 테스트 작성               (blocked by: T3)
 ### 4. 전체 완료 후
 - Code Reviewer subagent spawn → 리뷰
 - 필요 시 Refactorer subagent spawn → 코드 정리
-- Lead가 커밋/PR 생성
+- **⚠️ [MANDATORY] OAuth2/OIDC 프로토콜 구분 확인**:
+  - Google 등 `openid` scope 사용 provider → `oidcUserService()` 등록 필수
+  - Kakao 등 일반 OAuth2 provider → `userService()` 등록
+  - SecurityConfig에 **두 가지 모두** 등록되어야 함
+- **⚠️ [MANDATORY] 로컬 전체 검증 실행** → `bash scripts/pre-deploy-check.sh`
+- **⚠️ [MANDATORY] 배포 후 E2E 동작 확인** → 실제 로그인 플로우까지 검증
+- 검증 통과 후에만 Lead가 커밋/PR 생성
 
 ## Git Branch Strategy & Deployment Flow
 
@@ -57,21 +63,30 @@ main          ← 프로덕션 배포 (자동 배포 트리거)
 
 2. Teammate들이 feature 브랜치에서 작업 + 커밋
 
-3. feature → develop PR 생성
+3. ⚠️ [MANDATORY] 로컬 전체 검증 (커밋/push 전 필수!)
+   $ bash scripts/pre-deploy-check.sh
+   검증 항목:
+   a. Backend: ./gradlew test → 전체 통과
+   b. Frontend: flutter analyze → 0 issues
+   c. Frontend: flutter test → 전체 통과
+   d. Frontend: flutter build web → 빌드 성공
+   → 하나라도 실패 시 커밋/push 금지. 해당 teammate에게 수정 배정.
+
+4. 검증 통과 후 → feature → develop PR 생성
    - CI 자동 실행 (test, build, analyze)
    - Code Reviewer subagent가 리뷰
    - CI 통과 + 리뷰 통과 시 머지
 
-4. develop → main PR 생성 (릴리즈 단위)
+5. develop → main PR 생성 (릴리즈 단위)
    - 모든 CI 통과 필수
    - Security Auditor subagent 실행 (금융 기능 포함 시)
    - 머지 시 자동 배포 트리거:
      - backend/** 변경 → Render 배포
-     - frontend/** 변경 → Vercel 배포
+     - frontend/** 변경 → GitHub Pages 배포
 
-5. 배포 후 확인
+6. 배포 후 확인
    - BE: {RENDER_URL}/actuator/health 체크
-   - FE: Vercel 프리뷰 URL 확인
+   - FE: GitHub Pages URL 확인
 ```
 
 ### CI 실패 시 재수정 루프
@@ -116,6 +131,17 @@ cd frontend && flutter analyze
 # Frontend 웹 빌드
 cd frontend && flutter build web
 ```
+
+## Auth/Security Checklist (기능 추가 시 필수 확인)
+
+| 체크 항목 | 설명 |
+|----------|------|
+| OIDC vs OAuth2 | Google(openid scope) = OIDC → `oidcUserService()` 필수 |
+| SecurityConfig 등록 | `userService()` + `oidcUserService()` 둘 다 등록 확인 |
+| Principal 타입 | SuccessHandler에서 CustomOAuth2User, CustomOidcUser 모두 처리 |
+| Render 메모리 제한 | free tier 512MB → JVM 플래그 필수 (-Xms128m -Xmx384m) |
+| DB 연결 타임아웃 | Hikari connection-timeout 설정 → hang 방지 |
+| 배포 후 E2E 확인 | health check + 실제 로그인 플로우 검증 |
 
 ## Decision Matrix
 
