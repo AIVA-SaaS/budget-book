@@ -23,12 +23,45 @@
 ## Critical Rules
 - NEVER commit secrets, API keys, or .env files
 - ALWAYS reference `docs/api-spec.md` before creating or modifying API endpoints
-- ALWAYS run tests before marking tasks complete: `cd backend && ./gradlew test` or `cd frontend && flutter test`
 - Use Korean for user-facing strings, English for code/comments/docs
 - All API responses wrap in `ApiResponse<T>` with `success`, `data`, `error` fields
 - Database migrations use Flyway with `V{N}__` naming convention
 - Flutter state management uses BLoC pattern exclusively
 - Backend tests use Kotest (not JUnit) with BehaviorSpec or FunSpec style
+
+## Verification Gate (모든 작업에 필수 적용)
+
+**"완료" = 코드 작성 완료가 아니라, 동작 검증 완료를 의미한다.**
+
+작업 유형에 관계없이, 아래 단계를 모두 통과해야만 "완료"로 보고한다.
+하나라도 실패하면 수정 후 재검증. 유저에게 실패 상태를 넘기지 않는다.
+
+### 1. 구현 전 - 사전 분석
+- 변경 범위의 **기술 스택 특성**을 먼저 확인 (프레임워크 문서, 프로토콜 스펙 등)
+- 기존 코드와의 **통합 지점** 파악 (SecurityConfig, 라우터, DI 등)
+- 설정 변경 시 **사이드이펙트** 분석 (lazy-init → Flyway 순서, 메모리 제한 → 시작 시간 등)
+
+### 2. 구현 후 - 로컬 검증
+| 변경 대상 | 필수 검증 |
+|----------|----------|
+| Backend 코드 | `./gradlew test` 전체 통과 |
+| Frontend 코드 | `flutter analyze` + `flutter test` + `flutter build web` |
+| Infra/설정 | 의존하는 기능의 테스트 재실행 |
+| DB 마이그레이션 | 빈 DB에서 전체 마이그레이션 → validate 통과 확인 |
+| 머지/리베이스 후 | 충돌 해결 후 반드시 `bash scripts/pre-deploy-check.sh` |
+
+### 3. 배포 후 - 라이브 검증
+| 대상 | 검증 방법 |
+|------|----------|
+| Backend (Render) | `/actuator/health` → DB status UP 확인 |
+| Frontend (GitHub Pages) | 배포 URL 접속 → 페이지 로드 확인 |
+| Auth 관련 변경 | 실제 OAuth2 로그인 플로우 302 리다이렉트 확인 |
+| API 변경 | curl로 실제 엔드포인트 요청/응답 확인 |
+
+### 4. 완료 보고 조건
+- 위 1~3 단계를 **모두** 통과했을 때만 유저에게 "완료" 보고
+- 검증 중 실패 발견 시: 수정 → 재검증 → 통과 확인 후 보고
+- "CI에서 확인될 것이다"는 검증이 아님. 직접 확인한 결과만 신뢰
 
 ## File Ownership (Agent Teams)
 When running in agent team mode:

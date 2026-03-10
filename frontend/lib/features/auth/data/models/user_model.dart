@@ -8,6 +8,7 @@ class UserModel extends User {
     super.profileImageUrl,
     required super.provider,
     required super.role,
+    super.coupleId,
     required super.createdAt,
   });
 
@@ -19,6 +20,7 @@ class UserModel extends User {
       profileImageUrl: json['profileImageUrl'] as String?,
       provider: json['provider'] as String,
       role: json['role'] as String,
+      coupleId: json['coupleId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

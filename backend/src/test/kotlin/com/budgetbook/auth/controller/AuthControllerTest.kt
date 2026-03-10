@@ -7,6 +7,7 @@ import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -25,6 +26,10 @@ class AuthControllerTest : FunSpec({
 
     fun createAuthentication(userId: UUID): Authentication {
         return UsernamePasswordAuthenticationToken(userId, null, emptyList())
+    }
+
+    beforeEach {
+        clearAllMocks()
     }
 
     test("refreshToken calls authService.refreshToken and returns ApiResponse.ok") {
@@ -50,6 +55,7 @@ class AuthControllerTest : FunSpec({
 
     test("getCurrentUser returns current user info wrapped in ApiResponse.ok") {
         val authentication = createAuthentication(testUserId)
+        val coupleId = UUID.randomUUID()
         val expectedUser = UserResponse(
             id = testUserId,
             email = "test@example.com",
@@ -57,6 +63,7 @@ class AuthControllerTest : FunSpec({
             profileImageUrl = "https://example.com/photo.png",
             provider = "GOOGLE",
             role = "USER",
+            coupleId = coupleId,
             createdAt = Instant.now()
         )
 
@@ -101,6 +108,29 @@ class AuthControllerTest : FunSpec({
         verify { authService.refreshToken(match { it.refreshToken == "specific-token-value" }) }
     }
 
+    test("getCurrentUser returns null coupleId when user has no couple") {
+        val authentication = createAuthentication(testUserId)
+        val expectedUser = UserResponse(
+            id = testUserId,
+            email = "test@example.com",
+            nickname = "TestUser",
+            profileImageUrl = "https://example.com/photo.png",
+            provider = "GOOGLE",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.getCurrentUser(testUserId) } returns expectedUser
+
+        val result = authController.getCurrentUser(authentication)
+
+        result.success shouldBe true
+        result.data!!.coupleId shouldBe null
+
+        verify(exactly = 1) { authService.getCurrentUser(testUserId) }
+    }
+
     test("getCurrentUser extracts UUID from authentication principal") {
         val specificUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
         val authentication = createAuthentication(specificUserId)
@@ -111,6 +141,7 @@ class AuthControllerTest : FunSpec({
             profileImageUrl = null,
             provider = "KAKAO",
             role = "USER",
+            coupleId = null,
             createdAt = Instant.now()
         )
 

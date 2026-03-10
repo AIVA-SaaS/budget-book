@@ -23,12 +23,23 @@ final appRouter = GoRouter(
     final isAuthenticated = authState is AuthAuthenticated;
     final isOnLoginPage = state.matchedLocation == '/login';
     final isOnCallbackPage = state.matchedLocation == '/auth/callback';
+    final isOnCouplePage = state.matchedLocation == '/couple';
 
     // Allow callback page to proceed regardless of auth state
     if (isOnCallbackPage) return null;
 
-    // If authenticated and on login page, go to home
-    if (isAuthenticated && isOnLoginPage) return '/home';
+    if (authState is AuthAuthenticated && isOnLoginPage) {
+      // Check if user has a couple
+      return authState.user.coupleId != null ? '/home' : '/couple';
+    }
+
+    if (authState is AuthAuthenticated) {
+      // If no couple and trying to access couple-required pages, redirect to /couple
+      if (authState.user.coupleId == null && !isOnCouplePage) {
+        return '/couple';
+      }
+      return null;
+    }
 
     // If not authenticated and not on login page, go to login
     if (!isAuthenticated && !isOnLoginPage) {
