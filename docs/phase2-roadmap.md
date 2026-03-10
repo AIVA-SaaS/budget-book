@@ -1,7 +1,8 @@
-# Phase 2 Roadmap - Budget Book
+# Budget Book - Full Roadmap
 
 > Created: 2026-02-26
-> Status: Planning
+> Updated: 2026-03-10
+> Status: Phase 2b Complete, Phase 2c Planning
 
 ---
 
@@ -248,12 +249,191 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 
 ---
 
-## Success Criteria for Phase 2a
+## Success Criteria
 
-- [ ] Two users can link as a couple via invitation code
-- [ ] Couple can view, create, edit, and delete categories
-- [ ] Couple can record income and expense transactions
-- [ ] Transactions are visible to both members of the couple
-- [ ] Transactions can be filtered by month, type, and category
-- [ ] All endpoints covered by tests (Backend: Kotest, Frontend: widget tests)
-- [ ] CI passing on `develop` branch
+### Phase 2a ✅ Complete (2026-03-03)
+- [x] Two users can link as a couple via invitation code
+- [x] Couple can view, create, edit, and delete categories
+- [x] Couple can record income and expense transactions
+- [x] Transactions are visible to both members of the couple
+- [x] Transactions can be filtered by month, type, and category
+- [x] All endpoints covered by tests (Backend: Kotest, Frontend: widget tests)
+- [x] CI passing on `develop` branch
+
+### Phase 2b ✅ Complete (2026-03-10)
+- [x] Couple can set monthly budgets per category
+- [x] Budget vs actual spending comparison with progress bars
+- [x] Monthly summary (income/expense/balance) statistics
+- [x] Category breakdown with pie chart
+- [x] Monthly trend with line chart (6 months)
+- [x] 171 frontend tests, all backend tests passing
+
+---
+
+## Phase 2c — Sprint 3 (Real-time & Performance)
+
+**Goal:** Add live sync between couple devices and improve performance with Redis caching.
+**Priority:** High — real-time UX differentiator for couples app.
+**Estimated Complexity:** High
+
+### Included
+- **P2-6**: Real-time sync (WebSocket/STOMP)
+- **P2-7**: Redis integration (Upstash)
+
+### Sprint 3 Task Breakdown
+
+#### Contract (contract-teammate)
+| Task ID | Task |
+|:--------|:-----|
+| CT-P2c-spec | WebSocket event spec + Redis cache strategy doc |
+
+#### Backend (backend-teammate)
+| Task ID | Task | Blocked By |
+|:--------|:-----|:-----------|
+| BE-P2-6a | WebSocket STOMP config (`/ws` endpoint, Spring WebSocket + STOMP) | Contract done |
+| BE-P2-6b | SyncEventPublisher: broadcast events to `/topic/couple/{coupleId}` on CRUD operations | BE-P2-6a |
+| BE-P2-6c | Event types: TRANSACTION_CREATED/UPDATED/DELETED, BUDGET_UPDATED, CATEGORY_UPDATED | BE-P2-6b |
+| BE-P2-7a | Upstash Redis config (Spring Data Redis, connection pool) | Contract done |
+| BE-P2-7b | Cache couple info, categories (read-heavy, rarely updated) | BE-P2-7a |
+| BE-P2-7c | Cache invalidation on write operations | BE-P2-7b |
+
+#### Frontend (frontend-teammate)
+| Task ID | Task | Blocked By |
+|:--------|:-----|:-----------|
+| FE-P2-6a | WebSocket client (STOMP over SockJS) | BE-P2-6b |
+| FE-P2-6b | Auto-refresh transaction/budget lists on WebSocket event | FE-P2-6a |
+| FE-P2-6c | Connection status indicator (connected/reconnecting) | FE-P2-6a |
+
+### Sprint 3 Delivery Order
+1. Contract: WebSocket event spec + Redis cache keys definition
+2. Backend: WebSocket config → Event publisher → Event types (parallel with Redis setup)
+3. Frontend: WebSocket client → Auto-refresh on events → Connection indicator
+
+---
+
+## Phase 3 — Advanced Features
+
+**Goal:** Add recurring transactions, receipt capture, and push notifications.
+**Target:** After Phase 2c stabilization
+
+### P3-1: Recurring Transactions (자동 반복 거래)
+**Business Value:** High — 월급, 월세, 구독료 등 반복 지출 자동 기록
+**Complexity:** Medium
+
+- New table: `recurring_transactions` (frequency: DAILY/WEEKLY/MONTHLY/YEARLY, next_run_date)
+- Scheduler: Spring `@Scheduled` job to create transactions on due date
+- UI: "반복" 토글 on transaction form, recurring list management page
+- Notifications: "이번 달 자동 기록 N건" summary
+
+### P3-2: Receipt Photo Upload (영수증 촬영)
+**Business Value:** Medium — 편의성 향상, 증빙 보관
+**Complexity:** High
+
+- Storage: Supabase Storage (S3-compatible, free tier 1GB)
+- Backend: multipart upload endpoint, image URL stored in transactions
+- Frontend: camera/gallery picker, image preview in transaction detail
+- Optional future: OCR integration for auto-fill (amount, date, store name)
+
+### P3-3: Push Notifications (예산 초과 알림)
+**Business Value:** High — 예산 관리 핵심 기능
+**Complexity:** Medium
+
+- FCM (Firebase Cloud Messaging) integration
+- Trigger conditions:
+  - Budget exceeded (지출 > 예산 100%)
+  - Budget warning (지출 > 예산 80%)
+  - Partner recorded a transaction (실시간 알림)
+  - Weekly spending summary (주간 리포트)
+- Backend: notification service + FCM sender
+- Frontend: notification permission, settings page for toggle on/off per type
+- DB: `notification_preferences` table, `notification_log` table
+
+### P3-4: Data Export (CSV/Excel)
+**Business Value:** Medium — 데이터 백업, 세무 신고 활용
+**Complexity:** Low
+
+- Backend: `/api/v1/export/transactions?year=2026&format=csv|xlsx`
+- Apache POI for Excel, OpenCSV for CSV
+- Frontend: export button on transaction list, download trigger
+
+---
+
+## Phase 4 — Growth & Intelligence
+
+**Goal:** AI 기반 인사이트, 다중 통화, 저축 목표 등 고급 기능.
+**Target:** Product-market fit 확인 후
+
+### P4-1: Financial Goals (저축 목표)
+**Business Value:** High — 부부 공동 목표 설정
+**Complexity:** Medium
+
+- Goal entity: name, target amount, deadline, current saved amount
+- Monthly auto-tracking: balance surplus → goal contribution
+- UI: goal list with progress, milestone celebrations
+- Gamification: streaks, badges for consistent saving
+
+### P4-2: AI-Powered Insights (소비 패턴 분석)
+**Business Value:** High — 차별화 핵심
+**Complexity:** High
+
+- Claude API integration for spending pattern analysis
+- Monthly AI report: "이번 달 식비가 지난달 대비 30% 증가했습니다"
+- Anomaly detection: unusual spending alerts
+- Budget recommendation: AI-suggested budgets based on history
+- Privacy: all analysis on aggregated data, no raw transaction text sent
+
+### P4-3: Multi-Currency Support (다중 통화)
+**Business Value:** Low (한국 타겟) → Medium (글로벌 확장 시)
+**Complexity:** Medium
+
+- Currency field in transactions (default: KRW)
+- Exchange rate API integration (한국은행 or Fixer.io)
+- Converted amounts for statistics/budgets
+- UI: currency picker, converted amount display
+
+### P4-4: Family Mode (가족 공유)
+**Business Value:** Medium — TAM 확장
+**Complexity:** High
+
+- Expand couple → group (2+ members)
+- Role-based permissions (admin, member, viewer)
+- Group budgets and shared categories
+- Per-member spending limits
+- Requires significant schema refactoring (couple_id → group_id)
+
+---
+
+## Phase 5 — Platform & Scale
+
+**Target:** 사용자 1,000+ 이후
+
+### P5-1: Premium Subscription (유료 플랜)
+- Free: basic CRUD, 1 couple, 6-month history
+- Premium: unlimited history, AI insights, receipt OCR, export, priority support
+- Payment: Stripe or TossPayments integration
+
+### P5-2: Mobile Native Optimization
+- Offline mode with local SQLite + sync on reconnect
+- Biometric auth (fingerprint/face)
+- Home screen widgets (today's spending summary)
+- Dark mode
+
+### P5-3: Admin Dashboard
+- User analytics (DAU/MAU, retention)
+- Error monitoring (Sentry integration)
+- Feature flags for gradual rollout
+- A/B testing framework
+
+---
+
+## Release Timeline (Estimated)
+
+| Phase | Content | Status |
+|:------|:--------|:-------|
+| Phase 1 | OAuth2 Auth (Google/Kakao) | ✅ Deployed |
+| Phase 2a | Couple + Category + Transaction | ✅ Deployed |
+| Phase 2b | Budget Planning + Statistics | ✅ Complete, deploying |
+| Phase 2c | WebSocket + Redis | 📋 Next sprint |
+| Phase 3 | Recurring + Receipt + Push + Export | 📋 Planned |
+| Phase 4 | Goals + AI + Multi-currency + Family | 💡 Future |
+| Phase 5 | Premium + Native + Admin | 💡 Long-term |
