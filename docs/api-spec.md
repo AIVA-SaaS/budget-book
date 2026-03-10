@@ -232,12 +232,15 @@ Retrieves the profile of the currently authenticated user.
     "profileImageUrl": "https://lh3.googleusercontent.com/...",
     "provider": "GOOGLE",
     "role": "USER",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
     "createdAt": "2024-01-01T12:00:00Z"
   },
   "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
+
+Note: `coupleId` is `null` when the user is not in an active couple. This allows the frontend to decide routing immediately after login.
 
 **Response `401 Unauthorized`**: `ApiResponse<null>`
 
@@ -938,6 +941,7 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `profileImageUrl` | `string`  | Yes      | Profile image URL from provider  |
 | `provider`        | `enum`    | No       | `GOOGLE` or `KAKAO`             |
 | `role`            | `enum`    | No       | `USER` or `ADMIN`               |
+| `coupleId`        | `UUID`    | Yes      | Active couple ID (null if not linked) |
 | `createdAt`       | `string`  | No       | ISO 8601 timestamp               |
 
 ### InvitationResponse
