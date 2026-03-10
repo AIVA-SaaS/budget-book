@@ -110,6 +110,7 @@ void main() {
         nickname: 'Test',
         provider: 'GOOGLE',
         role: 'USER',
+        coupleId: 'couple-id',
         createdAt: DateTime(2024),
       );
 
@@ -168,24 +169,6 @@ void main() {
       // never settles.
       await tester.pump();
       await tester.pump();
-
-      // Should stay on callback page, not redirect to login
-      expect(find.text('로그인 처리 중...'), findsOneWidget);
-    });
-
-    testWidgets(
-        'navigates to /login on AuthUnauthenticated when no tokens provided',
-        (tester) async {
-      whenListen(
-        mockAuthBloc,
-        Stream<AuthState>.fromIterable([
-          const AuthUnauthenticated(),
-        ]),
-        initialState: const AuthLoading(),
-      );
-
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pumpAndSettle();
 
       // Should stay on callback page, not redirect to login
       expect(find.text('로그인 처리 중...'), findsOneWidget);

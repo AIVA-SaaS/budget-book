@@ -9,6 +9,8 @@ import com.budgetbook.auth.repository.RefreshTokenRepository
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.exception.UnauthorizedException
+import com.budgetbook.couple.domain.CoupleStatus
+import com.budgetbook.couple.repository.CoupleRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -18,7 +20,8 @@ import java.util.UUID
 class AuthService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val coupleRepository: CoupleRepository
 ) {
 
     @Transactional
@@ -78,6 +81,7 @@ class AuthService(
         val user = userRepository.findById(userId)
             .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found") }
 
-        return UserResponse.from(user)
+        val couple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+        return UserResponse.from(user, couple?.id)
     }
 }

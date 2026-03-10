@@ -9,6 +9,9 @@ import com.budgetbook.auth.repository.RefreshTokenRepository
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.exception.UnauthorizedException
+import com.budgetbook.couple.domain.Couple
+import com.budgetbook.couple.domain.CoupleStatus
+import com.budgetbook.couple.repository.CoupleRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -24,8 +27,9 @@ class AuthServiceTest : BehaviorSpec({
     val userRepository = mockk<UserRepository>()
     val refreshTokenRepository = mockk<RefreshTokenRepository>()
     val jwtTokenProvider = mockk<JwtTokenProvider>()
+    val coupleRepository = mockk<CoupleRepository>()
 
-    val authService = AuthService(userRepository, refreshTokenRepository, jwtTokenProvider)
+    val authService = AuthService(userRepository, refreshTokenRepository, jwtTokenProvider, coupleRepository)
 
     val testUser = User(
         email = "test@example.com",
@@ -132,19 +136,48 @@ class AuthServiceTest : BehaviorSpec({
         }
     }
 
-    Given("a valid user ID") {
+    Given("a valid user ID with no active couple") {
         every { userRepository.findById(testUser.id) } returns Optional.of(testUser)
+        every { coupleRepository.findByUserIdAndStatus(testUser.id, CoupleStatus.ACTIVE) } returns null
 
         When("getCurrentUser is called") {
             val result = authService.getCurrentUser(testUser.id)
 
-            Then("returns UserResponse with correct data") {
+            Then("returns UserResponse with null coupleId") {
                 result.id shouldBe testUser.id
                 result.email shouldBe "test@example.com"
                 result.nickname shouldBe "TestUser"
                 result.profileImageUrl shouldBe "https://example.com/photo.png"
                 result.provider shouldBe "GOOGLE"
                 result.role shouldBe "USER"
+                result.coupleId shouldBe null
+            }
+        }
+    }
+
+    Given("a valid user ID with an active couple") {
+        val otherUser = User(
+            email = "partner@example.com",
+            nickname = "Partner",
+            provider = AuthProvider.KAKAO,
+            providerId = "kakao-789"
+        )
+        val couple = Couple(
+            user1 = testUser,
+            user2 = otherUser,
+            status = CoupleStatus.ACTIVE
+        )
+
+        every { userRepository.findById(testUser.id) } returns Optional.of(testUser)
+        every { coupleRepository.findByUserIdAndStatus(testUser.id, CoupleStatus.ACTIVE) } returns couple
+
+        When("getCurrentUser is called") {
+            val result = authService.getCurrentUser(testUser.id)
+
+            Then("returns UserResponse with the coupleId") {
+                result.id shouldBe testUser.id
+                result.email shouldBe "test@example.com"
+                result.coupleId shouldBe couple.id
             }
         }
     }
