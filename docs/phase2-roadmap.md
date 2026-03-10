@@ -80,11 +80,31 @@ P2-7 (Redis) ──── (independent, can be added any time)
 - **P2-4**: Monthly budget planning
 - **P2-5**: Statistics & charts
 
-### Sprint 2 Task Breakdown (TBD after Sprint 1)
-- Monthly budget CRUD per category per month
-- Summary statistics: total income, total expense, balance, by-category breakdown
-- Month-over-month comparison
-- Flutter charts integration (fl_chart)
+### Sprint 2 Task Breakdown
+
+#### Backend (backend-teammate)
+| Task ID  | Task | Blocked By |
+|:---------|:-----|:-----------|
+| BE-P2-4  | Implement budget domain (MonthlyBudget entity, BudgetRepository, BudgetService, BudgetController, Kotest tests) | Contract done |
+| BE-P2-5  | Implement statistics domain (StatisticsService with summary/by-category/trend queries, StatisticsController, Kotest tests) | Contract done |
+
+#### Frontend (frontend-teammate)
+| Task ID  | Task | Blocked By |
+|:---------|:-----|:-----------|
+| FE-P2-4  | Budget UI (budget plan screen: list budgets per month, create/edit/delete, fl_chart donut for usage) | BE-P2-4 |
+| FE-P2-5  | Statistics UI (monthly summary card, category breakdown pie chart, month-over-month bar chart using fl_chart) | BE-P2-5, FE-P2-4 |
+
+#### Contract (contract-teammate)
+| Task ID      | Task |
+|:-------------|:-----|
+| CT-P2b-spec  | API spec for budget + statistics endpoints (done) |
+| CT-P2b-db    | DB migration V6 (monthly_budgets table) (done) |
+
+### Sprint 2 Delivery Order
+1. Contract teammate writes API spec + V6 migration (parallel, no blocks)
+2. Backend teammate implements budget domain (BE-P2-4)
+3. Backend teammate implements statistics domain (BE-P2-5), in parallel with Frontend starting FE-P2-4
+4. Frontend teammate integrates both features once backend endpoints are ready (FE-P2-5)
 
 ---
 

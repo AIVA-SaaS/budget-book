@@ -15,6 +15,14 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_form_page.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
+import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
+import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
+import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -124,6 +132,75 @@ final appRouter = GoRouter(
           ],
           child: TransactionFormPage(
             transaction: state.extra as dynamic,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/statistics',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<StatisticsBloc>(
+          create: (_) => getIt<StatisticsBloc>()
+            ..add(LoadAllStatistics(year: now.year, month: now.month)),
+          child: const StatisticsPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<BudgetBloc>(
+          create: (_) => getIt<BudgetBloc>()
+            ..add(LoadBudgets(year: now.year, month: now.month)),
+          child: const BudgetListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets/create',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final year = extra?['year'] as int? ?? DateTime.now().year;
+        final month = extra?['month'] as int? ?? DateTime.now().month;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<BudgetBloc>(
+              create: (_) => getIt<BudgetBloc>()
+                ..add(LoadBudgets(year: year, month: month)),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+          ],
+          child: BudgetFormPage(year: year, month: month),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets/edit/:id',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final budget = extra?['budget'] as Budget?;
+        final year = extra?['year'] as int? ?? DateTime.now().year;
+        final month = extra?['month'] as int? ?? DateTime.now().month;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<BudgetBloc>(
+              create: (_) => getIt<BudgetBloc>()
+                ..add(LoadBudgets(year: year, month: month)),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+          ],
+          child: BudgetFormPage(
+            budget: budget,
+            year: year,
+            month: month,
           ),
         );
       },

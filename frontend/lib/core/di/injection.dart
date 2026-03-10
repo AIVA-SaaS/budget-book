@@ -17,6 +17,14 @@ import 'package:budget_book/features/transaction/data/datasources/transaction_re
 import 'package:budget_book/features/transaction/data/repositories/transaction_repository_impl.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/budget/data/datasources/budget_remote_datasource.dart';
+import 'package:budget_book/features/budget/data/repositories/budget_repository_impl.dart';
+import 'package:budget_book/features/budget/domain/repositories/budget_repository.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/statistics/data/datasources/statistics_remote_datasource.dart';
+import 'package:budget_book/features/statistics/data/repositories/statistics_repository_impl.dart';
+import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -78,5 +86,30 @@ Future<void> configureDependencies() async {
   getIt.registerFactory<TransactionBloc>(
     () => TransactionBloc(
         transactionRepository: getIt<TransactionRepository>()),
+  );
+
+  // Budget feature
+  getIt.registerLazySingleton<BudgetRemoteDataSource>(
+    () => BudgetRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<BudgetRepository>(
+    () => BudgetRepositoryImpl(
+        remoteDataSource: getIt<BudgetRemoteDataSource>()),
+  );
+  getIt.registerFactory<BudgetBloc>(
+    () => BudgetBloc(budgetRepository: getIt<BudgetRepository>()),
+  );
+
+  // Statistics feature
+  getIt.registerLazySingleton<StatisticsRemoteDataSource>(
+    () => StatisticsRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<StatisticsRepository>(
+    () => StatisticsRepositoryImpl(
+        remoteDataSource: getIt<StatisticsRemoteDataSource>()),
+  );
+  getIt.registerFactory<StatisticsBloc>(
+    () => StatisticsBloc(
+        statisticsRepository: getIt<StatisticsRepository>()),
   );
 }

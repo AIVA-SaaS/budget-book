@@ -30,6 +30,16 @@
   - [Get Transaction](#3-get-transaction)
   - [Update Transaction](#4-update-transaction)
   - [Delete Transaction](#5-delete-transaction)
+- [Budgets](#budgets)
+  - [Create Budget](#1-create-budget)
+  - [List Budgets](#2-list-budgets)
+  - [Update Budget](#3-update-budget)
+  - [Delete Budget](#4-delete-budget)
+  - [Budget Summary](#5-budget-summary)
+- [Statistics](#statistics)
+  - [Monthly Summary](#1-monthly-summary)
+  - [Category Breakdown](#2-category-breakdown)
+  - [Monthly Trend](#3-monthly-trend)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -921,6 +931,421 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 
 ---
 
+## Budgets
+
+Base path: `/api/v1/budgets`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. Create Budget
+
+Creates a monthly budget for the couple. Set `categoryId` to `null` for a total (uncategorized) monthly budget.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `POST`                       |
+| **Path**    | `/api/v1/budgets`            |
+| **Auth**    | Required                     |
+
+**Request Body**
+
+```json
+{
+  "categoryId": "550e8400-e29b-41d4-a716-446655440010",
+  "yearMonth": "2026-03",
+  "amount": 150000
+}
+```
+
+| Field        | Type     | Required | Description                                               |
+|:-------------|:---------|:--------:|:----------------------------------------------------------|
+| `categoryId` | `UUID`   | No       | Category ID; `null` = total budget for the month         |
+| `yearMonth`  | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)       |
+| `amount`     | `long`   | Yes      | Budget amount in KRW (must be > 0)                       |
+
+**Response `201 Created`**: `ApiResponse<BudgetResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440050",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "category": {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "식비",
+      "type": "EXPENSE",
+      "icon": "restaurant",
+      "color": "#FF5733"
+    },
+    "yearMonth": "2026-03",
+    "amount": 150000,
+    "createdAt": "2026-03-01T12:00:00Z",
+    "updatedAt": "2026-03-01T12:00:00Z"
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | Invalid field values |
+| `404`  | `CATEGORY_NOT_FOUND` | Specified category does not exist |
+| `409`  | `DUPLICATE_BUDGET` | Budget for this category and month already exists |
+
+---
+
+### 2. List Budgets
+
+Retrieves all budgets for the couple for a given month.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `GET`                        |
+| **Path**    | `/api/v1/budgets`            |
+| **Auth**    | Required                     |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<List<BudgetResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440050",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "식비",
+        "type": "EXPENSE",
+        "icon": "restaurant",
+        "color": "#FF5733"
+      },
+      "yearMonth": "2026-03",
+      "amount": 150000,
+      "createdAt": "2026-03-01T12:00:00Z",
+      "updatedAt": "2026-03-01T12:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440051",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "category": null,
+      "yearMonth": "2026-03",
+      "amount": 3000000,
+      "createdAt": "2026-03-01T12:00:00Z",
+      "updatedAt": "2026-03-01T12:00:00Z"
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 3. Update Budget
+
+Updates the amount of an existing budget.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `PUT`                        |
+| **Path**    | `/api/v1/budgets/{id}`       |
+| **Auth**    | Required                     |
+
+**Path Parameters**
+
+| Parameter | Type   | Required | Description  |
+|:----------|:-------|:--------:|:-------------|
+| `id`      | `UUID` | Yes      | Budget ID    |
+
+**Request Body**
+
+```json
+{
+  "amount": 200000
+}
+```
+
+| Field    | Type   | Required | Description                       |
+|:---------|:-------|:--------:|:----------------------------------|
+| `amount` | `long` | Yes      | Updated budget amount (must be > 0) |
+
+**Response `200 OK`**: `ApiResponse<BudgetResponse>`
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | Invalid amount |
+| `403`  | `FORBIDDEN` | Budget belongs to a different couple |
+| `404`  | `BUDGET_NOT_FOUND` | Budget does not exist |
+
+---
+
+### 4. Delete Budget
+
+Permanently deletes a budget entry.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `DELETE`                     |
+| **Path**    | `/api/v1/budgets/{id}`       |
+| **Auth**    | Required                     |
+
+**Path Parameters**
+
+| Parameter | Type   | Required | Description  |
+|:----------|:-------|:--------:|:-------------|
+| `id`      | `UUID` | Yes      | Budget ID    |
+
+**Response `204 No Content`**: Success
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `403`  | `FORBIDDEN` | Budget belongs to a different couple |
+| `404`  | `BUDGET_NOT_FOUND` | Budget does not exist |
+
+---
+
+### 5. Budget Summary
+
+Returns per-category budget vs actual spending summary for a given month.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/budgets/summary`        |
+| **Auth**    | Required                         |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<BudgetSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "totalBudget": 3150000,
+    "totalSpent": 1800000,
+    "items": [
+      {
+        "category": {
+          "id": "550e8400-e29b-41d4-a716-446655440010",
+          "name": "식비",
+          "type": "EXPENSE",
+          "icon": "restaurant",
+          "color": "#FF5733"
+        },
+        "budgetAmount": 150000,
+        "spentAmount": 95000,
+        "remainingAmount": 55000,
+        "usageRate": 63.3
+      },
+      {
+        "category": null,
+        "budgetAmount": 3000000,
+        "spentAmount": 1705000,
+        "remainingAmount": 1295000,
+        "usageRate": 56.8
+      }
+    ]
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+## Statistics
+
+Base path: `/api/v1/statistics`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. Monthly Summary
+
+Returns total income, total expense, balance, and transaction count for a given month.
+
+| Item        | Value                               |
+|:------------|:------------------------------------|
+| **Method**  | `GET`                               |
+| **Path**    | `/api/v1/statistics/summary`        |
+| **Auth**    | Required                            |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<StatisticsSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "totalIncome": 5000000,
+    "totalExpense": 3200000,
+    "balance": 1800000,
+    "transactionCount": 45
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 2. Category Breakdown
+
+Returns spending (or income) broken down by category for a given month, sorted by amount descending.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/statistics/by-category`         |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Default   | Description                      |
+|:----------|:----------|:--------:|:----------|:---------------------------------|
+| `year`    | `integer` | Yes      | —         | Target year (e.g., `2026`)       |
+| `month`   | `integer` | Yes      | —         | Target month (1–12)              |
+| `type`    | `string`  | No       | `EXPENSE` | `INCOME` or `EXPENSE`            |
+
+**Response `200 OK`**: `ApiResponse<List<CategoryStatisticsResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "식비",
+        "type": "EXPENSE",
+        "icon": "restaurant",
+        "color": "#FF5733"
+      },
+      "amount": 800000,
+      "percentage": 25.0,
+      "transactionCount": 12
+    },
+    {
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440011",
+        "name": "교통비",
+        "type": "EXPENSE",
+        "icon": "directions_car",
+        "color": "#2196F3"
+      },
+      "amount": 320000,
+      "percentage": 10.0,
+      "transactionCount": 8
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 3. Monthly Trend
+
+Returns month-over-month income, expense, and balance for the last N months including the current month, ordered chronologically.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/statistics/monthly-trend`       |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Default | Description                                   |
+|:----------|:----------|:--------:|:--------|:----------------------------------------------|
+| `months`  | `integer` | No       | `6`     | Number of months to include (min 1, max 24)   |
+
+**Response `200 OK`**: `ApiResponse<List<MonthlyTrendResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "yearMonth": "2025-10",
+      "totalIncome": 4500000,
+      "totalExpense": 3100000,
+      "balance": 1400000
+    },
+    {
+      "yearMonth": "2025-11",
+      "totalIncome": 4800000,
+      "totalExpense": 3400000,
+      "balance": 1400000
+    },
+    {
+      "yearMonth": "2025-12",
+      "totalIncome": 5200000,
+      "totalExpense": 4100000,
+      "balance": 1100000
+    },
+    {
+      "yearMonth": "2026-01",
+      "totalIncome": 5000000,
+      "totalExpense": 3200000,
+      "balance": 1800000
+    },
+    {
+      "yearMonth": "2026-02",
+      "totalIncome": 4900000,
+      "totalExpense": 3050000,
+      "balance": 1850000
+    },
+    {
+      "yearMonth": "2026-03",
+      "totalIncome": 5000000,
+      "totalExpense": 3200000,
+      "balance": 1800000
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
 ## Common Data Types
 
 ### TokenResponse
@@ -1019,6 +1444,65 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `first`         | `boolean` | Whether this is the first page         |
 | `last`          | `boolean` | Whether this is the last page          |
 
+### BudgetResponse
+
+| Field       | Type              | Nullable | Description                                  |
+|:------------|:------------------|:--------:|:---------------------------------------------|
+| `id`        | `UUID`            | No       | Budget unique identifier                     |
+| `coupleId`  | `UUID`            | No       | Owning couple ID                             |
+| `category`  | `CategorySummary` | Yes      | Category (null = total monthly budget)       |
+| `yearMonth` | `string`          | No       | Target month in `YYYY-MM` format             |
+| `amount`    | `long`            | No       | Budget amount in KRW (always > 0)            |
+| `createdAt` | `string`          | No       | ISO 8601 timestamp                           |
+| `updatedAt` | `string`          | No       | ISO 8601 timestamp                           |
+
+### BudgetSummaryResponse
+
+| Field        | Type                          | Description                            |
+|:-------------|:------------------------------|:---------------------------------------|
+| `yearMonth`  | `string`                      | Target month in `YYYY-MM` format       |
+| `totalBudget`| `long`                        | Sum of all budget amounts for the month |
+| `totalSpent` | `long`                        | Sum of all expense transactions for the month |
+| `items`      | `List<BudgetSummaryItemResponse>` | Per-budget breakdown               |
+
+### BudgetSummaryItemResponse
+
+| Field             | Type              | Nullable | Description                                      |
+|:------------------|:------------------|:--------:|:-------------------------------------------------|
+| `category`        | `CategorySummary` | Yes      | Category (null = total monthly budget entry)     |
+| `budgetAmount`    | `long`            | No       | Planned budget amount                            |
+| `spentAmount`     | `long`            | No       | Actual spent amount for the category/month       |
+| `remainingAmount` | `long`            | No       | `budgetAmount - spentAmount` (can be negative)   |
+| `usageRate`       | `double`          | No       | `(spentAmount / budgetAmount) * 100` (0–100+)    |
+
+### StatisticsSummaryResponse
+
+| Field              | Type      | Description                                  |
+|:-------------------|:----------|:---------------------------------------------|
+| `yearMonth`        | `string`  | Target month in `YYYY-MM` format             |
+| `totalIncome`      | `long`    | Sum of all income transactions               |
+| `totalExpense`     | `long`    | Sum of all expense transactions              |
+| `balance`          | `long`    | `totalIncome - totalExpense`                 |
+| `transactionCount` | `integer` | Total number of transactions in the month    |
+
+### CategoryStatisticsResponse
+
+| Field              | Type              | Description                                         |
+|:-------------------|:------------------|:----------------------------------------------------|
+| `category`         | `CategorySummary` | The category                                        |
+| `amount`           | `long`            | Total amount for this category in the month         |
+| `percentage`       | `double`          | Percentage of total income/expense (0–100)          |
+| `transactionCount` | `integer`         | Number of transactions in this category             |
+
+### MonthlyTrendResponse
+
+| Field          | Type     | Description                          |
+|:---------------|:---------|:-------------------------------------|
+| `yearMonth`    | `string` | Month in `YYYY-MM` format            |
+| `totalIncome`  | `long`   | Sum of all income transactions       |
+| `totalExpense` | `long`   | Sum of all expense transactions      |
+| `balance`      | `long`   | `totalIncome - totalExpense`         |
+
 ---
 
 ## Error Codes
@@ -1044,3 +1528,5 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `CATEGORY_NOT_FOUND`              | `404`       | Requested category does not exist                    |
 | `CANNOT_DELETE_DEFAULT_CATEGORY`  | `400`       | Default (system) categories cannot be deleted        |
 | `TRANSACTION_NOT_FOUND`           | `404`       | Requested transaction does not exist                 |
+| `BUDGET_NOT_FOUND`                | `404`       | Requested budget does not exist                      |
+| `DUPLICATE_BUDGET`                | `409`       | Budget for this category and month already exists    |
