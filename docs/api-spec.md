@@ -62,6 +62,9 @@
   - [Create Recurring Transaction](#2-create-recurring-transaction)
   - [Update Recurring Transaction](#3-update-recurring-transaction)
   - [Delete Recurring Transaction](#4-delete-recurring-transaction)
+- [Infrastructure](#infrastructure)
+  - [Health Check](#1-health-check)
+  - [Actuator Health](#2-actuator-health)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -751,8 +754,34 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
         "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
         "paymentMethodName": "신한카드",
         "paymentMethodType": "CREDIT",
+        "settlementDate": "2024-02-15",
         "createdAt": "2024-01-15T12:30:00Z",
         "updatedAt": "2024-01-15T12:30:00Z"
+      },
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440032",
+        "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+        "author": {
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "nickname": "홍길동",
+          "profileImageUrl": "https://lh3.googleusercontent.com/..."
+        },
+        "category": {
+          "id": "550e8400-e29b-41d4-a716-446655440010",
+          "name": "식비",
+          "type": "EXPENSE",
+          "icon": "restaurant",
+          "color": "#FF5733"
+        },
+        "type": "EXPENSE",
+        "amount": 8000,
+        "description": "편의점",
+        "transactionDate": "2024-01-15",
+        "paymentMethodId": "550e8400-e29b-41d4-a716-446655440033",
+        "paymentMethodName": "현금",
+        "paymentMethodType": "CASH",
+        "createdAt": "2024-01-15T14:00:00Z",
+        "updatedAt": "2024-01-15T14:00:00Z"
       }
     ],
     "page": 0,
@@ -765,6 +794,8 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
   "timestamp": "2024-01-15T12:00:00Z"
 }
 ```
+
+> **Note**: `settlementDate` is only included in the response when the payment method type is `CREDIT` and the credit card has a configured settlement day. For `CASH` and `DEBIT` transactions, this field is omitted (`@JsonInclude(NON_NULL)`).
 
 ---
 
@@ -1081,7 +1112,7 @@ Retrieves all budgets for the couple for a given month.
 
 ### 3. Update Budget
 
-Updates the amount of an existing budget.
+Updates an existing budget's amount, period type, or weekly amount.
 
 | Item        | Value                        |
 |:------------|:-----------------------------|
@@ -1099,13 +1130,17 @@ Updates the amount of an existing budget.
 
 ```json
 {
-  "amount": 200000
+  "amount": 200000,
+  "budgetPeriod": "WEEKLY",
+  "weeklyAmount": 50000
 }
 ```
 
-| Field    | Type   | Required | Description                       |
-|:---------|:-------|:--------:|:----------------------------------|
-| `amount` | `long` | Yes      | Updated budget amount (must be > 0) |
+| Field          | Type     | Required | Description                                                                 |
+|:---------------|:---------|:--------:|:----------------------------------------------------------------------------|
+| `amount`       | `long`   | Yes      | Updated budget amount (must be > 0)                                         |
+| `budgetPeriod` | `string` | No       | `MONTHLY` or `WEEKLY`. If omitted, existing value is preserved.             |
+| `weeklyAmount` | `long`   | No       | Per-week amount in KRW. Only relevant when `budgetPeriod` is `WEEKLY`. If omitted when switching to `WEEKLY`, it is auto-calculated from `amount`. |
 
 **Response `200 OK`**: `ApiResponse<BudgetResponse>`
 
@@ -1113,7 +1148,7 @@ Updates the amount of an existing budget.
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
-| `400`  | `VALIDATION_ERROR` | Invalid amount |
+| `400`  | `VALIDATION_ERROR` | Invalid amount or budgetPeriod value |
 | `403`  | `FORBIDDEN` | Budget belongs to a different couple |
 | `404`  | `BUDGET_NOT_FOUND` | Budget does not exist |
 
@@ -2053,6 +2088,73 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | `totalIncome`  | `long`   | Sum of all income transactions       |
 | `totalExpense` | `long`   | Sum of all expense transactions      |
 | `balance`      | `long`   | `totalIncome - totalExpense`         |
+
+---
+
+## Infrastructure
+
+Health and observability endpoints. Both are publicly accessible (`permitAll()` in `SecurityConfig`) and require no authentication.
+
+---
+
+### 1. Health Check
+
+Application-level liveness check. Returns a simple `OK` string (not wrapped in `ApiResponse`).
+
+| Item        | Value                     |
+|:------------|:--------------------------|
+| **Method**  | `GET`                     |
+| **Path**    | `/api/v1/health`          |
+| **Auth**    | None (public)             |
+
+**Response `200 OK`**: Plain text
+
+```
+OK
+```
+
+---
+
+### 2. Actuator Health
+
+Spring Boot Actuator health endpoint. Returns detailed status including database connectivity. Used by deployment pipelines to verify the application is healthy after deploy.
+
+| Item        | Value                     |
+|:------------|:--------------------------|
+| **Method**  | `GET`                     |
+| **Path**    | `/actuator/health`        |
+| **Auth**    | None (public)             |
+
+**Response `200 OK`**:
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "db": {
+      "status": "UP",
+      "details": {
+        "database": "PostgreSQL",
+        "validationQuery": "isValid()"
+      }
+    },
+    "diskSpace": {
+      "status": "UP",
+      "details": {
+        "total": 107374182400,
+        "free": 53687091200,
+        "threshold": 10485760,
+        "exists": true
+      }
+    },
+    "ping": {
+      "status": "UP"
+    }
+  }
+}
+```
+
+**Response `503 Service Unavailable`**: Returned when one or more components report `DOWN` (e.g., database unreachable).
 
 ---
 

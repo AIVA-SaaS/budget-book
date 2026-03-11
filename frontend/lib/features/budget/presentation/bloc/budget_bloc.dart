@@ -96,6 +96,8 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
       categoryId: event.categoryId,
       yearMonth: event.yearMonth,
       amount: event.amount,
+      budgetPeriod: event.budgetPeriod,
+      weeklyAmount: event.weeklyAmount,
     );
     result.fold(
       (failure) {
@@ -123,6 +125,8 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     final result = await budgetRepository.updateBudget(
       id: event.id,
       amount: event.amount,
+      budgetPeriod: event.budgetPeriod,
+      weeklyAmount: event.weeklyAmount,
     );
     result.fold(
       (failure) {

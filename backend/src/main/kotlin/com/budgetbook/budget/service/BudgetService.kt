@@ -96,6 +96,31 @@ class BudgetService(
         }
 
         budget.amount = request.amount
+
+        request.budgetPeriod?.let { periodStr ->
+            val newPeriod = try {
+                BudgetPeriod.valueOf(periodStr)
+            } catch (e: IllegalArgumentException) {
+                throw com.budgetbook.common.exception.BusinessException(
+                    "VALIDATION_ERROR", "Invalid budget period: $periodStr"
+                )
+            }
+            budget.budgetPeriod = newPeriod
+
+            // Recalculate weeklyAmount based on new period
+            budget.weeklyAmount = if (newPeriod == BudgetPeriod.WEEKLY) {
+                request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
+            } else {
+                null
+            }
+        } ?: run {
+            // budgetPeriod not changing, but if it's WEEKLY, update weeklyAmount if provided
+            if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
+                budget.weeklyAmount = request.weeklyAmount
+                    ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
+            }
+        }
+
         return budgetRepository.save(budget).toResponse()
     }
 
@@ -173,9 +198,15 @@ class BudgetService(
         // to avoid double-counting when both a "total" budget and category-specific budgets exist
         val totalSpent = transactions.content.sumOf { it.amount }
 
+        // When a "total" budget exists (categoryId=null), use that as totalBudget.
+        // Otherwise, sum only category-specific budgets to avoid double-counting.
+        val totalBudgetEntry = budgets.find { it.category == null }
+        val totalBudget = totalBudgetEntry?.amount
+            ?: budgets.sumOf { it.amount }
+
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
-            totalBudget = budgets.sumOf { it.amount },
+            totalBudget = totalBudget,
             totalSpent = totalSpent,
             items = items
         )

@@ -14,7 +14,6 @@ class ApiEndpoints {
   static const String authLogout = '/api/v1/auth/logout';
 
   // Couple
-  static const String couples = '/api/v1/couples';
   static const String coupleMe = '/api/v1/couples/me';
   static const String coupleInvitations = '/api/v1/couples/invitations';
 
