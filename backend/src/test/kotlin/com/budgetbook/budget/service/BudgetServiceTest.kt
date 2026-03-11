@@ -2,6 +2,7 @@ package com.budgetbook.budget.service
 
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
+import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetUpdateRequest
@@ -183,6 +184,108 @@ class BudgetServiceTest : BehaviorSpec({
         }
     }
 
+    Given("an existing MONTHLY budget switching to WEEKLY") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val budget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 150000,
+            budgetPeriod = BudgetPeriod.MONTHLY, weeklyAmount = null
+        )
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+        every { budgetRepository.save(budget) } returns budget
+
+        When("updateBudget is called with budgetPeriod=WEEKLY") {
+            val request = BudgetUpdateRequest(amount = 200000, budgetPeriod = "WEEKLY")
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("updates amount, budgetPeriod, and calculates weeklyAmount") {
+                result.amount shouldBe 200000
+                result.budgetPeriod shouldBe "WEEKLY"
+                // 2026-03 has 31 days -> 5 weeks, so 200000 / 5 = 40000
+                result.weeklyAmount shouldBe 40000
+            }
+        }
+    }
+
+    Given("an existing WEEKLY budget updating amount only") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val budget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 150000,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 30000
+        )
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+        every { budgetRepository.save(budget) } returns budget
+
+        When("updateBudget is called with only a new amount") {
+            val request = BudgetUpdateRequest(amount = 250000)
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("recalculates weeklyAmount from new amount") {
+                result.amount shouldBe 250000
+                result.budgetPeriod shouldBe "WEEKLY"
+                // 250000 / 5 = 50000
+                result.weeklyAmount shouldBe 50000
+            }
+        }
+    }
+
+    Given("an existing WEEKLY budget with explicit weeklyAmount") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val budget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 200000,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 40000
+        )
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+        every { budgetRepository.save(budget) } returns budget
+
+        When("updateBudget is called with explicit weeklyAmount") {
+            val request = BudgetUpdateRequest(amount = 200000, weeklyAmount = 45000)
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("uses the explicit weeklyAmount") {
+                result.amount shouldBe 200000
+                result.weeklyAmount shouldBe 45000
+            }
+        }
+    }
+
+    Given("an existing WEEKLY budget switching to MONTHLY") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val budget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 200000,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 40000
+        )
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+        every { budgetRepository.save(budget) } returns budget
+
+        When("updateBudget is called with budgetPeriod=MONTHLY") {
+            val request = BudgetUpdateRequest(amount = 300000, budgetPeriod = "MONTHLY")
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("clears weeklyAmount") {
+                result.amount shouldBe 300000
+                result.budgetPeriod shouldBe "MONTHLY"
+                result.weeklyAmount shouldBe null
+            }
+        }
+    }
+
+    Given("an existing budget with invalid budgetPeriod in update") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val budget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 150000
+        )
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+
+        When("updateBudget is called with invalid budgetPeriod") {
+            Then("throws BusinessException") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateBudget(user1.id, budget.id, BudgetUpdateRequest(amount = 200000, budgetPeriod = "INVALID"))
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+    }
+
     Given("a non-existent budget to update") {
         every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
         val fakeId = UUID.randomUUID()
@@ -262,7 +365,9 @@ class BudgetServiceTest : BehaviorSpec({
 
             Then("returns correct summary with no double-counting") {
                 result.yearMonth shouldBe "2026-03"
-                result.totalBudget shouldBe 3150000
+                // When a "total" budget (categoryId=null) exists, use that as totalBudget
+                // instead of summing all budgets (which would double-count)
+                result.totalBudget shouldBe 3000000
                 result.items.size shouldBe 2
                 // totalSpent is calculated independently as the direct sum of ALL expenses (95000 + 50000)
                 result.totalSpent shouldBe 145000

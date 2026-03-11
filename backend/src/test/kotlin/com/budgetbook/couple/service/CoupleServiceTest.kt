@@ -207,6 +207,34 @@ class CoupleServiceTest : BehaviorSpec({
         }
     }
 
+    Given("a valid invitation where seed fails") {
+        val invitation = CoupleInvitation(
+            inviter = user1,
+            invitationCode = "SEED1234",
+            expiresAt = Instant.now().plusSeconds(3600)
+        )
+
+        every { coupleInvitationRepository.findByInvitationCode("SEED1234") } returns invitation
+        every { userRepository.findById(user2.id) } returns Optional.of(user2)
+        every { coupleRepository.findByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleInvitationRepository.save(invitation) } returns invitation
+
+        val coupleSlot = slot<Couple>()
+        every { coupleRepository.save(capture(coupleSlot)) } answers { coupleSlot.captured }
+
+        // categoryService.seedDefaultCategories throws an exception
+        every { categoryService.seedDefaultCategories(any()) } throws RuntimeException("DB error during seed")
+
+        When("acceptInvitation is called") {
+            Then("throws RuntimeException so @Transactional can rollback") {
+                shouldThrow<RuntimeException> {
+                    coupleService.acceptInvitation(user2.id, "SEED1234")
+                }.message shouldBe "DB error during seed"
+            }
+        }
+    }
+
     // --- getMyCouple ---
 
     Given("a user in an active couple") {
