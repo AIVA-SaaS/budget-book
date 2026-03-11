@@ -169,10 +169,14 @@ class BudgetService(
             )
         }
 
+        // Calculate totalSpent independently as the direct sum of ALL expenses for the month,
+        // to avoid double-counting when both a "total" budget and category-specific budgets exist
+        val totalSpent = transactions.content.sumOf { it.amount }
+
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
             totalBudget = budgets.sumOf { it.amount },
-            totalSpent = items.sumOf { it.spentAmount },
+            totalSpent = totalSpent,
             items = items
         )
     }

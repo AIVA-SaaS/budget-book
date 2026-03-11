@@ -340,15 +340,24 @@ class ReportServiceTest : BehaviorSpec({
                 arrayOf(280000L, 6L, transportCategory.id, "Transport", CategoryType.EXPENSE, "directions_car", "#2196F3")
             )
 
-            // Card pending summary
+            // Card pending summary (uses sumByPaymentMethodAndSettlementDateRange, aligned with PaymentMethodService)
             val creditCard = PaymentMethod(couple = couple, name = "Card1", type = PaymentMethodType.CREDIT)
             every {
                 paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(couple.id, PaymentMethodType.CREDIT)
             } returns listOf(creditCard)
 
-            val unsettledTx = Transaction(
+            every {
+                transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                    paymentMethodId = creditCard.id,
+                    startDate = LocalDate.of(2026, 3, 1),
+                    endDate = LocalDate.of(2026, 3, 31)
+                )
+            } returns listOf(arrayOf<Any?>(150000L, 1L))
+
+            // Day of week pattern needs expense transactions for the month
+            val expenseTx = Transaction(
                 couple = couple, author = user1, category = foodCategory,
-                type = TransactionType.EXPENSE, amount = 150000, description = "Unsettled",
+                type = TransactionType.EXPENSE, amount = 150000, description = "Expense",
                 transactionDate = LocalDate.of(2026, 3, 15),
                 paymentMethod = creditCard, settlementDate = null
             )
@@ -361,7 +370,7 @@ class ReportServiceTest : BehaviorSpec({
                     categoryId = null,
                     pageable = Pageable.unpaged()
                 )
-            } returns PageImpl(listOf(unsettledTx))
+            } returns PageImpl(listOf(expenseTx))
 
             val result = service.getMonthlyReport(user1.id, 2026, 3)
 

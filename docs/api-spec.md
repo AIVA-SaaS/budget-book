@@ -75,7 +75,6 @@ All API responses are wrapped in `ApiResponse<T>`:
 {
   "success": true,
   "data": T,
-  "error": null,
   "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
@@ -89,7 +88,6 @@ All API responses are wrapped in `ApiResponse<T>`:
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -99,7 +97,6 @@ All API responses are wrapped in `ApiResponse<T>`:
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "ERROR_CODE",
     "message": "Human-readable error message"
@@ -107,6 +104,8 @@ All API responses are wrapped in `ApiResponse<T>`:
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
+
+> **Note on null fields**: The API uses `@JsonInclude(NON_NULL)`. Fields that are `null` are **omitted entirely** from the JSON response rather than serialized as `"field": null`. For example, a success response will not include an `"error"` key, and an error response will not include a `"data"` key.
 
 ### HTTP Status Code Conventions
 
@@ -213,7 +212,6 @@ Issues a new access token using a valid refresh token.
     "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...",
     "expiresIn": 3600
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -223,7 +221,6 @@ Issues a new access token using a valid refresh token.
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "INVALID_REFRESH_TOKEN",
     "message": "The refresh token is invalid or has been revoked."
@@ -267,19 +264,17 @@ Retrieves the profile of the currently authenticated user.
     "coupleId": "550e8400-e29b-41d4-a716-446655440001",
     "createdAt": "2024-01-01T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
 
-Note: `coupleId` is `null` when the user is not in an active couple. This allows the frontend to decide routing immediately after login.
+Note: `coupleId` is omitted from the response when the user is not in an active couple (NON_NULL serialization). This allows the frontend to decide routing immediately after login.
 
 **Response `401 Unauthorized`**: `ApiResponse<null>`
 
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "INVALID_TOKEN",
     "message": "The access token is invalid or has expired."
@@ -323,8 +318,6 @@ Revokes the refresh token and invalidates the current session.
 ```json
 {
   "success": true,
-  "data": null,
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -334,7 +327,6 @@ Revokes the refresh token and invalidates the current session.
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "INVALID_TOKEN",
     "message": "The access token is invalid or has expired."
@@ -376,7 +368,6 @@ Generates a new 8-character invitation code. The previous pending invitation for
     "code": "A3F9K2BX",
     "expiresAt": "2024-01-02T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -386,7 +377,6 @@ Generates a new 8-character invitation code. The previous pending invitation for
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "COUPLE_ALREADY_EXISTS",
     "message": "User is already in an active couple."
@@ -430,7 +420,6 @@ Accepts an invitation code and links the two users as a couple. Default categori
     "status": "ACTIVE",
     "createdAt": "2024-01-01T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -473,7 +462,6 @@ Retrieves the current user's couple information including the partner's profile.
     "status": "ACTIVE",
     "createdAt": "2024-01-01T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -483,7 +471,6 @@ Retrieves the current user's couple information including the partner's profile.
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "COUPLE_NOT_FOUND",
     "message": "User is not currently in a couple."
@@ -549,6 +536,7 @@ Retrieves all categories for the caller's couple.
       "type": "EXPENSE",
       "icon": "restaurant",
       "color": "#FF5733",
+      "groupId": "550e8400-e29b-41d4-a716-446655440060",
       "isDefault": true,
       "displayOrder": 1,
       "createdAt": "2024-01-01T12:00:00Z"
@@ -564,7 +552,6 @@ Retrieves all categories for the caller's couple.
       "createdAt": "2024-01-01T12:00:00Z"
     }
   ],
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -588,16 +575,18 @@ Creates a new custom category for the caller's couple.
   "name": "반려동물",
   "type": "EXPENSE",
   "icon": "pets",
-  "color": "#9C27B0"
+  "color": "#9C27B0",
+  "groupId": "550e8400-e29b-41d4-a716-446655440060"
 }
 ```
 
-| Field    | Type     | Required | Description                        |
-|:---------|:---------|:--------:|:-----------------------------------|
-| `name`   | `string` | Yes      | Category name (max 50 chars)       |
-| `type`   | `string` | Yes      | `INCOME` or `EXPENSE`              |
-| `icon`   | `string` | No       | Material icon name                 |
-| `color`  | `string` | No       | Hex color code (e.g., `#FF5733`)   |
+| Field     | Type     | Required | Description                              |
+|:----------|:---------|:--------:|:-----------------------------------------|
+| `name`    | `string` | Yes      | Category name (max 50 chars)             |
+| `type`    | `string` | Yes      | `INCOME` or `EXPENSE`                    |
+| `icon`    | `string` | No       | Material icon name                       |
+| `color`   | `string` | No       | Hex color code (e.g., `#FF5733`)         |
+| `groupId` | `UUID`   | No       | Category group ID (null = uncategorized) |
 
 **Response `201 Created`**: `ApiResponse<CategoryResponse>`
 
@@ -610,11 +599,11 @@ Creates a new custom category for the caller's couple.
     "type": "EXPENSE",
     "icon": "pets",
     "color": "#9C27B0",
+    "groupId": "550e8400-e29b-41d4-a716-446655440060",
     "isDefault": false,
     "displayOrder": 10,
     "createdAt": "2024-01-01T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-01T12:00:00Z"
 }
 ```
@@ -651,16 +640,18 @@ Updates an existing category. Default categories cannot have their `type` change
   "name": "식비/외식",
   "icon": "restaurant_menu",
   "color": "#E91E63",
-  "displayOrder": 2
+  "displayOrder": 2,
+  "groupId": "550e8400-e29b-41d4-a716-446655440060"
 }
 ```
 
-| Field          | Type      | Required | Description                      |
-|:---------------|:----------|:--------:|:---------------------------------|
-| `name`         | `string`  | No       | Updated name (max 50 chars)      |
-| `icon`         | `string`  | No       | Updated icon name                |
-| `color`        | `string`  | No       | Updated hex color                |
-| `displayOrder` | `integer` | No       | Sort order within type group     |
+| Field          | Type      | Required | Description                              |
+|:---------------|:----------|:--------:|:-----------------------------------------|
+| `name`         | `string`  | No       | Updated name (max 50 chars)              |
+| `icon`         | `string`  | No       | Updated icon name                        |
+| `color`        | `string`  | No       | Updated hex color                        |
+| `displayOrder` | `integer` | No       | Sort order within type group             |
+| `groupId`      | `UUID`    | No       | Updated group ID (null = uncategorized)  |
 
 **Response `200 OK`**: `ApiResponse<CategoryResponse>`
 
@@ -756,8 +747,10 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
         "type": "EXPENSE",
         "amount": 15000,
         "description": "점심 식사",
-        "memo": null,
         "transactionDate": "2024-01-15",
+        "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+        "paymentMethodName": "신한카드",
+        "paymentMethodType": "CREDIT",
         "createdAt": "2024-01-15T12:30:00Z",
         "updatedAt": "2024-01-15T12:30:00Z"
       }
@@ -769,7 +762,6 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
     "first": true,
     "last": false
   },
-  "error": null,
   "timestamp": "2024-01-15T12:00:00Z"
 }
 ```
@@ -795,18 +787,20 @@ Creates a new income or expense transaction.
   "description": "점심 식사",
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
   "transactionDate": "2024-01-15",
-  "memo": "팀 점심"
+  "memo": "팀 점심",
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031"
 }
 ```
 
-| Field             | Type     | Required | Description                           |
-|:------------------|:---------|:--------:|:--------------------------------------|
-| `type`            | `string` | Yes      | `INCOME` or `EXPENSE`                 |
-| `amount`          | `long`   | Yes      | Amount in KRW (must be > 0)           |
-| `description`     | `string` | Yes      | Short description (max 255 chars)     |
-| `categoryId`      | `UUID`   | No       | Category ID (must belong to couple)   |
-| `transactionDate` | `string` | Yes      | ISO 8601 date: `YYYY-MM-DD`           |
-| `memo`            | `string` | No       | Optional longer note                  |
+| Field             | Type     | Required | Description                                    |
+|:------------------|:---------|:--------:|:-----------------------------------------------|
+| `type`            | `string` | Yes      | `INCOME` or `EXPENSE`                          |
+| `amount`          | `long`   | Yes      | Amount in KRW (must be > 0)                    |
+| `description`     | `string` | Yes      | Short description (max 255 chars)              |
+| `categoryId`      | `UUID`   | No       | Category ID (must belong to couple)            |
+| `transactionDate` | `string` | Yes      | ISO 8601 date: `YYYY-MM-DD`                    |
+| `memo`            | `string` | No       | Optional longer note                           |
+| `paymentMethodId` | `UUID`   | No       | Payment method ID (must belong to couple)      |
 
 **Response `201 Created`**: `ApiResponse<TransactionResponse>`
 
@@ -833,10 +827,12 @@ Creates a new income or expense transaction.
     "description": "점심 식사",
     "memo": "팀 점심",
     "transactionDate": "2024-01-15",
+    "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+    "paymentMethodName": "신한카드",
+    "paymentMethodType": "CREDIT",
     "createdAt": "2024-01-15T12:30:00Z",
     "updatedAt": "2024-01-15T12:30:00Z"
   },
-  "error": null,
   "timestamp": "2024-01-15T12:30:00Z"
 }
 ```
@@ -903,17 +899,19 @@ Updates an existing transaction. Only the author or the partner can update it.
   "description": "점심 + 커피",
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
   "transactionDate": "2024-01-15",
-  "memo": null
+  "memo": null,
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031"
 }
 ```
 
-| Field             | Type     | Required | Description                         |
-|:------------------|:---------|:--------:|:------------------------------------|
-| `amount`          | `long`   | No       | Updated amount (must be > 0)        |
-| `description`     | `string` | No       | Updated description (max 255 chars) |
-| `categoryId`      | `UUID`   | No       | Updated category (null to unset)    |
-| `transactionDate` | `string` | No       | Updated date: `YYYY-MM-DD`          |
-| `memo`            | `string` | No       | Updated memo (null to clear)        |
+| Field             | Type     | Required | Description                                    |
+|:------------------|:---------|:--------:|:-----------------------------------------------|
+| `amount`          | `long`   | No       | Updated amount (must be > 0)                   |
+| `description`     | `string` | No       | Updated description (max 255 chars)            |
+| `categoryId`      | `UUID`   | No       | Updated category (null to unset)               |
+| `transactionDate` | `string` | No       | Updated date: `YYYY-MM-DD`                     |
+| `memo`            | `string` | No       | Updated memo (null to clear)                   |
+| `paymentMethodId` | `UUID`   | No       | Updated payment method (null to unset)         |
 
 **Response `200 OK`**: `ApiResponse<TransactionResponse>`
 
@@ -978,15 +976,17 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
 {
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
   "yearMonth": "2026-03",
-  "amount": 150000
+  "amount": 150000,
+  "budgetPeriod": "MONTHLY"
 }
 ```
 
-| Field        | Type     | Required | Description                                               |
-|:-------------|:---------|:--------:|:----------------------------------------------------------|
-| `categoryId` | `UUID`   | No       | Category ID; `null` = total budget for the month         |
-| `yearMonth`  | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)       |
-| `amount`     | `long`   | Yes      | Budget amount in KRW (must be > 0)                       |
+| Field          | Type     | Required | Description                                                            |
+|:---------------|:---------|:--------:|:-----------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | No       | Category ID; `null` = total budget for the month                      |
+| `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                    |
+| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                    |
+| `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                   |
 
 **Response `201 Created`**: `ApiResponse<BudgetResponse>`
 
@@ -1005,10 +1005,10 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
     },
     "yearMonth": "2026-03",
     "amount": 150000,
+    "budgetPeriod": "MONTHLY",
     "createdAt": "2026-03-01T12:00:00Z",
     "updatedAt": "2026-03-01T12:00:00Z"
   },
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1058,20 +1058,21 @@ Retrieves all budgets for the couple for a given month.
       },
       "yearMonth": "2026-03",
       "amount": 150000,
+      "budgetPeriod": "MONTHLY",
       "createdAt": "2026-03-01T12:00:00Z",
       "updatedAt": "2026-03-01T12:00:00Z"
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440051",
       "coupleId": "550e8400-e29b-41d4-a716-446655440001",
-      "category": null,
       "yearMonth": "2026-03",
-      "amount": 3000000,
+      "amount": 800000,
+      "budgetPeriod": "WEEKLY",
+      "weeklyAmount": 200000,
       "createdAt": "2026-03-01T12:00:00Z",
       "updatedAt": "2026-03-01T12:00:00Z"
     }
   ],
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1186,7 +1187,6 @@ Returns per-category budget vs actual spending summary for a given month.
         "usageRate": 63.3
       },
       {
-        "category": null,
         "budgetAmount": 3000000,
         "spentAmount": 1705000,
         "remainingAmount": 1295000,
@@ -1194,7 +1194,6 @@ Returns per-category budget vs actual spending summary for a given month.
       }
     ]
   },
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1239,7 +1238,6 @@ Returns total income, total expense, balance, and transaction count for a given 
     "balance": 1800000,
     "transactionCount": 45
   },
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1295,7 +1293,6 @@ Returns spending (or income) broken down by category for a given month, sorted b
       "transactionCount": 8
     }
   ],
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1361,7 +1358,6 @@ Returns month-over-month income, expense, and balance for the last N months incl
       "balance": 1800000
     }
   ],
-  "error": null,
   "timestamp": "2026-03-01T12:00:00Z"
 }
 ```
@@ -1999,15 +1995,17 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### BudgetResponse
 
-| Field       | Type              | Nullable | Description                                  |
-|:------------|:------------------|:--------:|:---------------------------------------------|
-| `id`        | `UUID`            | No       | Budget unique identifier                     |
-| `coupleId`  | `UUID`            | No       | Owning couple ID                             |
-| `category`  | `CategorySummary` | Yes      | Category (null = total monthly budget)       |
-| `yearMonth` | `string`          | No       | Target month in `YYYY-MM` format             |
-| `amount`    | `long`            | No       | Budget amount in KRW (always > 0)            |
-| `createdAt` | `string`          | No       | ISO 8601 timestamp                           |
-| `updatedAt` | `string`          | No       | ISO 8601 timestamp                           |
+| Field          | Type              | Nullable | Description                                                    |
+|:---------------|:------------------|:--------:|:---------------------------------------------------------------|
+| `id`           | `UUID`            | No       | Budget unique identifier                                       |
+| `coupleId`     | `UUID`            | No       | Owning couple ID                                               |
+| `category`     | `CategorySummary` | Yes      | Category (omitted when null — total budget with no category)   |
+| `yearMonth`    | `string`          | No       | Target month in `YYYY-MM` format                               |
+| `amount`       | `long`            | No       | Budget amount in KRW (always > 0)                              |
+| `budgetPeriod` | `string`          | No       | Budget period type: `MONTHLY` or `WEEKLY`                      |
+| `weeklyAmount` | `long`            | Yes      | Per-week amount (omitted unless `budgetPeriod` is `WEEKLY`)    |
+| `createdAt`    | `string`          | No       | ISO 8601 timestamp                                             |
+| `updatedAt`    | `string`          | No       | ISO 8601 timestamp                                             |
 
 ### BudgetSummaryResponse
 
@@ -2087,3 +2085,4 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | `CANNOT_DELETE_DEFAULT_GROUP`     | `400`       | Default category groups cannot be deleted            |
 | `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
 | `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |
+| `RECURRING_NOT_FOUND`             | `404`       | Requested recurring transaction does not exist       |

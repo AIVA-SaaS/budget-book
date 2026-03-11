@@ -161,23 +161,44 @@ class TransactionService(
         request.transactionDate?.let { transaction.transactionDate = it }
         request.memo?.let { transaction.memo = it.value }
 
-        if (request.categoryId != null) {
-            val cat = categoryRepository.findById(request.categoryId)
-                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-            if (cat.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
+        // Handle categoryId with PatchValue: null = absent (no change), PatchValue(null) = clear, PatchValue(uuid) = set
+        request.categoryId?.let { patchValue ->
+            val catId = patchValue.value
+            if (catId != null) {
+                val cat = categoryRepository.findById(catId)
+                    .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+                if (cat.couple.id != couple.id) {
+                    throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
+                }
+                transaction.category = cat
+            } else {
+                transaction.category = null
             }
-            transaction.category = cat
         }
 
-        if (request.paymentMethodId != null) {
-            val pm = paymentMethodRepository.findById(request.paymentMethodId)
-                .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
-            if (pm.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
+        // Handle paymentMethodId with PatchValue
+        var paymentMethodChanged = false
+        request.paymentMethodId?.let { patchValue ->
+            val pmId = patchValue.value
+            if (pmId != null) {
+                val pm = paymentMethodRepository.findById(pmId)
+                    .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
+                if (pm.couple.id != couple.id) {
+                    throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
+                }
+                transaction.paymentMethod = pm
+                transaction.settlementDate = calculateSettlementDate(pm, transaction.transactionDate)
+                paymentMethodChanged = true
+            } else {
+                transaction.paymentMethod = null
+                transaction.settlementDate = null
+                paymentMethodChanged = true
             }
-            transaction.paymentMethod = pm
-            transaction.settlementDate = calculateSettlementDate(pm, transaction.transactionDate)
+        }
+
+        // If transactionDate changed but paymentMethod was not changed, recalculate settlement date
+        if (request.transactionDate != null && !paymentMethodChanged && transaction.paymentMethod != null) {
+            transaction.settlementDate = calculateSettlementDate(transaction.paymentMethod!!, transaction.transactionDate)
         }
 
         return transactionRepository.save(transaction).toResponse()

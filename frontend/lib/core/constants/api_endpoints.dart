@@ -51,6 +51,4 @@ class ApiEndpoints {
   // Recurring Transactions
   static const String recurringTransactions = '/api/v1/recurring-transactions';
 
-  // Export
-  static const String exportCsv = '/api/v1/export/csv';
 }
