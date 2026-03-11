@@ -3,7 +3,9 @@ package com.budgetbook.couple.service
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
+import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.category.service.CategoryService
+import com.budgetbook.paymentmethod.service.PaymentMethodService
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.GoneException
@@ -36,7 +38,9 @@ class CoupleServiceTest : BehaviorSpec({
     val coupleInvitationRepository = mockk<CoupleInvitationRepository>()
     val userRepository = mockk<UserRepository>()
     val categoryService = mockk<CategoryService>(relaxed = true)
-    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService)
+    val categoryGroupService = mockk<CategoryGroupService>(relaxed = true)
+    val paymentMethodService = mockk<PaymentMethodService>(relaxed = true)
+    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService, categoryGroupService, paymentMethodService)
 
     val user1 = User(
         email = "user1@example.com",
@@ -120,6 +124,12 @@ class CoupleServiceTest : BehaviorSpec({
 
             Then("marks invitation as accepted") {
                 invitation.status shouldBe InvitationStatus.ACCEPTED
+            }
+
+            Then("seeds default categories, category groups, and payment methods") {
+                verify(exactly = 1) { categoryService.seedDefaultCategories(any()) }
+                verify(exactly = 1) { categoryGroupService.seedDefaultCategoryGroups(any()) }
+                verify(exactly = 1) { paymentMethodService.seedDefaultPaymentMethods(any()) }
             }
         }
     }

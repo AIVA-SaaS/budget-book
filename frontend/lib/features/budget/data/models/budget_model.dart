@@ -8,6 +8,8 @@ class BudgetModel extends Budget {
     super.category,
     required super.yearMonth,
     required super.amount,
+    super.budgetPeriod,
+    super.weeklyAmount,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -22,6 +24,8 @@ class BudgetModel extends Budget {
           : null,
       yearMonth: json['yearMonth'] as String,
       amount: json['amount'] as int,
+      budgetPeriod: json['budgetPeriod'] as String? ?? 'MONTHLY',
+      weeklyAmount: json['weeklyAmount'] as int?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

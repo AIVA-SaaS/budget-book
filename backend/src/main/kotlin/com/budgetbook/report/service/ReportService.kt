@@ -440,19 +440,13 @@ class ReportService(
         var cardsWithPending = 0
 
         for (card in creditCards) {
-            // Find transactions with this payment method that have no settlement date or settlement date is after endDate
-            val results = transactionRepository.findByCoupleIdAndFilters(
-                coupleId = coupleId,
+            // Find transactions settling in this month (aligned with PaymentMethodService.getCardPendingSummary)
+            val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                paymentMethodId = card.id,
                 startDate = startDate,
-                endDate = endDate,
-                type = TransactionType.EXPENSE,
-                categoryId = null,
-                pageable = Pageable.unpaged()
-            ).content.filter { tx ->
-                tx.paymentMethod?.id == card.id && tx.settlementDate == null
-            }
-
-            val pendingAmount = results.sumOf { it.amount }
+                endDate = endDate
+            )
+            val pendingAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
             if (pendingAmount > 0) {
                 totalPending += pendingAmount
                 cardsWithPending++
