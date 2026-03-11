@@ -9,6 +9,8 @@ import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.paymentmethod.domain.PaymentMethodType
+import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
@@ -29,7 +31,8 @@ class TransactionService(
     private val transactionRepository: TransactionRepository,
     private val coupleRepository: CoupleRepository,
     private val userRepository: UserRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val paymentMethodRepository: PaymentMethodRepository
 ) {
 
     @Transactional(readOnly = true)
@@ -101,6 +104,19 @@ class TransactionService(
             cat
         }
 
+        val paymentMethod = request.paymentMethodId?.let { pmId ->
+            val pm = paymentMethodRepository.findById(pmId)
+                .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
+            if (pm.couple.id != couple.id) {
+                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
+            }
+            pm
+        }
+
+        val settlementDate = paymentMethod?.let {
+            calculateSettlementDate(it, request.transactionDate)
+        }
+
         val transaction = Transaction(
             couple = couple,
             author = user,
@@ -109,7 +125,9 @@ class TransactionService(
             amount = request.amount,
             description = request.description,
             memo = request.memo,
-            transactionDate = request.transactionDate
+            transactionDate = request.transactionDate,
+            paymentMethod = paymentMethod,
+            settlementDate = settlementDate
         )
 
         return transactionRepository.save(transaction).toResponse()
@@ -152,6 +170,16 @@ class TransactionService(
             transaction.category = cat
         }
 
+        if (request.paymentMethodId != null) {
+            val pm = paymentMethodRepository.findById(request.paymentMethodId)
+                .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
+            if (pm.couple.id != couple.id) {
+                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
+            }
+            transaction.paymentMethod = pm
+            transaction.settlementDate = calculateSettlementDate(pm, transaction.transactionDate)
+        }
+
         return transactionRepository.save(transaction).toResponse()
     }
 
@@ -171,6 +199,27 @@ class TransactionService(
     private fun getActiveCouple(userId: UUID): Couple {
         return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
             ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+    }
+
+    private fun calculateSettlementDate(
+        paymentMethod: com.budgetbook.paymentmethod.domain.PaymentMethod,
+        transactionDate: LocalDate
+    ): LocalDate? {
+        if (paymentMethod.type != PaymentMethodType.CREDIT) return null
+        val closingDay = paymentMethod.closingDay ?: return null
+        val settlementDay = paymentMethod.settlementDay ?: return null
+
+        val settlementMonth = if (transactionDate.dayOfMonth <= closingDay) {
+            // Transaction is before or on closing day -> settlement next month
+            transactionDate.plusMonths(1)
+        } else {
+            // Transaction is after closing day -> settlement month after next
+            transactionDate.plusMonths(2)
+        }
+
+        val yearMonth = YearMonth.of(settlementMonth.year, settlementMonth.month)
+        val day = settlementDay.coerceAtMost(yearMonth.lengthOfMonth())
+        return LocalDate.of(yearMonth.year, yearMonth.month, day)
     }
 
     private fun Transaction.toResponse() = TransactionResponse(
@@ -195,6 +244,10 @@ class TransactionService(
         description = description,
         memo = memo,
         transactionDate = transactionDate,
+        paymentMethodId = paymentMethod?.id,
+        paymentMethodName = paymentMethod?.name,
+        paymentMethodType = paymentMethod?.type?.name,
+        settlementDate = settlementDate?.toString(),
         createdAt = createdAt,
         updatedAt = updatedAt
     )

@@ -9,6 +9,7 @@ class CategoryModel extends Category {
     super.color,
     required super.isDefault,
     required super.displayOrder,
+    super.groupId,
     required super.createdAt,
   });
 
@@ -21,6 +22,7 @@ class CategoryModel extends Category {
       color: json['color'] as String?,
       isDefault: json['isDefault'] as bool,
       displayOrder: json['displayOrder'] as int,
+      groupId: json['groupId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

@@ -1,0 +1,72 @@
+import 'package:equatable/equatable.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
+
+class Budget extends Equatable {
+  final String id;
+  final String coupleId;
+  final TransactionCategory? category;
+  final String yearMonth;
+  final int amount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const Budget({
+    required this.id,
+    required this.coupleId,
+    this.category,
+    required this.yearMonth,
+    required this.amount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  @override
+  List<Object?> get props =>
+      [id, coupleId, category, yearMonth, amount, createdAt, updatedAt];
+}
+
+class BudgetSummary extends Equatable {
+  final String yearMonth;
+  final int totalBudget;
+  final int totalSpent;
+  final List<BudgetSummaryItem> items;
+
+  const BudgetSummary({
+    required this.yearMonth,
+    required this.totalBudget,
+    required this.totalSpent,
+    required this.items,
+  });
+
+  int get remainingAmount => totalBudget - totalSpent;
+
+  double get usageRate =>
+      totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  bool get isOverBudget => totalSpent > totalBudget;
+
+  @override
+  List<Object?> get props => [yearMonth, totalBudget, totalSpent, items];
+}
+
+class BudgetSummaryItem extends Equatable {
+  final TransactionCategory? category;
+  final int budgetAmount;
+  final int spentAmount;
+  final int remainingAmount;
+  final double usageRate;
+
+  const BudgetSummaryItem({
+    this.category,
+    required this.budgetAmount,
+    required this.spentAmount,
+    required this.remainingAmount,
+    required this.usageRate,
+  });
+
+  bool get isOverBudget => spentAmount > budgetAmount;
+
+  @override
+  List<Object?> get props =>
+      [category, budgetAmount, spentAmount, remainingAmount, usageRate];
+}

@@ -13,6 +13,10 @@ class TransactionModel extends Transaction {
     required super.description,
     super.memo,
     required super.transactionDate,
+    super.paymentMethodId,
+    super.paymentMethodName,
+    super.paymentMethodType,
+    super.settlementDate,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -32,6 +36,10 @@ class TransactionModel extends Transaction {
       description: json['description'] as String,
       memo: json['memo'] as String?,
       transactionDate: json['transactionDate'] as String,
+      paymentMethodId: json['paymentMethodId'] as String?,
+      paymentMethodName: json['paymentMethodName'] as String?,
+      paymentMethodType: json['paymentMethodType'] as String?,
+      settlementDate: json['settlementDate'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
