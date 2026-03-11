@@ -40,6 +40,17 @@ class ApiEndpoints {
   static const String paymentMethodsCardPending =
       '/api/v1/payment-methods/card-pending';
 
+  // Weekly Budget
+  static const String weeklyBudgets = '/api/v1/budgets/weekly';
+  static const String weeklyBudgetCurrent = '/api/v1/budgets/weekly/current';
+
+  // Reports
+  static const String reportsWeekly = '/api/v1/reports/weekly';
+  static const String reportsMonthly = '/api/v1/reports/monthly';
+
+  // Recurring Transactions
+  static const String recurringTransactions = '/api/v1/recurring-transactions';
+
   // Export
   static const String exportCsv = '/api/v1/export/csv';
 }

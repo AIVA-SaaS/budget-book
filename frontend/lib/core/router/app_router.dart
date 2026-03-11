@@ -29,6 +29,17 @@ import 'package:budget_book/features/category_group/presentation/pages/category_
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/pages/payment_method_page.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
+import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_budget_page.dart';
+import 'package:budget_book/features/report/presentation/bloc/report_bloc.dart';
+import 'package:budget_book/features/report/presentation/bloc/report_event.dart';
+import 'package:budget_book/features/report/presentation/pages/report_page.dart';
+import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
+import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
+import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
+import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
+import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -238,6 +249,82 @@ final appRouter = GoRouter(
             getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
         child: const CategoryGroupPage(),
       ),
+    ),
+    GoRoute(
+      path: '/weekly-budgets',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<WeeklyBudgetBloc>(
+          create: (_) => getIt<WeeklyBudgetBloc>()
+            ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+            ..add(const LoadCurrentWeek()),
+          child: const WeeklyBudgetPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/reports',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<ReportBloc>(
+          create: (_) => getIt<ReportBloc>()
+            ..add(LoadMonthlyReport(year: now.year, month: now.month))
+            ..add(LoadWeeklyReport(
+                year: now.year, month: now.month, week: 1)),
+          child: const ReportPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/recurring',
+      builder: (context, state) => BlocProvider<RecurringBloc>(
+        create: (_) =>
+            getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
+        child: const RecurringListPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/recurring/create',
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<RecurringBloc>(
+            create: (_) =>
+                getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
+          ),
+          BlocProvider<CategoryBloc>(
+            create: (_) =>
+                getIt<CategoryBloc>()..add(const LoadCategories()),
+          ),
+          BlocProvider<PaymentMethodBloc>(
+            create: (_) =>
+                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+          ),
+        ],
+        child: const RecurringFormPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/recurring/edit/:id',
+      builder: (context, state) {
+        final recurring = state.extra as RecurringTransaction?;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<RecurringBloc>(
+              create: (_) => getIt<RecurringBloc>()
+                ..add(const LoadRecurringTransactions()),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+            BlocProvider<PaymentMethodBloc>(
+              create: (_) =>
+                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            ),
+          ],
+          child: RecurringFormPage(recurring: recurring),
+        );
+      },
     ),
   ],
 );

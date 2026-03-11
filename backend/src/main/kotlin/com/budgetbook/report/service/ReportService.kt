@@ -1,0 +1,514 @@
+package com.budgetbook.report.service
+
+import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.domain.BudgetType
+import com.budgetbook.category.repository.CategoryGroupRepository
+import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.couple.domain.Couple
+import com.budgetbook.couple.domain.CoupleStatus
+import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.paymentmethod.domain.PaymentMethodType
+import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
+import com.budgetbook.report.dto.CardPendingReportSummary
+import com.budgetbook.report.dto.CategorySpendingItem
+import com.budgetbook.report.dto.DailySpendingItem
+import com.budgetbook.report.dto.DayOfWeekPattern
+import com.budgetbook.report.dto.GroupSpendingSummary
+import com.budgetbook.report.dto.MonthComparisonResponse
+import com.budgetbook.report.dto.MonthlyReportResponse
+import com.budgetbook.report.dto.WeeklyReportResponse
+import com.budgetbook.transaction.domain.TransactionType
+import com.budgetbook.transaction.dto.CategorySummary
+import com.budgetbook.transaction.repository.TransactionRepository
+import org.springframework.data.domain.Pageable
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
+import java.util.UUID
+
+@Service
+class ReportService(
+    private val transactionRepository: TransactionRepository,
+    private val coupleRepository: CoupleRepository,
+    private val categoryGroupRepository: CategoryGroupRepository,
+    private val categoryRepository: CategoryRepository,
+    private val budgetRepository: MonthlyBudgetRepository,
+    private val paymentMethodRepository: PaymentMethodRepository
+) {
+
+    @Transactional(readOnly = true)
+    fun getWeeklyReport(userId: UUID, year: Int, month: Int, weekNumber: Int): WeeklyReportResponse {
+        val couple = getActiveCouple(userId)
+        val yearMonth = YearMonth.of(year, month)
+        val validWeek = weekNumber.coerceIn(1, 5)
+
+        // Calculate week date range
+        val (weekStart, weekEnd) = calculateWeekRange(yearMonth, validWeek)
+        val yearMonthStr = yearMonth.toString()
+
+        // Get expense transactions for this week
+        val weekTransactions = transactionRepository.findByCoupleIdAndFilters(
+            coupleId = couple.id,
+            startDate = weekStart,
+            endDate = weekEnd,
+            type = TransactionType.EXPENSE,
+            categoryId = null,
+            pageable = Pageable.unpaged()
+        ).content
+
+        val totalSpent = weekTransactions.sumOf { it.amount }
+
+        // Calculate total budget from WEEKLY groups' monthly budgets (divided by weeks in month)
+        val weeksInMonth = getWeeksInMonth(yearMonth)
+        val totalBudget = calculateWeeklyBudget(couple.id, yearMonthStr, weeksInMonth)
+
+        val remainingAmount = totalBudget - totalSpent
+        val usageRate = if (totalBudget > 0) {
+            Math.round(totalSpent.toDouble() / totalBudget * 1000.0) / 10.0
+        } else 0.0
+
+        // Determine status
+        val today = LocalDate.now()
+        val status = when {
+            totalBudget > 0 && totalSpent >= totalBudget -> "OVER"
+            today in weekStart..weekEnd -> "IN_PROGRESS"
+            else -> "UNDER"
+        }
+
+        // Calculate category spending with 4-week average comparison
+        val prevStart = weekStart.minusDays(28)
+        val prevEnd = weekStart.minusDays(1)
+        val topOverspendCategories = calculateCategorySpending(
+            couple.id, weekStart, weekEnd, prevStart, prevEnd
+        )
+
+        // Daily spending breakdown
+        val dailySpending = calculateDailySpending(weekTransactions, weekStart, weekEnd)
+
+        // Peak spending day
+        val peakSpendingDay = dailySpending
+            .maxByOrNull { it.amount }
+            ?.takeIf { it.amount > 0 }
+            ?.dayOfWeek
+
+        return WeeklyReportResponse(
+            yearMonth = yearMonthStr,
+            weekNumber = validWeek,
+            weekStart = weekStart.toString(),
+            weekEnd = weekEnd.toString(),
+            totalBudget = totalBudget,
+            totalSpent = totalSpent,
+            remainingAmount = remainingAmount,
+            usageRate = usageRate,
+            status = status,
+            topOverspendCategories = topOverspendCategories,
+            dailySpending = dailySpending,
+            peakSpendingDay = peakSpendingDay
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getMonthlyReport(userId: UUID, year: Int, month: Int): MonthlyReportResponse {
+        val couple = getActiveCouple(userId)
+        val yearMonth = YearMonth.of(year, month)
+        val startDate = yearMonth.atDay(1)
+        val endDate = yearMonth.atEndOfMonth()
+        val yearMonthStr = yearMonth.toString()
+
+        // Get income/expense totals
+        val typeResults = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate)
+        var totalIncome = 0L
+        var totalExpense = 0L
+        for (row in typeResults) {
+            val type = row[0] as TransactionType
+            val sum = row[1] as Long
+            when (type) {
+                TransactionType.INCOME -> totalIncome = sum
+                TransactionType.EXPENSE -> totalExpense = sum
+            }
+        }
+        val balance = totalIncome - totalExpense
+
+        // Group summaries
+        val groupSummaries = calculateGroupSummaries(couple.id, yearMonthStr, startDate, endDate)
+
+        // Top 5 categories by amount
+        val topCategories = calculateTopCategories(couple.id, startDate, endDate, year, month)
+
+        // Previous month comparison
+        val previousMonthComparison = calculatePreviousMonthComparison(
+            couple.id, yearMonth, totalIncome, totalExpense
+        )
+
+        // Card pending summary
+        val cardPendingSummary = calculateCardPendingSummary(couple.id, startDate, endDate)
+
+        // Day of week pattern
+        val allExpenseTransactions = transactionRepository.findByCoupleIdAndFilters(
+            coupleId = couple.id,
+            startDate = startDate,
+            endDate = endDate,
+            type = TransactionType.EXPENSE,
+            categoryId = null,
+            pageable = Pageable.unpaged()
+        ).content
+
+        val dayOfWeekPattern = calculateDayOfWeekPattern(allExpenseTransactions, yearMonth)
+
+        return MonthlyReportResponse(
+            yearMonth = yearMonthStr,
+            totalIncome = totalIncome,
+            totalExpense = totalExpense,
+            balance = balance,
+            groupSummaries = groupSummaries,
+            topCategories = topCategories,
+            previousMonthComparison = previousMonthComparison,
+            cardPendingSummary = cardPendingSummary,
+            dayOfWeekPattern = dayOfWeekPattern
+        )
+    }
+
+    // --- Internal helpers ---
+
+    internal fun calculateWeekRange(yearMonth: YearMonth, weekNumber: Int): Pair<LocalDate, LocalDate> {
+        val firstDay = yearMonth.atDay(1)
+        val lastDay = yearMonth.atEndOfMonth()
+        return when (weekNumber) {
+            1 -> firstDay to firstDay.plusDays(6).coerceAtMost(lastDay)
+            2 -> firstDay.plusDays(7) to firstDay.plusDays(13).coerceAtMost(lastDay)
+            3 -> firstDay.plusDays(14) to firstDay.plusDays(20).coerceAtMost(lastDay)
+            4 -> firstDay.plusDays(21) to firstDay.plusDays(27).coerceAtMost(lastDay)
+            5 -> {
+                val start = firstDay.plusDays(28)
+                if (start.isAfter(lastDay)) lastDay to lastDay
+                else start to lastDay
+            }
+            else -> firstDay to firstDay.plusDays(6).coerceAtMost(lastDay)
+        }
+    }
+
+    internal fun getWeeksInMonth(yearMonth: YearMonth): Int {
+        val daysInMonth = yearMonth.lengthOfMonth()
+        return if (daysInMonth > 28) 5 else 4
+    }
+
+    private fun calculateWeeklyBudget(coupleId: UUID, yearMonth: String, weeksInMonth: Int): Long {
+        val groups = categoryGroupRepository.findByCoupleId(coupleId)
+        val weeklyGroups = groups.filter { it.budgetType == BudgetType.WEEKLY }
+
+        if (weeklyGroups.isEmpty()) return 0L
+
+        val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
+        val weeklyGroupIds = weeklyGroups.map { it.id }.toSet()
+
+        // Get categories belonging to weekly groups
+        val weeklyCategories = weeklyGroups.flatMap { group ->
+            categoryRepository.findByCoupleIdAndGroupId(coupleId, group.id)
+        }
+        val weeklyCategoryIds = weeklyCategories.map { it.id }.toSet()
+
+        // Sum budgets for weekly categories, divide by weeks
+        val totalMonthlyBudget = budgets
+            .filter { it.category != null && it.category!!.id in weeklyCategoryIds }
+            .sumOf { it.amount }
+
+        return totalMonthlyBudget / weeksInMonth
+    }
+
+    private fun calculateCategorySpending(
+        coupleId: UUID,
+        weekStart: LocalDate,
+        weekEnd: LocalDate,
+        prevStart: LocalDate,
+        prevEnd: LocalDate
+    ): List<CategorySpendingItem> {
+        // Current week spending by category
+        val currentResults = transactionRepository.sumByCategoryForCouple(
+            coupleId, weekStart, weekEnd, TransactionType.EXPENSE
+        )
+
+        // Previous 4 weeks spending by category (for average)
+        val prevResults = transactionRepository.sumByCategoryForCouple(
+            coupleId, prevStart, prevEnd, TransactionType.EXPENSE
+        )
+        val prevMap = prevResults.associate { row ->
+            val catId = row[2] as UUID
+            val amount = row[0] as Long
+            catId to amount
+        }
+
+        return currentResults.map { row ->
+            val amount = row[0] as Long
+            val count = (row[1] as Long).toInt()
+            val catId = row[2] as UUID
+            val catName = row[3] as String
+            val catType = (row[4] as Enum<*>).name
+            val catIcon = row[5] as? String
+            val catColor = row[6] as? String
+
+            val avgAmount = (prevMap[catId] ?: 0L) / 4
+
+            CategorySpendingItem(
+                category = CategorySummary(
+                    id = catId,
+                    name = catName,
+                    type = catType,
+                    icon = catIcon,
+                    color = catColor
+                ),
+                amount = amount,
+                averageAmount = avgAmount,
+                deviation = amount - avgAmount,
+                transactionCount = count
+            )
+        }.sortedByDescending { it.deviation }
+    }
+
+    private fun calculateDailySpending(
+        transactions: List<com.budgetbook.transaction.domain.Transaction>,
+        weekStart: LocalDate,
+        weekEnd: LocalDate
+    ): List<DailySpendingItem> {
+        val byDate = transactions.groupBy { it.transactionDate }
+
+        return generateSequence(weekStart) { it.plusDays(1) }
+            .takeWhile { !it.isAfter(weekEnd) }
+            .map { date ->
+                val dayTxs = byDate[date] ?: emptyList()
+                DailySpendingItem(
+                    date = date.toString(),
+                    dayOfWeek = toDayOfWeekAbbr(date.dayOfWeek),
+                    amount = dayTxs.sumOf { it.amount },
+                    transactionCount = dayTxs.size
+                )
+            }
+            .toList()
+    }
+
+    private fun calculateGroupSummaries(
+        coupleId: UUID,
+        yearMonth: String,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<GroupSpendingSummary> {
+        val groups = categoryGroupRepository.findByCoupleId(coupleId)
+        val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
+
+        return groups.map { group ->
+            // Get categories in this group
+            val categories = categoryRepository.findByCoupleIdAndGroupId(coupleId, group.id)
+            val categoryIds = categories.map { it.id }.toSet()
+
+            // Sum budgets for this group's categories
+            val groupBudget = budgets
+                .filter { it.category != null && it.category!!.id in categoryIds }
+                .sumOf { it.amount }
+
+            // Sum expenses for this group's categories
+            val categoryExpenses = transactionRepository.sumByCategoryForCouple(
+                coupleId, startDate, endDate, TransactionType.EXPENSE
+            )
+            val groupSpent = categoryExpenses
+                .filter { (it[2] as UUID) in categoryIds }
+                .sumOf { it[0] as Long }
+
+            val usageRate = if (groupBudget > 0) {
+                Math.round(groupSpent.toDouble() / groupBudget * 1000.0) / 10.0
+            } else 0.0
+
+            GroupSpendingSummary(
+                groupId = group.id,
+                groupName = group.name,
+                budgetType = group.budgetType.name,
+                totalBudget = groupBudget,
+                totalSpent = groupSpent,
+                usageRate = usageRate
+            )
+        }
+    }
+
+    private fun calculateTopCategories(
+        coupleId: UUID,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        year: Int,
+        month: Int
+    ): List<CategorySpendingItem> {
+        val currentResults = transactionRepository.sumByCategoryForCouple(
+            coupleId, startDate, endDate, TransactionType.EXPENSE
+        )
+
+        // Previous month for average comparison
+        val prevMonth = YearMonth.of(year, month).minusMonths(1)
+        val prevStart = prevMonth.atDay(1)
+        val prevEnd = prevMonth.atEndOfMonth()
+        val prevResults = transactionRepository.sumByCategoryForCouple(
+            coupleId, prevStart, prevEnd, TransactionType.EXPENSE
+        )
+        val prevMap = prevResults.associate { row ->
+            val catId = row[2] as UUID
+            val amount = row[0] as Long
+            catId to amount
+        }
+
+        return currentResults.take(5).map { row ->
+            val amount = row[0] as Long
+            val count = (row[1] as Long).toInt()
+            val catId = row[2] as UUID
+            val catName = row[3] as String
+            val catType = (row[4] as Enum<*>).name
+            val catIcon = row[5] as? String
+            val catColor = row[6] as? String
+
+            val avgAmount = prevMap[catId] ?: 0L
+
+            CategorySpendingItem(
+                category = CategorySummary(
+                    id = catId,
+                    name = catName,
+                    type = catType,
+                    icon = catIcon,
+                    color = catColor
+                ),
+                amount = amount,
+                averageAmount = avgAmount,
+                deviation = amount - avgAmount,
+                transactionCount = count
+            )
+        }
+    }
+
+    private fun calculatePreviousMonthComparison(
+        coupleId: UUID,
+        currentMonth: YearMonth,
+        currentIncome: Long,
+        currentExpense: Long
+    ): MonthComparisonResponse? {
+        val prevMonth = currentMonth.minusMonths(1)
+        val prevStart = prevMonth.atDay(1)
+        val prevEnd = prevMonth.atEndOfMonth()
+
+        val prevResults = transactionRepository.sumByTypeForCouple(coupleId, prevStart, prevEnd)
+
+        if (prevResults.isEmpty()) return null
+
+        var prevIncome = 0L
+        var prevExpense = 0L
+        for (row in prevResults) {
+            val type = row[0] as TransactionType
+            val sum = row[1] as Long
+            when (type) {
+                TransactionType.INCOME -> prevIncome = sum
+                TransactionType.EXPENSE -> prevExpense = sum
+            }
+        }
+
+        val incomeChangeRate = if (prevIncome > 0) {
+            Math.round((currentIncome - prevIncome).toDouble() / prevIncome * 1000.0) / 10.0
+        } else if (currentIncome > 0) 100.0 else 0.0
+
+        val expenseChangeRate = if (prevExpense > 0) {
+            Math.round((currentExpense - prevExpense).toDouble() / prevExpense * 1000.0) / 10.0
+        } else if (currentExpense > 0) 100.0 else 0.0
+
+        return MonthComparisonResponse(
+            previousYearMonth = prevMonth.toString(),
+            incomeChange = currentIncome - prevIncome,
+            expenseChange = currentExpense - prevExpense,
+            incomeChangeRate = incomeChangeRate,
+            expenseChangeRate = expenseChangeRate
+        )
+    }
+
+    private fun calculateCardPendingSummary(
+        coupleId: UUID,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): CardPendingReportSummary? {
+        val creditCards = paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(
+            coupleId, PaymentMethodType.CREDIT
+        )
+
+        if (creditCards.isEmpty()) return null
+
+        var totalPending = 0L
+        var cardsWithPending = 0
+
+        for (card in creditCards) {
+            // Find transactions with this payment method that have no settlement date or settlement date is after endDate
+            val results = transactionRepository.findByCoupleIdAndFilters(
+                coupleId = coupleId,
+                startDate = startDate,
+                endDate = endDate,
+                type = TransactionType.EXPENSE,
+                categoryId = null,
+                pageable = Pageable.unpaged()
+            ).content.filter { tx ->
+                tx.paymentMethod?.id == card.id && tx.settlementDate == null
+            }
+
+            val pendingAmount = results.sumOf { it.amount }
+            if (pendingAmount > 0) {
+                totalPending += pendingAmount
+                cardsWithPending++
+            }
+        }
+
+        return if (totalPending > 0) {
+            CardPendingReportSummary(
+                totalPendingAmount = totalPending,
+                cardCount = cardsWithPending
+            )
+        } else null
+    }
+
+    private fun calculateDayOfWeekPattern(
+        transactions: List<com.budgetbook.transaction.domain.Transaction>,
+        yearMonth: YearMonth
+    ): List<DayOfWeekPattern> {
+        val byDayOfWeek = transactions.groupBy { it.transactionDate.dayOfWeek }
+
+        // Count how many of each day of week occur in the month
+        val dayCountsInMonth = mutableMapOf<DayOfWeek, Int>()
+        var date = yearMonth.atDay(1)
+        val lastDay = yearMonth.atEndOfMonth()
+        while (!date.isAfter(lastDay)) {
+            dayCountsInMonth.merge(date.dayOfWeek, 1) { a, b -> a + b }
+            date = date.plusDays(1)
+        }
+
+        return DayOfWeek.entries.map { dow ->
+            val dayTxs = byDayOfWeek[dow] ?: emptyList()
+            val totalSpending = dayTxs.sumOf { it.amount }
+            val occurrences = dayCountsInMonth[dow] ?: 1
+            val avgSpending = if (occurrences > 0) totalSpending / occurrences else 0L
+
+            DayOfWeekPattern(
+                dayOfWeek = toDayOfWeekAbbr(dow),
+                averageSpending = avgSpending,
+                totalSpending = totalSpending,
+                transactionCount = dayTxs.size
+            )
+        }
+    }
+
+    private fun toDayOfWeekAbbr(dow: DayOfWeek): String = when (dow) {
+        DayOfWeek.MONDAY -> "MON"
+        DayOfWeek.TUESDAY -> "TUE"
+        DayOfWeek.WEDNESDAY -> "WED"
+        DayOfWeek.THURSDAY -> "THU"
+        DayOfWeek.FRIDAY -> "FRI"
+        DayOfWeek.SATURDAY -> "SAT"
+        DayOfWeek.SUNDAY -> "SUN"
+    }
+
+    private fun getActiveCouple(userId: UUID): Couple {
+        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+    }
+}

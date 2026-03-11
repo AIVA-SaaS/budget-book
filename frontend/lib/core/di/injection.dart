@@ -33,6 +33,18 @@ import 'package:budget_book/features/payment_method/data/datasources/payment_met
 import 'package:budget_book/features/payment_method/data/repositories/payment_method_repository_impl.dart';
 import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/weekly_budget/data/datasources/weekly_budget_remote_datasource.dart';
+import 'package:budget_book/features/weekly_budget/data/repositories/weekly_budget_repository_impl.dart';
+import 'package:budget_book/features/weekly_budget/domain/repositories/weekly_budget_repository.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
+import 'package:budget_book/features/report/data/datasources/report_remote_datasource.dart';
+import 'package:budget_book/features/report/data/repositories/report_repository_impl.dart';
+import 'package:budget_book/features/report/domain/repositories/report_repository.dart';
+import 'package:budget_book/features/report/presentation/bloc/report_bloc.dart';
+import 'package:budget_book/features/recurring/data/datasources/recurring_remote_datasource.dart';
+import 'package:budget_book/features/recurring/data/repositories/recurring_repository_impl.dart';
+import 'package:budget_book/features/recurring/domain/repositories/recurring_repository.dart';
+import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -145,5 +157,42 @@ Future<void> configureDependencies() async {
   getIt.registerFactory<CategoryGroupBloc>(
     () => CategoryGroupBloc(
         categoryGroupRepository: getIt<CategoryGroupRepository>()),
+  );
+
+  // Weekly Budget feature
+  getIt.registerLazySingleton<WeeklyBudgetRemoteDataSource>(
+    () => WeeklyBudgetRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<WeeklyBudgetRepository>(
+    () => WeeklyBudgetRepositoryImpl(
+        remoteDataSource: getIt<WeeklyBudgetRemoteDataSource>()),
+  );
+  getIt.registerFactory<WeeklyBudgetBloc>(
+    () => WeeklyBudgetBloc(
+        weeklyBudgetRepository: getIt<WeeklyBudgetRepository>()),
+  );
+
+  // Report feature
+  getIt.registerLazySingleton<ReportRemoteDataSource>(
+    () => ReportRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<ReportRepository>(
+    () => ReportRepositoryImpl(
+        remoteDataSource: getIt<ReportRemoteDataSource>()),
+  );
+  getIt.registerFactory<ReportBloc>(
+    () => ReportBloc(reportRepository: getIt<ReportRepository>()),
+  );
+
+  // Recurring Transaction feature
+  getIt.registerLazySingleton<RecurringRemoteDataSource>(
+    () => RecurringRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<RecurringRepository>(
+    () => RecurringRepositoryImpl(
+        remoteDataSource: getIt<RecurringRemoteDataSource>()),
+  );
+  getIt.registerFactory<RecurringBloc>(
+    () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
   );
 }
