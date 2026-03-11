@@ -5,6 +5,8 @@ import com.budgetbook.common.entity.BaseTimeEntity
 import com.budgetbook.couple.domain.Couple
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
@@ -30,5 +32,14 @@ class MonthlyBudget(
     val yearMonth: String,
 
     @Column(nullable = false)
-    var amount: Long
+    var amount: Long,
+
+    @Column(name = "budget_period", nullable = false, length = 10)
+    @Enumerated(EnumType.STRING)
+    var budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
+
+    @Column(name = "weekly_amount")
+    var weeklyAmount: Long? = null
 ) : BaseTimeEntity()
+
+enum class BudgetPeriod { WEEKLY, MONTHLY }

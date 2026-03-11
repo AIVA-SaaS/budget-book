@@ -1,5 +1,6 @@
 package com.budgetbook.budget.service
 
+import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetResponse
@@ -49,11 +50,28 @@ class BudgetService(
             throw ConflictException("DUPLICATE_BUDGET", "Budget for this category and month already exists.")
         }
 
+        val budgetPeriod = try {
+            BudgetPeriod.valueOf(request.budgetPeriod ?: "MONTHLY")
+        } catch (e: IllegalArgumentException) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "Invalid budget period: ${request.budgetPeriod}"
+            )
+        }
+
+        val numberOfWeeks = calculateNumberOfWeeks(request.yearMonth)
+        val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
+            request.amount / numberOfWeeks
+        } else {
+            null
+        }
+
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
             yearMonth = request.yearMonth,
-            amount = request.amount
+            amount = request.amount,
+            budgetPeriod = budgetPeriod,
+            weeklyAmount = weeklyAmount
         )
 
         return budgetRepository.save(budget).toResponse()
@@ -166,4 +184,11 @@ class BudgetService(
 
     private fun formatYearMonth(year: Int, month: Int): String =
         "%04d-%02d".format(year, month)
+
+    private fun calculateNumberOfWeeks(yearMonth: String): Int {
+        val parts = yearMonth.split("-")
+        val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
+        val lastDay = ym.lengthOfMonth()
+        return if (lastDay > 28) 5 else 4
+    }
 }

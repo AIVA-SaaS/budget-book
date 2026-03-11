@@ -18,7 +18,9 @@ data class BudgetRequest(
 
     @field:NotNull
     @field:Min(1)
-    val amount: Long
+    val amount: Long,
+
+    val budgetPeriod: String? = "MONTHLY"
 )
 
 data class BudgetUpdateRequest(
@@ -33,6 +35,8 @@ data class BudgetResponse(
     val category: CategorySummary?,
     val yearMonth: String,
     val amount: Long,
+    val budgetPeriod: String,
+    val weeklyAmount: Long?,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -66,6 +70,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     },
     yearMonth = yearMonth,
     amount = amount,
+    budgetPeriod = budgetPeriod.name,
+    weeklyAmount = weeklyAmount,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

@@ -5,7 +5,12 @@ import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryItemResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
+import com.budgetbook.budget.dto.WeeklyGroupSummary
+import com.budgetbook.budget.dto.WeeklyOverviewResponse
+import com.budgetbook.budget.dto.WeeklySnapshotResponse
 import com.budgetbook.budget.service.BudgetService
+import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.transaction.dto.CategorySummary
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -22,7 +27,8 @@ import java.util.UUID
 class BudgetControllerTest : FunSpec({
 
     val budgetService = mockk<BudgetService>()
-    val controller = BudgetController(budgetService)
+    val weeklyBudgetService = mockk<WeeklyBudgetService>()
+    val controller = BudgetController(budgetService, weeklyBudgetService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =
@@ -38,6 +44,8 @@ class BudgetControllerTest : FunSpec({
         category = category,
         yearMonth = "2026-03",
         amount = 150000,
+        budgetPeriod = "MONTHLY",
+        weeklyAmount = null,
         createdAt = Instant.now(),
         updatedAt = Instant.now()
     )
@@ -120,5 +128,55 @@ class BudgetControllerTest : FunSpec({
         result.data!!.yearMonth shouldBe "2026-03"
         result.data!!.totalBudget shouldBe 3150000
         result.data!!.items.size shouldBe 2
+    }
+
+    test("getWeeklyOverview returns weekly overview") {
+        val auth = createAuth(testUserId)
+        val overview = WeeklyOverviewResponse(
+            yearMonth = "2026-03",
+            weeks = listOf(
+                WeeklySnapshotResponse(
+                    weekNumber = 1, weekStart = "2026-03-01", weekEnd = "2026-03-07",
+                    budgetAmount = 100000, spentAmount = 80000, remainingAmount = 20000,
+                    usageRate = 80.0, status = "UNDER"
+                )
+            )
+        )
+        every { weeklyBudgetService.getWeeklyOverview(testUserId, 2026, 3) } returns overview
+
+        val result = controller.getWeeklyOverview(auth, 2026, 3)
+
+        result.success shouldBe true
+        result.data!!.yearMonth shouldBe "2026-03"
+        result.data!!.weeks.size shouldBe 1
+        result.data!!.weeks[0].weekNumber shouldBe 1
+    }
+
+    test("getCurrentWeekSummary returns current week summary") {
+        val auth = createAuth(testUserId)
+        val summary = CurrentWeekSummaryResponse(
+            yearMonth = "2026-03",
+            weekNumber = 2,
+            weekStart = "2026-03-08",
+            weekEnd = "2026-03-14",
+            groups = listOf(
+                WeeklyGroupSummary(
+                    groupId = UUID.randomUUID(),
+                    groupName = "생활비",
+                    budgetAmount = 100000,
+                    spentAmount = 45000,
+                    remainingAmount = 55000,
+                    usageRate = 45.0
+                )
+            )
+        )
+        every { weeklyBudgetService.getCurrentWeekSummary(testUserId) } returns summary
+
+        val result = controller.getCurrentWeekSummary(auth)
+
+        result.success shouldBe true
+        result.data!!.weekNumber shouldBe 2
+        result.data!!.groups.size shouldBe 1
+        result.data!!.groups[0].groupName shouldBe "생활비"
     }
 })

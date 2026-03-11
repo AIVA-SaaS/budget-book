@@ -4,7 +4,10 @@ import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
+import com.budgetbook.budget.dto.WeeklyOverviewResponse
 import com.budgetbook.budget.service.BudgetService
+import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.common.dto.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -24,7 +27,8 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/budgets")
 class BudgetController(
-    private val budgetService: BudgetService
+    private val budgetService: BudgetService,
+    private val weeklyBudgetService: WeeklyBudgetService
 ) {
 
     @PostMapping
@@ -75,5 +79,23 @@ class BudgetController(
     ): ApiResponse<BudgetSummaryResponse> {
         val userId = authentication.principal as UUID
         return ApiResponse.ok(budgetService.getBudgetSummary(userId, year, month))
+    }
+
+    @GetMapping("/weekly")
+    fun getWeeklyOverview(
+        authentication: Authentication,
+        @RequestParam year: Int,
+        @RequestParam month: Int
+    ): ApiResponse<WeeklyOverviewResponse> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(weeklyBudgetService.getWeeklyOverview(userId, year, month))
+    }
+
+    @GetMapping("/weekly/current")
+    fun getCurrentWeekSummary(
+        authentication: Authentication
+    ): ApiResponse<CurrentWeekSummaryResponse> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(weeklyBudgetService.getCurrentWeekSummary(userId))
     }
 }
