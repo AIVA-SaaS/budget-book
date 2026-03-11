@@ -15,12 +15,16 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String? categoryId,
     required String yearMonth,
     required int amount,
+    String budgetPeriod = 'MONTHLY',
+    int? weeklyAmount,
   }) async {
     try {
       final data = <String, dynamic>{
         'yearMonth': yearMonth,
         'amount': amount,
+        'budgetPeriod': budgetPeriod,
         if (categoryId != null) 'categoryId': categoryId,
+        if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
       };
       final result = await remoteDataSource.createBudget(data);
       return Right(result);
@@ -47,10 +51,16 @@ class BudgetRepositoryImpl implements BudgetRepository {
   Future<Either<Failure, Budget>> updateBudget({
     required String id,
     required int amount,
+    String? budgetPeriod,
+    int? weeklyAmount,
   }) async {
     try {
-      final result =
-          await remoteDataSource.updateBudget(id, {'amount': amount});
+      final data = <String, dynamic>{
+        'amount': amount,
+        if (budgetPeriod != null) 'budgetPeriod': budgetPeriod,
+        if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
+      };
+      final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);
     } on DioException catch (e) {
       return Left(_mapDioError(e, '예산을 수정하지 못했습니다'));

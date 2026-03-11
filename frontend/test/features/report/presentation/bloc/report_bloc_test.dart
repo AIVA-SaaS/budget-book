@@ -161,7 +161,7 @@ void main() {
       );
 
       blocTest<ReportBloc, ReportState>(
-        'preserves monthly report when loading weekly',
+        'preserves monthly report when loading weekly (no loading flash)',
         build: () {
           when(mockRepository.getWeeklyReport(2026, 3, 2))
               .thenAnswer((_) async => const Right(tWeeklyReport));
@@ -171,7 +171,6 @@ void main() {
         act: (bloc) => bloc.add(
             const LoadWeeklyReport(year: 2026, month: 3, week: 2)),
         expect: () => [
-          const ReportLoading(),
           const ReportLoaded(
               weeklyReport: tWeeklyReport, monthlyReport: tMonthlyReport),
         ],
@@ -211,7 +210,7 @@ void main() {
       );
 
       blocTest<ReportBloc, ReportState>(
-        'preserves weekly report when loading monthly',
+        'preserves weekly report when loading monthly (no loading flash)',
         build: () {
           when(mockRepository.getMonthlyReport(2026, 3))
               .thenAnswer((_) async => const Right(tMonthlyReport));
@@ -221,7 +220,6 @@ void main() {
         act: (bloc) =>
             bloc.add(const LoadMonthlyReport(year: 2026, month: 3)),
         expect: () => [
-          const ReportLoading(),
           const ReportLoaded(
               weeklyReport: tWeeklyReport, monthlyReport: tMonthlyReport),
         ],

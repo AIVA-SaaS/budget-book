@@ -197,8 +197,10 @@ class TransactionService(
         }
 
         // If transactionDate changed but paymentMethod was not changed, recalculate settlement date
-        if (request.transactionDate != null && !paymentMethodChanged && transaction.paymentMethod != null) {
-            transaction.settlementDate = calculateSettlementDate(transaction.paymentMethod!!, transaction.transactionDate)
+        if (request.transactionDate != null && !paymentMethodChanged) {
+            transaction.paymentMethod?.let { pm ->
+                transaction.settlementDate = calculateSettlementDate(pm, transaction.transactionDate)
+            }
         }
 
         return transactionRepository.save(transaction).toResponse()

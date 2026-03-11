@@ -14,9 +14,6 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
-import com.budgetbook.paymentmethod.domain.PaymentMethod
-import com.budgetbook.paymentmethod.domain.PaymentMethodType
-import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -43,15 +40,13 @@ class ReportServiceTest : BehaviorSpec({
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val budgetRepository = mockk<MonthlyBudgetRepository>()
-    val paymentMethodRepository = mockk<PaymentMethodRepository>()
 
     val service = ReportService(
         transactionRepository,
         coupleRepository,
         categoryGroupRepository,
         categoryRepository,
-        budgetRepository,
-        paymentMethodRepository
+        budgetRepository
     )
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
@@ -340,26 +335,21 @@ class ReportServiceTest : BehaviorSpec({
                 arrayOf(280000L, 6L, transportCategory.id, "Transport", CategoryType.EXPENSE, "directions_car", "#2196F3")
             )
 
-            // Card pending summary (uses sumByPaymentMethodAndSettlementDateRange, aligned with PaymentMethodService)
-            val creditCard = PaymentMethod(couple = couple, name = "Card1", type = PaymentMethodType.CREDIT)
+            // Card pending summary (single grouped query)
+            val creditCardId = UUID.randomUUID()
             every {
-                paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(couple.id, PaymentMethodType.CREDIT)
-            } returns listOf(creditCard)
-
-            every {
-                transactionRepository.sumByPaymentMethodAndSettlementDateRange(
-                    paymentMethodId = creditCard.id,
-                    startDate = LocalDate.of(2026, 3, 1),
-                    endDate = LocalDate.of(2026, 3, 31)
+                transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
+                    couple.id,
+                    LocalDate.of(2026, 3, 1),
+                    LocalDate.of(2026, 3, 31)
                 )
-            } returns listOf(arrayOf<Any?>(150000L, 1L))
+            } returns listOf(arrayOf(creditCardId, 150000L))
 
             // Day of week pattern needs expense transactions for the month
             val expenseTx = Transaction(
                 couple = couple, author = user1, category = foodCategory,
                 type = TransactionType.EXPENSE, amount = 150000, description = "Expense",
-                transactionDate = LocalDate.of(2026, 3, 15),
-                paymentMethod = creditCard, settlementDate = null
+                transactionDate = LocalDate.of(2026, 3, 15)
             )
             every {
                 transactionRepository.findByCoupleIdAndFilters(
@@ -469,7 +459,11 @@ class ReportServiceTest : BehaviorSpec({
             } returns emptyList()
 
             every {
-                paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(couple.id, PaymentMethodType.CREDIT)
+                transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
+                    couple.id,
+                    LocalDate.of(2026, 1, 1),
+                    LocalDate.of(2026, 1, 31)
+                )
             } returns emptyList()
 
             every {

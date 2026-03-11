@@ -30,10 +30,12 @@ class BudgetFormPage extends StatefulWidget {
 class _BudgetFormPageState extends State<BudgetFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
+  late final TextEditingController _weeklyAmountController;
   String? _selectedCategoryId;
   bool _isOverallBudget = false;
   late int _selectedYear;
   late int _selectedMonth;
+  late String _budgetPeriod;
 
   bool get isEditing => widget.budget != null;
 
@@ -43,15 +45,19 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     final b = widget.budget;
     _amountController =
         TextEditingController(text: b != null ? b.amount.toString() : '');
+    _weeklyAmountController = TextEditingController(
+        text: b?.weeklyAmount != null ? b!.weeklyAmount.toString() : '');
     _selectedCategoryId = b?.category?.id;
     _isOverallBudget = b != null && b.category == null;
     _selectedYear = widget.year;
     _selectedMonth = widget.month;
+    _budgetPeriod = b?.budgetPeriod ?? 'MONTHLY';
   }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _weeklyAmountController.dispose();
     super.dispose();
   }
 
@@ -126,6 +132,28 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   ),
                   const SizedBox(height: 16),
                 ],
+                // Budget period selector
+                DropdownButtonFormField<String>(
+                  initialValue: _budgetPeriod,
+                  decoration: const InputDecoration(
+                    labelText: '예산 기간',
+                    prefixIcon: Icon(Icons.schedule),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'MONTHLY', child: Text('월간')),
+                    DropdownMenuItem(
+                        value: 'WEEKLY', child: Text('주간')),
+                  ],
+                  onChanged: isEditing
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _budgetPeriod = value ?? 'MONTHLY';
+                          });
+                        },
+                ),
+                const SizedBox(height: 16),
                 // Amount input
                 TextFormField(
                   controller: _amountController,
@@ -147,6 +175,31 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     return null;
                   },
                 ),
+                // Weekly amount input (only shown for WEEKLY period)
+                if (_budgetPeriod == 'WEEKLY') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _weeklyAmountController,
+                    decoration: const InputDecoration(
+                      labelText: '주간 예산 금액',
+                      suffixText: '원',
+                      prefixIcon: Icon(Icons.date_range),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (value) {
+                      if (_budgetPeriod != 'WEEKLY') return null;
+                      if (value == null || value.trim().isEmpty) {
+                        return '주간 예산 금액을 입력하세요';
+                      }
+                      final amount = int.tryParse(value);
+                      if (amount == null || amount <= 0) {
+                        return '0보다 큰 금액을 입력하세요';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 32),
                 // Submit button
                 FilledButton(
@@ -246,6 +299,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       final amount = int.parse(_amountController.text.trim());
+      final weeklyAmount = _budgetPeriod == 'WEEKLY' &&
+              _weeklyAmountController.text.trim().isNotEmpty
+          ? int.parse(_weeklyAmountController.text.trim())
+          : null;
       final yearMonth =
           '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
       final bloc = context.read<BudgetBloc>();
@@ -254,12 +311,16 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         bloc.add(UpdateBudget(
           id: widget.budget!.id,
           amount: amount,
+          budgetPeriod: _budgetPeriod,
+          weeklyAmount: weeklyAmount,
         ));
       } else {
         bloc.add(CreateBudget(
           categoryId: _isOverallBudget ? null : _selectedCategoryId,
           yearMonth: yearMonth,
           amount: amount,
+          budgetPeriod: _budgetPeriod,
+          weeklyAmount: weeklyAmount,
         ));
       }
     }
