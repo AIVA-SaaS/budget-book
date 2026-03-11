@@ -2,7 +2,7 @@
 
 > Created: 2026-02-26
 > Updated: 2026-03-11
-> Status: Phase 3 In Progress (P3-1, P3-3 Complete)
+> Status: Phase 3 Complete (All 5 features)
 
 ---
 
@@ -327,14 +327,14 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 - 기본 3개 그룹 시드: 생활비(WEEKLY), 고정지출(MONTHLY), 기타(NONE)
 - 카테고리 자동 할당: 식비/교통비/쇼핑 → 생활비, 기타/의료/문화 → 기타
 
-### P3-2: Weekly Budget Cycle (주간 예산 사이클)
+### P3-2: Weekly Budget Cycle (주간 예산 사이클) ✅ Complete
 **Business Value:** High — 주간 생활비 예산 추적, 초과/절약 기록
 **Complexity:** Medium
 
 - `monthly_budgets` 확장: budget_period (WEEKLY/MONTHLY), weekly_amount
 - New table: `weekly_budget_snapshots` (주간 실적 추적)
-- BE: WeeklyBudgetService — 주간 예산 분배, 주간 실적 조회
-- FE: 메인 화면에 주간 예산 게이지, 주간 리뷰 카드
+- BE: WeeklyBudgetService — 주간 예산 분배, 주간 실적 조회, 현재 주 요약
+- FE: WeeklyBudgetPage + WeeklyBudgetBloc + week_summary_card
 
 ### P3-3: Payment Methods & Card Tracking (결제수단 + 카드 미결제 추적) ✅ Complete
 **Business Value:** High — 카드 결제 시점 vs 출금 시점 괴리 해결
@@ -346,22 +346,23 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 - FE: PaymentMethodPage + PaymentMethodBloc + transaction form 결제수단 선택
 - 신용카드 settlement_date 자동 계산 (마감일/결제일 기반)
 
-### P3-4: Rule-based Reports (규칙 기반 주간/월간 리포트)
+### P3-4: Rule-based Reports (규칙 기반 주간/월간 리포트) ✅ Complete
 **Business Value:** Medium — AI 없이 즉시 가치 제공
 **Complexity:** Medium
 
-- 주간 리포트: 예산 대비 초과 카테고리 TOP 3, 요일별 지출 패턴
-- 월간 리포트: 그룹별 소계, 전월 대비 변동, 카드 미결제 요약
-- BE: ReportService with aggregation queries
-- FE: ReportPage with summary cards
+- 주간 리포트: 예산 대비 초과 카테고리, 4주 평균 대비 deviation, 요일별 지출 패턴
+- 월간 리포트: 그룹별 소계, 전월 대비 변동률, 카드 미결제 요약, 요일별 패턴
+- BE: ReportService/Controller with aggregation queries
+- FE: ReportPage (탭 뷰) + overspend_category_tile, daily_spending_chart, month_comparison_card
 
-### P3-5: Recurring Transactions (자동 반복 거래)
+### P3-5: Recurring Transactions (자동 반복 거래) ✅ Complete
 **Business Value:** High — 월급, 월세, 구독료 등 반복 지출 자동 기록
 **Complexity:** Medium
 
 - New table: `recurring_transactions` (frequency: DAILY/WEEKLY/MONTHLY/YEARLY, next_run_date)
-- Scheduler: Spring `@Scheduled` job to create transactions on due date
-- UI: "반복" 토글 on transaction form, recurring list management page
+- Scheduler: Spring `@Scheduled` 매일 06:00 실행, 자동 거래 생성
+- BE: RecurringTransactionService/Controller + CRUD + executeRecurringTransactions
+- FE: RecurringListPage + RecurringFormPage + RecurringBloc
 
 ---
 
@@ -438,6 +439,6 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 | Phase 2a | Couple + Category + Transaction | ✅ Deployed |
 | Phase 2b | Budget Planning + Statistics | ✅ Complete, deploying |
 | Phase 2c | WebSocket + Redis | 📋 Next sprint |
-| Phase 3 | Category Groups + Payment Methods + Weekly Budget + Reports + Recurring | 🔄 In Progress (P3-1, P3-3 ✅) |
+| Phase 3 | Category Groups + Payment Methods + Weekly Budget + Reports + Recurring | ✅ Complete |
 | Phase 4 | Money Pockets + AI Classification + Claude Reports + Push | 💡 Future |
 | Phase 5 | Premium + Native + Admin | 💡 Long-term |

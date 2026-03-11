@@ -51,6 +51,17 @@
   - [Update Payment Method](#3-update-payment-method)
   - [Delete Payment Method](#4-delete-payment-method)
   - [Card Pending Summary](#5-card-pending-summary)
+- [Weekly Budgets](#weekly-budgets)
+  - [Weekly Overview](#1-weekly-overview)
+  - [Current Week Summary](#2-current-week-summary)
+- [Reports](#reports)
+  - [Weekly Report](#1-weekly-report)
+  - [Monthly Report](#2-monthly-report)
+- [Recurring Transactions](#recurring-transactions)
+  - [List Recurring Transactions](#1-list-recurring-transactions)
+  - [Create Recurring Transaction](#2-create-recurring-transaction)
+  - [Update Recurring Transaction](#3-update-recurring-transaction)
+  - [Delete Recurring Transaction](#4-delete-recurring-transaction)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -1625,6 +1636,224 @@ Returns unsettled credit card amounts for a given month.
   ]
 }
 ```
+
+---
+
+## Weekly Budgets
+
+Extends the existing Budget endpoints with weekly tracking capabilities.
+
+---
+
+### 1. Weekly Overview
+
+Returns weekly spending snapshots for a given month.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/budgets/weekly`                 |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description       |
+|:----------|:----------|:--------:|:------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)  |
+| `month`   | `integer` | Yes      | Month (1-12)      |
+
+**Response `200 OK`**: `ApiResponse<WeeklyOverviewResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "weeks": [
+      {
+        "weekNumber": 1,
+        "weekStart": "2026-03-01",
+        "weekEnd": "2026-03-07",
+        "budgetAmount": 200000,
+        "spentAmount": 180000,
+        "remainingAmount": 20000,
+        "usageRate": 90.0,
+        "status": "UNDER"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 2. Current Week Summary
+
+Returns this week's budget vs spending grouped by WEEKLY category groups.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/budgets/weekly/current`         |
+| **Auth**    | Required                                 |
+
+**Response `200 OK`**: `ApiResponse<CurrentWeekSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "weekNumber": 2,
+    "weekStart": "2026-03-08",
+    "weekEnd": "2026-03-14",
+    "groups": [
+      {
+        "groupId": "550e8400-e29b-41d4-a716-446655440010",
+        "groupName": "생활비",
+        "budgetAmount": 200000,
+        "spentAmount": 120000,
+        "remainingAmount": 80000,
+        "usageRate": 60.0
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Reports
+
+Base path: `/api/v1/reports`
+
+Rule-based spending analysis reports. No AI — pure aggregation and pattern detection.
+
+---
+
+### 1. Weekly Report
+
+Detailed weekly spending analysis with overspend detection and daily patterns.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/reports/weekly`                           |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description        |
+|:----------|:----------|:--------:|:-------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)   |
+| `month`   | `integer` | Yes      | Month (1-12)       |
+| `week`    | `integer` | Yes      | Week number (1-5)  |
+
+**Response `200 OK`**: `ApiResponse<WeeklyReportResponse>`
+
+---
+
+### 2. Monthly Report
+
+Monthly spending overview with group summaries, month-over-month comparison, and day-of-week patterns.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/reports/monthly`                          |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description       |
+|:----------|:----------|:--------:|:------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)  |
+| `month`   | `integer` | Yes      | Month (1-12)      |
+
+**Response `200 OK`**: `ApiResponse<MonthlyReportResponse>`
+
+---
+
+## Recurring Transactions
+
+Base path: `/api/v1/recurring-transactions`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+---
+
+### 1. List Recurring Transactions
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/recurring-transactions`         |
+| **Auth**    | Required                                 |
+
+**Response `200 OK`**: `ApiResponse<List<RecurringTransactionResponse>>`
+
+---
+
+### 2. Create Recurring Transaction
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `POST`                                   |
+| **Path**    | `/api/v1/recurring-transactions`         |
+| **Auth**    | Required                                 |
+
+**Request Body**
+
+| Field             | Type      | Required | Description                                    |
+|:------------------|:----------|:--------:|:-----------------------------------------------|
+| `type`            | `enum`    | Yes      | `INCOME` or `EXPENSE`                          |
+| `amount`          | `long`    | Yes      | Amount (> 0)                                   |
+| `description`     | `string`  | Yes      | Short description                              |
+| `memo`            | `string`  | No       | Optional note                                  |
+| `categoryId`      | `UUID`    | No       | Category ID                                    |
+| `paymentMethodId` | `UUID`    | No       | Payment method ID                              |
+| `frequency`       | `enum`    | Yes      | `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`      |
+| `dayOfMonth`      | `integer` | No       | Day of month (1-31, required for MONTHLY)      |
+| `dayOfWeek`       | `integer` | No       | Day of week (1=MON..7=SUN, required for WEEKLY)|
+
+**Response `201 Created`**: `ApiResponse<RecurringTransactionResponse>`
+
+---
+
+### 3. Update Recurring Transaction
+
+| Item        | Value                                        |
+|:------------|:---------------------------------------------|
+| **Method**  | `PUT`                                        |
+| **Path**    | `/api/v1/recurring-transactions/{id}`        |
+| **Auth**    | Required                                     |
+
+**Request Body** (all optional)
+
+| Field             | Type      | Description          |
+|:------------------|:----------|:---------------------|
+| `amount`          | `long`    | Amount (> 0)         |
+| `description`     | `string`  | Description          |
+| `memo`            | `string`  | Note                 |
+| `categoryId`      | `UUID`    | Category ID          |
+| `paymentMethodId` | `UUID`    | Payment method ID    |
+| `dayOfMonth`      | `integer` | Day of month         |
+| `dayOfWeek`       | `integer` | Day of week          |
+| `isActive`        | `boolean` | Active/inactive      |
+
+**Response `200 OK`**: `ApiResponse<RecurringTransactionResponse>`
+
+---
+
+### 4. Delete Recurring Transaction
+
+| Item        | Value                                        |
+|:------------|:---------------------------------------------|
+| **Method**  | `DELETE`                                     |
+| **Path**    | `/api/v1/recurring-transactions/{id}`        |
+| **Auth**    | Required                                     |
+
+**Response `204 No Content`**
 
 ---
 
