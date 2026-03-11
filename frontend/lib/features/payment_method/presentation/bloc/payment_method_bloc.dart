@@ -1,0 +1,152 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
+import 'payment_method_event.dart';
+import 'payment_method_state.dart';
+
+class PaymentMethodBloc
+    extends Bloc<PaymentMethodEvent, PaymentMethodState> {
+  final PaymentMethodRepository paymentMethodRepository;
+
+  PaymentMethodBloc({required this.paymentMethodRepository})
+      : super(const PaymentMethodInitial()) {
+    on<LoadPaymentMethods>(_onLoadPaymentMethods);
+    on<CreatePaymentMethod>(_onCreatePaymentMethod);
+    on<UpdatePaymentMethod>(_onUpdatePaymentMethod);
+    on<DeletePaymentMethod>(_onDeletePaymentMethod);
+    on<LoadCardPending>(_onLoadCardPending);
+  }
+
+  Future<void> _onLoadPaymentMethods(
+    LoadPaymentMethods event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    emit(const PaymentMethodLoading());
+    final result = await paymentMethodRepository.getPaymentMethods();
+    result.fold(
+      (failure) => emit(PaymentMethodError(failure.message)),
+      (methods) => emit(PaymentMethodLoaded(methods)),
+    );
+  }
+
+  Future<void> _onCreatePaymentMethod(
+    CreatePaymentMethod event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    final currentMethods = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).paymentMethods
+        : <PaymentMethod>[];
+    final currentPendings = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).cardPendings
+        : null;
+
+    final result = await paymentMethodRepository.createPaymentMethod(
+      name: event.name,
+      type: event.type,
+      settlementDay: event.settlementDay,
+      closingDay: event.closingDay,
+    );
+    result.fold(
+      (failure) => emit(PaymentMethodLoaded(
+        currentMethods,
+        cardPendings: currentPendings,
+        operationError: failure.message,
+      )),
+      (method) => emit(PaymentMethodLoaded(
+        [...currentMethods, method],
+        cardPendings: currentPendings,
+      )),
+    );
+  }
+
+  Future<void> _onUpdatePaymentMethod(
+    UpdatePaymentMethod event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    final currentMethods = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).paymentMethods
+        : <PaymentMethod>[];
+    final currentPendings = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).cardPendings
+        : null;
+
+    final result = await paymentMethodRepository.updatePaymentMethod(
+      id: event.id,
+      name: event.name,
+      settlementDay: event.settlementDay,
+      closingDay: event.closingDay,
+      isActive: event.isActive,
+      displayOrder: event.displayOrder,
+    );
+    result.fold(
+      (failure) => emit(PaymentMethodLoaded(
+        currentMethods,
+        cardPendings: currentPendings,
+        operationError: failure.message,
+      )),
+      (updated) {
+        final updatedList = currentMethods
+            .map((pm) => pm.id == updated.id ? updated : pm)
+            .toList();
+        emit(PaymentMethodLoaded(
+          updatedList,
+          cardPendings: currentPendings,
+        ));
+      },
+    );
+  }
+
+  Future<void> _onDeletePaymentMethod(
+    DeletePaymentMethod event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    final currentMethods = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).paymentMethods
+        : <PaymentMethod>[];
+    final currentPendings = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).cardPendings
+        : null;
+
+    final result =
+        await paymentMethodRepository.deletePaymentMethod(event.id);
+    result.fold(
+      (failure) => emit(PaymentMethodLoaded(
+        currentMethods,
+        cardPendings: currentPendings,
+        operationError: failure.message,
+      )),
+      (_) {
+        final updatedList =
+            currentMethods.where((pm) => pm.id != event.id).toList();
+        emit(PaymentMethodLoaded(
+          updatedList,
+          cardPendings: currentPendings,
+        ));
+      },
+    );
+  }
+
+  Future<void> _onLoadCardPending(
+    LoadCardPending event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    final currentMethods = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).paymentMethods
+        : <PaymentMethod>[];
+
+    final result = await paymentMethodRepository.getCardPending(
+      event.year,
+      event.month,
+    );
+    result.fold(
+      (failure) => emit(PaymentMethodLoaded(
+        currentMethods,
+        operationError: failure.message,
+      )),
+      (pendings) => emit(PaymentMethodLoaded(
+        currentMethods,
+        cardPendings: pendings,
+      )),
+    );
+  }
+}

@@ -53,6 +53,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       categoryId: event.categoryId,
       transactionDate: event.transactionDate,
       memo: event.memo,
+      paymentMethodId: event.paymentMethodId,
     );
     result.fold(
       (failure) => emit(TransactionError(failure.message)),
@@ -72,6 +73,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       transactionDate: event.transactionDate,
       memo: event.memo,
       clearMemo: event.clearMemo,
+      paymentMethodId: event.paymentMethodId,
     );
     result.fold(
       (failure) => emit(TransactionError(failure.message)),
