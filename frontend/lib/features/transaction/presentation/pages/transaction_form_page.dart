@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
     as txn;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
@@ -28,6 +31,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late final TextEditingController _memoController;
   late String _selectedType;
   String? _selectedCategoryId;
+  String? _selectedPaymentMethodId;
   late DateTime _selectedDate;
 
   bool get isEditing => widget.transaction != null;
@@ -43,6 +47,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     _memoController = TextEditingController(text: t?.memo ?? '');
     _selectedType = t?.type ?? 'EXPENSE';
     _selectedCategoryId = t?.category?.id;
+    _selectedPaymentMethodId = t?.paymentMethodId;
     _selectedDate = t != null
         ? DateTime.parse(t.transactionDate)
         : DateTime.now();
@@ -147,6 +152,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 // Category picker
                 _buildCategoryPicker(context),
                 const SizedBox(height: 16),
+                // Payment method picker
+                _buildPaymentMethodPicker(context),
+                const SizedBox(height: 16),
                 // Date picker
                 _buildDatePicker(context),
                 const SizedBox(height: 16),
@@ -212,6 +220,39 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  Widget _buildPaymentMethodPicker(BuildContext context) {
+    return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+      builder: (context, pmState) {
+        final methods = pmState is PaymentMethodLoaded
+            ? pmState.activePaymentMethods
+            : <PaymentMethod>[];
+
+        return DropdownButtonFormField<String>(
+          initialValue: _selectedPaymentMethodId,
+          decoration: const InputDecoration(
+            labelText: '결제수단',
+            prefixIcon: Icon(Icons.account_balance_wallet),
+          ),
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('선택 안 함'),
+            ),
+            ...methods.map((pm) => DropdownMenuItem<String>(
+                  value: pm.id,
+                  child: Text(pm.name),
+                )),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedPaymentMethodId = value;
+            });
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDatePicker(BuildContext context) {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return InkWell(
@@ -256,6 +297,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           transactionDate: dateStr,
           memo: memo,
           clearMemo: memo == null,
+          paymentMethodId: _selectedPaymentMethodId,
         ));
       } else {
         bloc.add(CreateTransaction(
@@ -265,6 +307,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           categoryId: _selectedCategoryId,
           transactionDate: dateStr,
           memo: memo,
+          paymentMethodId: _selectedPaymentMethodId,
         ));
       }
     }

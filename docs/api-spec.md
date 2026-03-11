@@ -40,6 +40,17 @@
   - [Monthly Summary](#1-monthly-summary)
   - [Category Breakdown](#2-category-breakdown)
   - [Monthly Trend](#3-monthly-trend)
+- [Category Groups](#category-groups)
+  - [List Category Groups](#1-list-category-groups)
+  - [Create Category Group](#2-create-category-group)
+  - [Update Category Group](#3-update-category-group)
+  - [Delete Category Group](#4-delete-category-group)
+- [Payment Methods](#payment-methods)
+  - [List Payment Methods](#1-list-payment-methods)
+  - [Create Payment Method](#2-create-payment-method)
+  - [Update Payment Method](#3-update-payment-method)
+  - [Delete Payment Method](#4-delete-payment-method)
+  - [Card Pending Summary](#5-card-pending-summary)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -1346,6 +1357,277 @@ Returns month-over-month income, expense, and balance for the last N months incl
 
 ---
 
+## Category Groups
+
+Base path: `/api/v1/category-groups`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. List Category Groups
+
+Retrieves all category groups with their nested categories. Includes a virtual "미분류" group for categories without a group.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/category-groups`        |
+| **Auth**    | Required                         |
+
+**Response `200 OK`**: `ApiResponse<List<CategoryGroupResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "생활비",
+      "icon": "account_balance_wallet",
+      "color": "#4CAF50",
+      "budgetType": "WEEKLY",
+      "displayOrder": 1,
+      "isDefault": true,
+      "categories": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440020",
+          "name": "식비",
+          "type": "EXPENSE",
+          "icon": "restaurant",
+          "color": "#FF5733",
+          "isDefault": true,
+          "displayOrder": 1,
+          "groupId": "550e8400-e29b-41d4-a716-446655440010",
+          "createdAt": "2024-01-01T12:00:00Z"
+        }
+      ],
+      "createdAt": "2024-01-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Create Category Group
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `POST`                           |
+| **Path**    | `/api/v1/category-groups`        |
+| **Auth**    | Required                         |
+
+**Request Body**
+
+| Field        | Type     | Required | Description                            |
+|:-------------|:---------|:--------:|:---------------------------------------|
+| `name`       | `string` | Yes      | Group name (max 50 chars)              |
+| `icon`       | `string` | No       | Material icon name                     |
+| `color`      | `string` | No       | Hex color code                         |
+| `budgetType` | `enum`   | No       | `WEEKLY`, `MONTHLY` (default), `NONE`  |
+
+**Response `201 Created`**: `ApiResponse<CategoryGroupResponse>`
+
+---
+
+### 3. Update Category Group
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `PUT`                                |
+| **Path**    | `/api/v1/category-groups/{id}`       |
+| **Auth**    | Required                             |
+
+**Request Body** (all fields optional)
+
+| Field          | Type      | Description                            |
+|:---------------|:----------|:---------------------------------------|
+| `name`         | `string`  | Group name (max 50 chars)              |
+| `icon`         | `string`  | Material icon name                     |
+| `color`        | `string`  | Hex color code                         |
+| `budgetType`   | `enum`    | `WEEKLY`, `MONTHLY`, or `NONE`         |
+| `displayOrder` | `integer` | Sort order                             |
+
+**Response `200 OK`**: `ApiResponse<CategoryGroupResponse>`
+
+---
+
+### 4. Delete Category Group
+
+Deletes a category group. Categories in the group become uncategorized (group_id set to null). Default groups cannot be deleted.
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `DELETE`                             |
+| **Path**    | `/api/v1/category-groups/{id}`       |
+| **Auth**    | Required                             |
+
+**Response `204 No Content`**
+
+| Status | Error Code                    | Description                          |
+|:-------|:------------------------------|:-------------------------------------|
+| `404`  | `GROUP_NOT_FOUND`             | Category group does not exist        |
+| `400`  | `CANNOT_DELETE_DEFAULT_GROUP`  | Default groups cannot be deleted     |
+
+---
+
+## Payment Methods
+
+Base path: `/api/v1/payment-methods`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. List Payment Methods
+
+Retrieves all payment methods for the couple.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/payment-methods`        |
+| **Auth**    | Required                         |
+
+**Response `200 OK`**: `ApiResponse<List<PaymentMethodResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440030",
+      "name": "현금",
+      "type": "CASH",
+      "settlementDay": null,
+      "closingDay": null,
+      "isActive": true,
+      "isDefault": true,
+      "displayOrder": 0,
+      "createdAt": "2024-01-01T12:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440031",
+      "name": "신한카드",
+      "type": "CREDIT",
+      "settlementDay": 15,
+      "closingDay": 25,
+      "isActive": true,
+      "isDefault": false,
+      "displayOrder": 2,
+      "createdAt": "2024-01-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Create Payment Method
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `POST`                           |
+| **Path**    | `/api/v1/payment-methods`        |
+| **Auth**    | Required                         |
+
+**Request Body**
+
+| Field           | Type      | Required | Description                              |
+|:----------------|:----------|:--------:|:-----------------------------------------|
+| `name`          | `string`  | Yes      | Payment method name (max 100 chars)      |
+| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, or `CREDIT`             |
+| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)   |
+| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)      |
+
+**Response `201 Created`**: `ApiResponse<PaymentMethodResponse>`
+
+---
+
+### 3. Update Payment Method
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `PUT`                                |
+| **Path**    | `/api/v1/payment-methods/{id}`       |
+| **Auth**    | Required                             |
+
+**Request Body** (all fields optional)
+
+| Field           | Type      | Description                              |
+|:----------------|:----------|:-----------------------------------------|
+| `name`          | `string`  | Payment method name                      |
+| `settlementDay` | `integer` | Card settlement day (1-31)               |
+| `closingDay`    | `integer` | Card closing day (1-31)                  |
+| `isActive`      | `boolean` | Active status                            |
+| `displayOrder`  | `integer` | Sort order                               |
+
+**Response `200 OK`**: `ApiResponse<PaymentMethodResponse>`
+
+---
+
+### 4. Delete Payment Method
+
+Default payment methods cannot be deleted.
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `DELETE`                             |
+| **Path**    | `/api/v1/payment-methods/{id}`       |
+| **Auth**    | Required                             |
+
+**Response `204 No Content`**
+
+---
+
+### 5. Card Pending Summary
+
+Returns unsettled credit card amounts for a given month.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/payment-methods/card-pending`             |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description          |
+|:----------|:----------|:--------:|:---------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)     |
+| `month`   | `integer` | Yes      | Month (1-12)         |
+
+**Response `200 OK`**: `ApiResponse<List<CardPendingResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "paymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440031",
+        "name": "신한카드",
+        "type": "CREDIT",
+        "settlementDay": 15,
+        "closingDay": 25,
+        "isActive": true,
+        "isDefault": false,
+        "displayOrder": 2,
+        "createdAt": "2024-01-01T12:00:00Z"
+      },
+      "pendingAmount": 450000,
+      "settlementDate": "2026-04-15",
+      "transactionCount": 12
+    }
+  ]
+}
+```
+
+---
+
 ## Common Data Types
 
 ### TokenResponse
@@ -1404,7 +1686,45 @@ Returns month-over-month income, expense, and balance for the last N months incl
 | `color`        | `string`  | Yes      | Hex color code (e.g., `#FF5733`)     |
 | `isDefault`    | `boolean` | No       | Whether this is a system default     |
 | `displayOrder` | `integer` | No       | Sort order within type group         |
+| `groupId`      | `UUID`    | Yes      | Category group ID (null if ungrouped)|
 | `createdAt`    | `string`  | No       | ISO 8601 timestamp                   |
+
+### CategoryGroupResponse
+
+| Field          | Type                    | Nullable | Description                             |
+|:---------------|:------------------------|:--------:|:----------------------------------------|
+| `id`           | `UUID`                  | No       | Category group unique identifier        |
+| `name`         | `string`                | No       | Group name                              |
+| `icon`         | `string`                | Yes      | Material icon name                      |
+| `color`        | `string`                | Yes      | Hex color code                          |
+| `budgetType`   | `enum`                  | No       | `WEEKLY`, `MONTHLY`, or `NONE`          |
+| `displayOrder` | `integer`               | No       | Sort order                              |
+| `isDefault`    | `boolean`               | No       | Whether this is a system default        |
+| `categories`   | `List<CategoryResponse>`| No       | Nested categories in this group         |
+| `createdAt`    | `string`                | No       | ISO 8601 timestamp                      |
+
+### PaymentMethodResponse
+
+| Field           | Type      | Nullable | Description                           |
+|:----------------|:----------|:--------:|:--------------------------------------|
+| `id`            | `UUID`    | No       | Payment method unique identifier      |
+| `name`          | `string`  | No       | Payment method name                   |
+| `type`          | `enum`    | No       | `CASH`, `DEBIT`, or `CREDIT`          |
+| `settlementDay` | `integer` | Yes      | Card settlement day (1-31)            |
+| `closingDay`    | `integer` | Yes      | Card closing day (1-31)               |
+| `isActive`      | `boolean` | No       | Whether this method is active         |
+| `isDefault`     | `boolean` | No       | Whether this is a system default      |
+| `displayOrder`  | `integer` | No       | Sort order                            |
+| `createdAt`     | `string`  | No       | ISO 8601 timestamp                    |
+
+### CardPendingResponse
+
+| Field              | Type                    | Nullable | Description                        |
+|:-------------------|:------------------------|:--------:|:-----------------------------------|
+| `paymentMethod`    | `PaymentMethodResponse` | No       | The credit card                    |
+| `pendingAmount`    | `long`                  | No       | Total unsettled amount             |
+| `settlementDate`   | `string`                | Yes      | Next settlement date (YYYY-MM-DD) |
+| `transactionCount` | `integer`               | No       | Number of pending transactions     |
 
 ### CategorySummary
 
@@ -1429,6 +1749,10 @@ Returns month-over-month income, expense, and balance for the last N months incl
 | `description`     | `string`          | No       | Short description                |
 | `memo`            | `string`          | Yes      | Optional longer note             |
 | `transactionDate` | `string`          | No       | ISO 8601 date: `YYYY-MM-DD`      |
+| `paymentMethodId` | `UUID`            | Yes      | Payment method used              |
+| `paymentMethodName` | `string`        | Yes      | Payment method display name      |
+| `paymentMethodType` | `enum`          | Yes      | `CASH`, `DEBIT`, or `CREDIT`     |
+| `settlementDate`  | `string`          | Yes      | Credit card settlement date      |
 | `createdAt`       | `string`          | No       | ISO 8601 timestamp               |
 | `updatedAt`       | `string`          | No       | ISO 8601 timestamp               |
 
@@ -1530,3 +1854,7 @@ Returns month-over-month income, expense, and balance for the last N months incl
 | `TRANSACTION_NOT_FOUND`           | `404`       | Requested transaction does not exist                 |
 | `BUDGET_NOT_FOUND`                | `404`       | Requested budget does not exist                      |
 | `DUPLICATE_BUDGET`                | `409`       | Budget for this category and month already exists    |
+| `GROUP_NOT_FOUND`                 | `404`       | Requested category group does not exist              |
+| `CANNOT_DELETE_DEFAULT_GROUP`     | `400`       | Default category groups cannot be deleted            |
+| `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
+| `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |

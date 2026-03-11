@@ -1,8 +1,8 @@
 # Budget Book - Full Roadmap
 
 > Created: 2026-02-26
-> Updated: 2026-03-10
-> Status: Phase 2b Complete, Phase 2c Planning
+> Updated: 2026-03-11
+> Status: Phase 3 In Progress (P3-1, P3-3 Complete)
 
 ---
 
@@ -311,95 +311,99 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 
 ---
 
-## Phase 3 — Advanced Features
+## Phase 3 — Advanced Features (Redesigned 2026-03-11)
 
-**Goal:** Add recurring transactions, receipt capture, and push notifications.
-**Target:** After Phase 2c stabilization
+**Goal:** 사용자 실제 가계부 운용 패턴 기반 기능 확장. 카테고리 계층화, 결제수단 추적, 주간 예산, 리포트.
+**Target:** Phase 2c 이후 순차 진행
 
-### P3-1: Recurring Transactions (자동 반복 거래)
+### P3-1: Category Groups (카테고리 그룹) ✅ Complete
+**Business Value:** High — 생활비/고정지출/기타 등 2단계 계층 구조
+**Complexity:** Medium
+
+- New table: `category_groups` (budget_type: WEEKLY/MONTHLY/NONE)
+- `categories.group_id` FK 추가 (nullable, backward compatible)
+- BE: CategoryGroupService/Controller + CRUD + seedDefaultCategoryGroups
+- FE: CategoryGroupPage + CategoryGroupBloc + form sheet
+- 기본 3개 그룹 시드: 생활비(WEEKLY), 고정지출(MONTHLY), 기타(NONE)
+- 카테고리 자동 할당: 식비/교통비/쇼핑 → 생활비, 기타/의료/문화 → 기타
+
+### P3-2: Weekly Budget Cycle (주간 예산 사이클)
+**Business Value:** High — 주간 생활비 예산 추적, 초과/절약 기록
+**Complexity:** Medium
+
+- `monthly_budgets` 확장: budget_period (WEEKLY/MONTHLY), weekly_amount
+- New table: `weekly_budget_snapshots` (주간 실적 추적)
+- BE: WeeklyBudgetService — 주간 예산 분배, 주간 실적 조회
+- FE: 메인 화면에 주간 예산 게이지, 주간 리뷰 카드
+
+### P3-3: Payment Methods & Card Tracking (결제수단 + 카드 미결제 추적) ✅ Complete
+**Business Value:** High — 카드 결제 시점 vs 출금 시점 괴리 해결
+**Complexity:** Medium
+
+- New table: `payment_methods` (type: CASH/DEBIT/CREDIT, settlement_day, closing_day)
+- `transactions` 확장: payment_method_id, settlement_date
+- BE: PaymentMethodService/Controller + CRUD + seedDefaults + cardPendingSummary
+- FE: PaymentMethodPage + PaymentMethodBloc + transaction form 결제수단 선택
+- 신용카드 settlement_date 자동 계산 (마감일/결제일 기반)
+
+### P3-4: Rule-based Reports (규칙 기반 주간/월간 리포트)
+**Business Value:** Medium — AI 없이 즉시 가치 제공
+**Complexity:** Medium
+
+- 주간 리포트: 예산 대비 초과 카테고리 TOP 3, 요일별 지출 패턴
+- 월간 리포트: 그룹별 소계, 전월 대비 변동, 카드 미결제 요약
+- BE: ReportService with aggregation queries
+- FE: ReportPage with summary cards
+
+### P3-5: Recurring Transactions (자동 반복 거래)
 **Business Value:** High — 월급, 월세, 구독료 등 반복 지출 자동 기록
 **Complexity:** Medium
 
 - New table: `recurring_transactions` (frequency: DAILY/WEEKLY/MONTHLY/YEARLY, next_run_date)
 - Scheduler: Spring `@Scheduled` job to create transactions on due date
 - UI: "반복" 토글 on transaction form, recurring list management page
-- Notifications: "이번 달 자동 기록 N건" summary
-
-### P3-2: Receipt Photo Upload (영수증 촬영)
-**Business Value:** Medium — 편의성 향상, 증빙 보관
-**Complexity:** High
-
-- Storage: Supabase Storage (S3-compatible, free tier 1GB)
-- Backend: multipart upload endpoint, image URL stored in transactions
-- Frontend: camera/gallery picker, image preview in transaction detail
-- Optional future: OCR integration for auto-fill (amount, date, store name)
-
-### P3-3: Push Notifications (예산 초과 알림)
-**Business Value:** High — 예산 관리 핵심 기능
-**Complexity:** Medium
-
-- FCM (Firebase Cloud Messaging) integration
-- Trigger conditions:
-  - Budget exceeded (지출 > 예산 100%)
-  - Budget warning (지출 > 예산 80%)
-  - Partner recorded a transaction (실시간 알림)
-  - Weekly spending summary (주간 리포트)
-- Backend: notification service + FCM sender
-- Frontend: notification permission, settings page for toggle on/off per type
-- DB: `notification_preferences` table, `notification_log` table
-
-### P3-4: Data Export (CSV/Excel)
-**Business Value:** Medium — 데이터 백업, 세무 신고 활용
-**Complexity:** Low
-
-- Backend: `/api/v1/export/transactions?year=2026&format=csv|xlsx`
-- Apache POI for Excel, OpenCSV for CSV
-- Frontend: export button on transaction list, download trigger
 
 ---
 
-## Phase 4 — Growth & Intelligence
+## Phase 4 — Growth & Intelligence (Redesigned 2026-03-11)
 
-**Goal:** AI 기반 인사이트, 다중 통화, 저축 목표 등 고급 기능.
-**Target:** Product-market fit 확인 후
+**Goal:** 머니 포켓, AI 분석, 푸시 알림 등 지능화 기능.
+**Target:** Phase 3 안정화 후
 
-### P4-1: Financial Goals (저축 목표)
-**Business Value:** High — 부부 공동 목표 설정
+### P4-1: Money Pockets (머니 포켓 / 가상 통장)
+**Business Value:** High — 월급 분배 + 실질 잔액 관리
 **Complexity:** Medium
 
-- Goal entity: name, target amount, deadline, current saved amount
-- Monthly auto-tracking: balance surplus → goal contribution
-- UI: goal list with progress, milestone celebrations
-- Gamification: streaks, badges for consistent saving
+- New table: `money_pockets` (type: LIVING/FIXED/CARD_PENDING/SAVINGS/CUSTOM)
+- New table: `pocket_transfers` (포켓 간 이동)
+- `transactions.pocket_id` FK 추가
+- 월급 분배 위자드, 포켓별 잔액 = 배정액 - 지출 합계
+- 포켓 잔액 합계 = 실제로 쓸 수 있는 돈
 
-### P4-2: AI-Powered Insights (소비 패턴 분석)
+### P4-2: AI Auto-Classification + Feedback Loop (AI 자동 분류)
 **Business Value:** High — 차별화 핵심
 **Complexity:** High
 
-- Claude API integration for spending pattern analysis
-- Monthly AI report: "이번 달 식비가 지난달 대비 30% 증가했습니다"
-- Anomaly detection: unusual spending alerts
-- Budget recommendation: AI-suggested budgets based on history
-- Privacy: all analysis on aggregated data, no raw transaction text sent
+- New tables: `ai_classification_rules`, `ai_classification_logs`
+- 거래 description 분석 → 카테고리 자동 제안
+- 피드백 루프: ACCEPTED/CORRECTED/SKIPPED → 정확도 향상
+- 커스터마이징: ON/OFF, 자동 적용 임계값, 미분류 처리 방식
 
-### P4-3: Multi-Currency Support (다중 통화)
-**Business Value:** Low (한국 타겟) → Medium (글로벌 확장 시)
-**Complexity:** Medium
-
-- Currency field in transactions (default: KRW)
-- Exchange rate API integration (한국은행 or Fixer.io)
-- Converted amounts for statistics/budgets
-- UI: currency picker, converted amount display
-
-### P4-4: Family Mode (가족 공유)
-**Business Value:** Medium — TAM 확장
+### P4-3: Claude API Deep Reports (Claude API 심층 리포트)
+**Business Value:** High — 개인화된 절약 제안
 **Complexity:** High
 
-- Expand couple → group (2+ members)
-- Role-based permissions (admin, member, viewer)
-- Group budgets and shared categories
-- Per-member spending limits
-- Requires significant schema refactoring (couple_id → group_id)
+- Claude API 연동 for spending pattern natural language analysis
+- 월간/분기 AI 인사이트: 초과 원인, 절약 제안, 트렌드 예측
+- Privacy: aggregated data only, no raw transaction text
+
+### P4-4: Push Notifications (예산 초과 알림)
+**Business Value:** High — 예산 관리 핵심 기능
+**Complexity:** Medium
+
+- FCM integration
+- Triggers: 예산 초과(100%), 경고(80%), 파트너 활동, 주간 리포트
+- DB: `notification_preferences`, `notification_log`
 
 ---
 
@@ -434,6 +438,6 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 | Phase 2a | Couple + Category + Transaction | ✅ Deployed |
 | Phase 2b | Budget Planning + Statistics | ✅ Complete, deploying |
 | Phase 2c | WebSocket + Redis | 📋 Next sprint |
-| Phase 3 | Recurring + Receipt + Push + Export | 📋 Planned |
-| Phase 4 | Goals + AI + Multi-currency + Family | 💡 Future |
+| Phase 3 | Category Groups + Payment Methods + Weekly Budget + Reports + Recurring | 🔄 In Progress (P3-1, P3-3 ✅) |
+| Phase 4 | Money Pockets + AI Classification + Claude Reports + Push | 💡 Future |
 | Phase 5 | Premium + Native + Admin | 💡 Long-term |

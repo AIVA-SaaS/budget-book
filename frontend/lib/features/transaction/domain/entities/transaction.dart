@@ -12,6 +12,10 @@ class Transaction extends Equatable {
   final String description;
   final String? memo;
   final String transactionDate;
+  final String? paymentMethodId;
+  final String? paymentMethodName;
+  final String? paymentMethodType;
+  final String? settlementDate;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,6 +29,10 @@ class Transaction extends Equatable {
     required this.description,
     this.memo,
     required this.transactionDate,
+    this.paymentMethodId,
+    this.paymentMethodName,
+    this.paymentMethodType,
+    this.settlementDate,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -43,6 +51,10 @@ class Transaction extends Equatable {
         description,
         memo,
         transactionDate,
+        paymentMethodId,
+        paymentMethodName,
+        paymentMethodType,
+        settlementDate,
         createdAt,
         updatedAt,
       ];

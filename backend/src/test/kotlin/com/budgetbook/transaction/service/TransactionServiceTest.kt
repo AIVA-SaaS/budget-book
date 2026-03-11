@@ -12,6 +12,7 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CreateTransactionRequest
@@ -39,7 +40,8 @@ class TransactionServiceTest : BehaviorSpec({
     val coupleRepository = mockk<CoupleRepository>()
     val userRepository = mockk<UserRepository>()
     val categoryRepository = mockk<CategoryRepository>()
-    val service = TransactionService(transactionRepository, coupleRepository, userRepository, categoryRepository)
+    val paymentMethodRepository = mockk<PaymentMethodRepository>()
+    val service = TransactionService(transactionRepository, coupleRepository, userRepository, categoryRepository, paymentMethodRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")

@@ -11,6 +11,7 @@ data class CategoryResponse(
     val type: String,
     val icon: String?,
     val color: String?,
+    val groupId: UUID? = null,
     val isDefault: Boolean,
     val displayOrder: Int,
     val createdAt: Instant
@@ -25,7 +26,8 @@ data class CreateCategoryRequest(
     val type: String,
 
     val icon: String? = null,
-    val color: String? = null
+    val color: String? = null,
+    val groupId: UUID? = null
 )
 
 data class UpdateCategoryRequest(
@@ -33,5 +35,6 @@ data class UpdateCategoryRequest(
     val name: String? = null,
     val icon: String? = null,
     val color: String? = null,
-    val displayOrder: Int? = null
+    val displayOrder: Int? = null,
+    val groupId: UUID? = null
 )

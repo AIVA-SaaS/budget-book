@@ -76,4 +76,16 @@ interface TransactionRepository : JpaRepository<Transaction, UUID> {
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
+
+    @Query("""
+        SELECT SUM(t.amount), COUNT(t)
+        FROM Transaction t
+        WHERE t.paymentMethod.id = :paymentMethodId
+        AND t.settlementDate BETWEEN :startDate AND :endDate
+    """)
+    fun sumByPaymentMethodAndSettlementDateRange(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any?>>
 }

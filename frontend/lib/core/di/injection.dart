@@ -25,6 +25,14 @@ import 'package:budget_book/features/statistics/data/datasources/statistics_remo
 import 'package:budget_book/features/statistics/data/repositories/statistics_repository_impl.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
+import 'package:budget_book/features/category_group/data/datasources/category_group_remote_datasource.dart';
+import 'package:budget_book/features/category_group/data/repositories/category_group_repository_impl.dart';
+import 'package:budget_book/features/category_group/domain/repositories/category_group_repository.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/payment_method/data/datasources/payment_method_remote_datasource.dart';
+import 'package:budget_book/features/payment_method/data/repositories/payment_method_repository_impl.dart';
+import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -111,5 +119,31 @@ Future<void> configureDependencies() async {
   getIt.registerFactory<StatisticsBloc>(
     () => StatisticsBloc(
         statisticsRepository: getIt<StatisticsRepository>()),
+  );
+
+  // Payment Method feature
+  getIt.registerLazySingleton<PaymentMethodRemoteDataSource>(
+    () => PaymentMethodRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<PaymentMethodRepository>(
+    () => PaymentMethodRepositoryImpl(
+        remoteDataSource: getIt<PaymentMethodRemoteDataSource>()),
+  );
+  getIt.registerFactory<PaymentMethodBloc>(
+    () => PaymentMethodBloc(
+        paymentMethodRepository: getIt<PaymentMethodRepository>()),
+  );
+
+  // Category Group feature
+  getIt.registerLazySingleton<CategoryGroupRemoteDataSource>(
+    () => CategoryGroupRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<CategoryGroupRepository>(
+    () => CategoryGroupRepositoryImpl(
+        remoteDataSource: getIt<CategoryGroupRemoteDataSource>()),
+  );
+  getIt.registerFactory<CategoryGroupBloc>(
+    () => CategoryGroupBloc(
+        categoryGroupRepository: getIt<CategoryGroupRepository>()),
   );
 }

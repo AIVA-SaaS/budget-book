@@ -23,6 +23,12 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/pages/category_group_page.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/pages/payment_method_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -112,6 +118,10 @@ final appRouter = GoRouter(
             create: (_) =>
                 getIt<CategoryBloc>()..add(const LoadCategories()),
           ),
+          BlocProvider<PaymentMethodBloc>(
+            create: (_) =>
+                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+          ),
         ],
         child: const TransactionFormPage(),
       ),
@@ -128,6 +138,10 @@ final appRouter = GoRouter(
             BlocProvider<CategoryBloc>(
               create: (_) =>
                   getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+            BlocProvider<PaymentMethodBloc>(
+              create: (_) =>
+                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
             ),
           ],
           child: TransactionFormPage(
@@ -204,6 +218,26 @@ final appRouter = GoRouter(
           ),
         );
       },
+    ),
+    GoRoute(
+      path: '/payment-methods',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<PaymentMethodBloc>(
+          create: (context) => getIt<PaymentMethodBloc>()
+            ..add(const LoadPaymentMethods())
+            ..add(LoadCardPending(year: now.year, month: now.month)),
+          child: const PaymentMethodPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/category-groups',
+      builder: (context, state) => BlocProvider<CategoryGroupBloc>(
+        create: (context) =>
+            getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
+        child: const CategoryGroupPage(),
+      ),
     ),
   ],
 );
