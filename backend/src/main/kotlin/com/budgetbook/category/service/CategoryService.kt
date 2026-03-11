@@ -5,6 +5,7 @@ import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.dto.CategoryResponse
 import com.budgetbook.category.dto.CreateCategoryRequest
 import com.budgetbook.category.dto.UpdateCategoryRequest
+import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
@@ -19,6 +20,7 @@ import java.util.UUID
 @Service
 class CategoryService(
     private val categoryRepository: CategoryRepository,
+    private val categoryGroupRepository: CategoryGroupRepository,
     private val coupleRepository: CoupleRepository
 ) {
 
@@ -42,12 +44,18 @@ class CategoryService(
             throw BusinessException("VALIDATION_ERROR", "Invalid category type: ${request.type}")
         }
 
+        val group = request.groupId?.let { groupId ->
+            categoryGroupRepository.findByIdAndCoupleId(groupId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
+        }
+
         val category = Category(
             couple = couple,
             name = request.name,
             type = categoryType,
             icon = request.icon,
             color = request.color,
+            group = group,
             isDefault = false,
             displayOrder = 0
         )
@@ -68,6 +76,11 @@ class CategoryService(
         request.icon?.let { category.icon = it }
         request.color?.let { category.color = it }
         request.displayOrder?.let { category.displayOrder = it }
+        request.groupId?.let { groupId ->
+            val group = categoryGroupRepository.findByIdAndCoupleId(groupId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
+            category.group = group
+        }
 
         return categoryRepository.save(category).toResponse()
     }
@@ -123,12 +136,13 @@ class CategoryService(
             ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
     }
 
-    private fun Category.toResponse() = CategoryResponse(
+    fun Category.toResponse() = CategoryResponse(
         id = id,
         name = name,
         type = type.name,
         icon = icon,
         color = color,
+        groupId = group?.id,
         isDefault = isDefault,
         displayOrder = displayOrder,
         createdAt = createdAt

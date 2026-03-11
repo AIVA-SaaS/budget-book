@@ -22,6 +22,10 @@ data class TransactionResponse(
     val description: String,
     val memo: String?,
     val transactionDate: LocalDate,
+    val paymentMethodId: UUID? = null,
+    val paymentMethodName: String? = null,
+    val paymentMethodType: String? = null,
+    val settlementDate: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -51,7 +55,9 @@ data class CreateTransactionRequest(
     @field:NotNull
     val transactionDate: LocalDate,
 
-    val memo: String? = null
+    val memo: String? = null,
+
+    val paymentMethodId: UUID? = null
 )
 
 data class UpdateTransactionRequest(
@@ -66,7 +72,9 @@ data class UpdateTransactionRequest(
     val transactionDate: LocalDate? = null,
 
     @JsonDeserialize(using = StringPatchValueDeserializer::class)
-    val memo: PatchValue<String>? = null
+    val memo: PatchValue<String>? = null,
+
+    val paymentMethodId: UUID? = null
 )
 
 data class PageResponse<T>(

@@ -30,6 +30,38 @@
   - [Get Transaction](#3-get-transaction)
   - [Update Transaction](#4-update-transaction)
   - [Delete Transaction](#5-delete-transaction)
+- [Budgets](#budgets)
+  - [Create Budget](#1-create-budget)
+  - [List Budgets](#2-list-budgets)
+  - [Update Budget](#3-update-budget)
+  - [Delete Budget](#4-delete-budget)
+  - [Budget Summary](#5-budget-summary)
+- [Statistics](#statistics)
+  - [Monthly Summary](#1-monthly-summary)
+  - [Category Breakdown](#2-category-breakdown)
+  - [Monthly Trend](#3-monthly-trend)
+- [Category Groups](#category-groups)
+  - [List Category Groups](#1-list-category-groups)
+  - [Create Category Group](#2-create-category-group)
+  - [Update Category Group](#3-update-category-group)
+  - [Delete Category Group](#4-delete-category-group)
+- [Payment Methods](#payment-methods)
+  - [List Payment Methods](#1-list-payment-methods)
+  - [Create Payment Method](#2-create-payment-method)
+  - [Update Payment Method](#3-update-payment-method)
+  - [Delete Payment Method](#4-delete-payment-method)
+  - [Card Pending Summary](#5-card-pending-summary)
+- [Weekly Budgets](#weekly-budgets)
+  - [Weekly Overview](#1-weekly-overview)
+  - [Current Week Summary](#2-current-week-summary)
+- [Reports](#reports)
+  - [Weekly Report](#1-weekly-report)
+  - [Monthly Report](#2-monthly-report)
+- [Recurring Transactions](#recurring-transactions)
+  - [List Recurring Transactions](#1-list-recurring-transactions)
+  - [Create Recurring Transaction](#2-create-recurring-transaction)
+  - [Update Recurring Transaction](#3-update-recurring-transaction)
+  - [Delete Recurring Transaction](#4-delete-recurring-transaction)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -921,6 +953,910 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 
 ---
 
+## Budgets
+
+Base path: `/api/v1/budgets`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. Create Budget
+
+Creates a monthly budget for the couple. Set `categoryId` to `null` for a total (uncategorized) monthly budget.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `POST`                       |
+| **Path**    | `/api/v1/budgets`            |
+| **Auth**    | Required                     |
+
+**Request Body**
+
+```json
+{
+  "categoryId": "550e8400-e29b-41d4-a716-446655440010",
+  "yearMonth": "2026-03",
+  "amount": 150000
+}
+```
+
+| Field        | Type     | Required | Description                                               |
+|:-------------|:---------|:--------:|:----------------------------------------------------------|
+| `categoryId` | `UUID`   | No       | Category ID; `null` = total budget for the month         |
+| `yearMonth`  | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)       |
+| `amount`     | `long`   | Yes      | Budget amount in KRW (must be > 0)                       |
+
+**Response `201 Created`**: `ApiResponse<BudgetResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440050",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "category": {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "식비",
+      "type": "EXPENSE",
+      "icon": "restaurant",
+      "color": "#FF5733"
+    },
+    "yearMonth": "2026-03",
+    "amount": 150000,
+    "createdAt": "2026-03-01T12:00:00Z",
+    "updatedAt": "2026-03-01T12:00:00Z"
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | Invalid field values |
+| `404`  | `CATEGORY_NOT_FOUND` | Specified category does not exist |
+| `409`  | `DUPLICATE_BUDGET` | Budget for this category and month already exists |
+
+---
+
+### 2. List Budgets
+
+Retrieves all budgets for the couple for a given month.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `GET`                        |
+| **Path**    | `/api/v1/budgets`            |
+| **Auth**    | Required                     |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<List<BudgetResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440050",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "식비",
+        "type": "EXPENSE",
+        "icon": "restaurant",
+        "color": "#FF5733"
+      },
+      "yearMonth": "2026-03",
+      "amount": 150000,
+      "createdAt": "2026-03-01T12:00:00Z",
+      "updatedAt": "2026-03-01T12:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440051",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "category": null,
+      "yearMonth": "2026-03",
+      "amount": 3000000,
+      "createdAt": "2026-03-01T12:00:00Z",
+      "updatedAt": "2026-03-01T12:00:00Z"
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 3. Update Budget
+
+Updates the amount of an existing budget.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `PUT`                        |
+| **Path**    | `/api/v1/budgets/{id}`       |
+| **Auth**    | Required                     |
+
+**Path Parameters**
+
+| Parameter | Type   | Required | Description  |
+|:----------|:-------|:--------:|:-------------|
+| `id`      | `UUID` | Yes      | Budget ID    |
+
+**Request Body**
+
+```json
+{
+  "amount": 200000
+}
+```
+
+| Field    | Type   | Required | Description                       |
+|:---------|:-------|:--------:|:----------------------------------|
+| `amount` | `long` | Yes      | Updated budget amount (must be > 0) |
+
+**Response `200 OK`**: `ApiResponse<BudgetResponse>`
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | Invalid amount |
+| `403`  | `FORBIDDEN` | Budget belongs to a different couple |
+| `404`  | `BUDGET_NOT_FOUND` | Budget does not exist |
+
+---
+
+### 4. Delete Budget
+
+Permanently deletes a budget entry.
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `DELETE`                     |
+| **Path**    | `/api/v1/budgets/{id}`       |
+| **Auth**    | Required                     |
+
+**Path Parameters**
+
+| Parameter | Type   | Required | Description  |
+|:----------|:-------|:--------:|:-------------|
+| `id`      | `UUID` | Yes      | Budget ID    |
+
+**Response `204 No Content`**: Success
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `403`  | `FORBIDDEN` | Budget belongs to a different couple |
+| `404`  | `BUDGET_NOT_FOUND` | Budget does not exist |
+
+---
+
+### 5. Budget Summary
+
+Returns per-category budget vs actual spending summary for a given month.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/budgets/summary`        |
+| **Auth**    | Required                         |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<BudgetSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "totalBudget": 3150000,
+    "totalSpent": 1800000,
+    "items": [
+      {
+        "category": {
+          "id": "550e8400-e29b-41d4-a716-446655440010",
+          "name": "식비",
+          "type": "EXPENSE",
+          "icon": "restaurant",
+          "color": "#FF5733"
+        },
+        "budgetAmount": 150000,
+        "spentAmount": 95000,
+        "remainingAmount": 55000,
+        "usageRate": 63.3
+      },
+      {
+        "category": null,
+        "budgetAmount": 3000000,
+        "spentAmount": 1705000,
+        "remainingAmount": 1295000,
+        "usageRate": 56.8
+      }
+    ]
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+## Statistics
+
+Base path: `/api/v1/statistics`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. Monthly Summary
+
+Returns total income, total expense, balance, and transaction count for a given month.
+
+| Item        | Value                               |
+|:------------|:------------------------------------|
+| **Method**  | `GET`                               |
+| **Path**    | `/api/v1/statistics/summary`        |
+| **Auth**    | Required                            |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description              |
+|:----------|:----------|:--------:|:-------------------------|
+| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
+| `month`   | `integer` | Yes      | Target month (1–12)      |
+
+**Response `200 OK`**: `ApiResponse<StatisticsSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "totalIncome": 5000000,
+    "totalExpense": 3200000,
+    "balance": 1800000,
+    "transactionCount": 45
+  },
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 2. Category Breakdown
+
+Returns spending (or income) broken down by category for a given month, sorted by amount descending.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/statistics/by-category`         |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Default   | Description                      |
+|:----------|:----------|:--------:|:----------|:---------------------------------|
+| `year`    | `integer` | Yes      | —         | Target year (e.g., `2026`)       |
+| `month`   | `integer` | Yes      | —         | Target month (1–12)              |
+| `type`    | `string`  | No       | `EXPENSE` | `INCOME` or `EXPENSE`            |
+
+**Response `200 OK`**: `ApiResponse<List<CategoryStatisticsResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "식비",
+        "type": "EXPENSE",
+        "icon": "restaurant",
+        "color": "#FF5733"
+      },
+      "amount": 800000,
+      "percentage": 25.0,
+      "transactionCount": 12
+    },
+    {
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440011",
+        "name": "교통비",
+        "type": "EXPENSE",
+        "icon": "directions_car",
+        "color": "#2196F3"
+      },
+      "amount": 320000,
+      "percentage": 10.0,
+      "transactionCount": 8
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+### 3. Monthly Trend
+
+Returns month-over-month income, expense, and balance for the last N months including the current month, ordered chronologically.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/statistics/monthly-trend`       |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Default | Description                                   |
+|:----------|:----------|:--------:|:--------|:----------------------------------------------|
+| `months`  | `integer` | No       | `6`     | Number of months to include (min 1, max 24)   |
+
+**Response `200 OK`**: `ApiResponse<List<MonthlyTrendResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "yearMonth": "2025-10",
+      "totalIncome": 4500000,
+      "totalExpense": 3100000,
+      "balance": 1400000
+    },
+    {
+      "yearMonth": "2025-11",
+      "totalIncome": 4800000,
+      "totalExpense": 3400000,
+      "balance": 1400000
+    },
+    {
+      "yearMonth": "2025-12",
+      "totalIncome": 5200000,
+      "totalExpense": 4100000,
+      "balance": 1100000
+    },
+    {
+      "yearMonth": "2026-01",
+      "totalIncome": 5000000,
+      "totalExpense": 3200000,
+      "balance": 1800000
+    },
+    {
+      "yearMonth": "2026-02",
+      "totalIncome": 4900000,
+      "totalExpense": 3050000,
+      "balance": 1850000
+    },
+    {
+      "yearMonth": "2026-03",
+      "totalIncome": 5000000,
+      "totalExpense": 3200000,
+      "balance": 1800000
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-03-01T12:00:00Z"
+}
+```
+
+---
+
+## Category Groups
+
+Base path: `/api/v1/category-groups`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. List Category Groups
+
+Retrieves all category groups with their nested categories. Includes a virtual "미분류" group for categories without a group.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/category-groups`        |
+| **Auth**    | Required                         |
+
+**Response `200 OK`**: `ApiResponse<List<CategoryGroupResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "생활비",
+      "icon": "account_balance_wallet",
+      "color": "#4CAF50",
+      "budgetType": "WEEKLY",
+      "displayOrder": 1,
+      "isDefault": true,
+      "categories": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440020",
+          "name": "식비",
+          "type": "EXPENSE",
+          "icon": "restaurant",
+          "color": "#FF5733",
+          "isDefault": true,
+          "displayOrder": 1,
+          "groupId": "550e8400-e29b-41d4-a716-446655440010",
+          "createdAt": "2024-01-01T12:00:00Z"
+        }
+      ],
+      "createdAt": "2024-01-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Create Category Group
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `POST`                           |
+| **Path**    | `/api/v1/category-groups`        |
+| **Auth**    | Required                         |
+
+**Request Body**
+
+| Field        | Type     | Required | Description                            |
+|:-------------|:---------|:--------:|:---------------------------------------|
+| `name`       | `string` | Yes      | Group name (max 50 chars)              |
+| `icon`       | `string` | No       | Material icon name                     |
+| `color`      | `string` | No       | Hex color code                         |
+| `budgetType` | `enum`   | No       | `WEEKLY`, `MONTHLY` (default), `NONE`  |
+
+**Response `201 Created`**: `ApiResponse<CategoryGroupResponse>`
+
+---
+
+### 3. Update Category Group
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `PUT`                                |
+| **Path**    | `/api/v1/category-groups/{id}`       |
+| **Auth**    | Required                             |
+
+**Request Body** (all fields optional)
+
+| Field          | Type      | Description                            |
+|:---------------|:----------|:---------------------------------------|
+| `name`         | `string`  | Group name (max 50 chars)              |
+| `icon`         | `string`  | Material icon name                     |
+| `color`        | `string`  | Hex color code                         |
+| `budgetType`   | `enum`    | `WEEKLY`, `MONTHLY`, or `NONE`         |
+| `displayOrder` | `integer` | Sort order                             |
+
+**Response `200 OK`**: `ApiResponse<CategoryGroupResponse>`
+
+---
+
+### 4. Delete Category Group
+
+Deletes a category group. Categories in the group become uncategorized (group_id set to null). Default groups cannot be deleted.
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `DELETE`                             |
+| **Path**    | `/api/v1/category-groups/{id}`       |
+| **Auth**    | Required                             |
+
+**Response `204 No Content`**
+
+| Status | Error Code                    | Description                          |
+|:-------|:------------------------------|:-------------------------------------|
+| `404`  | `GROUP_NOT_FOUND`             | Category group does not exist        |
+| `400`  | `CANNOT_DELETE_DEFAULT_GROUP`  | Default groups cannot be deleted     |
+
+---
+
+## Payment Methods
+
+Base path: `/api/v1/payment-methods`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+The caller must be in an active couple.
+
+---
+
+### 1. List Payment Methods
+
+Retrieves all payment methods for the couple.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/payment-methods`        |
+| **Auth**    | Required                         |
+
+**Response `200 OK`**: `ApiResponse<List<PaymentMethodResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440030",
+      "name": "현금",
+      "type": "CASH",
+      "settlementDay": null,
+      "closingDay": null,
+      "isActive": true,
+      "isDefault": true,
+      "displayOrder": 0,
+      "createdAt": "2024-01-01T12:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440031",
+      "name": "신한카드",
+      "type": "CREDIT",
+      "settlementDay": 15,
+      "closingDay": 25,
+      "isActive": true,
+      "isDefault": false,
+      "displayOrder": 2,
+      "createdAt": "2024-01-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Create Payment Method
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `POST`                           |
+| **Path**    | `/api/v1/payment-methods`        |
+| **Auth**    | Required                         |
+
+**Request Body**
+
+| Field           | Type      | Required | Description                              |
+|:----------------|:----------|:--------:|:-----------------------------------------|
+| `name`          | `string`  | Yes      | Payment method name (max 100 chars)      |
+| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, or `CREDIT`             |
+| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)   |
+| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)      |
+
+**Response `201 Created`**: `ApiResponse<PaymentMethodResponse>`
+
+---
+
+### 3. Update Payment Method
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `PUT`                                |
+| **Path**    | `/api/v1/payment-methods/{id}`       |
+| **Auth**    | Required                             |
+
+**Request Body** (all fields optional)
+
+| Field           | Type      | Description                              |
+|:----------------|:----------|:-----------------------------------------|
+| `name`          | `string`  | Payment method name                      |
+| `settlementDay` | `integer` | Card settlement day (1-31)               |
+| `closingDay`    | `integer` | Card closing day (1-31)                  |
+| `isActive`      | `boolean` | Active status                            |
+| `displayOrder`  | `integer` | Sort order                               |
+
+**Response `200 OK`**: `ApiResponse<PaymentMethodResponse>`
+
+---
+
+### 4. Delete Payment Method
+
+Default payment methods cannot be deleted.
+
+| Item        | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `DELETE`                             |
+| **Path**    | `/api/v1/payment-methods/{id}`       |
+| **Auth**    | Required                             |
+
+**Response `204 No Content`**
+
+---
+
+### 5. Card Pending Summary
+
+Returns unsettled credit card amounts for a given month.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/payment-methods/card-pending`             |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description          |
+|:----------|:----------|:--------:|:---------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)     |
+| `month`   | `integer` | Yes      | Month (1-12)         |
+
+**Response `200 OK`**: `ApiResponse<List<CardPendingResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "paymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440031",
+        "name": "신한카드",
+        "type": "CREDIT",
+        "settlementDay": 15,
+        "closingDay": 25,
+        "isActive": true,
+        "isDefault": false,
+        "displayOrder": 2,
+        "createdAt": "2024-01-01T12:00:00Z"
+      },
+      "pendingAmount": 450000,
+      "settlementDate": "2026-04-15",
+      "transactionCount": 12
+    }
+  ]
+}
+```
+
+---
+
+## Weekly Budgets
+
+Extends the existing Budget endpoints with weekly tracking capabilities.
+
+---
+
+### 1. Weekly Overview
+
+Returns weekly spending snapshots for a given month.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/budgets/weekly`                 |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description       |
+|:----------|:----------|:--------:|:------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)  |
+| `month`   | `integer` | Yes      | Month (1-12)      |
+
+**Response `200 OK`**: `ApiResponse<WeeklyOverviewResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "weeks": [
+      {
+        "weekNumber": 1,
+        "weekStart": "2026-03-01",
+        "weekEnd": "2026-03-07",
+        "budgetAmount": 200000,
+        "spentAmount": 180000,
+        "remainingAmount": 20000,
+        "usageRate": 90.0,
+        "status": "UNDER"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 2. Current Week Summary
+
+Returns this week's budget vs spending grouped by WEEKLY category groups.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/budgets/weekly/current`         |
+| **Auth**    | Required                                 |
+
+**Response `200 OK`**: `ApiResponse<CurrentWeekSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-03",
+    "weekNumber": 2,
+    "weekStart": "2026-03-08",
+    "weekEnd": "2026-03-14",
+    "groups": [
+      {
+        "groupId": "550e8400-e29b-41d4-a716-446655440010",
+        "groupName": "생활비",
+        "budgetAmount": 200000,
+        "spentAmount": 120000,
+        "remainingAmount": 80000,
+        "usageRate": 60.0
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Reports
+
+Base path: `/api/v1/reports`
+
+Rule-based spending analysis reports. No AI — pure aggregation and pattern detection.
+
+---
+
+### 1. Weekly Report
+
+Detailed weekly spending analysis with overspend detection and daily patterns.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/reports/weekly`                           |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description        |
+|:----------|:----------|:--------:|:-------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)   |
+| `month`   | `integer` | Yes      | Month (1-12)       |
+| `week`    | `integer` | Yes      | Week number (1-5)  |
+
+**Response `200 OK`**: `ApiResponse<WeeklyReportResponse>`
+
+---
+
+### 2. Monthly Report
+
+Monthly spending overview with group summaries, month-over-month comparison, and day-of-week patterns.
+
+| Item        | Value                                              |
+|:------------|:---------------------------------------------------|
+| **Method**  | `GET`                                              |
+| **Path**    | `/api/v1/reports/monthly`                          |
+| **Auth**    | Required                                           |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description       |
+|:----------|:----------|:--------:|:------------------|
+| `year`    | `integer` | Yes      | Year (e.g. 2026)  |
+| `month`   | `integer` | Yes      | Month (1-12)      |
+
+**Response `200 OK`**: `ApiResponse<MonthlyReportResponse>`
+
+---
+
+## Recurring Transactions
+
+Base path: `/api/v1/recurring-transactions`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+---
+
+### 1. List Recurring Transactions
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/recurring-transactions`         |
+| **Auth**    | Required                                 |
+
+**Response `200 OK`**: `ApiResponse<List<RecurringTransactionResponse>>`
+
+---
+
+### 2. Create Recurring Transaction
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `POST`                                   |
+| **Path**    | `/api/v1/recurring-transactions`         |
+| **Auth**    | Required                                 |
+
+**Request Body**
+
+| Field             | Type      | Required | Description                                    |
+|:------------------|:----------|:--------:|:-----------------------------------------------|
+| `type`            | `enum`    | Yes      | `INCOME` or `EXPENSE`                          |
+| `amount`          | `long`    | Yes      | Amount (> 0)                                   |
+| `description`     | `string`  | Yes      | Short description                              |
+| `memo`            | `string`  | No       | Optional note                                  |
+| `categoryId`      | `UUID`    | No       | Category ID                                    |
+| `paymentMethodId` | `UUID`    | No       | Payment method ID                              |
+| `frequency`       | `enum`    | Yes      | `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`      |
+| `dayOfMonth`      | `integer` | No       | Day of month (1-31, required for MONTHLY)      |
+| `dayOfWeek`       | `integer` | No       | Day of week (1=MON..7=SUN, required for WEEKLY)|
+
+**Response `201 Created`**: `ApiResponse<RecurringTransactionResponse>`
+
+---
+
+### 3. Update Recurring Transaction
+
+| Item        | Value                                        |
+|:------------|:---------------------------------------------|
+| **Method**  | `PUT`                                        |
+| **Path**    | `/api/v1/recurring-transactions/{id}`        |
+| **Auth**    | Required                                     |
+
+**Request Body** (all optional)
+
+| Field             | Type      | Description          |
+|:------------------|:----------|:---------------------|
+| `amount`          | `long`    | Amount (> 0)         |
+| `description`     | `string`  | Description          |
+| `memo`            | `string`  | Note                 |
+| `categoryId`      | `UUID`    | Category ID          |
+| `paymentMethodId` | `UUID`    | Payment method ID    |
+| `dayOfMonth`      | `integer` | Day of month         |
+| `dayOfWeek`       | `integer` | Day of week          |
+| `isActive`        | `boolean` | Active/inactive      |
+
+**Response `200 OK`**: `ApiResponse<RecurringTransactionResponse>`
+
+---
+
+### 4. Delete Recurring Transaction
+
+| Item        | Value                                        |
+|:------------|:---------------------------------------------|
+| **Method**  | `DELETE`                                     |
+| **Path**    | `/api/v1/recurring-transactions/{id}`        |
+| **Auth**    | Required                                     |
+
+**Response `204 No Content`**
+
+---
+
 ## Common Data Types
 
 ### TokenResponse
@@ -979,7 +1915,45 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `color`        | `string`  | Yes      | Hex color code (e.g., `#FF5733`)     |
 | `isDefault`    | `boolean` | No       | Whether this is a system default     |
 | `displayOrder` | `integer` | No       | Sort order within type group         |
+| `groupId`      | `UUID`    | Yes      | Category group ID (null if ungrouped)|
 | `createdAt`    | `string`  | No       | ISO 8601 timestamp                   |
+
+### CategoryGroupResponse
+
+| Field          | Type                    | Nullable | Description                             |
+|:---------------|:------------------------|:--------:|:----------------------------------------|
+| `id`           | `UUID`                  | No       | Category group unique identifier        |
+| `name`         | `string`                | No       | Group name                              |
+| `icon`         | `string`                | Yes      | Material icon name                      |
+| `color`        | `string`                | Yes      | Hex color code                          |
+| `budgetType`   | `enum`                  | No       | `WEEKLY`, `MONTHLY`, or `NONE`          |
+| `displayOrder` | `integer`               | No       | Sort order                              |
+| `isDefault`    | `boolean`               | No       | Whether this is a system default        |
+| `categories`   | `List<CategoryResponse>`| No       | Nested categories in this group         |
+| `createdAt`    | `string`                | No       | ISO 8601 timestamp                      |
+
+### PaymentMethodResponse
+
+| Field           | Type      | Nullable | Description                           |
+|:----------------|:----------|:--------:|:--------------------------------------|
+| `id`            | `UUID`    | No       | Payment method unique identifier      |
+| `name`          | `string`  | No       | Payment method name                   |
+| `type`          | `enum`    | No       | `CASH`, `DEBIT`, or `CREDIT`          |
+| `settlementDay` | `integer` | Yes      | Card settlement day (1-31)            |
+| `closingDay`    | `integer` | Yes      | Card closing day (1-31)               |
+| `isActive`      | `boolean` | No       | Whether this method is active         |
+| `isDefault`     | `boolean` | No       | Whether this is a system default      |
+| `displayOrder`  | `integer` | No       | Sort order                            |
+| `createdAt`     | `string`  | No       | ISO 8601 timestamp                    |
+
+### CardPendingResponse
+
+| Field              | Type                    | Nullable | Description                        |
+|:-------------------|:------------------------|:--------:|:-----------------------------------|
+| `paymentMethod`    | `PaymentMethodResponse` | No       | The credit card                    |
+| `pendingAmount`    | `long`                  | No       | Total unsettled amount             |
+| `settlementDate`   | `string`                | Yes      | Next settlement date (YYYY-MM-DD) |
+| `transactionCount` | `integer`               | No       | Number of pending transactions     |
 
 ### CategorySummary
 
@@ -1004,6 +1978,10 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `description`     | `string`          | No       | Short description                |
 | `memo`            | `string`          | Yes      | Optional longer note             |
 | `transactionDate` | `string`          | No       | ISO 8601 date: `YYYY-MM-DD`      |
+| `paymentMethodId` | `UUID`            | Yes      | Payment method used              |
+| `paymentMethodName` | `string`        | Yes      | Payment method display name      |
+| `paymentMethodType` | `enum`          | Yes      | `CASH`, `DEBIT`, or `CREDIT`     |
+| `settlementDate`  | `string`          | Yes      | Credit card settlement date      |
 | `createdAt`       | `string`          | No       | ISO 8601 timestamp               |
 | `updatedAt`       | `string`          | No       | ISO 8601 timestamp               |
 
@@ -1018,6 +1996,65 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `totalPages`    | `integer` | Total number of pages                  |
 | `first`         | `boolean` | Whether this is the first page         |
 | `last`          | `boolean` | Whether this is the last page          |
+
+### BudgetResponse
+
+| Field       | Type              | Nullable | Description                                  |
+|:------------|:------------------|:--------:|:---------------------------------------------|
+| `id`        | `UUID`            | No       | Budget unique identifier                     |
+| `coupleId`  | `UUID`            | No       | Owning couple ID                             |
+| `category`  | `CategorySummary` | Yes      | Category (null = total monthly budget)       |
+| `yearMonth` | `string`          | No       | Target month in `YYYY-MM` format             |
+| `amount`    | `long`            | No       | Budget amount in KRW (always > 0)            |
+| `createdAt` | `string`          | No       | ISO 8601 timestamp                           |
+| `updatedAt` | `string`          | No       | ISO 8601 timestamp                           |
+
+### BudgetSummaryResponse
+
+| Field        | Type                          | Description                            |
+|:-------------|:------------------------------|:---------------------------------------|
+| `yearMonth`  | `string`                      | Target month in `YYYY-MM` format       |
+| `totalBudget`| `long`                        | Sum of all budget amounts for the month |
+| `totalSpent` | `long`                        | Sum of all expense transactions for the month |
+| `items`      | `List<BudgetSummaryItemResponse>` | Per-budget breakdown               |
+
+### BudgetSummaryItemResponse
+
+| Field             | Type              | Nullable | Description                                      |
+|:------------------|:------------------|:--------:|:-------------------------------------------------|
+| `category`        | `CategorySummary` | Yes      | Category (null = total monthly budget entry)     |
+| `budgetAmount`    | `long`            | No       | Planned budget amount                            |
+| `spentAmount`     | `long`            | No       | Actual spent amount for the category/month       |
+| `remainingAmount` | `long`            | No       | `budgetAmount - spentAmount` (can be negative)   |
+| `usageRate`       | `double`          | No       | `(spentAmount / budgetAmount) * 100` (0–100+)    |
+
+### StatisticsSummaryResponse
+
+| Field              | Type      | Description                                  |
+|:-------------------|:----------|:---------------------------------------------|
+| `yearMonth`        | `string`  | Target month in `YYYY-MM` format             |
+| `totalIncome`      | `long`    | Sum of all income transactions               |
+| `totalExpense`     | `long`    | Sum of all expense transactions              |
+| `balance`          | `long`    | `totalIncome - totalExpense`                 |
+| `transactionCount` | `integer` | Total number of transactions in the month    |
+
+### CategoryStatisticsResponse
+
+| Field              | Type              | Description                                         |
+|:-------------------|:------------------|:----------------------------------------------------|
+| `category`         | `CategorySummary` | The category                                        |
+| `amount`           | `long`            | Total amount for this category in the month         |
+| `percentage`       | `double`          | Percentage of total income/expense (0–100)          |
+| `transactionCount` | `integer`         | Number of transactions in this category             |
+
+### MonthlyTrendResponse
+
+| Field          | Type     | Description                          |
+|:---------------|:---------|:-------------------------------------|
+| `yearMonth`    | `string` | Month in `YYYY-MM` format            |
+| `totalIncome`  | `long`   | Sum of all income transactions       |
+| `totalExpense` | `long`   | Sum of all expense transactions      |
+| `balance`      | `long`   | `totalIncome - totalExpense`         |
 
 ---
 
@@ -1044,3 +2081,9 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 | `CATEGORY_NOT_FOUND`              | `404`       | Requested category does not exist                    |
 | `CANNOT_DELETE_DEFAULT_CATEGORY`  | `400`       | Default (system) categories cannot be deleted        |
 | `TRANSACTION_NOT_FOUND`           | `404`       | Requested transaction does not exist                 |
+| `BUDGET_NOT_FOUND`                | `404`       | Requested budget does not exist                      |
+| `DUPLICATE_BUDGET`                | `409`       | Budget for this category and month already exists    |
+| `GROUP_NOT_FOUND`                 | `404`       | Requested category group does not exist              |
+| `CANNOT_DELETE_DEFAULT_GROUP`     | `400`       | Default category groups cannot be deleted            |
+| `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
+| `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |

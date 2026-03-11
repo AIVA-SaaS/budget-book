@@ -36,6 +36,10 @@ class Category(
     @Column(length = 7)
     var color: String? = null,
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    var group: CategoryGroup? = null,
+
     @Column(name = "is_default", nullable = false)
     val isDefault: Boolean = false,
 

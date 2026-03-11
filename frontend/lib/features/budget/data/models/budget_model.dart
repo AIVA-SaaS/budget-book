@@ -1,0 +1,73 @@
+import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/features/transaction/data/models/transaction_category_model.dart';
+
+class BudgetModel extends Budget {
+  const BudgetModel({
+    required super.id,
+    required super.coupleId,
+    super.category,
+    required super.yearMonth,
+    required super.amount,
+    required super.createdAt,
+    required super.updatedAt,
+  });
+
+  factory BudgetModel.fromJson(Map<String, dynamic> json) {
+    return BudgetModel(
+      id: json['id'] as String,
+      coupleId: json['coupleId'] as String,
+      category: json['category'] != null
+          ? TransactionCategoryModel.fromJson(
+              json['category'] as Map<String, dynamic>)
+          : null,
+      yearMonth: json['yearMonth'] as String,
+      amount: json['amount'] as int,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+  }
+}
+
+class BudgetSummaryModel extends BudgetSummary {
+  const BudgetSummaryModel({
+    required super.yearMonth,
+    required super.totalBudget,
+    required super.totalSpent,
+    required super.items,
+  });
+
+  factory BudgetSummaryModel.fromJson(Map<String, dynamic> json) {
+    return BudgetSummaryModel(
+      yearMonth: json['yearMonth'] as String,
+      totalBudget: json['totalBudget'] as int,
+      totalSpent: json['totalSpent'] as int,
+      items: (json['items'] as List<dynamic>)
+          .map((e) =>
+              BudgetSummaryItemModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class BudgetSummaryItemModel extends BudgetSummaryItem {
+  const BudgetSummaryItemModel({
+    super.category,
+    required super.budgetAmount,
+    required super.spentAmount,
+    required super.remainingAmount,
+    required super.usageRate,
+  });
+
+  factory BudgetSummaryItemModel.fromJson(Map<String, dynamic> json) {
+    return BudgetSummaryItemModel(
+      category: json['category'] != null
+          ? TransactionCategoryModel.fromJson(
+              json['category'] as Map<String, dynamic>)
+          : null,
+      budgetAmount: json['budgetAmount'] as int,
+      spentAmount: json['spentAmount'] as int,
+      remainingAmount: json['remainingAmount'] as int,
+      usageRate: (json['usageRate'] as num).toDouble(),
+    );
+  }
+}
