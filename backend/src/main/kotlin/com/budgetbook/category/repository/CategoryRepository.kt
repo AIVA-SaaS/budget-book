@@ -10,4 +10,10 @@ interface CategoryRepository : JpaRepository<Category, UUID> {
     fun findByCoupleId(coupleId: UUID): List<Category>
 
     fun findByCoupleIdAndType(coupleId: UUID, type: CategoryType): List<Category>
+
+    fun findByCoupleIdAndGroupId(coupleId: UUID, groupId: UUID): List<Category>
+
+    fun findByCoupleIdAndGroupIsNull(coupleId: UUID): List<Category>
+
+    fun findByCoupleIdAndNameIn(coupleId: UUID, names: List<String>): List<Category>
 }

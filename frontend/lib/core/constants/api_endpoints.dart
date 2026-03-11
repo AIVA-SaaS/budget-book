@@ -24,13 +24,32 @@ class ApiEndpoints {
   // Category
   static const String categories = '/api/v1/categories';
 
+  // Category Group
+  static const String categoryGroups = '/api/v1/category-groups';
+
   // Budget
   static const String budgets = '/api/v1/budgets';
 
   // Statistics
-  static const String statisticsMonthly = '/api/v1/statistics/monthly';
-  static const String statisticsYearly = '/api/v1/statistics/yearly';
-  static const String statisticsCategory = '/api/v1/statistics/category';
+  static const String statisticsSummary = '/api/v1/statistics/summary';
+  static const String statisticsByCategory = '/api/v1/statistics/by-category';
+  static const String statisticsMonthlyTrend = '/api/v1/statistics/monthly-trend';
+
+  // Payment Methods
+  static const String paymentMethods = '/api/v1/payment-methods';
+  static const String paymentMethodsCardPending =
+      '/api/v1/payment-methods/card-pending';
+
+  // Weekly Budget
+  static const String weeklyBudgets = '/api/v1/budgets/weekly';
+  static const String weeklyBudgetCurrent = '/api/v1/budgets/weekly/current';
+
+  // Reports
+  static const String reportsWeekly = '/api/v1/reports/weekly';
+  static const String reportsMonthly = '/api/v1/reports/monthly';
+
+  // Recurring Transactions
+  static const String recurringTransactions = '/api/v1/recurring-transactions';
 
   // Export
   static const String exportCsv = '/api/v1/export/csv';

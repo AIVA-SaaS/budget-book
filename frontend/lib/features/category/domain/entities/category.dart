@@ -8,6 +8,7 @@ class Category extends Equatable {
   final String? color;
   final bool isDefault;
   final int displayOrder;
+  final String? groupId;
   final DateTime createdAt;
 
   const Category({
@@ -18,6 +19,7 @@ class Category extends Equatable {
     this.color,
     required this.isDefault,
     required this.displayOrder,
+    this.groupId,
     required this.createdAt,
   });
 
@@ -26,5 +28,5 @@ class Category extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, name, type, icon, color, isDefault, displayOrder, createdAt];
+      [id, name, type, icon, color, isDefault, displayOrder, groupId, createdAt];
 }

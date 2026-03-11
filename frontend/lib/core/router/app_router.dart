@@ -15,6 +15,31 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_form_page.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
+import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
+import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
+import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/pages/category_group_page.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/pages/payment_method_page.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
+import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_budget_page.dart';
+import 'package:budget_book/features/report/presentation/bloc/report_bloc.dart';
+import 'package:budget_book/features/report/presentation/bloc/report_event.dart';
+import 'package:budget_book/features/report/presentation/pages/report_page.dart';
+import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
+import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
+import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
+import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
+import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -104,6 +129,10 @@ final appRouter = GoRouter(
             create: (_) =>
                 getIt<CategoryBloc>()..add(const LoadCategories()),
           ),
+          BlocProvider<PaymentMethodBloc>(
+            create: (_) =>
+                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+          ),
         ],
         child: const TransactionFormPage(),
       ),
@@ -121,10 +150,179 @@ final appRouter = GoRouter(
               create: (_) =>
                   getIt<CategoryBloc>()..add(const LoadCategories()),
             ),
+            BlocProvider<PaymentMethodBloc>(
+              create: (_) =>
+                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            ),
           ],
           child: TransactionFormPage(
             transaction: state.extra as dynamic,
           ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/statistics',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<StatisticsBloc>(
+          create: (_) => getIt<StatisticsBloc>()
+            ..add(LoadAllStatistics(year: now.year, month: now.month)),
+          child: const StatisticsPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<BudgetBloc>(
+          create: (_) => getIt<BudgetBloc>()
+            ..add(LoadBudgets(year: now.year, month: now.month)),
+          child: const BudgetListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets/create',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final year = extra?['year'] as int? ?? DateTime.now().year;
+        final month = extra?['month'] as int? ?? DateTime.now().month;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<BudgetBloc>(
+              create: (_) => getIt<BudgetBloc>()
+                ..add(LoadBudgets(year: year, month: month)),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+          ],
+          child: BudgetFormPage(year: year, month: month),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/budgets/edit/:id',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final budget = extra?['budget'] as Budget?;
+        final year = extra?['year'] as int? ?? DateTime.now().year;
+        final month = extra?['month'] as int? ?? DateTime.now().month;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<BudgetBloc>(
+              create: (_) => getIt<BudgetBloc>()
+                ..add(LoadBudgets(year: year, month: month)),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+          ],
+          child: BudgetFormPage(
+            budget: budget,
+            year: year,
+            month: month,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/payment-methods',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<PaymentMethodBloc>(
+          create: (context) => getIt<PaymentMethodBloc>()
+            ..add(const LoadPaymentMethods())
+            ..add(LoadCardPending(year: now.year, month: now.month)),
+          child: const PaymentMethodPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/category-groups',
+      builder: (context, state) => BlocProvider<CategoryGroupBloc>(
+        create: (context) =>
+            getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
+        child: const CategoryGroupPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/weekly-budgets',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<WeeklyBudgetBloc>(
+          create: (_) => getIt<WeeklyBudgetBloc>()
+            ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+            ..add(const LoadCurrentWeek()),
+          child: const WeeklyBudgetPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/reports',
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<ReportBloc>(
+          create: (_) => getIt<ReportBloc>()
+            ..add(LoadMonthlyReport(year: now.year, month: now.month))
+            ..add(LoadWeeklyReport(
+                year: now.year, month: now.month, week: 1)),
+          child: const ReportPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/recurring',
+      builder: (context, state) => BlocProvider<RecurringBloc>(
+        create: (_) =>
+            getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
+        child: const RecurringListPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/recurring/create',
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<RecurringBloc>(
+            create: (_) =>
+                getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
+          ),
+          BlocProvider<CategoryBloc>(
+            create: (_) =>
+                getIt<CategoryBloc>()..add(const LoadCategories()),
+          ),
+          BlocProvider<PaymentMethodBloc>(
+            create: (_) =>
+                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+          ),
+        ],
+        child: const RecurringFormPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/recurring/edit/:id',
+      builder: (context, state) {
+        final recurring = state.extra as RecurringTransaction?;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<RecurringBloc>(
+              create: (_) => getIt<RecurringBloc>()
+                ..add(const LoadRecurringTransactions()),
+            ),
+            BlocProvider<CategoryBloc>(
+              create: (_) =>
+                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            ),
+            BlocProvider<PaymentMethodBloc>(
+              create: (_) =>
+                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            ),
+          ],
+          child: RecurringFormPage(recurring: recurring),
         );
       },
     ),

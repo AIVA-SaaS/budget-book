@@ -1,0 +1,267 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
+import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+
+class BudgetFormPage extends StatefulWidget {
+  final Budget? budget;
+  final int year;
+  final int month;
+
+  const BudgetFormPage({
+    super.key,
+    this.budget,
+    required this.year,
+    required this.month,
+  });
+
+  @override
+  State<BudgetFormPage> createState() => _BudgetFormPageState();
+}
+
+class _BudgetFormPageState extends State<BudgetFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _amountController;
+  String? _selectedCategoryId;
+  bool _isOverallBudget = false;
+  late int _selectedYear;
+  late int _selectedMonth;
+
+  bool get isEditing => widget.budget != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.budget;
+    _amountController =
+        TextEditingController(text: b != null ? b.amount.toString() : '');
+    _selectedCategoryId = b?.category?.id;
+    _isOverallBudget = b != null && b.category == null;
+    _selectedYear = widget.year;
+    _selectedMonth = widget.month;
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? '예산 수정' : '예산 추가'),
+      ),
+      body: BlocListener<BudgetBloc, BudgetState>(
+        listener: (context, state) {
+          if (state is BudgetLoaded && state.operationError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.operationError!),
+                backgroundColor: Colors.red,
+              ),
+            );
+          } else if (state is BudgetLoaded) {
+            context.pop();
+          } else if (state is BudgetError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Year/Month display
+                _buildMonthSelector(context),
+                const SizedBox(height: 24),
+                // Category selector
+                if (!isEditing) ...[
+                  SwitchListTile(
+                    title: const Text('전체 예산'),
+                    subtitle: const Text('카테고리 구분 없이 월 전체 예산을 설정합니다'),
+                    value: _isOverallBudget,
+                    onChanged: (value) {
+                      setState(() {
+                        _isOverallBudget = value;
+                        if (value) _selectedCategoryId = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  if (!_isOverallBudget) ...[
+                    _buildCategoryPicker(context),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+                if (isEditing) ...[
+                  ListTile(
+                    leading: const Icon(Icons.category),
+                    title: Text(
+                        widget.budget?.category?.name ?? '전체 예산'),
+                    subtitle: const Text('카테고리는 수정할 수 없습니다'),
+                    tileColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // Amount input
+                TextFormField(
+                  controller: _amountController,
+                  decoration: const InputDecoration(
+                    labelText: '예산 금액',
+                    suffixText: '원',
+                    prefixIcon: Icon(Icons.payments),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '금액을 입력하세요';
+                    }
+                    final amount = int.tryParse(value);
+                    if (amount == null || amount <= 0) {
+                      return '0보다 큰 금액을 입력하세요';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 32),
+                // Submit button
+                FilledButton(
+                  onPressed: _onSubmit,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(isEditing ? '수정' : '추가'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector(BuildContext context) {
+    final dateStr =
+        DateFormat('yyyy년 M월').format(DateTime(_selectedYear, _selectedMonth));
+
+    if (isEditing) {
+      return ListTile(
+        leading: const Icon(Icons.calendar_month),
+        title: Text(dateStr),
+        subtitle: const Text('기간은 수정할 수 없습니다'),
+        tileColor: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: DateTime(_selectedYear, _selectedMonth),
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030, 12, 31),
+        );
+        if (picked != null) {
+          setState(() {
+            _selectedYear = picked.year;
+            _selectedMonth = picked.month;
+          });
+        }
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: '기간',
+          prefixIcon: Icon(Icons.calendar_month),
+        ),
+        child: Text(dateStr),
+      ),
+    );
+  }
+
+  Widget _buildCategoryPicker(BuildContext context) {
+    return BlocBuilder<CategoryBloc, CategoryState>(
+      builder: (context, catState) {
+        final categories = catState is CategoryLoaded
+            ? catState.expenseCategories
+            : <Category>[];
+
+        return DropdownButtonFormField<String>(
+          initialValue: _selectedCategoryId,
+          decoration: const InputDecoration(
+            labelText: '카테고리',
+            prefixIcon: Icon(Icons.category),
+          ),
+          items: categories.map((c) {
+            return DropdownMenuItem<String>(
+              value: c.id,
+              child: Text(c.name),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedCategoryId = value;
+            });
+          },
+          validator: (value) {
+            if (!_isOverallBudget && value == null) {
+              return '카테고리를 선택하세요';
+            }
+            return null;
+          },
+        );
+      },
+    );
+  }
+
+  void _onSubmit() {
+    if (_formKey.currentState?.validate() ?? false) {
+      final amount = int.parse(_amountController.text.trim());
+      final yearMonth =
+          '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+      final bloc = context.read<BudgetBloc>();
+
+      if (isEditing) {
+        bloc.add(UpdateBudget(
+          id: widget.budget!.id,
+          amount: amount,
+        ));
+      } else {
+        bloc.add(CreateBudget(
+          categoryId: _isOverallBudget ? null : _selectedCategoryId,
+          yearMonth: yearMonth,
+          amount: amount,
+        ));
+      }
+    }
+  }
+}
