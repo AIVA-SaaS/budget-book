@@ -28,7 +28,15 @@ class StringPatchValueDeserializer : JsonDeserializer<PatchValue<String>>() {
 class UUIDPatchValueDeserializer : JsonDeserializer<PatchValue<UUID>>() {
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<UUID> {
         val text = p.valueAsString
-        return PatchValue(if (text != null) UUID.fromString(text) else null)
+        return PatchValue(
+            if (text != null) {
+                try {
+                    UUID.fromString(text)
+                } catch (e: IllegalArgumentException) {
+                    throw ctxt.weirdStringException(text, UUID::class.java, "Invalid UUID format: $text")
+                }
+            } else null
+        )
     }
 
     override fun getNullValue(ctxt: DeserializationContext): PatchValue<UUID> {

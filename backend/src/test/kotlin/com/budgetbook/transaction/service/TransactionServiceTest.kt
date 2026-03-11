@@ -290,6 +290,49 @@ class TransactionServiceTest : BehaviorSpec({
         }
     }
 
+    Given("a transaction with a DEBIT card where transactionDate changes") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val pm = PaymentMethod(couple = couple, name = "체크카드", type = PaymentMethodType.DEBIT)
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 20000, description = "마트", paymentMethod = pm,
+            settlementDate = null,
+            transactionDate = LocalDate.of(2024, 1, 10)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction changes transactionDate without changing paymentMethod") {
+            val request = UpdateTransactionRequest(transactionDate = LocalDate.of(2024, 1, 20))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("settlementDate remains null for non-CREDIT payment method") {
+                result.settlementDate shouldBe null
+            }
+        }
+    }
+
+    Given("a transaction with CASH (no payment method) where transactionDate changes") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 5000, description = "편의점", paymentMethod = null,
+            settlementDate = null,
+            transactionDate = LocalDate.of(2024, 1, 10)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction changes transactionDate") {
+            val request = UpdateTransactionRequest(transactionDate = LocalDate.of(2024, 1, 20))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("settlementDate remains null") {
+                result.settlementDate shouldBe null
+            }
+        }
+    }
+
     // --- deleteTransaction ---
 
     Given("a transaction to delete") {

@@ -26,7 +26,11 @@ data class BudgetRequest(
 data class BudgetUpdateRequest(
     @field:NotNull
     @field:Min(1)
-    val amount: Long
+    val amount: Long,
+
+    val budgetPeriod: String? = null,
+
+    val weeklyAmount: Long? = null
 )
 
 data class BudgetResponse(

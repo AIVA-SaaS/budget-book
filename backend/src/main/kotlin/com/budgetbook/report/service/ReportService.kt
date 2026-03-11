@@ -8,8 +8,6 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
-import com.budgetbook.paymentmethod.domain.PaymentMethodType
-import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.report.dto.CardPendingReportSummary
 import com.budgetbook.report.dto.CategorySpendingItem
 import com.budgetbook.report.dto.DailySpendingItem
@@ -37,8 +35,7 @@ class ReportService(
     private val coupleRepository: CoupleRepository,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
-    private val budgetRepository: MonthlyBudgetRepository,
-    private val paymentMethodRepository: PaymentMethodRepository
+    private val budgetRepository: MonthlyBudgetRepository
 ) {
 
     @Transactional(readOnly = true)
@@ -204,7 +201,6 @@ class ReportService(
         if (weeklyGroups.isEmpty()) return 0L
 
         val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
-        val weeklyGroupIds = weeklyGroups.map { it.id }.toSet()
 
         // Get categories belonging to weekly groups
         val weeklyCategories = weeklyGroups.flatMap { group ->
@@ -299,6 +295,14 @@ class ReportService(
         val groups = categoryGroupRepository.findByCoupleId(coupleId)
         val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
 
+        // Fetch all category expenses once, then filter in-memory per group
+        val allCategoryExpenses = transactionRepository.sumByCategoryForCouple(
+            coupleId, startDate, endDate, TransactionType.EXPENSE
+        )
+        val expenseByCategoryId = allCategoryExpenses.associate { row ->
+            (row[2] as UUID) to (row[0] as Long)
+        }
+
         return groups.map { group ->
             // Get categories in this group
             val categories = categoryRepository.findByCoupleIdAndGroupId(coupleId, group.id)
@@ -309,13 +313,8 @@ class ReportService(
                 .filter { it.category != null && it.category!!.id in categoryIds }
                 .sumOf { it.amount }
 
-            // Sum expenses for this group's categories
-            val categoryExpenses = transactionRepository.sumByCategoryForCouple(
-                coupleId, startDate, endDate, TransactionType.EXPENSE
-            )
-            val groupSpent = categoryExpenses
-                .filter { (it[2] as UUID) in categoryIds }
-                .sumOf { it[0] as Long }
+            // Sum expenses for this group's categories from pre-fetched data
+            val groupSpent = categoryIds.sumOf { expenseByCategoryId[it] ?: 0L }
 
             val usageRate = if (groupBudget > 0) {
                 Math.round(groupSpent.toDouble() / groupBudget * 1000.0) / 10.0
@@ -430,23 +429,17 @@ class ReportService(
         startDate: LocalDate,
         endDate: LocalDate
     ): CardPendingReportSummary? {
-        val creditCards = paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(
-            coupleId, PaymentMethodType.CREDIT
+        val results = transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
+            coupleId, startDate, endDate
         )
 
-        if (creditCards.isEmpty()) return null
+        if (results.isEmpty()) return null
 
         var totalPending = 0L
         var cardsWithPending = 0
 
-        for (card in creditCards) {
-            // Find transactions settling in this month (aligned with PaymentMethodService.getCardPendingSummary)
-            val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
-                paymentMethodId = card.id,
-                startDate = startDate,
-                endDate = endDate
-            )
-            val pendingAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
+        for (row in results) {
+            val pendingAmount = (row[1] as Number).toLong()
             if (pendingAmount > 0) {
                 totalPending += pendingAmount
                 cardsWithPending++

@@ -19,7 +19,11 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
         ? (state as ReportLoaded).monthlyReport
         : null;
 
-    emit(const ReportLoading());
+    // Only emit ReportLoading if we have no partial data yet;
+    // otherwise preserve existing data to avoid a UI flash.
+    if (state is! ReportLoaded) {
+      emit(const ReportLoading());
+    }
     final result = await reportRepository.getWeeklyReport(
       event.year,
       event.month,
@@ -40,7 +44,11 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
         ? (state as ReportLoaded).weeklyReport
         : null;
 
-    emit(const ReportLoading());
+    // Only emit ReportLoading if we have no partial data yet;
+    // otherwise preserve existing data to avoid a UI flash.
+    if (state is! ReportLoaded) {
+      emit(const ReportLoading());
+    }
     final result = await reportRepository.getMonthlyReport(
       event.year,
       event.month,

@@ -64,7 +64,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(remoteDataSource: getIt<AuthRemoteDataSource>()),
   );
-  getIt.registerFactory<AuthBloc>(
+  getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
       authRepository: getIt<AuthRepository>(),
       storageService: getIt<SecureStorageService>(),
