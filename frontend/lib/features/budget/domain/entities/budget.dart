@@ -7,6 +7,8 @@ class Budget extends Equatable {
   final TransactionCategory? category;
   final String yearMonth;
   final int amount;
+  final String budgetPeriod;
+  final int? weeklyAmount;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -16,13 +18,15 @@ class Budget extends Equatable {
     this.category,
     required this.yearMonth,
     required this.amount,
+    this.budgetPeriod = 'MONTHLY',
+    this.weeklyAmount,
     required this.createdAt,
     required this.updatedAt,
   });
 
   @override
   List<Object?> get props =>
-      [id, coupleId, category, yearMonth, amount, createdAt, updatedAt];
+      [id, coupleId, category, yearMonth, amount, budgetPeriod, weeklyAmount, createdAt, updatedAt];
 }
 
 class BudgetSummary extends Equatable {

@@ -1,7 +1,9 @@
 package com.budgetbook.couple.service
 
 import com.budgetbook.auth.repository.UserRepository
+import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.category.service.CategoryService
+import com.budgetbook.paymentmethod.service.PaymentMethodService
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.GoneException
@@ -25,7 +27,9 @@ class CoupleService(
     private val coupleRepository: CoupleRepository,
     private val coupleInvitationRepository: CoupleInvitationRepository,
     private val userRepository: UserRepository,
-    private val categoryService: CategoryService
+    private val categoryService: CategoryService,
+    private val categoryGroupService: CategoryGroupService,
+    private val paymentMethodService: PaymentMethodService
 ) {
 
     @Transactional
@@ -104,8 +108,10 @@ class CoupleService(
         )
         coupleRepository.save(couple)
 
-        // Seed default categories for the new couple
+        // Seed default data for the new couple (order matters: categories first, then groups that reference them)
         categoryService.seedDefaultCategories(couple)
+        categoryGroupService.seedDefaultCategoryGroups(couple)
+        paymentMethodService.seedDefaultPaymentMethods(couple)
 
         val partner = invitation.inviter
         return CoupleResponse(
