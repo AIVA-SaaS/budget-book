@@ -18,6 +18,16 @@ class TransactionListPage extends StatelessWidget {
         title: const Text('Budget Book'),
         actions: [
           IconButton(
+            onPressed: () => context.push('/statistics'),
+            icon: const Icon(Icons.pie_chart),
+            tooltip: '통계',
+          ),
+          IconButton(
+            onPressed: () => context.push('/budgets'),
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: '예산 관리',
+          ),
+          IconButton(
             onPressed: () => context.push('/categories'),
             icon: const Icon(Icons.category),
             tooltip: '카테고리 관리',

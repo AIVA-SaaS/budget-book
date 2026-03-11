@@ -77,14 +77,26 @@ erDiagram
         TIMESTAMP updated_at "NOT NULL"
     }
 
+    monthly_budgets {
+        UUID id PK "Primary Key, auto-generated"
+        UUID couple_id FK "NOT NULL, FK -> couples(id) ON DELETE CASCADE"
+        UUID category_id FK "Nullable, FK -> categories(id) ON DELETE CASCADE"
+        VARCHAR(7) year_month "NOT NULL, e.g. 2026-03"
+        BIGINT amount "NOT NULL, > 0, in KRW"
+        TIMESTAMP created_at "NOT NULL"
+        TIMESTAMP updated_at "NOT NULL"
+    }
+
     users ||--o{ refresh_tokens : "has"
     users ||--o{ couple_invitations : "creates"
     users ||--o{ couples : "member of (user1)"
     users ||--o{ couples : "member of (user2)"
     couples ||--o{ categories : "owns"
     couples ||--o{ transactions : "owns"
+    couples ||--o{ monthly_budgets : "owns"
     users ||--o{ transactions : "authors"
     categories ||--o{ transactions : "categorizes"
+    categories ||--o{ monthly_budgets : "budgets"
 ```
 
 ---
@@ -262,6 +274,31 @@ Individual income and expense records belonging to a couple.
 | `idx_transactions_category_id`    | Index | `category_id`                    |
 | `idx_transactions_author_id`      | Index | `author_id`                      |
 
+### `monthly_budgets` (V6)
+
+Monthly budget targets per couple, optionally scoped to a category. A `null` `category_id` represents a total monthly budget for the couple.
+
+| Column        | Type          | Constraints                               | Description                                              |
+|:--------------|:--------------|:------------------------------------------|:---------------------------------------------------------|
+| `id`          | `UUID`        | `PK`                                     | Auto-generated primary key                               |
+| `couple_id`   | `UUID`        | `FK NOT NULL`                            | References `couples(id)` ON DELETE CASCADE               |
+| `category_id` | `UUID`        | `FK NULLABLE`                            | References `categories(id)` ON DELETE CASCADE; null = total budget |
+| `year_month`  | `VARCHAR(7)`  | `NOT NULL`                               | Target month in `YYYY-MM` format (e.g., `2026-03`)       |
+| `amount`      | `BIGINT`      | `NOT NULL CHECK (amount > 0)`            | Budget amount in KRW (Korean Won, no decimals)           |
+| `created_at`  | `TIMESTAMPTZ` | `NOT NULL`                               | Record creation timestamp                                |
+| `updated_at`  | `TIMESTAMPTZ` | `NOT NULL`                               | Last update timestamp                                    |
+
+**Check Constraints**: `amount > 0`
+
+**Indexes & Constraints**
+
+| Name                                          | Type   | Columns                                                                |
+|:----------------------------------------------|:-------|:-----------------------------------------------------------------------|
+| `uk_monthly_budgets_couple_category_month`    | Unique | `(couple_id, COALESCE(category_id, '00000000-...'), year_month)`       |
+| `idx_monthly_budgets_couple_id`               | Index  | `couple_id`                                                            |
+| `idx_monthly_budgets_couple_month`            | Index  | `(couple_id, year_month)`                                              |
+| `idx_monthly_budgets_category_id`             | Index  | `category_id`                                                          |
+
 ---
 
 ## Relationships
@@ -273,17 +310,20 @@ Individual income and expense records belonging to a couple.
 | `users`              | `couples`            | Many-to-Many| A user belongs to at most one ACTIVE couple at a time     |
 | `couples`            | `categories`         | One-to-Many | A couple owns all their categories                        |
 | `couples`            | `transactions`       | One-to-Many | A couple owns all their transactions                      |
+| `couples`            | `monthly_budgets`    | One-to-Many | A couple owns all their monthly budgets                   |
 | `users`              | `transactions`       | One-to-Many | A user authors transactions on behalf of the couple       |
 | `categories`         | `transactions`       | One-to-Many | Transactions are categorized (category_id can be null)    |
+| `categories`         | `monthly_budgets`    | One-to-Many | Budgets are optionally scoped to a category (can be null) |
 
 ---
 
 ## Migration History
 
-| Version | File                                   | Description                          |
-|:--------|:---------------------------------------|:-------------------------------------|
-| V1      | `V1__create_users_table.sql`           | Users table for OAuth accounts       |
-| V2      | `V2__create_refresh_tokens_table.sql`  | Refresh tokens for JWT auth          |
-| V3      | `V3__create_couples_table.sql`         | Couples + invitation codes           |
-| V4      | `V4__create_categories_table.sql`      | Categories per couple                |
-| V5      | `V5__create_transactions_table.sql`    | Income/expense transactions          |
+| Version | File                                        | Description                          |
+|:--------|:--------------------------------------------|:-------------------------------------|
+| V1      | `V1__create_users_table.sql`                | Users table for OAuth accounts       |
+| V2      | `V2__create_refresh_tokens_table.sql`       | Refresh tokens for JWT auth          |
+| V3      | `V3__create_couples_table.sql`              | Couples + invitation codes           |
+| V4      | `V4__create_categories_table.sql`           | Categories per couple                |
+| V5      | `V5__create_transactions_table.sql`         | Income/expense transactions          |
+| V6      | `V6__create_monthly_budgets_table.sql`      | Monthly budget planning per couple   |

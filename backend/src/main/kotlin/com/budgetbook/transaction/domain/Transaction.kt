@@ -4,6 +4,7 @@ import com.budgetbook.auth.domain.User
 import com.budgetbook.category.domain.Category
 import com.budgetbook.common.entity.BaseTimeEntity
 import com.budgetbook.couple.domain.Couple
+import com.budgetbook.paymentmethod.domain.PaymentMethod
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -47,7 +48,14 @@ class Transaction(
     var memo: String? = null,
 
     @Column(name = "transaction_date", nullable = false)
-    var transactionDate: LocalDate
+    var transactionDate: LocalDate,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_method_id")
+    var paymentMethod: PaymentMethod? = null,
+
+    @Column(name = "settlement_date")
+    var settlementDate: LocalDate? = null
 ) : BaseTimeEntity()
 
 enum class TransactionType { INCOME, EXPENSE }

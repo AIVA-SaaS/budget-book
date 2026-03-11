@@ -6,6 +6,7 @@ import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.dto.CreateCategoryRequest
 import com.budgetbook.category.dto.UpdateCategoryRequest
+import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
@@ -30,8 +31,9 @@ class CategoryServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val categoryRepository = mockk<CategoryRepository>()
+    val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val coupleRepository = mockk<CoupleRepository>()
-    val categoryService = CategoryService(categoryRepository, coupleRepository)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleRepository)
 
     val user1 = User(
         email = "user1@example.com",

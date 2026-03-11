@@ -38,6 +38,10 @@ class TransactionControllerTest : FunSpec({
         description = "Test",
         memo = null,
         transactionDate = LocalDate.of(2024, 1, 15),
+        paymentMethodId = null,
+        paymentMethodName = null,
+        paymentMethodType = null,
+        settlementDate = null,
         createdAt = Instant.now(),
         updatedAt = Instant.now()
     )
