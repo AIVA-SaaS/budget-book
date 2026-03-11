@@ -370,41 +370,94 @@ Remove `uk_users_email` and allow duplicate emails across providers. Two separat
 
 **Goal:** 머니 포켓, AI 분석, 푸시 알림 등 지능화 기능.
 **Target:** Phase 3 안정화 후
+**Estimated Sprints:** 4 sprints
 
-### P4-1: Money Pockets (머니 포켓 / 가상 통장)
+### P4-1: Money Pockets (머니 포켓 / 가상 통장) — Sprint 1
 **Business Value:** High — 월급 분배 + 실질 잔액 관리
 **Complexity:** Medium
 
-- New table: `money_pockets` (type: LIVING/FIXED/CARD_PENDING/SAVINGS/CUSTOM)
-- New table: `pocket_transfers` (포켓 간 이동)
+**DB:**
+- `money_pockets` (id, couple_id, name, type: LIVING/FIXED/CARD_PENDING/SAVINGS/CUSTOM, allocated_amount, icon, color, display_order, is_active)
+- `pocket_transfers` (id, couple_id, from_pocket_id, to_pocket_id, amount, description, transfer_date, is_recurring)
 - `transactions.pocket_id` FK 추가
-- 월급 분배 위자드, 포켓별 잔액 = 배정액 - 지출 합계
-- 포켓 잔액 합계 = 실제로 쓸 수 있는 돈
 
-### P4-2: AI Auto-Classification + Feedback Loop (AI 자동 분류)
+**BE Tasks:**
+- MoneyPocketService: CRUD + seedDefaults (생활비/고정지출/카드대기/저축)
+- PocketTransferService: 포켓 간 이동 기록 + 조회
+- MoneyPocketSummaryService: 포켓별 잔액 계산 (배정액 - 지출합계)
+- 월급 분배 API: POST /api/v1/pockets/distribute (수입 → 각 포켓에 분배)
+
+**FE Tasks:**
+- MoneyPocketBloc/Page: 포켓 목록, 잔액 표시, CRUD
+- 월급 분배 위자드: 스텝 바이 스텝으로 수입을 포켓에 할당
+- 대시보드: "진짜 남은 돈" = 전체 포켓 잔액 합계
+
+### P4-2: AI Auto-Classification + Feedback Loop (AI 자동 분류) — Sprint 2
 **Business Value:** High — 차별화 핵심
 **Complexity:** High
 
-- New tables: `ai_classification_rules`, `ai_classification_logs`
-- 거래 description 분석 → 카테고리 자동 제안
-- 피드백 루프: ACCEPTED/CORRECTED/SKIPPED → 정확도 향상
-- 커스터마이징: ON/OFF, 자동 적용 임계값, 미분류 처리 방식
+**DB:**
+- `ai_classification_rules` (id, couple_id, keyword, suggested_category_id, confidence, source: AI/USER/SYSTEM, feedback_count, correct_count)
+- `ai_classification_logs` (id, transaction_id, suggested_category_id, actual_category_id, was_correct, user_action: ACCEPTED/CORRECTED/SKIPPED)
 
-### P4-3: Claude API Deep Reports (Claude API 심층 리포트)
+**BE Tasks:**
+- ClassificationService: keyword 기반 카테고리 매칭 (초기엔 규칙 기반, 이후 Claude API)
+- FeedbackService: 사용자 피드백 수집 → rule confidence 업데이트
+- TransactionService 연동: 거래 생성 시 auto-suggest 카테고리
+
+**FE Tasks:**
+- 거래 입력 시 AI 제안 배너: "식비로 분류할까요?" [✅ 수락] [✏️ 수정]
+- 설정 페이지: AI 분류 ON/OFF, 자동 적용 임계값 (90%+), 미분류 처리
+- 분류 정확도 대시보드 (선택적)
+
+### P4-3: Claude API Deep Reports (Claude API 심층 리포트) — Sprint 3
 **Business Value:** High — 개인화된 절약 제안
 **Complexity:** High
 
-- Claude API 연동 for spending pattern natural language analysis
-- 월간/분기 AI 인사이트: 초과 원인, 절약 제안, 트렌드 예측
-- Privacy: aggregated data only, no raw transaction text
+**BE Tasks:**
+- ClaudeReportService: 월간 집계 데이터를 Claude API에 전송 → 자연어 인사이트 생성
+- Prompt engineering: 지출 패턴 분석, 절약 제안, 이상 감지
+- 캐싱: 생성된 리포트를 Redis/DB에 캐시 (API 비용 절감)
+- Privacy: raw 거래 내용 미전송, 카테고리별 합계만 전달
 
-### P4-4: Push Notifications (예산 초과 알림)
+**FE Tasks:**
+- AI 인사이트 카드: 리포트 페이지에 AI 분석 섹션 추가
+- 로딩 UX: AI 분석 생성 중 스켈레톤 UI
+- 피드백: "이 인사이트가 도움이 되었나요?" 평가
+
+### P4-4: Push Notifications (예산 초과 알림) — Sprint 4
 **Business Value:** High — 예산 관리 핵심 기능
 **Complexity:** Medium
 
-- FCM integration
-- Triggers: 예산 초과(100%), 경고(80%), 파트너 활동, 주간 리포트
-- DB: `notification_preferences`, `notification_log`
+**DB:**
+- `notification_preferences` (id, user_id, type, is_enabled, threshold)
+- `notification_log` (id, user_id, type, title, body, is_read, sent_at)
+
+**BE Tasks:**
+- FCM integration (firebase-admin SDK)
+- NotificationService: 알림 생성 + 발송
+- Trigger 조건: 예산 80% 경고, 100% 초과, 파트너 거래, 주간 요약
+- NotificationPreferenceService: 사용자별 알림 설정
+
+**FE Tasks:**
+- FCM token 등록 (firebase_messaging 패키지)
+- 알림 설정 페이지: 각 트리거 ON/OFF
+- 인앱 알림 목록 (NotificationListPage)
+- Push 수신 시 해당 화면으로 네비게이션
+
+### Phase 4 Sprint Delivery Order
+```
+Sprint 1: P4-1 Money Pockets      ← 기반 인프라, 사용자 체감 가장 높음
+Sprint 2: P4-2 AI Classification   ← 핵심 차별화, classification rules 축적 시작
+Sprint 3: P4-3 Claude Reports      ← AI 분류 데이터 활용, 리포트 고도화
+Sprint 4: P4-4 Push Notifications  ← 리텐션 핵심, 위 기능들과 시너지
+```
+
+### Phase 4 Success Criteria
+- [ ] 포켓별 잔액이 정확히 계산되고, 월급 분배 위자드가 동작
+- [ ] AI 자동 분류 정확도 80%+ (50건 이상 피드백 후)
+- [ ] Claude AI 리포트가 의미 있는 절약 제안을 제공
+- [ ] Push 알림이 모바일/웹 모두 정상 수신
 
 ---
 
