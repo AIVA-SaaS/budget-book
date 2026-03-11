@@ -12,6 +12,8 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.paymentmethod.domain.PaymentMethod
+import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
@@ -206,6 +208,84 @@ class TransactionServiceTest : BehaviorSpec({
 
             Then("keeps the existing memo") {
                 result.memo shouldBe "기존 메모"
+            }
+        }
+    }
+
+    Given("an existing transaction with a category to clear") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심", category = category,
+            transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction is called with categoryId = PatchValue(null)") {
+            val request = UpdateTransactionRequest(categoryId = PatchValue(null))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("clears the category") {
+                result.category shouldBe null
+            }
+        }
+
+        When("updateTransaction is called with categoryId absent") {
+            val request = UpdateTransactionRequest(amount = 20000)
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("keeps the existing category") {
+                result.category shouldBe com.budgetbook.transaction.dto.CategorySummary(
+                    id = category.id, name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733"
+                )
+            }
+        }
+    }
+
+    Given("an existing transaction with a payment method to clear") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val pm = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 25)
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심", paymentMethod = pm,
+            settlementDate = LocalDate.of(2024, 2, 15),
+            transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction is called with paymentMethodId = PatchValue(null)") {
+            val request = UpdateTransactionRequest(paymentMethodId = PatchValue(null))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("clears the payment method and settlement date") {
+                result.paymentMethodId shouldBe null
+                result.settlementDate shouldBe null
+            }
+        }
+    }
+
+    Given("a transaction with a credit card where transactionDate changes") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val pm = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 25)
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심", paymentMethod = pm,
+            settlementDate = LocalDate.of(2024, 2, 15),
+            transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction changes transactionDate without changing paymentMethod") {
+            // Moving transaction date to after closing day (25th) should push settlement to month+2
+            val request = UpdateTransactionRequest(transactionDate = LocalDate.of(2024, 1, 26))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("recalculates the settlement date") {
+                // transactionDate = Jan 26, closingDay = 25, dayOfMonth(26) > 25 -> settlement month+2 = March 15
+                result.settlementDate shouldBe "2024-03-15"
             }
         }
     }

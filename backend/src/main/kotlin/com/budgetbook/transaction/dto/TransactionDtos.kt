@@ -2,6 +2,7 @@ package com.budgetbook.transaction.dto
 
 import com.budgetbook.common.dto.PatchValue
 import com.budgetbook.common.dto.StringPatchValueDeserializer
+import com.budgetbook.common.dto.UUIDPatchValueDeserializer
 import com.budgetbook.couple.dto.UserSummary
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import jakarta.validation.constraints.Min
@@ -67,14 +68,16 @@ data class UpdateTransactionRequest(
     @field:Size(max = 255)
     val description: String? = null,
 
-    val categoryId: UUID? = null,
+    @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
+    val categoryId: PatchValue<UUID>? = null,
 
     val transactionDate: LocalDate? = null,
 
     @JsonDeserialize(using = StringPatchValueDeserializer::class)
     val memo: PatchValue<String>? = null,
 
-    val paymentMethodId: UUID? = null
+    @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
+    val paymentMethodId: PatchValue<UUID>? = null
 )
 
 data class PageResponse<T>(

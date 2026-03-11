@@ -260,10 +260,12 @@ class BudgetServiceTest : BehaviorSpec({
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
 
-            Then("returns correct summary") {
+            Then("returns correct summary with no double-counting") {
                 result.yearMonth shouldBe "2026-03"
                 result.totalBudget shouldBe 3150000
                 result.items.size shouldBe 2
+                // totalSpent is calculated independently as the direct sum of ALL expenses (95000 + 50000)
+                result.totalSpent shouldBe 145000
             }
 
             Then("calculates category budget correctly") {

@@ -40,6 +40,7 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_event
 import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
@@ -156,7 +157,7 @@ final appRouter = GoRouter(
             ),
           ],
           child: TransactionFormPage(
-            transaction: state.extra as dynamic,
+            transaction: state.extra as Transaction?,
           ),
         );
       },
