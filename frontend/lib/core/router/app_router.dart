@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -19,7 +21,6 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
-import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
@@ -39,10 +40,15 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
-import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
-import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
+import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouter = GoRouter(
+  navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
   redirect: (context, state) {
     final authState = context.read<AuthBloc>().state;
@@ -89,21 +95,6 @@ final appRouter = GoRouter(
       ),
     ),
     GoRoute(
-      path: '/home',
-      builder: (context, state) {
-        final now = DateTime.now();
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<TransactionBloc>(
-              create: (_) => getIt<TransactionBloc>()
-                ..add(LoadTransactions(year: now.year, month: now.month)),
-            ),
-          ],
-          child: const TransactionListPage(),
-        );
-      },
-    ),
-    GoRoute(
       path: '/couple',
       builder: (context, state) => BlocProvider<CoupleBloc>(
         create: (context) =>
@@ -111,8 +102,91 @@ final appRouter = GoRouter(
         child: const CouplePage(),
       ),
     ),
+    // Main shell with bottom navigation
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return MainShellPage(navigationShell: navigationShell);
+      },
+      branches: [
+        // Tab 0: Home/Dashboard
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/home',
+              builder: (context, state) {
+                final now = DateTime.now();
+                return BlocProvider<DashboardBloc>(
+                  create: (_) => getIt<DashboardBloc>()
+                    ..add(LoadDashboard(year: now.year, month: now.month)),
+                  child: const DashboardPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 1: Transactions
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/transactions',
+              builder: (context, state) {
+                final now = DateTime.now();
+                return BlocProvider<TransactionBloc>(
+                  create: (_) => getIt<TransactionBloc>()
+                    ..add(LoadTransactions(year: now.year, month: now.month)),
+                  child: const TransactionListPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 2: Budget
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/budgets',
+              builder: (context, state) {
+                final now = DateTime.now();
+                return BlocProvider<BudgetBloc>(
+                  create: (_) => getIt<BudgetBloc>()
+                    ..add(LoadBudgets(year: now.year, month: now.month)),
+                  child: const BudgetListPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 3: Statistics
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/statistics',
+              builder: (context, state) {
+                final now = DateTime.now();
+                return BlocProvider<StatisticsBloc>(
+                  create: (_) => getIt<StatisticsBloc>()
+                    ..add(LoadAllStatistics(year: now.year, month: now.month)),
+                  child: const StatisticsPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 4: Settings
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) => const SettingsPage(),
+            ),
+          ],
+        ),
+      ],
+    ),
+    // Sub-pages (pushed on top of shell, no bottom nav)
     GoRoute(
       path: '/categories',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => BlocProvider<CategoryBloc>(
         create: (context) =>
             getIt<CategoryBloc>()..add(const LoadCategories()),
@@ -121,6 +195,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/transactions/create',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => MultiBlocProvider(
         providers: [
           BlocProvider<TransactionBloc>(
@@ -140,8 +215,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/transactions/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        // The transaction will be passed via extra
+        final transactionId = state.pathParameters['id']!;
         return MultiBlocProvider(
           providers: [
             BlocProvider<TransactionBloc>(
@@ -157,39 +233,21 @@ final appRouter = GoRouter(
             ),
           ],
           child: TransactionFormPage(
-            transaction: state.extra as Transaction?,
+            transactionId: transactionId,
           ),
         );
       },
     ),
     GoRoute(
-      path: '/statistics',
-      builder: (context, state) {
-        final now = DateTime.now();
-        return BlocProvider<StatisticsBloc>(
-          create: (_) => getIt<StatisticsBloc>()
-            ..add(LoadAllStatistics(year: now.year, month: now.month)),
-          child: const StatisticsPage(),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/budgets',
-      builder: (context, state) {
-        final now = DateTime.now();
-        return BlocProvider<BudgetBloc>(
-          create: (_) => getIt<BudgetBloc>()
-            ..add(LoadBudgets(year: now.year, month: now.month)),
-          child: const BudgetListPage(),
-        );
-      },
-    ),
-    GoRoute(
       path: '/budgets/create',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        final year = extra?['year'] as int? ?? DateTime.now().year;
-        final month = extra?['month'] as int? ?? DateTime.now().month;
+        final year = int.tryParse(
+                state.uri.queryParameters['year'] ?? '') ??
+            DateTime.now().year;
+        final month = int.tryParse(
+                state.uri.queryParameters['month'] ?? '') ??
+            DateTime.now().month;
         return MultiBlocProvider(
           providers: [
             BlocProvider<BudgetBloc>(
@@ -207,11 +265,14 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/budgets/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        final budget = extra?['budget'] as Budget?;
-        final year = extra?['year'] as int? ?? DateTime.now().year;
-        final month = extra?['month'] as int? ?? DateTime.now().month;
+        final year = int.tryParse(
+                state.uri.queryParameters['year'] ?? '') ??
+            DateTime.now().year;
+        final month = int.tryParse(
+                state.uri.queryParameters['month'] ?? '') ??
+            DateTime.now().month;
         return MultiBlocProvider(
           providers: [
             BlocProvider<BudgetBloc>(
@@ -224,7 +285,7 @@ final appRouter = GoRouter(
             ),
           ],
           child: BudgetFormPage(
-            budget: budget,
+            budgetId: state.pathParameters['id'],
             year: year,
             month: month,
           ),
@@ -233,6 +294,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/payment-methods',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
         return BlocProvider<PaymentMethodBloc>(
@@ -245,6 +307,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/category-groups',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => BlocProvider<CategoryGroupBloc>(
         create: (context) =>
             getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
@@ -253,6 +316,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/weekly-budgets',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
         return BlocProvider<WeeklyBudgetBloc>(
@@ -265,6 +329,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/reports',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
         return BlocProvider<ReportBloc>(
@@ -278,6 +343,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/recurring',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => BlocProvider<RecurringBloc>(
         create: (_) =>
             getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
@@ -286,6 +352,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/recurring/create',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => MultiBlocProvider(
         providers: [
           BlocProvider<RecurringBloc>(
@@ -306,8 +373,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/recurring/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final recurring = state.extra as RecurringTransaction?;
+        final recurringId = state.pathParameters['id']!;
         return MultiBlocProvider(
           providers: [
             BlocProvider<RecurringBloc>(
@@ -323,7 +391,7 @@ final appRouter = GoRouter(
                   getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
             ),
           ],
-          child: RecurringFormPage(recurring: recurring),
+          child: RecurringFormPage(recurringId: recurringId),
         );
       },
     ),

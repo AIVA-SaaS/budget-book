@@ -28,8 +28,9 @@ class AuthServiceTest : BehaviorSpec({
     val refreshTokenRepository = mockk<RefreshTokenRepository>()
     val jwtTokenProvider = mockk<JwtTokenProvider>()
     val coupleRepository = mockk<CoupleRepository>()
+    val userCacheService = mockk<UserCacheService>(relaxed = true)
 
-    val authService = AuthService(userRepository, refreshTokenRepository, jwtTokenProvider, coupleRepository)
+    val authService = AuthService(userRepository, refreshTokenRepository, jwtTokenProvider, coupleRepository, userCacheService)
 
     val testUser = User(
         email = "test@example.com",

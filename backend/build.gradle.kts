@@ -40,9 +40,15 @@ dependencies {
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)
 
+    // Cache
+    implementation(libs.caffeine)
+
     // Kotlin
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlin.reflect)
+
+    // Task #18: Sentry error monitoring (no-op when SENTRY_DSN env var is absent)
+    implementation(libs.sentry.spring.boot.starter)
 
     // Test
     testImplementation(libs.spring.boot.starter.test)

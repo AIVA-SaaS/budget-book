@@ -5,8 +5,10 @@ spring-dependency-management = "1.1.5"
 kotest = "5.9.1"
 kotest-spring = "1.3.0"
 mockk = "1.13.12"
+caffeine = "3.1.8"
 flyway = "10.15.0"
 jjwt = "0.12.6"
+sentry = "7.14.0"
 
 [libraries]
 # Spring Boot
@@ -30,9 +32,15 @@ jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 
+# Cache
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
 # Kotlin
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+
+# Sentry (error monitoring)
+sentry-spring-boot-starter = { module = "io.sentry:sentry-spring-boot-starter-jakarta", version.ref = "sentry" }
 
 # Test
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }

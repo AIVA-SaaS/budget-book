@@ -3,8 +3,8 @@ package com.budgetbook.auth.security
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.domain.UserRole
-import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.auth.service.JwtTokenProvider
+import com.budgetbook.auth.service.UserCacheService
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -17,7 +17,6 @@ import jakarta.servlet.FilterChain
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
-import java.util.Optional
 import java.util.UUID
 
 class JwtAuthenticationFilterTest : BehaviorSpec({
@@ -25,9 +24,9 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val jwtTokenProvider = mockk<JwtTokenProvider>()
-    val userRepository = mockk<UserRepository>()
+    val userCacheService = mockk<UserCacheService>()
     val filterChain = mockk<FilterChain>(relaxed = true)
-    val filter = JwtAuthenticationFilter(jwtTokenProvider, userRepository)
+    val filter = JwtAuthenticationFilter(jwtTokenProvider, userCacheService)
 
     afterEach {
         SecurityContextHolder.clearContext()
@@ -46,7 +45,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
 
         every { jwtTokenProvider.validateToken(token) } returns true
         every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
-        every { userRepository.findById(userId) } returns Optional.of(user)
+        every { userCacheService.findById(userId) } returns user
 
         When("the filter processes the request") {
             val request = MockHttpServletRequest().apply {
@@ -83,7 +82,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
 
         every { jwtTokenProvider.validateToken(token) } returns true
         every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
-        every { userRepository.findById(userId) } returns Optional.of(adminUser)
+        every { userCacheService.findById(userId) } returns adminUser
 
         When("the filter processes the request") {
             val request = MockHttpServletRequest().apply {
@@ -166,7 +165,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
 
         every { jwtTokenProvider.validateToken(token) } returns true
         every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
-        every { userRepository.findById(userId) } returns Optional.empty()
+        every { userCacheService.findById(userId) } returns null
 
         When("the filter processes the request") {
             val request = MockHttpServletRequest().apply {

@@ -54,7 +54,8 @@ app:
 management:
   endpoint:
     health:
-      show-details: always
+      # Task #13: Restrict health details to authorized users only (prod security)
+      show-details: when_authorized
 
 logging:
   level:

@@ -19,7 +19,7 @@ import com.budgetbook.report.dto.WeeklyReportResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
-import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.DayOfWeek
@@ -55,7 +55,7 @@ class ReportService(
             endDate = weekEnd,
             type = TransactionType.EXPENSE,
             categoryId = null,
-            pageable = Pageable.unpaged()
+            pageable = PageRequest.of(0, MAX_TRANSACTIONS_PER_QUERY)
         ).content
 
         val totalSpent = weekTransactions.sumOf { it.amount }
@@ -152,7 +152,7 @@ class ReportService(
             endDate = endDate,
             type = TransactionType.EXPENSE,
             categoryId = null,
-            pageable = Pageable.unpaged()
+            pageable = PageRequest.of(0, MAX_TRANSACTIONS_PER_QUERY)
         ).content
 
         val dayOfWeekPattern = calculateDayOfWeekPattern(allExpenseTransactions, yearMonth)
@@ -168,6 +168,11 @@ class ReportService(
             cardPendingSummary = cardPendingSummary,
             dayOfWeekPattern = dayOfWeekPattern
         )
+    }
+
+    companion object {
+        /** Safety limit to prevent OOM when loading transactions for reports */
+        private const val MAX_TRANSACTIONS_PER_QUERY = 10_000
     }
 
     // --- Internal helpers ---

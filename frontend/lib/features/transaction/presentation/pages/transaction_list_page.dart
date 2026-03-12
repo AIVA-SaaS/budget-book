@@ -112,7 +112,7 @@ class TransactionListPage extends StatelessWidget {
             _DateHeader(dateStr: date),
             ...transactions.map((t) => TransactionListTile(
                   transaction: t,
-                  onTap: () => context.push('/transactions/edit/${t.id}', extra: t),
+                  onTap: () => context.push('/transactions/edit/${t.id}'),
                   onDelete: () {
                     context
                         .read<TransactionBloc>()

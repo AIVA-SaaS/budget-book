@@ -1,4 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
+import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'statistics_event.dart';
 import 'statistics_state.dart';
@@ -32,49 +35,53 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearTrendError: true,
     ));
 
-    // Load summary
-    final summaryResult = await statisticsRepository.getSummary(
-      year: event.year,
-      month: event.month,
-    );
-    summaryResult.fold(
+    // Load all three API calls in parallel using Future.wait
+    final results = await Future.wait([
+      statisticsRepository.getSummary(
+        year: event.year,
+        month: event.month,
+      ),
+      statisticsRepository.getCategoryBreakdown(
+        year: event.year,
+        month: event.month,
+        type: state.categoryType,
+      ),
+      statisticsRepository.getMonthlyTrend(),
+    ]);
+
+    // Process summary result
+    results[0].fold(
       (failure) => emit(state.copyWith(
         summaryLoading: false,
         summaryError: failure.message,
       )),
-      (summary) => emit(state.copyWith(
+      (data) => emit(state.copyWith(
         summaryLoading: false,
-        summary: summary,
+        summary: data as StatisticsSummary,
       )),
     );
 
-    // Load category breakdown
-    final categoryResult = await statisticsRepository.getCategoryBreakdown(
-      year: event.year,
-      month: event.month,
-      type: state.categoryType,
-    );
-    categoryResult.fold(
+    // Process category breakdown result
+    results[1].fold(
       (failure) => emit(state.copyWith(
         categoryLoading: false,
         categoryError: failure.message,
       )),
-      (stats) => emit(state.copyWith(
+      (data) => emit(state.copyWith(
         categoryLoading: false,
-        categoryStats: stats,
+        categoryStats: data as List<CategoryStatistics>,
       )),
     );
 
-    // Load monthly trend
-    final trendResult = await statisticsRepository.getMonthlyTrend();
-    trendResult.fold(
+    // Process monthly trend result
+    results[2].fold(
       (failure) => emit(state.copyWith(
         trendLoading: false,
         trendError: failure.message,
       )),
-      (trends) => emit(state.copyWith(
+      (data) => emit(state.copyWith(
         trendLoading: false,
-        trends: trends,
+        trends: data as List<MonthlyTrend>,
       )),
     );
   }

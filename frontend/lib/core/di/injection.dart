@@ -45,6 +45,7 @@ import 'package:budget_book/features/recurring/data/datasources/recurring_remote
 import 'package:budget_book/features/recurring/data/repositories/recurring_repository_impl.dart';
 import 'package:budget_book/features/recurring/domain/repositories/recurring_repository.dart';
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -69,6 +70,7 @@ Future<void> configureDependencies() async {
       authRepository: getIt<AuthRepository>(),
       storageService: getIt<SecureStorageService>(),
     ),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Couple feature
@@ -194,5 +196,14 @@ Future<void> configureDependencies() async {
   );
   getIt.registerFactory<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
+  );
+
+  // Dashboard feature
+  getIt.registerFactory<DashboardBloc>(
+    () => DashboardBloc(
+      statisticsRepository: getIt<StatisticsRepository>(),
+      transactionRepository: getIt<TransactionRepository>(),
+      budgetRepository: getIt<BudgetRepository>(),
+    ),
   );
 }

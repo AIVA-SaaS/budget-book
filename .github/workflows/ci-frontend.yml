@@ -2,7 +2,8 @@ name: Frontend CI
 
 on:
   push:
-    branches: [main, develop]
+    # Task #16: Added feature/**, fix/**, chore/** so CI runs on feature branches before PR
+    branches: [main, develop, 'feature/**', 'fix/**', 'chore/**']
     paths: ['frontend/**']
   pull_request:
     branches: [main, develop]

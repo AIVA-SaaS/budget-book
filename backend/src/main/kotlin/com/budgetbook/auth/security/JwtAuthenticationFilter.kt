@@ -1,7 +1,7 @@
 package com.budgetbook.auth.security
 
-import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.auth.service.JwtTokenProvider
+import com.budgetbook.auth.service.UserCacheService
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 @Component
 class JwtAuthenticationFilter(
     private val jwtTokenProvider: JwtTokenProvider,
-    private val userRepository: UserRepository
+    private val userCacheService: UserCacheService
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -31,7 +31,7 @@ class JwtAuthenticationFilter(
         if (token != null && jwtTokenProvider.validateToken(token)) {
             try {
                 val userId = jwtTokenProvider.getUserIdFromToken(token)
-                val user = userRepository.findById(userId).orElse(null)
+                val user = userCacheService.findById(userId)
 
                 if (user != null) {
                     val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
