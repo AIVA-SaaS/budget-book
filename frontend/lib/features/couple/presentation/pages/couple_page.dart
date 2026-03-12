@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
@@ -18,6 +19,7 @@ class CouplePage extends StatefulWidget {
 
 class _CouplePageState extends State<CouplePage> {
   final _codeController = TextEditingController();
+  bool _waitingForAuthRefresh = false;
 
   @override
   void dispose() {
@@ -27,42 +29,72 @@ class _CouplePageState extends State<CouplePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('커플 연결'),
-        automaticallyImplyLeading: Navigator.canPop(context),
-      ),
-      body: BlocConsumer<CoupleBloc, CoupleState>(
-        listener: (context, state) {
-          if (state is CoupleError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          } else if (state is CoupleLinked) {
-            // Refresh auth state to update coupleId
-            context.read<AuthBloc>().add(const AuthRefreshUser());
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('커플이 연결되었습니다!')),
-            );
-            // Navigate to home after couple linking
-            context.go('/home');
-          }
-        },
-        builder: (context, state) {
-          return switch (state) {
-            CoupleInitial() || CoupleLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
-            CoupleNotLinked() => _buildNotLinked(context),
-            CoupleInvitationPending(invitation: final inv) =>
-              _buildInvitationPending(context, inv),
-            CoupleLinked(couple: final couple) => _buildLinked(context, couple),
-            CoupleError() => _buildNotLinked(context),
-          };
-        },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<CoupleBloc, CoupleState>(
+          listener: (context, state) {
+            if (state is CoupleError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            } else if (state is CoupleLinked) {
+              // Refresh auth state to update coupleId, then navigate
+              setState(() => _waitingForAuthRefresh = true);
+              context.read<AuthBloc>().add(const AuthRefreshUser());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('커플이 연결되었습니다!')),
+              );
+            }
+          },
+        ),
+        // Wait for auth refresh to complete before navigating to home
+        BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (_waitingForAuthRefresh &&
+                state is AuthAuthenticated &&
+                state.user.coupleId != null) {
+              _waitingForAuthRefresh = false;
+              context.go('/home');
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('커플 연결'),
+          automaticallyImplyLeading: Navigator.canPop(context),
+        ),
+        body: BlocBuilder<CoupleBloc, CoupleState>(
+          builder: (context, state) {
+            if (_waitingForAuthRefresh) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('홈으로 이동 중...'),
+                  ],
+                ),
+              );
+            }
+
+            return switch (state) {
+              CoupleInitial() || CoupleLoading() => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              CoupleNotLinked() => _buildNotLinked(context),
+              CoupleInvitationPending(invitation: final inv) =>
+                _buildInvitationPending(context, inv),
+              CoupleLinked(couple: final couple) =>
+                _buildLinked(context, couple),
+              CoupleError() => _buildNotLinked(context),
+            };
+          },
+        ),
       ),
     );
   }
@@ -168,11 +200,15 @@ class _CouplePageState extends State<CouplePage> {
                 ),
           ),
           const SizedBox(height: 32),
-          OutlinedButton(
+          FilledButton.icon(
             onPressed: () {
               context.read<CoupleBloc>().add(const LoadCouple());
             },
-            child: const Text('상태 새로고침'),
+            icon: const Icon(Icons.refresh),
+            label: const Text('연결 상태 확인'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(
@@ -207,7 +243,21 @@ class _CouplePageState extends State<CouplePage> {
           ),
           const SizedBox(height: 24),
           CoupleInfoWidget(partner: couple.partner),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
+          // Navigate to home
+          FilledButton.icon(
+            onPressed: () {
+              // Ensure auth state is fresh, then navigate
+              context.read<AuthBloc>().add(const AuthRefreshUser());
+              context.go('/home');
+            },
+            icon: const Icon(Icons.home),
+            label: const Text('홈으로 이동'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+          const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () => _showDissolveDialog(context),
             icon: const Icon(Icons.link_off, color: Colors.red),
