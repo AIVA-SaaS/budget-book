@@ -21,7 +21,8 @@ class AuthService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val jwtTokenProvider: JwtTokenProvider,
-    private val coupleRepository: CoupleRepository
+    private val coupleRepository: CoupleRepository,
+    private val userCacheService: UserCacheService
 ) {
 
     @Transactional
@@ -74,6 +75,9 @@ class AuthService(
 
         storedToken.revoked = true
         refreshTokenRepository.save(storedToken)
+
+        // Evict user from JWT auth cache on logout
+        userCacheService.evict(userId)
     }
 
     @Transactional(readOnly = true)

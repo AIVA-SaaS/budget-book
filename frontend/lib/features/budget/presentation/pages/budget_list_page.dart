@@ -59,7 +59,7 @@ class BudgetListPage extends StatelessWidget {
               state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
-          context.push('/budgets/create', extra: {'year': year, 'month': month});
+          context.push('/budgets/create?year=$year&month=$month');
         },
         tooltip: '예산 추가',
         child: const Icon(Icons.add),
@@ -171,11 +171,7 @@ class BudgetListPage extends StatelessWidget {
                   state is BudgetLoaded ? state.year : DateTime.now().year;
               final month =
                   state is BudgetLoaded ? state.month : DateTime.now().month;
-              context.push('/budgets/edit/${budget.id}', extra: {
-                'budget': budget,
-                'year': year,
-                'month': month,
-              });
+              context.push('/budgets/edit/${budget.id}?year=$year&month=$month');
             },
           ),
         );

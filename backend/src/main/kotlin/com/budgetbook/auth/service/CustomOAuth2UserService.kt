@@ -7,6 +7,8 @@ import com.budgetbook.auth.security.CustomOAuth2User
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException
+import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -70,13 +72,20 @@ class CustomOAuth2UserService(
             return userRepository.save(byProvider)
         }
 
-        // 2. Email-first lookup: auto-link if same email exists from different provider
+        // 2. Check if email is already registered with a different provider - block auto-linking
         val byEmail = userRepository.findByEmail(userInfo.email)
         if (byEmail != null) {
-            log.info("Auto-linking OAuth2 account: email={}, existingProvider={}, newProvider={}", userInfo.email, byEmail.provider, provider)
-            byEmail.nickname = userInfo.name
-            byEmail.profileImageUrl = userInfo.profileImageUrl
-            return userRepository.save(byEmail)
+            log.warn(
+                "OAuth2 login blocked: email={} already registered with provider={}, attempted provider={}",
+                userInfo.email, byEmail.provider, provider
+            )
+            throw OAuth2AuthenticationException(
+                OAuth2Error(
+                    "account_exists",
+                    "This email is already registered with ${byEmail.provider}. Please log in using ${byEmail.provider}.",
+                    null
+                )
+            )
         }
 
         // 3. New user

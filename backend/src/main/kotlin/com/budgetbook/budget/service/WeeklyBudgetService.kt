@@ -17,7 +17,6 @@ import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -51,7 +50,7 @@ class WeeklyBudgetService(
             if (snapshot != null) {
                 toSnapshotResponse(snapshot)
             } else {
-                // Calculate in real-time from transactions
+                // Calculate in real-time using optimized SUM query
                 val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd)
                 val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size)
                 val remaining = budgetAmount - spent
@@ -113,7 +112,7 @@ class WeeklyBudgetService(
                 .filter { it.category != null && categoryIds.contains(it.category!!.id) }
                 .sumOf { it.weeklyAmount ?: (it.amount / weekRanges.size) }
 
-            // Query transactions for current week, filtered by categories in this group
+            // Use optimized SUM query filtered by categories
             val spent = if (categoryIds.isNotEmpty()) {
                 calculateSpentForPeriodByCategories(couple.id, weekStart, weekEnd, categoryIds)
             } else {
@@ -207,15 +206,12 @@ class WeeklyBudgetService(
     }
 
     private fun calculateSpentForPeriod(coupleId: UUID, start: LocalDate, end: LocalDate): Long {
-        val transactions = transactionRepository.findByCoupleIdAndFilters(
+        return transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = coupleId,
             startDate = start,
             endDate = end,
-            type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = Pageable.unpaged()
+            type = TransactionType.EXPENSE
         )
-        return transactions.content.sumOf { it.amount }
     }
 
     private fun calculateSpentForPeriodByCategories(
@@ -224,17 +220,13 @@ class WeeklyBudgetService(
         end: LocalDate,
         categoryIds: Set<UUID>
     ): Long {
-        val transactions = transactionRepository.findByCoupleIdAndFilters(
+        return transactionRepository.sumAmountByCoupleIdAndDateRangeAndCategories(
             coupleId = coupleId,
             startDate = start,
             endDate = end,
             type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = Pageable.unpaged()
+            categoryIds = categoryIds
         )
-        return transactions.content
-            .filter { it.category != null && categoryIds.contains(it.category!!.id) }
-            .sumOf { it.amount }
     }
 
     private fun calculateWeeklyBudgetAmount(coupleId: UUID, yearMonth: String, numberOfWeeks: Int): Long {

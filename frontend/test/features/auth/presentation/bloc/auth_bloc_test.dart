@@ -330,6 +330,26 @@ void main() {
       );
     });
 
+    group('AuthSessionExpired', () {
+      blocTest<AuthBloc, AuthState>(
+        'clears tokens and emits [AuthUnauthenticated] with session expired message',
+        build: () {
+          when(mockStorageService.clearTokens())
+              .thenAnswer((_) async {});
+          return authBloc;
+        },
+        act: (bloc) => bloc.add(const AuthSessionExpired()),
+        expect: () => [
+          const AuthUnauthenticated(
+            message: '세션이 만료되었습니다. 다시 로그인해주세요.',
+          ),
+        ],
+        verify: (_) {
+          verify(mockStorageService.clearTokens()).called(1);
+        },
+      );
+    });
+
     group('AuthTokenRefreshRequested', () {
       blocTest<AuthBloc, AuthState>(
         'emits [AuthUnauthenticated] when no refresh token stored',

@@ -9,16 +9,16 @@ import 'package:budget_book/features/category/presentation/bloc/category_state.d
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
-import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
-    as txn;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 
 class TransactionFormPage extends StatefulWidget {
-  final txn.Transaction? transaction;
+  /// If editing, pass the transaction ID (from URL path parameter).
+  /// The page will load the transaction data from the BLoC/repository.
+  final String? transactionId;
 
-  const TransactionFormPage({super.key, this.transaction});
+  const TransactionFormPage({super.key, this.transactionId});
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -33,24 +33,59 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _selectedCategoryId;
   String? _selectedPaymentMethodId;
   late DateTime _selectedDate;
+  bool _isLoadingTransaction = false;
 
-  bool get isEditing => widget.transaction != null;
+  bool get isEditing => widget.transactionId != null;
 
   @override
   void initState() {
     super.initState();
-    final t = widget.transaction;
-    _amountController =
-        TextEditingController(text: t != null ? t.amount.toString() : '');
-    _descriptionController =
-        TextEditingController(text: t?.description ?? '');
-    _memoController = TextEditingController(text: t?.memo ?? '');
-    _selectedType = t?.type ?? 'EXPENSE';
-    _selectedCategoryId = t?.category?.id;
-    _selectedPaymentMethodId = t?.paymentMethodId;
-    _selectedDate = t != null
-        ? DateTime.parse(t.transactionDate)
-        : DateTime.now();
+    _amountController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _memoController = TextEditingController();
+    _selectedType = 'EXPENSE';
+    _selectedDate = DateTime.now();
+
+    if (isEditing) {
+      _isLoadingTransaction = true;
+      // Load the transaction by ID via the bloc
+      _loadTransaction();
+    }
+  }
+
+  Future<void> _loadTransaction() async {
+    final bloc = context.read<TransactionBloc>();
+    final repo = bloc.transactionRepository;
+    final result = await repo.getTransaction(widget.transactionId!);
+    result.fold(
+      (failure) {
+        if (mounted) {
+          setState(() {
+            _isLoadingTransaction = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      (transaction) {
+        if (mounted) {
+          setState(() {
+            _isLoadingTransaction = false;
+            _amountController.text = transaction.amount.toString();
+            _descriptionController.text = transaction.description;
+            _memoController.text = transaction.memo ?? '';
+            _selectedType = transaction.type;
+            _selectedCategoryId = transaction.category?.id;
+            _selectedPaymentMethodId = transaction.paymentMethodId;
+            _selectedDate = DateTime.parse(transaction.transactionDate);
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -63,6 +98,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingTransaction) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('거래 수정')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? '거래 수정' : '거래 추가'),
@@ -290,7 +332,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
       if (isEditing) {
         bloc.add(UpdateTransaction(
-          id: widget.transaction!.id,
+          id: widget.transactionId!,
           amount: amount,
           description: description,
           categoryId: _selectedCategoryId,

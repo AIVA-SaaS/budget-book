@@ -147,20 +147,21 @@ class BudgetService(
 
         val budgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
 
-        // Get expense transactions for the month
-        val transactions = transactionRepository.findByCoupleIdAndFilters(
+        // Get expense spending aggregated by category using an optimized query
+        val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
+            couple.id, startDate, endDate, TransactionType.EXPENSE
+        )
+        val spendingByCategory = categoryExpenseResults.associate { row ->
+            (row[2] as UUID) to (row[0] as Long)
+        }
+
+        // Get total expense amount using SUM query
+        val totalSpent = transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = startDate,
             endDate = endDate,
-            type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = org.springframework.data.domain.Pageable.unpaged()
+            type = TransactionType.EXPENSE
         )
-
-        // Aggregate spending by category
-        val spendingByCategory = transactions.content
-            .groupBy { it.category?.id }
-            .mapValues { (_, txs) -> txs.sumOf { it.amount } }
 
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
@@ -168,7 +169,7 @@ class BudgetService(
                 spendingByCategory[categoryId] ?: 0L
             } else {
                 // Total budget: sum all expenses
-                transactions.content.sumOf { it.amount }
+                totalSpent
             }
             val remainingAmount = budget.amount - spentAmount
             val usageRate = if (budget.amount > 0) {
@@ -193,10 +194,6 @@ class BudgetService(
                 usageRate = usageRate
             )
         }
-
-        // Calculate totalSpent independently as the direct sum of ALL expenses for the month,
-        // to avoid double-counting when both a "total" budget and category-specific budgets exist
-        val totalSpent = transactions.content.sumOf { it.amount }
 
         // When a "total" budget exists (categoryId=null), use that as totalBudget.
         // Otherwise, sum only category-specific budgets to avoid double-counting.
