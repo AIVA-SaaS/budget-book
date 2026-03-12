@@ -47,16 +47,45 @@ void main() {
     ),
   ];
 
+  final tBudget = Budget(
+    id: 'budget-1',
+    coupleId: 'couple-1',
+    category: const TransactionCategory(
+      id: 'cat-1',
+      name: '식비',
+      type: 'EXPENSE',
+    ),
+    yearMonth: '2026-03',
+    amount: 150000,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+
+  final tOverallBudget = Budget(
+    id: 'budget-2',
+    coupleId: 'couple-1',
+    category: null,
+    yearMonth: '2026-03',
+    amount: 150000,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+
   setUp(() {
     mockBudgetBloc = MockBudgetBloc();
     mockCategoryBloc = MockCategoryBloc();
   });
 
-  Widget buildTestWidget({Budget? budget, int year = 2026, int month = 3}) {
-    when(() => mockBudgetBloc.state).thenReturn(const BudgetLoaded(
-      budgets: [],
-      year: 2026,
-      month: 3,
+  Widget buildTestWidget({
+    String? budgetId,
+    List<Budget> budgets = const [],
+    int year = 2026,
+    int month = 3,
+  }) {
+    when(() => mockBudgetBloc.state).thenReturn(BudgetLoaded(
+      budgets: budgets,
+      year: year,
+      month: month,
     ));
     when(() => mockCategoryBloc.state)
         .thenReturn(CategoryLoaded(tCategories));
@@ -67,7 +96,7 @@ void main() {
           BlocProvider<CategoryBloc>.value(value: mockCategoryBloc),
         ],
         child: BudgetFormPage(
-          budget: budget,
+          budgetId: budgetId,
           year: year,
           month: month,
         ),
@@ -76,26 +105,18 @@ void main() {
   }
 
   group('BudgetFormPage', () {
-    testWidgets('shows create form title when no budget', (tester) async {
+    testWidgets('shows create form title when no budgetId', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       expect(find.text('예산 추가'), findsOneWidget);
     });
 
-    testWidgets('shows edit form title when budget provided', (tester) async {
-      final budget = Budget(
-        id: 'budget-1',
-        coupleId: 'couple-1',
-        category: const TransactionCategory(
-          id: 'cat-1',
-          name: '식비',
-          type: 'EXPENSE',
-        ),
-        yearMonth: '2026-03',
-        amount: 150000,
-        createdAt: DateTime(2026),
-        updatedAt: DateTime(2026),
-      );
-      await tester.pumpWidget(buildTestWidget(budget: budget));
+    testWidgets('shows edit form title when budgetId provided',
+        (tester) async {
+      await tester.pumpWidget(buildTestWidget(
+        budgetId: 'budget-1',
+        budgets: [tBudget],
+      ));
+      await tester.pumpAndSettle();
       expect(find.text('예산 수정'), findsOneWidget);
     });
 
@@ -142,34 +163,20 @@ void main() {
     });
 
     testWidgets('shows category non-editable in edit mode', (tester) async {
-      final budget = Budget(
-        id: 'budget-1',
-        coupleId: 'couple-1',
-        category: const TransactionCategory(
-          id: 'cat-1',
-          name: '식비',
-          type: 'EXPENSE',
-        ),
-        yearMonth: '2026-03',
-        amount: 150000,
-        createdAt: DateTime(2026),
-        updatedAt: DateTime(2026),
-      );
-      await tester.pumpWidget(buildTestWidget(budget: budget));
+      await tester.pumpWidget(buildTestWidget(
+        budgetId: 'budget-1',
+        budgets: [tBudget],
+      ));
+      await tester.pumpAndSettle();
       expect(find.text('카테고리는 수정할 수 없습니다'), findsOneWidget);
     });
 
     testWidgets('pre-fills amount in edit mode', (tester) async {
-      final budget = Budget(
-        id: 'budget-1',
-        coupleId: 'couple-1',
-        category: null,
-        yearMonth: '2026-03',
-        amount: 150000,
-        createdAt: DateTime(2026),
-        updatedAt: DateTime(2026),
-      );
-      await tester.pumpWidget(buildTestWidget(budget: budget));
+      await tester.pumpWidget(buildTestWidget(
+        budgetId: 'budget-2',
+        budgets: [tOverallBudget],
+      ));
+      await tester.pumpAndSettle();
       expect(find.text('150000'), findsOneWidget);
     });
   });

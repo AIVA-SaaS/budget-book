@@ -22,3 +22,6 @@ class ConflictException(code: String, message: String) :
 
 class GoneException(code: String, message: String) :
     BusinessException(code, message, HttpStatus.GONE)
+
+class TooManyRequestsException(code: String, message: String) :
+    BusinessException(code, message, HttpStatus.TOO_MANY_REQUESTS)
