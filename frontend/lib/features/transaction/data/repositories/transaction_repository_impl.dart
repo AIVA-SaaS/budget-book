@@ -54,6 +54,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     required String transactionDate,
     String? memo,
     String? paymentMethodId,
+    String? pocketId,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -64,6 +65,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (categoryId != null) 'categoryId': categoryId,
         if (memo != null) 'memo': memo,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+        if (pocketId != null) 'pocketId': pocketId,
       };
       final result = await remoteDataSource.createTransaction(data);
       return Right(result);
@@ -82,6 +84,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? memo,
     bool clearMemo = false,
     String? paymentMethodId,
+    String? pocketId,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -91,6 +94,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (transactionDate != null) 'transactionDate': transactionDate,
         if (memo != null) 'memo': memo else if (clearMemo) 'memo': null,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+        if (pocketId != null) 'pocketId': pocketId,
       };
       final result = await remoteDataSource.updateTransaction(id, data);
       return Right(result);

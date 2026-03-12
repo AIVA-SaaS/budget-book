@@ -11,6 +11,7 @@ import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.repository.CoupleRepository
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
+import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
@@ -35,6 +36,7 @@ class TransactionService(
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
+    private val moneyPocketRepository: MoneyPocketRepository,
     private val syncEventPublisher: SyncEventPublisher
 ) {
 
@@ -120,6 +122,18 @@ class TransactionService(
             calculateSettlementDate(it, request.transactionDate)
         }
 
+        val pocket = request.pocketId?.let { pocketId ->
+            val p = moneyPocketRepository.findById(pocketId)
+                .orElseThrow { NotFoundException("POCKET_NOT_FOUND", "Specified pocket does not exist.") }
+            if (p.couple.id != couple.id) {
+                throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
+            }
+            if (!p.isActive) {
+                throw NotFoundException("POCKET_NOT_FOUND", "Specified pocket is not active.")
+            }
+            p
+        }
+
         val transaction = Transaction(
             couple = couple,
             author = user,
@@ -130,7 +144,8 @@ class TransactionService(
             memo = request.memo,
             transactionDate = request.transactionDate,
             paymentMethod = paymentMethod,
-            settlementDate = settlementDate
+            settlementDate = settlementDate,
+            pocket = pocket
         )
 
         val saved = transactionRepository.save(transaction)
@@ -204,6 +219,24 @@ class TransactionService(
                 transaction.paymentMethod = null
                 transaction.settlementDate = null
                 paymentMethodChanged = true
+            }
+        }
+
+        // Handle pocketId with PatchValue
+        request.pocketId?.let { patchValue ->
+            val pocketIdVal = patchValue.value
+            if (pocketIdVal != null) {
+                val p = moneyPocketRepository.findById(pocketIdVal)
+                    .orElseThrow { NotFoundException("POCKET_NOT_FOUND", "Specified pocket does not exist.") }
+                if (p.couple.id != couple.id) {
+                    throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
+                }
+                if (!p.isActive) {
+                    throw NotFoundException("POCKET_NOT_FOUND", "Specified pocket is not active.")
+                }
+                transaction.pocket = p
+            } else {
+                transaction.pocket = null
             }
         }
 
@@ -297,6 +330,8 @@ class TransactionService(
         paymentMethodName = paymentMethod?.name,
         paymentMethodType = paymentMethod?.type?.name,
         settlementDate = settlementDate?.toString(),
+        pocketId = pocket?.id,
+        pocketName = pocket?.name,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
