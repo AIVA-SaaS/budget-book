@@ -9,6 +9,9 @@ import 'package:budget_book/features/category/presentation/bloc/category_state.d
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -32,6 +35,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late String _selectedType;
   String? _selectedCategoryId;
   String? _selectedPaymentMethodId;
+  String? _selectedPocketId;
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
 
@@ -81,6 +85,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             _selectedType = transaction.type;
             _selectedCategoryId = transaction.category?.id;
             _selectedPaymentMethodId = transaction.paymentMethodId;
+            _selectedPocketId = transaction.pocketId;
             _selectedDate = DateTime.parse(transaction.transactionDate);
           });
         }
@@ -197,6 +202,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 // Payment method picker
                 _buildPaymentMethodPicker(context),
                 const SizedBox(height: 16),
+                // Pocket picker
+                _buildPocketPicker(context),
+                const SizedBox(height: 16),
                 // Date picker
                 _buildDatePicker(context),
                 const SizedBox(height: 16),
@@ -295,6 +303,39 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  Widget _buildPocketPicker(BuildContext context) {
+    return BlocBuilder<PocketBloc, PocketState>(
+      builder: (context, pocketState) {
+        final pockets = pocketState is PocketLoaded
+            ? pocketState.pockets
+            : <MoneyPocket>[];
+
+        return DropdownButtonFormField<String>(
+          initialValue: _selectedPocketId,
+          decoration: const InputDecoration(
+            labelText: '포켓 (선택)',
+            prefixIcon: Icon(Icons.account_balance_wallet),
+          ),
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('포켓 미지정'),
+            ),
+            ...pockets.map((p) => DropdownMenuItem<String>(
+                  value: p.id,
+                  child: Text(p.name),
+                )),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedPocketId = value;
+            });
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDatePicker(BuildContext context) {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return InkWell(
@@ -340,6 +381,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           memo: memo,
           clearMemo: memo == null,
           paymentMethodId: _selectedPaymentMethodId,
+          pocketId: _selectedPocketId,
         ));
       } else {
         bloc.add(CreateTransaction(
@@ -350,6 +392,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           transactionDate: dateStr,
           memo: memo,
           paymentMethodId: _selectedPaymentMethodId,
+          pocketId: _selectedPocketId,
         ));
       }
     }

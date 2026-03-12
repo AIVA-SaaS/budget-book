@@ -16,6 +16,8 @@ class Transaction extends Equatable {
   final String? paymentMethodName;
   final String? paymentMethodType;
   final String? settlementDate;
+  final String? pocketId;
+  final String? pocketName;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,6 +35,8 @@ class Transaction extends Equatable {
     this.paymentMethodName,
     this.paymentMethodType,
     this.settlementDate,
+    this.pocketId,
+    this.pocketName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -55,6 +59,8 @@ class Transaction extends Equatable {
         paymentMethodName,
         paymentMethodType,
         settlementDate,
+        pocketId,
+        pocketName,
         createdAt,
         updatedAt,
       ];

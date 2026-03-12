@@ -51,6 +51,13 @@ class SettingsPage extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/payment-methods'),
             ),
+            // Money Pockets
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet),
+              title: const Text('머니 포켓'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pockets'),
+            ),
             // Recurring Transactions
             ListTile(
               leading: const Icon(Icons.repeat),
