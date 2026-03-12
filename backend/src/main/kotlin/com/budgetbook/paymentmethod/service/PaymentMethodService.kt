@@ -13,6 +13,8 @@ import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
+import com.budgetbook.sync.SyncEvent
+import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,7 +26,8 @@ import java.util.UUID
 class PaymentMethodService(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val coupleRepository: CoupleRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val syncEventPublisher: SyncEventPublisher
 ) {
 
     @Transactional(readOnly = true)
@@ -58,7 +61,15 @@ class PaymentMethodService(
             closingDay = request.closingDay
         )
 
-        return paymentMethodRepository.save(paymentMethod).toResponse()
+        val saved = paymentMethodRepository.save(paymentMethod)
+        syncEventPublisher.publish(SyncEvent(
+            type = "PAYMENT_METHOD_CREATED",
+            entityType = "PAYMENT_METHOD",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional
@@ -73,7 +84,15 @@ class PaymentMethodService(
         request.isActive?.let { method.isActive = it }
         request.displayOrder?.let { method.displayOrder = it }
 
-        return paymentMethodRepository.save(method).toResponse()
+        val saved = paymentMethodRepository.save(method)
+        syncEventPublisher.publish(SyncEvent(
+            type = "PAYMENT_METHOD_UPDATED",
+            entityType = "PAYMENT_METHOD",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional
@@ -87,6 +106,13 @@ class PaymentMethodService(
         }
 
         paymentMethodRepository.delete(method)
+        syncEventPublisher.publish(SyncEvent(
+            type = "PAYMENT_METHOD_DELETED",
+            entityType = "PAYMENT_METHOD",
+            entityId = methodId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
     }
 
     @Transactional

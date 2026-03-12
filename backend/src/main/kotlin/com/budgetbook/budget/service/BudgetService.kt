@@ -16,6 +16,8 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.sync.SyncEvent
+import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -30,7 +32,8 @@ class BudgetService(
     private val budgetRepository: MonthlyBudgetRepository,
     private val coupleRepository: CoupleRepository,
     private val categoryRepository: CategoryRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val syncEventPublisher: SyncEventPublisher
 ) {
 
     @Transactional
@@ -74,7 +77,15 @@ class BudgetService(
             weeklyAmount = weeklyAmount
         )
 
-        return budgetRepository.save(budget).toResponse()
+        val saved = budgetRepository.save(budget)
+        syncEventPublisher.publish(SyncEvent(
+            type = "BUDGET_CREATED",
+            entityType = "BUDGET",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -121,7 +132,15 @@ class BudgetService(
             }
         }
 
-        return budgetRepository.save(budget).toResponse()
+        val saved = budgetRepository.save(budget)
+        syncEventPublisher.publish(SyncEvent(
+            type = "BUDGET_UPDATED",
+            entityType = "BUDGET",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional
@@ -135,6 +154,13 @@ class BudgetService(
         }
 
         budgetRepository.delete(budget)
+        syncEventPublisher.publish(SyncEvent(
+            type = "BUDGET_DELETED",
+            entityType = "BUDGET",
+            entityId = budgetId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
     }
 
     @Transactional(readOnly = true)

@@ -3,6 +3,7 @@ package com.budgetbook.couple.service
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.category.service.CategoryService
+import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.paymentmethod.service.PaymentMethodService
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ConflictException
@@ -17,10 +18,13 @@ import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.repository.CoupleInvitationRepository
 import com.budgetbook.couple.repository.CoupleRepository
+import com.github.benmanes.caffeine.cache.Caffeine
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 @Service
 class CoupleService(
@@ -29,8 +33,17 @@ class CoupleService(
     private val userRepository: UserRepository,
     private val categoryService: CategoryService,
     private val categoryGroupService: CategoryGroupService,
-    private val paymentMethodService: PaymentMethodService
+    private val paymentMethodService: PaymentMethodService,
+    private val redisCacheService: RedisCacheService
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    // L1 Caffeine cache: userId -> coupleId
+    private val coupleCaffeineCache = Caffeine.newBuilder()
+        .maximumSize(1000)
+        .expireAfterWrite(5, TimeUnit.MINUTES)
+        .build<UUID, UUID>()
 
     @Transactional
     fun createInvitation(userId: UUID): InvitationResponse {
@@ -151,6 +164,16 @@ class CoupleService(
 
         couple.status = CoupleStatus.DISSOLVED
         coupleRepository.save(couple)
+
+        // Evict couple cache for both users
+        evictCoupleCache(couple.user1.id)
+        couple.user2?.let { evictCoupleCache(it.id) }
+    }
+
+    fun evictCoupleCache(userId: UUID) {
+        coupleCaffeineCache.invalidate(userId)
+        redisCacheService.evict("couple:$userId")
+        log.debug("Evicted couple cache for userId={}", userId)
     }
 
     private fun generateInvitationCode(): String {

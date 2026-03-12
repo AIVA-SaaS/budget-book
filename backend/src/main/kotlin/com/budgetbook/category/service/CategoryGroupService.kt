@@ -14,6 +14,8 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.sync.SyncEvent
+import com.budgetbook.sync.SyncEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -23,7 +25,8 @@ class CategoryGroupService(
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val categoryService: CategoryService,
-    private val coupleRepository: CoupleRepository
+    private val coupleRepository: CoupleRepository,
+    private val syncEventPublisher: SyncEventPublisher
 ) {
 
     @Transactional(readOnly = true)
@@ -74,7 +77,15 @@ class CategoryGroupService(
             displayOrder = 0,
             isDefault = false
         )
-        return categoryGroupRepository.save(group).toResponse(emptyList())
+        val saved = categoryGroupRepository.save(group)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_GROUP_CREATED",
+            entityType = "CATEGORY_GROUP",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse(emptyList())
     }
 
     @Transactional
@@ -100,6 +111,13 @@ class CategoryGroupService(
         request.displayOrder?.let { group.displayOrder = it }
 
         val saved = categoryGroupRepository.save(group)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_GROUP_UPDATED",
+            entityType = "CATEGORY_GROUP",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
         val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, saved.id)
         return saved.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
     }
@@ -124,6 +142,13 @@ class CategoryGroupService(
         categoryRepository.saveAll(categories)
 
         categoryGroupRepository.delete(group)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_GROUP_DELETED",
+            entityType = "CATEGORY_GROUP",
+            entityId = groupId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
     }
 
     @Transactional
