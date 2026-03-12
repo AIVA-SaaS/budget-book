@@ -62,6 +62,16 @@
   - [Create Recurring Transaction](#2-create-recurring-transaction)
   - [Update Recurring Transaction](#3-update-recurring-transaction)
   - [Delete Recurring Transaction](#4-delete-recurring-transaction)
+- [Money Pockets](#money-pockets)
+  - [List Pockets](#1-list-pockets)
+  - [Create Pocket](#2-create-pocket)
+  - [Update Pocket](#3-update-pocket)
+  - [Delete Pocket](#4-delete-pocket)
+  - [Pocket Summary](#5-pocket-summary)
+  - [Distribute Income](#6-distribute-income)
+- [Pocket Transfers](#pocket-transfers)
+  - [List Pocket Transfers](#1-list-pocket-transfers)
+  - [Create Pocket Transfer](#2-create-pocket-transfer)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -2095,6 +2105,375 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | `totalExpense` | `long`   | Sum of all expense transactions      |
 | `balance`      | `long`   | `totalIncome - totalExpense`         |
 
+### PocketResponse
+
+| Field             | Type      | Nullable | Description                                              |
+|:------------------|:----------|:--------:|:---------------------------------------------------------|
+| `id`              | `UUID`    | No       | Pocket unique identifier                                 |
+| `name`            | `string`  | No       | Pocket display name                                      |
+| `type`            | `enum`    | No       | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
+| `allocatedAmount` | `long`    | No       | Allocated budget in KRW                                  |
+| `balance`         | `long`    | No       | Computed balance: `allocatedAmount + transferIn - transferOut - expense` |
+| `icon`            | `string`  | Yes      | Material icon name                                       |
+| `color`           | `string`  | Yes      | Hex color code (e.g. `#FF5733`)                          |
+| `displayOrder`    | `integer` | No       | Sort order                                               |
+| `isActive`        | `boolean` | No       | Whether this pocket is active                            |
+
+### PocketSummaryResponse
+
+| Field              | Type              | Nullable | Description                                   |
+|:-------------------|:------------------|:--------:|:----------------------------------------------|
+| `pocket`           | `PocketResponse`  | No       | The pocket detail                             |
+| `totalIncome`      | `long`            | No       | Sum of INCOME transactions linked to pocket   |
+| `totalExpense`     | `long`            | No       | Sum of EXPENSE transactions linked to pocket  |
+| `totalTransferIn`  | `long`            | No       | Sum of incoming pocket transfers              |
+| `totalTransferOut` | `long`            | No       | Sum of outgoing pocket transfers              |
+| `balance`          | `long`            | No       | `allocatedAmount + transferIn - transferOut - expense` |
+
+### PocketSummary
+
+Abbreviated pocket reference used within transfer responses.
+
+| Field  | Type     | Nullable | Description          |
+|:-------|:---------|:--------:|:---------------------|
+| `id`   | `UUID`   | No       | Pocket unique identifier |
+| `name` | `string` | No       | Pocket display name  |
+
+### PocketTransferResponse
+
+| Field          | Type            | Nullable | Description                            |
+|:---------------|:----------------|:--------:|:---------------------------------------|
+| `id`           | `UUID`          | No       | Transfer unique identifier             |
+| `fromPocket`   | `PocketSummary` | No       | Source pocket (id and name)            |
+| `toPocket`     | `PocketSummary` | No       | Destination pocket (id and name)       |
+| `amount`       | `long`          | No       | Transfer amount in KRW (always > 0)    |
+| `description`  | `string`        | Yes      | Optional transfer note                 |
+| `transferDate` | `string`        | No       | ISO 8601 date: `YYYY-MM-DD`            |
+| `authorId`     | `UUID`          | No       | ID of user who created the transfer    |
+
+### DistributeResponse
+
+| Field                         | Type     | Nullable | Description                                    |
+|:------------------------------|:---------|:--------:|:-----------------------------------------------|
+| `distributions`               | `array`  | No       | List of pocket allocation entries              |
+| `distributions[].pocketId`   | `UUID`   | No       | Pocket unique identifier                       |
+| `distributions[].pocketName` | `string` | No       | Pocket display name                            |
+| `distributions[].amount`     | `long`   | No       | Amount allocated to this pocket                |
+| `totalDistributed`            | `long`   | No       | Sum of all distribution amounts                |
+
+---
+
+## Money Pockets
+
+Base path: `/api/v1/pockets`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+Money Pockets represent named budget envelopes for a couple (e.g., living expenses, fixed costs, savings). Each pocket tracks allocated amounts and actual spending via linked transactions and transfers.
+
+**Pocket types**: `LIVING` (생활비), `FIXED` (고정지출), `CARD_PENDING` (카드미결제), `SAVINGS` (저축), `CUSTOM` (직접입력)
+
+**Balance formula**: `allocatedAmount + totalTransferIn - totalTransferOut - totalExpense`
+where `totalExpense` is the sum of `EXPENSE` transactions linked to this pocket via `pocket_id`.
+
+---
+
+### 1. List Pockets
+
+Returns all active pockets for the authenticated couple with balance summary.
+
+| Item        | Value                     |
+|:------------|:--------------------------|
+| **Method**  | `GET`                     |
+| **Path**    | `/api/v1/pockets`         |
+| **Auth**    | Required                  |
+
+**Response `200 OK`**: `ApiResponse<List<PocketResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440100",
+      "name": "생활비",
+      "type": "LIVING",
+      "allocatedAmount": 1000000,
+      "balance": 750000,
+      "icon": "home",
+      "color": "#4CAF50",
+      "displayOrder": 0,
+      "isActive": true
+    }
+  ],
+  "timestamp": "2026-03-12T10:00:00Z"
+}
+```
+
+---
+
+### 2. Create Pocket
+
+| Item        | Value                     |
+|:------------|:--------------------------|
+| **Method**  | `POST`                    |
+| **Path**    | `/api/v1/pockets`         |
+| **Auth**    | Required                  |
+
+**Request Body**
+
+| Field             | Type      | Required | Description                                              |
+|:------------------|:----------|:--------:|:---------------------------------------------------------|
+| `name`            | `string`  | Yes      | Pocket display name (max 50 chars)                       |
+| `type`            | `enum`    | Yes      | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
+| `allocatedAmount` | `long`    | Yes      | Allocated budget amount in KRW (>= 0)                    |
+| `icon`            | `string`  | No       | Material icon name                                       |
+| `color`           | `string`  | No       | Hex color code (e.g. `#FF5733`)                          |
+
+**Response `201 Created`**: `ApiResponse<PocketResponse>`
+
+**Error Responses**
+
+| Status | Error Code          | Description                    |
+|:------:|:--------------------|:-------------------------------|
+| `400`  | `VALIDATION_ERROR`  | Missing required fields         |
+| `404`  | `COUPLE_NOT_FOUND`  | User is not in an active couple |
+
+---
+
+### 3. Update Pocket
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `PUT`                         |
+| **Path**    | `/api/v1/pockets/{id}`        |
+| **Auth**    | Required                      |
+
+**Request Body** (all fields optional)
+
+| Field             | Type      | Description                                              |
+|:------------------|:----------|:---------------------------------------------------------|
+| `name`            | `string`  | Pocket display name (max 50 chars)                       |
+| `type`            | `enum`    | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
+| `allocatedAmount` | `long`    | Allocated budget amount in KRW (>= 0)                    |
+| `icon`            | `string`  | Material icon name                                       |
+| `color`           | `string`  | Hex color code                                           |
+| `displayOrder`    | `integer` | Sort order                                               |
+
+**Response `200 OK`**: `ApiResponse<PocketResponse>`
+
+**Error Responses**
+
+| Status | Error Code          | Description                       |
+|:------:|:--------------------|:----------------------------------|
+| `404`  | `POCKET_NOT_FOUND`  | Requested pocket does not exist   |
+| `403`  | `FORBIDDEN`         | Pocket belongs to another couple  |
+
+---
+
+### 4. Delete Pocket
+
+Soft-deletes the pocket by setting `is_active = false`. The pocket's historical data is preserved.
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `DELETE`                      |
+| **Path**    | `/api/v1/pockets/{id}`        |
+| **Auth**    | Required                      |
+
+**Response `204 No Content`**
+
+**Error Responses**
+
+| Status | Error Code          | Description                       |
+|:------:|:--------------------|:----------------------------------|
+| `404`  | `POCKET_NOT_FOUND`  | Requested pocket does not exist   |
+| `403`  | `FORBIDDEN`         | Pocket belongs to another couple  |
+
+---
+
+### 5. Pocket Summary
+
+Returns full balance breakdown for a single pocket.
+
+| Item        | Value                             |
+|:------------|:----------------------------------|
+| **Method**  | `GET`                             |
+| **Path**    | `/api/v1/pockets/{id}/summary`    |
+| **Auth**    | Required                          |
+
+**Response `200 OK`**: `ApiResponse<PocketSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "pocket": {
+      "id": "550e8400-e29b-41d4-a716-446655440100",
+      "name": "생활비",
+      "type": "LIVING",
+      "allocatedAmount": 1000000,
+      "balance": 750000,
+      "icon": "home",
+      "color": "#4CAF50",
+      "displayOrder": 0,
+      "isActive": true
+    },
+    "totalIncome": 0,
+    "totalExpense": 250000,
+    "totalTransferIn": 0,
+    "totalTransferOut": 0,
+    "balance": 750000
+  },
+  "timestamp": "2026-03-12T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code          | Description                       |
+|:------:|:--------------------|:----------------------------------|
+| `404`  | `POCKET_NOT_FOUND`  | Requested pocket does not exist   |
+
+---
+
+### 6. Distribute Income
+
+Distributes a total income amount across multiple pockets by updating each pocket's `allocatedAmount`.
+
+| Item        | Value                             |
+|:------------|:----------------------------------|
+| **Method**  | `POST`                            |
+| **Path**    | `/api/v1/pockets/distribute`      |
+| **Auth**    | Required                          |
+
+**Request Body**
+
+| Field                       | Type    | Required | Description                                 |
+|:----------------------------|:--------|:--------:|:--------------------------------------------|
+| `totalAmount`               | `long`  | Yes      | Total income amount to distribute (> 0)     |
+| `distributions`             | `array` | Yes      | List of pocket allocation entries           |
+| `distributions[].pocketId`  | `UUID`  | Yes      | Target pocket ID                            |
+| `distributions[].amount`    | `long`  | Yes      | Amount to allocate to this pocket (> 0)     |
+
+**Response `200 OK`**: `ApiResponse<DistributeResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "distributions": [
+      {
+        "pocketId": "550e8400-e29b-41d4-a716-446655440100",
+        "pocketName": "생활비",
+        "amount": 600000
+      },
+      {
+        "pocketId": "550e8400-e29b-41d4-a716-446655440101",
+        "pocketName": "저축",
+        "amount": 400000
+      }
+    ],
+    "totalDistributed": 1000000
+  },
+  "timestamp": "2026-03-12T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code          | Description                                              |
+|:------:|:--------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`  | Missing required fields or amounts not positive          |
+| `404`  | `POCKET_NOT_FOUND`  | One or more target pockets do not exist                  |
+
+---
+
+## Pocket Transfers
+
+Base path: `/api/v1/pocket-transfers`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+Records money moved between pockets (e.g., surplus from living expenses moved to savings).
+
+---
+
+### 1. List Pocket Transfers
+
+Returns pocket transfer history for the couple. Supports optional filtering.
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `GET`                         |
+| **Path**    | `/api/v1/pocket-transfers`    |
+| **Auth**    | Required                      |
+
+**Query Parameters**
+
+| Parameter      | Type     | Required | Description                              |
+|:---------------|:---------|:--------:|:-----------------------------------------|
+| `fromPocketId` | `UUID`   | No       | Filter by source pocket                  |
+| `toPocketId`   | `UUID`   | No       | Filter by destination pocket             |
+| `startDate`    | `string` | No       | Start date inclusive (`YYYY-MM-DD`)      |
+| `endDate`      | `string` | No       | End date inclusive (`YYYY-MM-DD`)        |
+
+**Response `200 OK`**: `ApiResponse<List<PocketTransferResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440200",
+      "fromPocket": {
+        "id": "550e8400-e29b-41d4-a716-446655440100",
+        "name": "생활비"
+      },
+      "toPocket": {
+        "id": "550e8400-e29b-41d4-a716-446655440101",
+        "name": "저축"
+      },
+      "amount": 100000,
+      "description": "이월 저축",
+      "transferDate": "2026-03-12",
+      "authorId": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ],
+  "timestamp": "2026-03-12T10:00:00Z"
+}
+```
+
+---
+
+### 2. Create Pocket Transfer
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `POST`                        |
+| **Path**    | `/api/v1/pocket-transfers`    |
+| **Auth**    | Required                      |
+
+**Request Body**
+
+| Field          | Type     | Required | Description                            |
+|:---------------|:---------|:--------:|:---------------------------------------|
+| `fromPocketId` | `UUID`   | Yes      | Source pocket ID                       |
+| `toPocketId`   | `UUID`   | Yes      | Destination pocket ID                  |
+| `amount`       | `long`   | Yes      | Transfer amount in KRW (> 0)           |
+| `description`  | `string` | No       | Optional transfer note (max 255 chars) |
+| `transferDate` | `string` | Yes      | Transfer date (`YYYY-MM-DD`)           |
+
+**Response `201 Created`**: `ApiResponse<PocketTransferResponse>`
+
+**Error Responses**
+
+| Status | Error Code          | Description                                            |
+|:------:|:--------------------|:-------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`  | Missing required fields, amount <= 0, or same pocket   |
+| `404`  | `POCKET_NOT_FOUND`  | Source or destination pocket does not exist            |
+| `403`  | `FORBIDDEN`         | Pocket belongs to another couple                       |
+
 ---
 
 ## Infrastructure
@@ -2245,6 +2624,8 @@ All messages published to a couple topic share the following JSON structure:
 | `CATEGORY`       | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`                                        |
 | `CATEGORY_GROUP` | `CATEGORY_GROUP_CREATED`, `CATEGORY_GROUP_UPDATED`, `CATEGORY_GROUP_DELETED`                      |
 | `PAYMENT_METHOD` | `PAYMENT_METHOD_CREATED`, `PAYMENT_METHOD_UPDATED`, `PAYMENT_METHOD_DELETED`                      |
+| `POCKET`         | `POCKET_CREATED`, `POCKET_UPDATED`, `POCKET_DELETED`                                              |
+| `POCKET_TRANSFER`| `POCKET_TRANSFER_CREATED`, `POCKET_DISTRIBUTED`                                                   |
 
 Upon receiving an event, the frontend client should:
 1. Check `coupleId` matches the authenticated session's couple.
@@ -2319,3 +2700,5 @@ spring:
 | `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
 | `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |
 | `RECURRING_NOT_FOUND`             | `404`       | Requested recurring transaction does not exist       |
+| `POCKET_NOT_FOUND`                | `404`       | Requested money pocket does not exist                |
+| `POCKET_TRANSFER_NOT_FOUND`       | `404`       | Requested pocket transfer does not exist             |

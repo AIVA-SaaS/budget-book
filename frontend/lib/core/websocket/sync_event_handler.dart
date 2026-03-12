@@ -11,6 +11,8 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 
 import 'sync_event.dart';
 
@@ -49,6 +51,9 @@ class SyncEventHandler {
         _refreshPaymentMethods();
       case 'CATEGORY_GROUP':
         _refreshCategoryGroups();
+      case 'POCKET':
+      case 'POCKET_TRANSFER':
+        _refreshPockets();
       default:
         _logger.w('Unknown entity type: ${event.entityType}');
     }
@@ -103,6 +108,16 @@ class SyncEventHandler {
       _logger.d('Dispatched LoadCategoryGroups refresh');
     } catch (e) {
       _logger.e('Failed to refresh category groups: $e');
+    }
+  }
+
+  void _refreshPockets() {
+    try {
+      final bloc = _getIt<PocketBloc>();
+      bloc.add(const LoadPockets());
+      _logger.d('Dispatched LoadPockets refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh pockets: $e');
     }
   }
 }

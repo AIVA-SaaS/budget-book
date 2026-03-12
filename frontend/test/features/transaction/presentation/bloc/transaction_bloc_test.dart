@@ -65,6 +65,7 @@ class MockTransactionRepository extends Mock
     required String transactionDate,
     String? memo,
     String? paymentMethodId,
+    String? pocketId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createTransaction, [], {
@@ -75,6 +76,7 @@ class MockTransactionRepository extends Mock
           #transactionDate: transactionDate,
           #memo: memo,
           #paymentMethodId: paymentMethodId,
+          #pocketId: pocketId,
         }),
         returnValue: Future.value(
           Right<Failure, Transaction>(_dummyTransaction),
@@ -91,6 +93,7 @@ class MockTransactionRepository extends Mock
     String? memo,
     bool clearMemo = false,
     String? paymentMethodId,
+    String? pocketId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateTransaction, [], {
@@ -102,6 +105,7 @@ class MockTransactionRepository extends Mock
           #memo: memo,
           #clearMemo: clearMemo,
           #paymentMethodId: paymentMethodId,
+          #pocketId: pocketId,
         }),
         returnValue: Future.value(
           Right<Failure, Transaction>(_dummyTransaction),
