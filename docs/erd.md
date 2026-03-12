@@ -97,6 +97,7 @@ erDiagram
         UUID author_id FK "NOT NULL, FK -> users(id) ON DELETE RESTRICT"
         UUID category_id FK "Nullable, FK -> categories(id) ON DELETE SET NULL"
         UUID payment_method_id FK "Nullable, FK -> payment_methods(id) ON DELETE SET NULL"
+        UUID pocket_id FK "Nullable, FK -> money_pockets(id) ON DELETE SET NULL"
         VARCHAR(20) type "NOT NULL (INCOME, EXPENSE)"
         BIGINT amount "NOT NULL, > 0, in KRW"
         VARCHAR(255) description "NOT NULL"
@@ -154,6 +155,33 @@ erDiagram
         TIMESTAMP updated_at "NOT NULL"
     }
 
+    money_pockets {
+        UUID id PK "Primary Key, auto-generated"
+        UUID couple_id FK "NOT NULL, FK -> couples(id)"
+        VARCHAR(50) name "NOT NULL"
+        VARCHAR(20) type "NOT NULL (LIVING, FIXED, CARD_PENDING, SAVINGS, CUSTOM)"
+        BIGINT allocated_amount "NOT NULL, DEFAULT 0"
+        VARCHAR(50) icon "Nullable"
+        VARCHAR(7) color "Nullable, hex code"
+        INTEGER display_order "NOT NULL, DEFAULT 0"
+        BOOLEAN is_active "NOT NULL, DEFAULT TRUE"
+        TIMESTAMP created_at "NOT NULL"
+        TIMESTAMP updated_at "NOT NULL"
+    }
+
+    pocket_transfers {
+        UUID id PK "Primary Key, auto-generated"
+        UUID couple_id FK "NOT NULL, FK -> couples(id)"
+        UUID from_pocket_id FK "NOT NULL, FK -> money_pockets(id)"
+        UUID to_pocket_id FK "NOT NULL, FK -> money_pockets(id)"
+        BIGINT amount "NOT NULL, > 0"
+        VARCHAR(255) description "Nullable"
+        DATE transfer_date "NOT NULL"
+        UUID author_id FK "NOT NULL, FK -> users(id)"
+        TIMESTAMP created_at "NOT NULL"
+        TIMESTAMP updated_at "NOT NULL"
+    }
+
     users ||--o{ refresh_tokens : "has"
     users ||--o{ couple_invitations : "creates"
     users ||--o{ couples : "member of (user1)"
@@ -165,8 +193,11 @@ erDiagram
     couples ||--o{ weekly_budget_snapshots : "owns"
     couples ||--o{ payment_methods : "owns"
     couples ||--o{ recurring_transactions : "owns"
+    couples ||--o{ money_pockets : "owns"
+    couples ||--o{ pocket_transfers : "owns"
     users ||--o{ transactions : "authors"
     users ||--o{ recurring_transactions : "authors"
+    users ||--o{ pocket_transfers : "authors"
     category_groups ||--o{ categories : "groups"
     category_groups ||--o{ weekly_budget_snapshots : "tracks"
     categories ||--o{ transactions : "categorizes"
@@ -174,6 +205,9 @@ erDiagram
     categories ||--o{ recurring_transactions : "categorizes"
     payment_methods ||--o{ transactions : "used in"
     payment_methods ||--o{ recurring_transactions : "used in"
+    money_pockets ||--o{ transactions : "tracks"
+    money_pockets ||--o{ pocket_transfers : "source of"
+    money_pockets ||--o{ pocket_transfers : "destination of"
 ```
 
 ---
@@ -331,6 +365,7 @@ Individual income and expense records belonging to a couple.
 | `couple_id`        | `UUID`        | `FK NOT NULL`                       | References `couples(id)` ON DELETE CASCADE           |
 | `author_id`        | `UUID`        | `FK NOT NULL`                       | References `users(id)` ON DELETE RESTRICT            |
 | `category_id`      | `UUID`        | `FK NULLABLE`                       | References `categories(id)` ON DELETE SET NULL       |
+| `pocket_id`        | `UUID`        | `FK NULLABLE`                       | References `money_pockets(id)` ON DELETE SET NULL    |
 | `type`             | `VARCHAR(20)` | `NOT NULL`                          | `INCOME` or `EXPENSE`                                |
 | `amount`           | `BIGINT`      | `NOT NULL CHECK (amount > 0)`       | Amount in KRW (Korean Won, no decimals)              |
 | `description`      | `VARCHAR(255)`| `NOT NULL`                          | Short description                                    |
@@ -350,6 +385,9 @@ Individual income and expense records belonging to a couple.
 | `idx_transactions_couple_type`    | Index | `(couple_id, type)`              |
 | `idx_transactions_category_id`    | Index | `category_id`                    |
 | `idx_transactions_author_id`      | Index | `author_id`                      |
+| `idx_transactions_pocket`         | Index | `pocket_id`                      |
+
+**Note**: `transactions.pocket_id` (FK → `money_pockets(id) ON DELETE SET NULL`) added in V13.
 
 ### `category_groups` (V7)
 
@@ -505,6 +543,62 @@ Monthly budget targets per couple, optionally scoped to a category. A `null` `ca
 
 ---
 
+### `money_pockets` (V11)
+
+Named budget envelopes per couple. Each pocket has an allocated amount and tracks spending through linked transactions and transfers.
+
+| Column             | Type           | Constraints                           | Description                                              |
+|:-------------------|:---------------|:--------------------------------------|:---------------------------------------------------------|
+| `id`               | `UUID`         | `PK`                                 | Auto-generated primary key                               |
+| `couple_id`        | `UUID`         | `FK NOT NULL`                        | References `couples(id)`                                 |
+| `name`             | `VARCHAR(50)`  | `NOT NULL`                           | Pocket display name                                      |
+| `type`             | `VARCHAR(20)`  | `NOT NULL`                           | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
+| `allocated_amount` | `BIGINT`       | `NOT NULL DEFAULT 0`                 | Allocated budget in KRW                                  |
+| `icon`             | `VARCHAR(50)`  | `NULLABLE`                           | Material icon name                                       |
+| `color`            | `VARCHAR(7)`   | `NULLABLE`                           | Hex color code (e.g. `#FF5733`)                          |
+| `display_order`    | `INTEGER`      | `NOT NULL DEFAULT 0`                 | Sort order                                               |
+| `is_active`        | `BOOLEAN`      | `NOT NULL DEFAULT TRUE`              | Soft-delete flag                                         |
+| `created_at`       | `TIMESTAMPTZ`  | `NOT NULL`                           | Creation timestamp                                       |
+| `updated_at`       | `TIMESTAMPTZ`  | `NOT NULL`                           | Last update timestamp                                    |
+
+**Check Constraints**: `type IN ('LIVING','FIXED','CARD_PENDING','SAVINGS','CUSTOM')`
+
+**Indexes**
+
+| Name                        | Type  | Columns    |
+|:----------------------------|:------|:-----------|
+| `idx_money_pockets_couple`  | Index | `couple_id`|
+
+---
+
+### `pocket_transfers` (V12)
+
+Records transfers of funds between pockets. Affects balance calculation for both source and destination pockets.
+
+| Column           | Type           | Constraints              | Description                                          |
+|:-----------------|:---------------|:-------------------------|:-----------------------------------------------------|
+| `id`             | `UUID`         | `PK`                    | Auto-generated primary key                           |
+| `couple_id`      | `UUID`         | `FK NOT NULL`           | References `couples(id)`                             |
+| `from_pocket_id` | `UUID`         | `FK NOT NULL`           | References `money_pockets(id)` — source pocket       |
+| `to_pocket_id`   | `UUID`         | `FK NOT NULL`           | References `money_pockets(id)` — destination pocket  |
+| `amount`         | `BIGINT`       | `NOT NULL CHECK (> 0)`  | Transfer amount in KRW                               |
+| `description`    | `VARCHAR(255)` | `NULLABLE`              | Optional transfer note                               |
+| `transfer_date`  | `DATE`         | `NOT NULL`              | Date the transfer was made                           |
+| `author_id`      | `UUID`         | `FK NOT NULL`           | References `users(id)` — user who made the transfer  |
+| `created_at`     | `TIMESTAMPTZ`  | `NOT NULL`              | Creation timestamp                                   |
+| `updated_at`     | `TIMESTAMPTZ`  | `NOT NULL`              | Last update timestamp                                |
+
+**Check Constraints**: `amount > 0`
+
+**Indexes**
+
+| Name                          | Type  | Columns         |
+|:------------------------------|:------|:----------------|
+| `idx_pocket_transfers_couple` | Index | `couple_id`     |
+| `idx_pocket_transfers_date`   | Index | `transfer_date` |
+
+---
+
 ## Relationships
 
 | From                      | To                          | Cardinality | Description                                                |
@@ -519,8 +613,11 @@ Monthly budget targets per couple, optionally scoped to a category. A `null` `ca
 | `couples`                 | `weekly_budget_snapshots`   | One-to-Many | A couple owns all their weekly snapshots                   |
 | `couples`                 | `payment_methods`           | One-to-Many | A couple owns all their payment methods                    |
 | `couples`                 | `recurring_transactions`    | One-to-Many | A couple owns all their recurring transaction rules        |
+| `couples`                 | `money_pockets`             | One-to-Many | A couple owns all their money pockets                      |
+| `couples`                 | `pocket_transfers`          | One-to-Many | A couple owns all their pocket transfers                   |
 | `users`                   | `transactions`              | One-to-Many | A user authors transactions on behalf of the couple        |
 | `users`                   | `recurring_transactions`    | One-to-Many | A user creates recurring transaction rules                 |
+| `users`                   | `pocket_transfers`          | One-to-Many | A user authors pocket transfers                            |
 | `category_groups`         | `categories`                | One-to-Many | A group contains multiple categories (nullable)            |
 | `category_groups`         | `weekly_budget_snapshots`   | One-to-Many | Weekly snapshots are scoped to a group (nullable)          |
 | `categories`              | `transactions`              | One-to-Many | Transactions are categorized (category_id can be null)     |
@@ -528,6 +625,9 @@ Monthly budget targets per couple, optionally scoped to a category. A `null` `ca
 | `categories`              | `recurring_transactions`    | One-to-Many | Recurring rules are optionally categorized                 |
 | `payment_methods`         | `transactions`              | One-to-Many | Transactions may reference a payment method (nullable)     |
 | `payment_methods`         | `recurring_transactions`    | One-to-Many | Recurring rules may reference a payment method (nullable)  |
+| `money_pockets`           | `transactions`              | One-to-Many | Transactions may be linked to a pocket (pocket_id nullable)|
+| `money_pockets`           | `pocket_transfers`          | One-to-Many | A pocket can be the source of transfers                    |
+| `money_pockets`           | `pocket_transfers`          | One-to-Many | A pocket can be the destination of transfers               |
 
 ---
 
@@ -545,3 +645,6 @@ Monthly budget targets per couple, optionally scoped to a category. A `null` `ca
 | V8      | `V8__create_payment_methods_table.sql`           | Payment methods + `transactions.payment_method_id` column|
 | V9      | `V9__create_weekly_budget_snapshots_table.sql`   | Weekly budget snapshots + `monthly_budgets` period fields|
 | V10     | `V10__create_recurring_transactions_table.sql`   | Recurring transaction rules with scheduler support       |
+| V11     | `V11__create_money_pockets_table.sql`            | Money pockets (budget envelopes) per couple              |
+| V12     | `V12__create_pocket_transfers_table.sql`         | Pocket transfers between money pockets                   |
+| V13     | `V13__add_pocket_id_to_transactions.sql`         | `transactions.pocket_id` FK to money pockets             |

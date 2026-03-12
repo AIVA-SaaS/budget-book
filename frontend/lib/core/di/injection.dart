@@ -45,6 +45,14 @@ import 'package:budget_book/features/recurring/data/datasources/recurring_remote
 import 'package:budget_book/features/recurring/data/repositories/recurring_repository_impl.dart';
 import 'package:budget_book/features/recurring/domain/repositories/recurring_repository.dart';
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
+import 'package:budget_book/features/pocket/data/datasources/pocket_remote_datasource.dart';
+import 'package:budget_book/features/pocket/data/repositories/pocket_repository_impl.dart';
+import 'package:budget_book/features/pocket/domain/repositories/pocket_repository.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/data/datasources/pocket_transfer_remote_datasource.dart';
+import 'package:budget_book/features/pocket/data/repositories/pocket_transfer_repository_impl.dart';
+import 'package:budget_book/features/pocket/domain/repositories/pocket_transfer_repository.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
 import 'package:budget_book/core/websocket/sync_event_handler.dart';
@@ -204,6 +212,33 @@ Future<void> configureDependencies() async {
   );
   getIt.registerFactory<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
+  );
+
+  // Money Pocket feature
+  getIt.registerLazySingleton<PocketRemoteDataSource>(
+    () => PocketRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<PocketRepository>(
+    () => PocketRepositoryImpl(
+        remoteDataSource: getIt<PocketRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<PocketBloc>(
+    () => PocketBloc(pocketRepository: getIt<PocketRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Pocket Transfer feature
+  getIt.registerLazySingleton<PocketTransferRemoteDataSource>(
+    () => PocketTransferRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<PocketTransferRepository>(
+    () => PocketTransferRepositoryImpl(
+        remoteDataSource: getIt<PocketTransferRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<PocketTransferBloc>(
+    () => PocketTransferBloc(
+        pocketTransferRepository: getIt<PocketTransferRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // WebSocket / Real-time sync

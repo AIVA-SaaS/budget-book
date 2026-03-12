@@ -27,6 +27,8 @@ data class TransactionResponse(
     val paymentMethodName: String? = null,
     val paymentMethodType: String? = null,
     val settlementDate: String? = null,
+    val pocketId: UUID? = null,
+    val pocketName: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -58,7 +60,9 @@ data class CreateTransactionRequest(
 
     val memo: String? = null,
 
-    val paymentMethodId: UUID? = null
+    val paymentMethodId: UUID? = null,
+
+    val pocketId: UUID? = null
 )
 
 data class UpdateTransactionRequest(
@@ -77,7 +81,10 @@ data class UpdateTransactionRequest(
     val memo: PatchValue<String>? = null,
 
     @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
-    val paymentMethodId: PatchValue<UUID>? = null
+    val paymentMethodId: PatchValue<UUID>? = null,
+
+    @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
+    val pocketId: PatchValue<UUID>? = null
 )
 
 data class PageResponse<T>(

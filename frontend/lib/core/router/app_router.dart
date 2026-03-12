@@ -44,6 +44,13 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_event.dart';
+import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart';
+import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
+import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -213,6 +220,9 @@ final appRouter = GoRouter(
             create: (_) =>
                 getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
           ),
+          BlocProvider<PocketBloc>.value(
+            value: getIt<PocketBloc>()..add(const LoadPockets()),
+          ),
         ],
         child: const TransactionFormPage(),
       ),
@@ -234,6 +244,9 @@ final appRouter = GoRouter(
             BlocProvider<PaymentMethodBloc>(
               create: (_) =>
                   getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>()..add(const LoadPockets()),
             ),
           ],
           child: TransactionFormPage(
@@ -398,6 +411,39 @@ final appRouter = GoRouter(
           child: RecurringFormPage(recurringId: recurringId),
         );
       },
+    ),
+    // Money Pockets
+    GoRoute(
+      path: '/pockets',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => BlocProvider<PocketBloc>.value(
+        value: getIt<PocketBloc>()..add(const LoadPockets()),
+        child: const PocketPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/pockets/distribute',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => BlocProvider<PocketBloc>.value(
+        value: getIt<PocketBloc>()..add(const LoadPockets()),
+        child: const DistributeWizardPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/pocket-transfers',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<PocketBloc>.value(
+            value: getIt<PocketBloc>()..add(const LoadPockets()),
+          ),
+          BlocProvider<PocketTransferBloc>.value(
+            value: getIt<PocketTransferBloc>()
+              ..add(const LoadPocketTransfers()),
+          ),
+        ],
+        child: const PocketTransferPage(),
+      ),
     ),
   ],
 );
