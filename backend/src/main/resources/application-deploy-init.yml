@@ -11,7 +11,9 @@ spring:
     enabled: false
 
 jwt:
-  secret: deploy-init-secret-key-that-is-at-least-256-bits-long
+  # Task #14: Use GitHub Secret JWT_SECRET; fallback placeholder used only for deploy-init profile
+  # Required GitHub Secret: JWT_SECRET
+  secret: ${JWT_SECRET:deploy-init-placeholder-secret-key-256-bits-long}
   access-token-expiry: 3600000
   refresh-token-expiry: 604800000
 

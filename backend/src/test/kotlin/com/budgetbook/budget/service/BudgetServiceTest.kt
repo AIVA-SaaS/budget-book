@@ -16,7 +16,6 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
-import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -27,8 +26,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.Pageable
 import java.time.LocalDate
 import java.util.Optional
 import java.util.UUID
@@ -342,23 +339,23 @@ class BudgetServiceTest : BehaviorSpec({
         val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
         every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget1, budget2)
 
-        val tx1 = Transaction(
-            couple = couple, author = user1, category = category, type = TransactionType.EXPENSE,
-            amount = 95000, description = "식비 지출", transactionDate = LocalDate.of(2026, 3, 10)
-        )
-        val tx2 = Transaction(
-            couple = couple, author = user1, category = null, type = TransactionType.EXPENSE,
-            amount = 50000, description = "기타 지출", transactionDate = LocalDate.of(2026, 3, 15)
+        // Mock category expense aggregation query: category -> 95000
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id,
+            LocalDate.of(2026, 3, 1),
+            LocalDate.of(2026, 3, 31),
+            TransactionType.EXPENSE
+        ) } returns listOf(
+            arrayOf(95000L, 1L, category.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733")
         )
 
-        every { transactionRepository.findByCoupleIdAndFilters(
+        // Mock total expense SUM query: 95000 + 50000 = 145000
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = LocalDate.of(2026, 3, 1),
             endDate = LocalDate.of(2026, 3, 31),
-            type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = any()
-        ) } returns PageImpl(listOf(tx1, tx2))
+            type = TransactionType.EXPENSE
+        ) } returns 145000L
 
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)

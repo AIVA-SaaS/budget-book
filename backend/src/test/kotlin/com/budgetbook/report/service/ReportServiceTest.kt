@@ -27,7 +27,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.PageRequest
 import java.time.LocalDate
 import java.util.UUID
 
@@ -95,7 +95,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 7),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
-                    pageable = Pageable.unpaged()
+                    pageable = any()
                 )
             } returns PageImpl(listOf(tx1, tx2, tx3))
 
@@ -189,7 +189,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 14),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
-                    pageable = Pageable.unpaged()
+                    pageable = any()
                 )
             } returns PageImpl(emptyList())
 
@@ -222,7 +222,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 1, 14),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
-                    pageable = Pageable.unpaged()
+                    pageable = any()
                 )
             } returns PageImpl(emptyList())
 
@@ -358,7 +358,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
-                    pageable = Pageable.unpaged()
+                    pageable = any()
                 )
             } returns PageImpl(listOf(expenseTx))
 
@@ -473,7 +473,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 1, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
-                    pageable = Pageable.unpaged()
+                    pageable = any()
                 )
             } returns PageImpl(emptyList())
 

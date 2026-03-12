@@ -35,3 +35,9 @@ class AuthTokenRefreshRequested extends AuthEvent {
 class AuthRefreshUser extends AuthEvent {
   const AuthRefreshUser();
 }
+
+/// Fired by AuthInterceptor when token refresh fails.
+/// Clears tokens and transitions to unauthenticated state.
+class AuthSessionExpired extends AuthEvent {
+  const AuthSessionExpired();
+}

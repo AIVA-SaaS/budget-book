@@ -1,9 +1,12 @@
 package com.budgetbook.couple.controller
 
+import com.budgetbook.common.exception.TooManyRequestsException
+import com.budgetbook.common.ratelimit.RateLimiter
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.service.CoupleService
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -11,6 +14,7 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
 import java.time.Instant
@@ -19,7 +23,8 @@ import java.util.UUID
 class CoupleControllerTest : FunSpec({
 
     val coupleService = mockk<CoupleService>()
-    val controller = CoupleController(coupleService)
+    val rateLimiter = mockk<RateLimiter>()
+    val controller = CoupleController(coupleService, rateLimiter)
 
     val testUserId = UUID.randomUUID()
 
@@ -43,8 +48,11 @@ class CoupleControllerTest : FunSpec({
         verify(exactly = 1) { coupleService.createInvitation(testUserId) }
     }
 
-    test("acceptInvitation returns couple info") {
+    test("acceptInvitation returns couple info when rate limit not exceeded") {
         val auth = createAuthentication(testUserId)
+        val request = MockHttpServletRequest().apply {
+            remoteAddr = "127.0.0.1"
+        }
         val partnerId = UUID.randomUUID()
         val expectedResponse = CoupleResponse(
             id = UUID.randomUUID(),
@@ -52,14 +60,46 @@ class CoupleControllerTest : FunSpec({
             status = "ACTIVE",
             createdAt = Instant.now()
         )
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns true
         every { coupleService.acceptInvitation(testUserId, "ABCD1234") } returns expectedResponse
 
-        val result = controller.acceptInvitation(auth, "ABCD1234")
+        val result = controller.acceptInvitation(auth, "ABCD1234", request)
 
         result.success shouldBe true
         result.data!!.status shouldBe "ACTIVE"
         result.data!!.partner.id shouldBe partnerId
         verify(exactly = 1) { coupleService.acceptInvitation(testUserId, "ABCD1234") }
+    }
+
+    test("acceptInvitation throws TooManyRequestsException when rate limit exceeded") {
+        val auth = createAuthentication(testUserId)
+        val request = MockHttpServletRequest().apply {
+            remoteAddr = "127.0.0.1"
+        }
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns false
+
+        shouldThrow<TooManyRequestsException> {
+            controller.acceptInvitation(auth, "ABCD1234", request)
+        }
+    }
+
+    test("acceptInvitation uses X-Forwarded-For header for IP extraction") {
+        val auth = createAuthentication(testUserId)
+        val request = MockHttpServletRequest().apply {
+            remoteAddr = "10.0.0.1"
+            addHeader("X-Forwarded-For", "203.0.113.50, 70.41.3.18")
+        }
+        val expectedResponse = CoupleResponse(
+            id = UUID.randomUUID(),
+            partner = UserSummary(id = UUID.randomUUID(), nickname = "Partner", profileImageUrl = null),
+            status = "ACTIVE",
+            createdAt = Instant.now()
+        )
+        every { rateLimiter.tryAcquire("invite-accept:203.0.113.50", 5, 60000L) } returns true
+        every { coupleService.acceptInvitation(testUserId, "CODE1234") } returns expectedResponse
+
+        val result = controller.acceptInvitation(auth, "CODE1234", request)
+        result.success shouldBe true
     }
 
     test("getMyCouple returns couple info") {

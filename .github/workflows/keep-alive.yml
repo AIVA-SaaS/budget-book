@@ -1,0 +1,27 @@
+name: Keep Alive - Render Cold Start Prevention
+
+on:
+  schedule:
+    # Every 14 minutes to prevent Render free tier 15-min sleep
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --connect-timeout 10 --max-time 30 \
+            https://budget-book-api.onrender.com/actuator/health 2>/dev/null || echo "000")
+
+          echo "Health endpoint returned: $STATUS"
+
+          if [ "$STATUS" = "200" ]; then
+            echo "Backend is awake and healthy."
+          elif [ "$STATUS" = "000" ]; then
+            echo "Backend did not respond (timeout or network error). Render may be starting up."
+          else
+            echo "Backend returned unexpected status: $STATUS"
+          fi

@@ -1,9 +1,12 @@
 package com.budgetbook.couple.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.exception.TooManyRequestsException
+import com.budgetbook.common.ratelimit.RateLimiter
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.service.CoupleService
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -18,8 +21,14 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/couples")
 class CoupleController(
-    private val coupleService: CoupleService
+    private val coupleService: CoupleService,
+    private val rateLimiter: RateLimiter
 ) {
+
+    companion object {
+        private const val INVITE_ACCEPT_MAX_REQUESTS = 5
+        private const val INVITE_ACCEPT_WINDOW_MILLIS = 60_000L // 1 minute
+    }
 
     @PostMapping("/invitations")
     fun createInvitation(authentication: Authentication): ResponseEntity<ApiResponse<InvitationResponse>> {
@@ -31,8 +40,20 @@ class CoupleController(
     @PostMapping("/invitations/{code}/accept")
     fun acceptInvitation(
         authentication: Authentication,
-        @PathVariable code: String
+        @PathVariable code: String,
+        request: HttpServletRequest
     ): ApiResponse<CoupleResponse> {
+        val clientIp = request.getHeader("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
+            ?: request.remoteAddr
+        val rateLimitKey = "invite-accept:$clientIp"
+
+        if (!rateLimiter.tryAcquire(rateLimitKey, INVITE_ACCEPT_MAX_REQUESTS, INVITE_ACCEPT_WINDOW_MILLIS)) {
+            throw TooManyRequestsException(
+                "RATE_LIMIT_EXCEEDED",
+                "Too many invitation accept attempts. Please try again later."
+            )
+        }
+
         val userId = authentication.principal as UUID
         return ApiResponse.ok(coupleService.acceptInvitation(userId, code))
     }

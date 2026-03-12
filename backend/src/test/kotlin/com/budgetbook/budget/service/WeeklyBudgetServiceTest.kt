@@ -18,7 +18,6 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
-import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -27,7 +26,6 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import org.springframework.data.domain.PageImpl
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -92,15 +90,13 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
         every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
         every { snapshotRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
 
-        // Mock transactions for each week
-        every { transactionRepository.findByCoupleIdAndFilters(
+        // Mock SUM queries for each week (returns 0 for all)
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
-            type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = any()
-        ) } returns PageImpl(emptyList())
+            type = TransactionType.EXPENSE
+        ) } returns 0L
 
         When("getWeeklyOverview is called") {
             val result = service.getWeeklyOverview(user1.id, 2026, 3)
@@ -130,14 +126,12 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             MonthlyBudget(couple = couple, yearMonth = "2026-03", amount = 500000)
         )
 
-        every { transactionRepository.findByCoupleIdAndFilters(
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
-            type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = any()
-        ) } returns PageImpl(emptyList())
+            type = TransactionType.EXPENSE
+        ) } returns 0L
 
         When("getWeeklyOverview is called") {
             val result = service.getWeeklyOverview(user1.id, 2026, 3)
@@ -181,19 +175,13 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
         )
         every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth) } returns listOf(budget)
 
-        val tx = Transaction(
-            couple = couple, author = user1, category = category1,
-            type = TransactionType.EXPENSE, amount = 15000,
-            description = "점심", transactionDate = today
-        )
-        every { transactionRepository.findByCoupleIdAndFilters(
+        every { transactionRepository.sumAmountByCoupleIdAndDateRangeAndCategories(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
             type = TransactionType.EXPENSE,
-            categoryId = null,
-            pageable = any()
-        ) } returns PageImpl(listOf(tx))
+            categoryIds = setOf(category1.id)
+        ) } returns 15000L
 
         When("getCurrentWeekSummary is called") {
             val result = service.getCurrentWeekSummary(user1.id)

@@ -2,7 +2,8 @@ name: Backend CI
 
 on:
   push:
-    branches: [main, develop]
+    # Task #16: Added feature/**, fix/**, chore/** so CI runs on feature branches before PR
+    branches: [main, develop, 'feature/**', 'fix/**', 'chore/**']
     paths: ['backend/**']
   pull_request:
     branches: [main, develop]
@@ -48,11 +49,12 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Build
+      # Task #15: Merged Build + Test into one step.
+      # ./gradlew build already runs all tests; running ./gradlew test separately
+      # caused a second full compilation cycle. Env vars are passed here so the
+      # test phase inside build can reach the Postgres service container.
+      - name: Build and Test
         run: ./gradlew build
-
-      - name: Test
-        run: ./gradlew test
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
           SPRING_DATASOURCE_USERNAME: budgetbook
