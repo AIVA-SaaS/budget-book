@@ -78,6 +78,36 @@ interface TransactionRepository : JpaRepository<Transaction, UUID> {
     ): List<Array<Any>>
 
     @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = :type
+    """)
+    fun sumAmountByCoupleIdAndDateRange(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("type") type: TransactionType
+    ): Long
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = :type
+        AND t.category.id IN :categoryIds
+    """)
+    fun sumAmountByCoupleIdAndDateRangeAndCategories(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("type") type: TransactionType,
+        @Param("categoryIds") categoryIds: Set<UUID>
+    ): Long
+
+    @Query("""
         SELECT SUM(t.amount), COUNT(t)
         FROM Transaction t
         WHERE t.paymentMethod.id = :paymentMethodId

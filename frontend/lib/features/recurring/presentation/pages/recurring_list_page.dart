@@ -109,7 +109,7 @@ class RecurringListPage extends StatelessWidget {
                         ),
                       );
                 },
-                onTap: () => context.push('/recurring/edit/${t.id}', extra: t),
+                onTap: () => context.push('/recurring/edit/${t.id}'),
                 onDelete: () {
                   context
                       .read<RecurringBloc>()
@@ -140,7 +140,7 @@ class RecurringListPage extends StatelessWidget {
                         ),
                       );
                 },
-                onTap: () => context.push('/recurring/edit/${t.id}', extra: t),
+                onTap: () => context.push('/recurring/edit/${t.id}'),
                 onDelete: () {
                   context
                       .read<RecurringBloc>()
