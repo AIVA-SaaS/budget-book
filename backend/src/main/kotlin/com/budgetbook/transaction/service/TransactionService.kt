@@ -18,6 +18,8 @@ import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
+import com.budgetbook.sync.SyncEvent
+import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -32,7 +34,8 @@ class TransactionService(
     private val coupleRepository: CoupleRepository,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
-    private val paymentMethodRepository: PaymentMethodRepository
+    private val paymentMethodRepository: PaymentMethodRepository,
+    private val syncEventPublisher: SyncEventPublisher
 ) {
 
     @Transactional(readOnly = true)
@@ -130,7 +133,15 @@ class TransactionService(
             settlementDate = settlementDate
         )
 
-        return transactionRepository.save(transaction).toResponse()
+        val saved = transactionRepository.save(transaction)
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSACTION_CREATED",
+            entityType = "TRANSACTION",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -203,7 +214,15 @@ class TransactionService(
             }
         }
 
-        return transactionRepository.save(transaction).toResponse()
+        val saved = transactionRepository.save(transaction)
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSACTION_UPDATED",
+            entityType = "TRANSACTION",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     @Transactional
@@ -217,6 +236,13 @@ class TransactionService(
         }
 
         transactionRepository.delete(transaction)
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSACTION_DELETED",
+            entityType = "TRANSACTION",
+            entityId = transactionId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
     }
 
     private fun getActiveCouple(userId: UUID): Couple {

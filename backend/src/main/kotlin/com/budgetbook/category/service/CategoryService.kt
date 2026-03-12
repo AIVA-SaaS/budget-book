@@ -10,9 +10,13 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.sync.SyncEvent
+import com.budgetbook.sync.SyncEventPublisher
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -21,8 +25,12 @@ import java.util.UUID
 class CategoryService(
     private val categoryRepository: CategoryRepository,
     private val categoryGroupRepository: CategoryGroupRepository,
-    private val coupleRepository: CoupleRepository
+    private val coupleRepository: CoupleRepository,
+    private val syncEventPublisher: SyncEventPublisher,
+    private val redisCacheService: RedisCacheService
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
     fun listCategories(userId: UUID, type: CategoryType?): List<CategoryResponse> {
@@ -59,7 +67,16 @@ class CategoryService(
             isDefault = false,
             displayOrder = 0
         )
-        return categoryRepository.save(category).toResponse()
+        val saved = categoryRepository.save(category)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_CREATED",
+            entityType = "CATEGORY",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        evictCategoryCache(couple.id)
+        return saved.toResponse()
     }
 
     @Transactional
@@ -82,7 +99,16 @@ class CategoryService(
             category.group = group
         }
 
-        return categoryRepository.save(category).toResponse()
+        val saved = categoryRepository.save(category)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_UPDATED",
+            entityType = "CATEGORY",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        evictCategoryCache(couple.id)
+        return saved.toResponse()
     }
 
     @Transactional
@@ -100,6 +126,14 @@ class CategoryService(
         }
 
         categoryRepository.delete(category)
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_DELETED",
+            entityType = "CATEGORY",
+            entityId = categoryId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        evictCategoryCache(couple.id)
     }
 
     @Transactional
@@ -129,6 +163,11 @@ class CategoryService(
             )
         }
         categoryRepository.saveAll(categories)
+    }
+
+    private fun evictCategoryCache(coupleId: UUID) {
+        redisCacheService.evict("categories:$coupleId")
+        log.debug("Evicted category cache for coupleId={}", coupleId)
     }
 
     private fun getActiveCouple(userId: UUID): Couple {

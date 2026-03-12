@@ -41,6 +41,7 @@ class SecurityConfig(
                     .requestMatchers("/oauth2/**").permitAll()
                     .requestMatchers("/login/oauth2/**").permitAll()
                     .requestMatchers("/api/v1/auth/refresh").permitAll()
+                    .requestMatchers("/ws/**").permitAll()
                     .anyRequest().authenticated()
             }
             .oauth2Login { oauth2 ->
