@@ -16,6 +16,7 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -38,7 +39,8 @@ class BudgetServiceTest : BehaviorSpec({
     val coupleRepository = mockk<CoupleRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val transactionRepository = mockk<TransactionRepository>()
-    val service = BudgetService(budgetRepository, coupleRepository, categoryRepository, transactionRepository)
+    val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
+    val service = BudgetService(budgetRepository, coupleRepository, categoryRepository, transactionRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")

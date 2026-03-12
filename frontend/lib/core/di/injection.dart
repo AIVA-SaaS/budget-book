@@ -46,6 +46,9 @@ import 'package:budget_book/features/recurring/data/repositories/recurring_repos
 import 'package:budget_book/features/recurring/domain/repositories/recurring_repository.dart';
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/core/websocket/websocket_service.dart';
+import 'package:budget_book/core/websocket/sync_event_handler.dart';
+import 'package:budget_book/core/websocket/websocket_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -93,8 +96,9 @@ Future<void> configureDependencies() async {
     () => CategoryRepositoryImpl(
         remoteDataSource: getIt<CategoryRemoteDataSource>()),
   );
-  getIt.registerFactory<CategoryBloc>(
+  getIt.registerLazySingleton<CategoryBloc>(
     () => CategoryBloc(categoryRepository: getIt<CategoryRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Transaction feature
@@ -105,9 +109,10 @@ Future<void> configureDependencies() async {
     () => TransactionRepositoryImpl(
         remoteDataSource: getIt<TransactionRemoteDataSource>()),
   );
-  getIt.registerFactory<TransactionBloc>(
+  getIt.registerLazySingleton<TransactionBloc>(
     () => TransactionBloc(
         transactionRepository: getIt<TransactionRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Budget feature
@@ -118,8 +123,9 @@ Future<void> configureDependencies() async {
     () => BudgetRepositoryImpl(
         remoteDataSource: getIt<BudgetRemoteDataSource>()),
   );
-  getIt.registerFactory<BudgetBloc>(
+  getIt.registerLazySingleton<BudgetBloc>(
     () => BudgetBloc(budgetRepository: getIt<BudgetRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Statistics feature
@@ -143,9 +149,10 @@ Future<void> configureDependencies() async {
     () => PaymentMethodRepositoryImpl(
         remoteDataSource: getIt<PaymentMethodRemoteDataSource>()),
   );
-  getIt.registerFactory<PaymentMethodBloc>(
+  getIt.registerLazySingleton<PaymentMethodBloc>(
     () => PaymentMethodBloc(
         paymentMethodRepository: getIt<PaymentMethodRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Category Group feature
@@ -156,9 +163,10 @@ Future<void> configureDependencies() async {
     () => CategoryGroupRepositoryImpl(
         remoteDataSource: getIt<CategoryGroupRemoteDataSource>()),
   );
-  getIt.registerFactory<CategoryGroupBloc>(
+  getIt.registerLazySingleton<CategoryGroupBloc>(
     () => CategoryGroupBloc(
         categoryGroupRepository: getIt<CategoryGroupRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Weekly Budget feature
@@ -196,6 +204,22 @@ Future<void> configureDependencies() async {
   );
   getIt.registerFactory<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
+  );
+
+  // WebSocket / Real-time sync
+  getIt.registerLazySingleton<WebSocketService>(
+    () => WebSocketService(),
+    dispose: (service) => service.dispose(),
+  );
+  getIt.registerLazySingleton<SyncEventHandler>(
+    () => SyncEventHandler(getIt: getIt),
+  );
+  getIt.registerLazySingleton<WebSocketBloc>(
+    () => WebSocketBloc(
+      webSocketService: getIt<WebSocketService>(),
+      syncEventHandler: getIt<SyncEventHandler>(),
+    ),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Dashboard feature

@@ -65,6 +65,12 @@
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
+- [WebSocket (STOMP)](#websocket-stomp)
+  - [Connection](#connection)
+  - [Subscription Topics](#subscription-topics)
+  - [Event Payload Schema](#event-payload-schema)
+  - [Event Types](#event-types)
+- [Redis Cache Strategy](#redis-cache-strategy)
 - [Common Data Types](#common-data-types)
 - [Error Codes](#error-codes)
 
@@ -2155,6 +2161,131 @@ Spring Boot Actuator health endpoint. Returns detailed status including database
 ```
 
 **Response `503 Service Unavailable`**: Returned when one or more components report `DOWN` (e.g., database unreachable).
+
+---
+
+## WebSocket (STOMP)
+
+Real-time synchronization between couple members uses STOMP over WebSocket. When one partner creates, updates, or deletes a shared entity, the server publishes an event to the couple's topic so the other partner's client can update its local state immediately.
+
+---
+
+### Connection
+
+| Item            | Value                                                      |
+|:----------------|:-----------------------------------------------------------|
+| **Endpoint**    | `wss://{host}/ws`                                          |
+| **Protocol**    | STOMP over WebSocket                                       |
+| **Auth**        | STOMP `CONNECT` frame header: `Authorization: Bearer {accessToken}` |
+| **Heartbeat**   | client→server 10s, server→client 10s                      |
+
+**STOMP CONNECT frame example**:
+
+```
+CONNECT
+Authorization:Bearer {accessToken}
+accept-version:1.1,1.2
+heart-beat:10000,10000
+
+^@
+```
+
+---
+
+### Subscription Topics
+
+| Topic                            | Description                                    |
+|:---------------------------------|:-----------------------------------------------|
+| `/topic/couple/{coupleId}`       | All sync events for a couple (both partners subscribe to this topic) |
+
+**STOMP SUBSCRIBE frame example**:
+
+```
+SUBSCRIBE
+id:sub-0
+destination:/topic/couple/{coupleId}
+
+^@
+```
+
+---
+
+### Event Payload Schema
+
+All messages published to a couple topic share the following JSON structure:
+
+```json
+{
+  "type": "TRANSACTION_CREATED",
+  "entityId": "uuid",
+  "coupleId": "uuid",
+  "authorId": "uuid",
+  "entityType": "TRANSACTION",
+  "timestamp": "2026-03-12T10:00:00Z"
+}
+```
+
+| Field        | Type     | Required | Description                                          |
+|:-------------|:---------|:--------:|:-----------------------------------------------------|
+| `type`       | `string` | Yes      | Event type (see Event Types table below)             |
+| `entityId`   | `uuid`   | Yes      | ID of the affected entity                            |
+| `coupleId`   | `uuid`   | Yes      | ID of the couple the event belongs to                |
+| `authorId`   | `uuid`   | Yes      | ID of the user who triggered the event               |
+| `entityType` | `string` | Yes      | Category of entity (see Event Types table below)     |
+| `timestamp`  | `string` | Yes      | ISO-8601 UTC timestamp of when the event occurred    |
+
+---
+
+### Event Types
+
+| `entityType`     | `type` values                                                                                      |
+|:-----------------|:---------------------------------------------------------------------------------------------------|
+| `TRANSACTION`    | `TRANSACTION_CREATED`, `TRANSACTION_UPDATED`, `TRANSACTION_DELETED`                               |
+| `BUDGET`         | `BUDGET_CREATED`, `BUDGET_UPDATED`, `BUDGET_DELETED`                                              |
+| `CATEGORY`       | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`                                        |
+| `CATEGORY_GROUP` | `CATEGORY_GROUP_CREATED`, `CATEGORY_GROUP_UPDATED`, `CATEGORY_GROUP_DELETED`                      |
+| `PAYMENT_METHOD` | `PAYMENT_METHOD_CREATED`, `PAYMENT_METHOD_UPDATED`, `PAYMENT_METHOD_DELETED`                      |
+
+Upon receiving an event, the frontend client should:
+1. Check `coupleId` matches the authenticated session's couple.
+2. Use `entityType` and `type` to determine which local cache or BLoC state to invalidate or update.
+3. Optionally fetch the full entity via the corresponding REST endpoint using `entityId`.
+
+---
+
+## Redis Cache Strategy
+
+The backend uses Upstash Redis (TLS) to cache frequently read data per couple, reducing database load. The connection is configured via `spring.data.redis.url=${REDIS_URL}`.
+
+### Cache Keys
+
+| Cache Key                    | TTL        | Cached Data                                        |
+|:-----------------------------|:----------:|:---------------------------------------------------|
+| `couple:{coupleId}`          | 10 minutes | Couple entity (members, status, metadata)          |
+| `categories:{coupleId}`      | 10 minutes | Full category list for a couple (including groups) |
+| `user:{userId}`              | 5 minutes  | User profile entity                                |
+
+### Invalidation Rules
+
+Cache entries are evicted on write operations to their respective entities:
+
+| Write Operation                              | Invalidated Key(s)                                    |
+|:---------------------------------------------|:------------------------------------------------------|
+| Create / Update / Delete couple              | `couple:{coupleId}`                                   |
+| Create / Update / Delete category            | `categories:{coupleId}`                               |
+| Create / Update / Delete category group      | `categories:{coupleId}`                               |
+| Update user profile                          | `user:{userId}`                                       |
+
+### Connection Configuration
+
+```yaml
+spring:
+  data:
+    redis:
+      url: ${REDIS_URL}   # Upstash Redis TLS URL (rediss://...)
+```
+
+> **Note**: Redis is used solely for read-through caching. It is not used as a message broker for WebSocket events; STOMP message routing is handled in-process by Spring's `SimpleMessageBroker`.
 
 ---
 

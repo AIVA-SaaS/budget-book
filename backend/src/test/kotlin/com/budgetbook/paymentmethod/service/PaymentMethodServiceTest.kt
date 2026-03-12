@@ -12,6 +12,7 @@ import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
+import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
@@ -32,7 +33,8 @@ class PaymentMethodServiceTest : BehaviorSpec({
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val coupleRepository = mockk<CoupleRepository>()
     val transactionRepository = mockk<TransactionRepository>()
-    val service = PaymentMethodService(paymentMethodRepository, coupleRepository, transactionRepository)
+    val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
+    val service = PaymentMethodService(paymentMethodRepository, coupleRepository, transactionRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
