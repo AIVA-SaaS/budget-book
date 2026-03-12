@@ -44,6 +44,7 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
+import 'package:budget_book/core/websocket/websocket_bloc.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -105,7 +106,10 @@ final appRouter = GoRouter(
     // Main shell with bottom navigation
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
-        return MainShellPage(navigationShell: navigationShell);
+        return BlocProvider<WebSocketBloc>.value(
+          value: getIt<WebSocketBloc>(),
+          child: MainShellPage(navigationShell: navigationShell),
+        );
       },
       branches: [
         // Tab 0: Home/Dashboard

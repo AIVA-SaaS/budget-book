@@ -13,8 +13,10 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
+import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.sync.SyncEventPublisher
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -33,9 +35,11 @@ class CategoryGroupServiceTest : BehaviorSpec({
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val coupleRepository = mockk<CoupleRepository>()
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleRepository)
+    val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
+    val redisCacheService = mockk<RedisCacheService>(relaxed = true)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleRepository, syncEventPublisher, redisCacheService)
     val categoryGroupService = CategoryGroupService(
-        categoryGroupRepository, categoryRepository, categoryService, coupleRepository
+        categoryGroupRepository, categoryRepository, categoryService, coupleRepository, syncEventPublisher
     )
 
     val user1 = User(
