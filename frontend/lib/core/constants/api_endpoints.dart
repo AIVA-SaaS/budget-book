@@ -50,4 +50,11 @@ class ApiEndpoints {
   // Recurring Transactions
   static const String recurringTransactions = '/api/v1/recurring-transactions';
 
+  // Money Pockets
+  static const String pockets = '/api/v1/pockets';
+  static const String pocketsDistribute = '/api/v1/pockets/distribute';
+
+  // Pocket Transfers
+  static const String pocketTransfers = '/api/v1/pocket-transfers';
+
 }

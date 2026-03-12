@@ -25,6 +25,7 @@ class CreateTransaction extends TransactionEvent {
   final String transactionDate;
   final String? memo;
   final String? paymentMethodId;
+  final String? pocketId;
 
   const CreateTransaction({
     required this.type,
@@ -34,11 +35,12 @@ class CreateTransaction extends TransactionEvent {
     required this.transactionDate,
     this.memo,
     this.paymentMethodId,
+    this.pocketId,
   });
 
   @override
   List<Object?> get props =>
-      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId];
+      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId, pocketId];
 }
 
 class UpdateTransaction extends TransactionEvent {
@@ -50,6 +52,7 @@ class UpdateTransaction extends TransactionEvent {
   final String? memo;
   final bool clearMemo;
   final String? paymentMethodId;
+  final String? pocketId;
 
   const UpdateTransaction({
     required this.id,
@@ -60,11 +63,12 @@ class UpdateTransaction extends TransactionEvent {
     this.memo,
     this.clearMemo = false,
     this.paymentMethodId,
+    this.pocketId,
   });
 
   @override
   List<Object?> get props =>
-      [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId];
+      [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId];
 }
 
 class DeleteTransaction extends TransactionEvent {

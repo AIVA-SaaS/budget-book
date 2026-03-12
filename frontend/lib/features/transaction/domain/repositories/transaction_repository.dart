@@ -23,6 +23,7 @@ abstract class TransactionRepository {
     required String transactionDate,
     String? memo,
     String? paymentMethodId,
+    String? pocketId,
   });
 
   Future<Either<Failure, Transaction>> updateTransaction({
@@ -34,6 +35,7 @@ abstract class TransactionRepository {
     String? memo,
     bool clearMemo = false,
     String? paymentMethodId,
+    String? pocketId,
   });
 
   Future<Either<Failure, void>> deleteTransaction(String id);
