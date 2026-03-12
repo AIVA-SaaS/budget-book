@@ -69,13 +69,15 @@ final appRouter = GoRouter(
     if (isOnCallbackPage) return null;
 
     if (authState is AuthAuthenticated && isOnLoginPage) {
-      // Check if user has a couple
       return authState.user.coupleId != null ? '/home' : '/couple';
     }
 
     if (authState is AuthAuthenticated) {
       // If no couple and trying to access couple-required pages, redirect to /couple
-      if (authState.user.coupleId == null && !isOnCouplePage) {
+      // But allow /couple itself and /settings to pass through
+      if (authState.user.coupleId == null &&
+          !isOnCouplePage &&
+          state.matchedLocation != '/settings') {
         return '/couple';
       }
       return null;
@@ -142,9 +144,10 @@ final appRouter = GoRouter(
               path: '/transactions',
               builder: (context, state) {
                 final now = DateTime.now();
-                return BlocProvider<TransactionBloc>(
-                  create: (_) => getIt<TransactionBloc>()
-                    ..add(LoadTransactions(year: now.year, month: now.month)),
+                getIt<TransactionBloc>()
+                    .add(LoadTransactions(year: now.year, month: now.month));
+                return BlocProvider<TransactionBloc>.value(
+                  value: getIt<TransactionBloc>(),
                   child: const TransactionListPage(),
                 );
               },
@@ -158,9 +161,10 @@ final appRouter = GoRouter(
               path: '/budgets',
               builder: (context, state) {
                 final now = DateTime.now();
-                return BlocProvider<BudgetBloc>(
-                  create: (_) => getIt<BudgetBloc>()
-                    ..add(LoadBudgets(year: now.year, month: now.month)),
+                getIt<BudgetBloc>()
+                    .add(LoadBudgets(year: now.year, month: now.month));
+                return BlocProvider<BudgetBloc>.value(
+                  value: getIt<BudgetBloc>(),
                   child: const BudgetListPage(),
                 );
               },
@@ -195,58 +199,66 @@ final appRouter = GoRouter(
       ],
     ),
     // Sub-pages (pushed on top of shell, no bottom nav)
+    // IMPORTANT: Use BlocProvider.value() for singleton BLoCs to avoid
+    // auto-close on pop which would permanently kill the singleton.
     GoRoute(
       path: '/categories',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<CategoryBloc>(
-        create: (context) =>
-            getIt<CategoryBloc>()..add(const LoadCategories()),
-        child: const CategoryPage(),
-      ),
+      builder: (context, state) {
+        getIt<CategoryBloc>().add(const LoadCategories());
+        return BlocProvider<CategoryBloc>.value(
+          value: getIt<CategoryBloc>(),
+          child: const CategoryPage(),
+        );
+      },
     ),
     GoRoute(
       path: '/transactions/create',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => MultiBlocProvider(
-        providers: [
-          BlocProvider<TransactionBloc>(
-            create: (_) => getIt<TransactionBloc>(),
-          ),
-          BlocProvider<CategoryBloc>(
-            create: (_) =>
-                getIt<CategoryBloc>()..add(const LoadCategories()),
-          ),
-          BlocProvider<PaymentMethodBloc>(
-            create: (_) =>
-                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
-          ),
-          BlocProvider<PocketBloc>.value(
-            value: getIt<PocketBloc>()..add(const LoadPockets()),
-          ),
-        ],
-        child: const TransactionFormPage(),
-      ),
+      builder: (context, state) {
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        getIt<PocketBloc>().add(const LoadPockets());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TransactionBloc>.value(
+              value: getIt<TransactionBloc>(),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
+            ),
+          ],
+          child: const TransactionFormPage(),
+        );
+      },
     ),
     GoRoute(
       path: '/transactions/edit/:id',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final transactionId = state.pathParameters['id']!;
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        getIt<PocketBloc>().add(const LoadPockets());
         return MultiBlocProvider(
           providers: [
-            BlocProvider<TransactionBloc>(
-              create: (_) => getIt<TransactionBloc>(),
+            BlocProvider<TransactionBloc>.value(
+              value: getIt<TransactionBloc>(),
             ),
-            BlocProvider<CategoryBloc>(
-              create: (_) =>
-                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
             ),
-            BlocProvider<PaymentMethodBloc>(
-              create: (_) =>
-                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
             ),
             BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>()..add(const LoadPockets()),
+              value: getIt<PocketBloc>(),
             ),
           ],
           child: TransactionFormPage(
@@ -265,15 +277,15 @@ final appRouter = GoRouter(
         final month = int.tryParse(
                 state.uri.queryParameters['month'] ?? '') ??
             DateTime.now().month;
+        getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
+        getIt<CategoryBloc>().add(const LoadCategories());
         return MultiBlocProvider(
           providers: [
-            BlocProvider<BudgetBloc>(
-              create: (_) => getIt<BudgetBloc>()
-                ..add(LoadBudgets(year: year, month: month)),
+            BlocProvider<BudgetBloc>.value(
+              value: getIt<BudgetBloc>(),
             ),
-            BlocProvider<CategoryBloc>(
-              create: (_) =>
-                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
             ),
           ],
           child: BudgetFormPage(year: year, month: month),
@@ -290,15 +302,15 @@ final appRouter = GoRouter(
         final month = int.tryParse(
                 state.uri.queryParameters['month'] ?? '') ??
             DateTime.now().month;
+        getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
+        getIt<CategoryBloc>().add(const LoadCategories());
         return MultiBlocProvider(
           providers: [
-            BlocProvider<BudgetBloc>(
-              create: (_) => getIt<BudgetBloc>()
-                ..add(LoadBudgets(year: year, month: month)),
+            BlocProvider<BudgetBloc>.value(
+              value: getIt<BudgetBloc>(),
             ),
-            BlocProvider<CategoryBloc>(
-              create: (_) =>
-                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
             ),
           ],
           child: BudgetFormPage(
@@ -314,10 +326,11 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
-        return BlocProvider<PaymentMethodBloc>(
-          create: (context) => getIt<PaymentMethodBloc>()
-            ..add(const LoadPaymentMethods())
-            ..add(LoadCardPending(year: now.year, month: now.month)),
+        getIt<PaymentMethodBloc>()
+          ..add(const LoadPaymentMethods())
+          ..add(LoadCardPending(year: now.year, month: now.month));
+        return BlocProvider<PaymentMethodBloc>.value(
+          value: getIt<PaymentMethodBloc>(),
           child: const PaymentMethodPage(),
         );
       },
@@ -325,11 +338,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/category-groups',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<CategoryGroupBloc>(
-        create: (context) =>
-            getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
-        child: const CategoryGroupPage(),
-      ),
+      builder: (context, state) {
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+        return BlocProvider<CategoryGroupBloc>.value(
+          value: getIt<CategoryGroupBloc>(),
+          child: const CategoryGroupPage(),
+        );
+      },
     ),
     GoRoute(
       path: '/weekly-budgets',
@@ -370,42 +385,44 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/recurring/create',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => MultiBlocProvider(
-        providers: [
-          BlocProvider<RecurringBloc>(
-            create: (_) =>
-                getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
-          ),
-          BlocProvider<CategoryBloc>(
-            create: (_) =>
-                getIt<CategoryBloc>()..add(const LoadCategories()),
-          ),
-          BlocProvider<PaymentMethodBloc>(
-            create: (_) =>
-                getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
-          ),
-        ],
-        child: const RecurringFormPage(),
-      ),
-    ),
-    GoRoute(
-      path: '/recurring/edit/:id',
-      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final recurringId = state.pathParameters['id']!;
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         return MultiBlocProvider(
           providers: [
             BlocProvider<RecurringBloc>(
               create: (_) => getIt<RecurringBloc>()
                 ..add(const LoadRecurringTransactions()),
             ),
-            BlocProvider<CategoryBloc>(
-              create: (_) =>
-                  getIt<CategoryBloc>()..add(const LoadCategories()),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
             ),
-            BlocProvider<PaymentMethodBloc>(
-              create: (_) =>
-                  getIt<PaymentMethodBloc>()..add(const LoadPaymentMethods()),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+          ],
+          child: const RecurringFormPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/recurring/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final recurringId = state.pathParameters['id']!;
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<RecurringBloc>(
+              create: (_) => getIt<RecurringBloc>()
+                ..add(const LoadRecurringTransactions()),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
             ),
           ],
           child: RecurringFormPage(recurringId: recurringId),
@@ -416,34 +433,43 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/pockets',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<PocketBloc>.value(
-        value: getIt<PocketBloc>()..add(const LoadPockets()),
-        child: const PocketPage(),
-      ),
+      builder: (context, state) {
+        getIt<PocketBloc>().add(const LoadPockets());
+        return BlocProvider<PocketBloc>.value(
+          value: getIt<PocketBloc>(),
+          child: const PocketPage(),
+        );
+      },
     ),
     GoRoute(
       path: '/pockets/distribute',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<PocketBloc>.value(
-        value: getIt<PocketBloc>()..add(const LoadPockets()),
-        child: const DistributeWizardPage(),
-      ),
+      builder: (context, state) {
+        getIt<PocketBloc>().add(const LoadPockets());
+        return BlocProvider<PocketBloc>.value(
+          value: getIt<PocketBloc>(),
+          child: const DistributeWizardPage(),
+        );
+      },
     ),
     GoRoute(
       path: '/pocket-transfers',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => MultiBlocProvider(
-        providers: [
-          BlocProvider<PocketBloc>.value(
-            value: getIt<PocketBloc>()..add(const LoadPockets()),
-          ),
-          BlocProvider<PocketTransferBloc>.value(
-            value: getIt<PocketTransferBloc>()
-              ..add(const LoadPocketTransfers()),
-          ),
-        ],
-        child: const PocketTransferPage(),
-      ),
+      builder: (context, state) {
+        getIt<PocketBloc>().add(const LoadPockets());
+        getIt<PocketTransferBloc>().add(const LoadPocketTransfers());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
+            ),
+            BlocProvider<PocketTransferBloc>.value(
+              value: getIt<PocketTransferBloc>(),
+            ),
+          ],
+          child: const PocketTransferPage(),
+        );
+      },
     ),
   ],
 );
