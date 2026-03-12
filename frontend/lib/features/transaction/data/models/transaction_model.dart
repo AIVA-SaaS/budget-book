@@ -17,6 +17,8 @@ class TransactionModel extends Transaction {
     super.paymentMethodName,
     super.paymentMethodType,
     super.settlementDate,
+    super.pocketId,
+    super.pocketName,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -40,6 +42,8 @@ class TransactionModel extends Transaction {
       paymentMethodName: json['paymentMethodName'] as String?,
       paymentMethodType: json['paymentMethodType'] as String?,
       settlementDate: json['settlementDate'] as String?,
+      pocketId: json['pocketId'] as String?,
+      pocketName: json['pocketName'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

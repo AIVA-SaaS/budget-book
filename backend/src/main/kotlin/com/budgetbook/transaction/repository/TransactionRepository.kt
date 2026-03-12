@@ -132,4 +132,12 @@ interface TransactionRepository : JpaRepository<Transaction, UUID> {
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.pocket.id = :pocketId
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+    """)
+    fun sumExpenseByPocketId(@Param("pocketId") pocketId: UUID): Long
 }
