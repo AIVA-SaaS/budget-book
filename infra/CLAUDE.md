@@ -30,6 +30,12 @@
 - `render.yaml` defines the backend web service
 - Health check: `GET /actuator/health`
 - Environment variables managed via Render dashboard
+- Phase 2c: `REDIS_URL` must be set in Render dashboard for Redis features
+  - Format: `rediss://default:PASSWORD@HOST:PORT` (note: `rediss://` with TLS)
+  - Create a free Upstash Redis instance at https://console.upstash.com
+  - Copy the "Redis URL" (TLS) from the Upstash console
+  - Redis is OPTIONAL: app degrades gracefully if `REDIS_URL` is not set
+  - See `docs/redis-setup.md` for full setup instructions
 
 ## Scripts
 - `scripts/setup-local.sh` - Bootstrap local dev environment

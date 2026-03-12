@@ -5,6 +5,7 @@ import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.category.service.CategoryService
+import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.paymentmethod.service.PaymentMethodService
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ConflictException
@@ -40,7 +41,8 @@ class CoupleServiceTest : BehaviorSpec({
     val categoryService = mockk<CategoryService>(relaxed = true)
     val categoryGroupService = mockk<CategoryGroupService>(relaxed = true)
     val paymentMethodService = mockk<PaymentMethodService>(relaxed = true)
-    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService, categoryGroupService, paymentMethodService)
+    val redisCacheService = mockk<RedisCacheService>(relaxed = true)
+    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService, categoryGroupService, paymentMethodService, redisCacheService)
 
     val user1 = User(
         email = "user1@example.com",

@@ -32,3 +32,8 @@ services:
         sync: false
       - key: KAKAO_CLIENT_SECRET
         sync: false
+      # Phase 2c: Upstash Redis (optional - graceful degradation if not set)
+      # Format: rediss://default:PASSWORD@HOST:PORT  (note: rediss:// with TLS)
+      # Create free instance at https://console.upstash.com
+      - key: REDIS_URL
+        sync: false
