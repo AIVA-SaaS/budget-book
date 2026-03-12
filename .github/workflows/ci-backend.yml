@@ -53,6 +53,11 @@ jobs:
       # ./gradlew build already runs all tests; running ./gradlew test separately
       # caused a second full compilation cycle. Env vars are passed here so the
       # test phase inside build can reach the Postgres service container.
+      #
+      # Task #29: No Redis service container is intentional.
+      # application.yml globally excludes RedisAutoConfiguration and
+      # RedisRepositoriesAutoConfiguration, so tests pass without Redis.
+      # Redis (Upstash) is only required at runtime in the prod environment.
       - name: Build and Test
         run: ./gradlew build
         env:
