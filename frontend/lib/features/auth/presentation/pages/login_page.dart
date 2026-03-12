@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,8 +12,16 @@ import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/widgets/social_login_button.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  bool _isWakingServer = false;
+  String _statusMessage = '';
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +77,11 @@ class LoginPage extends StatelessWidget {
                           ),
                     ),
                     const SizedBox(height: 60),
+                    // Server wake-up status
+                    if (_isWakingServer) ...[
+                      _buildWakeUpIndicator(),
+                      const SizedBox(height: 24),
+                    ],
                     // Google login button
                     SocialLoginButton(
                       providerName: 'Google',
@@ -75,9 +89,11 @@ class LoginPage extends StatelessWidget {
                       backgroundColor: Colors.white,
                       textColor: Colors.black87,
                       iconColor: Colors.red,
-                      onPressed: () => _launchOAuth(
-                        '${ApiEndpoints.baseUrl}${ApiEndpoints.authGoogle}',
-                      ),
+                      onPressed: _isWakingServer
+                          ? () {}
+                          : () => _wakeAndLaunchOAuth(
+                                '${ApiEndpoints.baseUrl}${ApiEndpoints.authGoogle}',
+                              ),
                     ),
                     const SizedBox(height: 16),
                     // Kakao login button
@@ -87,9 +103,11 @@ class LoginPage extends StatelessWidget {
                       backgroundColor: const Color(0xFFFEE500),
                       textColor: const Color(0xFF3C1E1E),
                       iconColor: const Color(0xFF3C1E1E),
-                      onPressed: () => _launchOAuth(
-                        '${ApiEndpoints.baseUrl}${ApiEndpoints.authKakao}',
-                      ),
+                      onPressed: _isWakingServer
+                          ? () {}
+                          : () => _wakeAndLaunchOAuth(
+                                '${ApiEndpoints.baseUrl}${ApiEndpoints.authKakao}',
+                              ),
                     ),
                     const SizedBox(height: 40),
                     // Footer text
@@ -113,12 +131,112 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Future<void> _launchOAuth(String url) async {
+  Widget _buildWakeUpIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              _statusMessage,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _wakeAndLaunchOAuth(String oauthUrl) async {
+    setState(() {
+      _isWakingServer = true;
+      _statusMessage = '서버 연결 중...';
+    });
+
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 60),
+    ));
+
+    try {
+      // Quick health check first
+      final response = await dio.get(
+        '${ApiEndpoints.baseUrl}/actuator/health',
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          setState(() => _isWakingServer = false);
+          _launchOAuth(oauthUrl);
+        }
+        return;
+      }
+    } on DioException {
+      // Server is likely sleeping - start wake-up polling
+    }
+
+    if (!mounted) return;
+    setState(() => _statusMessage = '서버를 깨우고 있습니다...');
+
+    // Poll with retries (max 90 seconds)
+    for (int i = 0; i < 18; i++) {
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+
+      if (i >= 6) {
+        setState(() => _statusMessage = '거의 다 됐습니다... 잠시만 기다려주세요');
+      }
+
+      try {
+        final response = await dio.get(
+          '${ApiEndpoints.baseUrl}/actuator/health',
+          options: Options(
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+
+        if (response.statusCode == 200) {
+          if (mounted) {
+            setState(() => _isWakingServer = false);
+            _launchOAuth(oauthUrl);
+          }
+          return;
+        }
+      } on DioException {
+        // Still waking up, continue polling
+      }
+    }
+
+    // Timeout - let user try anyway
+    if (mounted) {
+      setState(() => _isWakingServer = false);
+      _launchOAuth(oauthUrl);
+    }
+  }
+
+  void _launchOAuth(String url) {
     if (kIsWeb) {
       web_nav.setWindowLocation(url);
     } else {
       final uri = Uri.parse(url);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 }
