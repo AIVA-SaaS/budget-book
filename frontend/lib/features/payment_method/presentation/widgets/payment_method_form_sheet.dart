@@ -28,6 +28,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
   late final TextEditingController _settlementDayController;
   late final TextEditingController _closingDayController;
   late String _selectedType;
+  bool _isSubmitting = false;
 
   bool get isEditing => widget.paymentMethod != null;
 
@@ -187,11 +188,17 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
               ],
               const SizedBox(height: 8),
               FilledButton(
-                onPressed: _onSubmit,
+                onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(isEditing ? '수정' : '추가'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(isEditing ? '수정' : '추가'),
               ),
             ],
           ),
@@ -202,6 +209,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
 
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isSubmitting = true);
       final settlementDay = _settlementDayController.text.isNotEmpty
           ? int.tryParse(_settlementDayController.text)
           : null;

@@ -2,6 +2,7 @@ package com.budgetbook.recurring.dto
 
 import com.budgetbook.recurring.domain.RecurringTransaction
 import com.budgetbook.transaction.dto.CategorySummary
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -35,6 +36,7 @@ data class CreateRecurringTransactionRequest(
 
     @field:NotNull
     @field:Min(1)
+    @field:Max(999_999_999)
     val amount: Long,
 
     @field:NotBlank
@@ -56,6 +58,7 @@ data class CreateRecurringTransactionRequest(
 
 data class UpdateRecurringTransactionRequest(
     @field:Min(1)
+    @field:Max(999_999_999)
     val amount: Long? = null,
     val description: String? = null,
     val memo: String? = null,

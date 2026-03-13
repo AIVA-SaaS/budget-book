@@ -9,7 +9,9 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart'
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
 
 class BudgetFormPage extends StatefulWidget {
   /// If editing, pass the budget ID (from URL path parameter).
@@ -40,7 +42,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late String _budgetPeriod;
   Budget? _budget;
   bool _initialized = false;
-  bool _submitted = false;
+  bool _isSubmitting = false;
+  int _dropdownResetKey = 0;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -82,17 +85,18 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       body: BlocConsumer<BudgetBloc, BudgetState>(
         listener: (context, state) {
           if (state is BudgetLoaded && state.operationError != null) {
+            setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
                 backgroundColor: Colors.red,
               ),
             );
-          } else if (state is BudgetLoaded && _submitted) {
+          } else if (state is BudgetLoaded && _isSubmitting) {
             // After successful create or update, pop back to budget list
-            _submitted = false;
             context.pop();
           } else if (state is BudgetError) {
+            setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -243,11 +247,17 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             const SizedBox(height: 32),
             // Submit button
             FilledButton(
-              onPressed: _onSubmit,
+              onPressed: _isSubmitting ? null : _onSubmit,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: Text(isEditing ? '수정' : '추가'),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(isEditing ? '수정' : '추가'),
             ),
           ],
         ),
@@ -307,24 +317,36 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             : <Category>[];
 
         return DropdownButtonFormField<String>(
+          key: ValueKey('budget_cat_$_dropdownResetKey'),
           initialValue: _selectedCategoryId,
           decoration: const InputDecoration(
             labelText: '카테고리',
             prefixIcon: Icon(Icons.category),
           ),
-          items: categories.map((c) {
-            return DropdownMenuItem<String>(
-              value: c.id,
-              child: Text(c.name),
-            );
-          }).toList(),
+          items: [
+            ...categories.map((c) {
+              return DropdownMenuItem<String>(
+                value: c.id,
+                child: Text(c.name),
+              );
+            }),
+            const DropdownMenuItem<String>(
+              value: '__create__',
+              child: Text('+ 새 카테고리'),
+            ),
+          ],
           onChanged: (value) {
+            if (value == '__create__') {
+              setState(() => _dropdownResetKey++);
+              _showCreateCategorySheet(context);
+              return;
+            }
             setState(() {
               _selectedCategoryId = value;
             });
           },
           validator: (value) {
-            if (!_isOverallBudget && value == null) {
+            if (!_isOverallBudget && (value == null || value == '__create__')) {
               return '카테고리를 선택하세요';
             }
             return null;
@@ -334,9 +356,27 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     );
   }
 
+  void _showCreateCategorySheet(BuildContext context) {
+    final bloc = context.read<CategoryBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CategoryFormSheet(
+        onSubmit: (name, type, icon, color) {
+          bloc.add(CreateCategory(
+            name: name,
+            type: type,
+            icon: icon,
+            color: color,
+          ));
+        },
+      ),
+    );
+  }
+
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _submitted = true);
+      setState(() => _isSubmitting = true);
       final amount = int.parse(_amountController.text.trim());
       final weeklyAmount = _budgetPeriod == 'WEEKLY' &&
               _weeklyAmountController.text.trim().isNotEmpty
