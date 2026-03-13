@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -356,9 +358,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     );
   }
 
-  void _showCreateCategorySheet(BuildContext context) {
+  Future<void> _showCreateCategorySheet(BuildContext context) async {
     final bloc = context.read<CategoryBloc>();
-    showModalBottomSheet(
+    final oldIds = (bloc.state is CategoryLoaded)
+        ? (bloc.state as CategoryLoaded).categories.map((c) => c.id).toSet()
+        : <String>{};
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
@@ -372,6 +378,35 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         },
       ),
     );
+
+    if (!mounted) return;
+    // Check if already updated
+    final currentState = bloc.state;
+    if (currentState is CategoryLoaded) {
+      final currentIds = currentState.categories.map((c) => c.id).toSet();
+      final diff = currentIds.difference(oldIds);
+      if (diff.isNotEmpty) {
+        setState(() => _selectedCategoryId = diff.first);
+        return;
+      }
+    }
+
+    // Wait for next state with new item
+    try {
+      await for (final state
+          in bloc.stream.timeout(const Duration(seconds: 10))) {
+        if (state is CategoryLoaded) {
+          final newIds = state.categories.map((c) => c.id).toSet();
+          final diff = newIds.difference(oldIds);
+          if (diff.isNotEmpty) {
+            if (mounted) setState(() => _selectedCategoryId = diff.first);
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // Timeout
+    }
   }
 
   void _onSubmit() {
