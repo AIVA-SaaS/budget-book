@@ -40,6 +40,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late String _budgetPeriod;
   Budget? _budget;
   bool _initialized = false;
+  bool _submitted = false;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -87,12 +88,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 backgroundColor: Colors.red,
               ),
             );
-          } else if (state is BudgetLoaded && _initialized && _budget != null) {
-            // After successful update/create, pop if budget list was refreshed
-            // The list reload happens after create/update success
-            if (!state.budgets.any((b) => b.id == _budget?.id && b.amount == _budget?.amount)) {
-              context.pop();
-            }
+          } else if (state is BudgetLoaded && _submitted) {
+            // After successful create or update, pop back to budget list
+            _submitted = false;
+            context.pop();
           } else if (state is BudgetError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -337,6 +336,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
 
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _submitted = true);
       final amount = int.parse(_amountController.text.trim());
       final weeklyAmount = _budgetPeriod == 'WEEKLY' &&
               _weeklyAmountController.text.trim().isNotEmpty
