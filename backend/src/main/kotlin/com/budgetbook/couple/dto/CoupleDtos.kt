@@ -12,7 +12,8 @@ data class CoupleResponse(
     val id: UUID,
     val partner: UserSummary,
     val status: String,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val dissolvedAt: Instant? = null
 )
 
 data class UserSummary(

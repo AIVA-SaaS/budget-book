@@ -56,11 +56,14 @@ class _MainShellPageState extends State<MainShellPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const _ConnectionStatusBanner(),
-          Expanded(child: widget.navigationShell),
-        ],
+      body: SafeArea(
+        bottom: false, // Bottom is handled by NavigationBar
+        child: Column(
+          children: [
+            const _ConnectionStatusBanner(),
+            Expanded(child: widget.navigationShell),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
