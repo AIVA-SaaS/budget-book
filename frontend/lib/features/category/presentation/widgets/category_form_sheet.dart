@@ -22,6 +22,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   late String _selectedType;
   String? _selectedIcon;
   String? _selectedColor;
+  bool _isSubmitting = false;
 
   bool get isEditing => widget.category != null;
 
@@ -260,11 +261,17 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _onSubmit,
+                onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(isEditing ? '수정' : '추가'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(isEditing ? '수정' : '추가'),
               ),
             ],
           ),
@@ -275,6 +282,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
 
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isSubmitting = true);
       widget.onSubmit(
         _nameController.text.trim(),
         _selectedType,

@@ -10,8 +10,34 @@ import 'package:budget_book/features/report/presentation/widgets/overspend_categ
 import 'package:budget_book/features/report/presentation/widgets/daily_spending_chart.dart';
 import 'package:budget_book/features/report/presentation/widgets/month_comparison_card.dart';
 
-class ReportPage extends StatelessWidget {
+class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
+
+  @override
+  State<ReportPage> createState() => _ReportPageState();
+}
+
+class _ReportPageState extends State<ReportPage> {
+  late int _year;
+  late int _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _year = now.year;
+    _month = now.month;
+  }
+
+  void _changeMonth(int year, int month) {
+    setState(() {
+      _year = year;
+      _month = month;
+    });
+    context.read<ReportBloc>()
+      ..add(LoadMonthlyReport(year: year, month: month))
+      ..add(LoadWeeklyReport(year: year, month: month, week: 1));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,31 +53,91 @@ class ReportPage extends StatelessWidget {
             ],
           ),
         ),
-        body: BlocBuilder<ReportBloc, ReportState>(
-          builder: (context, state) {
-            return switch (state) {
-              ReportInitial() ||
-              ReportLoading() =>
-                const Center(child: CircularProgressIndicator()),
-              ReportLoaded(
-                weeklyReport: final weekly,
-                monthlyReport: final monthly,
-              ) =>
-                TabBarView(
-                  children: [
-                    weekly != null
-                        ? _buildWeeklyTab(context, weekly)
-                        : _buildEmptyTab(context, '주간 리포트가 없습니다'),
-                    monthly != null
-                        ? _buildMonthlyTab(context, monthly)
-                        : _buildEmptyTab(context, '월간 리포트가 없습니다'),
-                  ],
-                ),
-              ReportError(message: final message) =>
-                _buildError(context, message),
-            };
-          },
+        body: Column(
+          children: [
+            _buildMonthNavigator(context),
+            Expanded(
+              child: BlocBuilder<ReportBloc, ReportState>(
+                builder: (context, state) {
+                  return switch (state) {
+                    ReportInitial() ||
+                    ReportLoading() =>
+                      const Center(child: CircularProgressIndicator()),
+                    ReportLoaded(
+                      weeklyReport: final weekly,
+                      monthlyReport: final monthly,
+                    ) =>
+                      TabBarView(
+                        children: [
+                          weekly != null
+                              ? _buildWeeklyTab(context, weekly)
+                              : _buildEmptyTab(context, '주간 리포트가 없습니다'),
+                          monthly != null
+                              ? _buildMonthlyTab(context, monthly)
+                              : _buildEmptyTab(context, '월간 리포트가 없습니다'),
+                        ],
+                      ),
+                    ReportError(message: final message) =>
+                      _buildError(context, message),
+                  };
+                },
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMonthNavigator(BuildContext context) {
+    final dateStr =
+        DateFormat('yyyy년 M월').format(DateTime(_year, _month));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () {
+              final prev = _month == 1
+                  ? DateTime(_year - 1, 12)
+                  : DateTime(_year, _month - 1);
+              _changeMonth(prev.year, prev.month);
+            },
+            tooltip: '이전 달',
+          ),
+          TextButton(
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime(_year, _month),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030, 12, 31),
+              );
+              if (picked != null && context.mounted) {
+                _changeMonth(picked.year, picked.month);
+              }
+            },
+            child: Text(
+              dateStr,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: () {
+              final next = _month == 12
+                  ? DateTime(_year + 1, 1)
+                  : DateTime(_year, _month + 1);
+              _changeMonth(next.year, next.month);
+            },
+            tooltip: '다음 달',
+          ),
+        ],
       ),
     );
   }

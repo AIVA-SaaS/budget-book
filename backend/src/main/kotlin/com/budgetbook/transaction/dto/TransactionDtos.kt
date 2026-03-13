@@ -5,6 +5,7 @@ import com.budgetbook.common.dto.StringPatchValueDeserializer
 import com.budgetbook.common.dto.UUIDPatchValueDeserializer
 import com.budgetbook.couple.dto.UserSummary
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -47,6 +48,7 @@ data class CreateTransactionRequest(
 
     @field:NotNull
     @field:Min(1)
+    @field:Max(999_999_999)
     val amount: Long,
 
     @field:NotBlank
@@ -67,6 +69,7 @@ data class CreateTransactionRequest(
 
 data class UpdateTransactionRequest(
     @field:Min(1)
+    @field:Max(999_999_999)
     val amount: Long? = null,
 
     @field:Size(max = 255)
