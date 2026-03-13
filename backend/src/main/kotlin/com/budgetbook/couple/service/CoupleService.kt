@@ -135,7 +135,8 @@ class CoupleService(
                 profileImageUrl = partner.profileImageUrl
             ),
             status = couple.status.name,
-            createdAt = couple.createdAt
+            createdAt = couple.createdAt,
+            dissolvedAt = couple.dissolvedAt
         )
     }
 
@@ -153,7 +154,8 @@ class CoupleService(
                 profileImageUrl = partner.profileImageUrl
             ),
             status = couple.status.name,
-            createdAt = couple.createdAt
+            createdAt = couple.createdAt,
+            dissolvedAt = couple.dissolvedAt
         )
     }
 
@@ -163,6 +165,7 @@ class CoupleService(
             ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not currently in an active couple.")
 
         couple.status = CoupleStatus.DISSOLVED
+        couple.dissolvedAt = Instant.now()
         coupleRepository.save(couple)
 
         // Evict couple cache for both users

@@ -21,6 +21,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldHaveLength
 import io.mockk.every
 import io.mockk.justRun
@@ -291,11 +292,18 @@ class CoupleServiceTest : BehaviorSpec({
         every { coupleRepository.save(couple) } returns couple
 
         When("dissolveCouple is called") {
+            val beforeDissolve = Instant.now()
             coupleService.dissolveCouple(user1.id)
 
             Then("sets couple status to DISSOLVED") {
                 couple.status shouldBe CoupleStatus.DISSOLVED
                 verify { coupleRepository.save(couple) }
+            }
+
+            Then("sets dissolvedAt timestamp") {
+                couple.dissolvedAt shouldNotBe null
+                couple.dissolvedAt!!.isAfter(beforeDissolve.minusSeconds(1)) shouldBe true
+                couple.dissolvedAt!!.isBefore(Instant.now().plusSeconds(1)) shouldBe true
             }
         }
     }
