@@ -115,6 +115,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             month: currentState.month,
             totalElements: currentState.totalElements - 1,
             hasMore: currentState.hasMore,
+            operationSuccess: '거래가 삭제되었습니다',
           ));
         }
       },

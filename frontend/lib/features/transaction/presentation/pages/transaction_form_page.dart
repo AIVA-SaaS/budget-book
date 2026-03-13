@@ -153,29 +153,49 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Type toggle
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'EXPENSE',
-                      label: Text('지출'),
-                      icon: Icon(Icons.arrow_downward),
+                if (isEditing)
+                  ListTile(
+                    leading: Icon(
+                      _selectedType == 'INCOME'
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
+                      color: _selectedType == 'INCOME'
+                          ? Colors.green
+                          : Colors.red,
                     ),
-                    ButtonSegment(
-                      value: 'INCOME',
-                      label: Text('수입'),
-                      icon: Icon(Icons.arrow_upward),
+                    title: Text(
+                        _selectedType == 'INCOME' ? '수입' : '지출'),
+                    subtitle: const Text('유형은 수정할 수 없습니다'),
+                    tileColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                  selected: {_selectedType},
-                  onSelectionChanged: isEditing
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _selectedType = value.first;
-                            _selectedCategoryId = null;
-                          });
-                        },
-                ),
+                  )
+                else
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'EXPENSE',
+                        label: Text('지출'),
+                        icon: Icon(Icons.arrow_downward),
+                      ),
+                      ButtonSegment(
+                        value: 'INCOME',
+                        label: Text('수입'),
+                        icon: Icon(Icons.arrow_upward),
+                      ),
+                    ],
+                    selected: {_selectedType},
+                    onSelectionChanged: (value) {
+                      setState(() {
+                        _selectedType = value.first;
+                        _selectedCategoryId = null;
+                      });
+                    },
+                  ),
                 const SizedBox(height: 24),
                 // Amount
                 TextFormField(
@@ -446,7 +466,10 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           ? s.categories.map((c) => c.id).toSet()
           : <String>{},
       oldIds: oldIds,
-      onSelect: (newId) => setState(() => _selectedCategoryId = newId),
+      onSelect: (newId) => setState(() {
+        _selectedCategoryId = newId;
+        _dropdownResetKey++;
+      }),
     );
   }
 
@@ -481,7 +504,10 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           ? s.paymentMethods.map((pm) => pm.id).toSet()
           : <String>{},
       oldIds: oldIds,
-      onSelect: (newId) => setState(() => _selectedPaymentMethodId = newId),
+      onSelect: (newId) => setState(() {
+        _selectedPaymentMethodId = newId;
+        _dropdownResetKey++;
+      }),
     );
   }
 
@@ -514,7 +540,10 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           ? s.pockets.map((p) => p.id).toSet()
           : <String>{},
       oldIds: oldIds,
-      onSelect: (newId) => setState(() => _selectedPocketId = newId),
+      onSelect: (newId) => setState(() {
+        _selectedPocketId = newId;
+        _dropdownResetKey++;
+      }),
     );
   }
 

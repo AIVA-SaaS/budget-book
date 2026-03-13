@@ -23,6 +23,7 @@ class TransactionLoaded extends TransactionState {
   final int totalElements;
   final bool hasMore;
   final String? operationError;
+  final String? operationSuccess;
 
   const TransactionLoaded({
     required this.transactions,
@@ -31,6 +32,7 @@ class TransactionLoaded extends TransactionState {
     required this.totalElements,
     required this.hasMore,
     this.operationError,
+    this.operationSuccess,
   });
 
   int get totalIncome => transactions
@@ -53,7 +55,7 @@ class TransactionLoaded extends TransactionState {
 
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, operationError];
+      [transactions, year, month, totalElements, hasMore, operationError, operationSuccess];
 }
 
 class TransactionError extends TransactionState {

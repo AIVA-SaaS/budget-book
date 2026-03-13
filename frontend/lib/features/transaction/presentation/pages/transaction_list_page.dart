@@ -34,6 +34,13 @@ class TransactionListPage extends StatelessWidget {
                 backgroundColor: Colors.red,
               ),
             );
+          } else if (state is TransactionLoaded &&
+              state.operationSuccess != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.operationSuccess!),
+              ),
+            );
           }
         },
         builder: (context, state) {
