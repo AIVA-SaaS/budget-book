@@ -92,9 +92,37 @@ class TransactionListPage extends StatelessWidget {
                   transaction: t,
                   onTap: () => context.push('/transactions/edit/${t.id}'),
                   onDelete: () {
-                    context
-                        .read<TransactionBloc>()
-                        .add(DeleteTransaction(t.id));
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('거래 삭제'),
+                        content: const Text('정말 삭제하시겠습니까?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('취소'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              context
+                                  .read<TransactionBloc>()
+                                  .add(DeleteTransaction(t.id));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('거래가 삭제되었습니다'),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.error,
+                            ),
+                            child: const Text('삭제'),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                 )),
           ],

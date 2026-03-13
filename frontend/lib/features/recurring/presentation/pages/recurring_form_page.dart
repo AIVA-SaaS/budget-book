@@ -33,6 +33,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
   String? _categoryId;
   String? _paymentMethodId;
   bool _initialized = false;
+  bool _isSubmitting = false;
 
   bool get isEdit => widget.recurringId != null;
 
@@ -73,13 +74,21 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? '반복 거래 수정' : '반복 거래 추가'),
+        actions: [
+          if (isEdit)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _isSubmitting ? null : () => _confirmDelete(context),
+            ),
+        ],
       ),
       body: BlocConsumer<RecurringBloc, RecurringState>(
         listener: (context, state) {
-          if (state is RecurringLoaded && state.operationError == null && _initialized) {
+          if (state is RecurringLoaded && state.operationError == null && _isSubmitting) {
             context.pop();
           } else if (state is RecurringLoaded &&
               state.operationError != null) {
+            setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
@@ -130,6 +139,23 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               onSelectionChanged: (value) {
                 setState(() => _type = value.first);
               },
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (isEdit) ...[
+            ListTile(
+              leading: Icon(
+                _type == 'INCOME' ? Icons.arrow_upward : Icons.arrow_downward,
+              ),
+              title: Text(_type == 'INCOME' ? '수입' : '지출'),
+              subtitle: const Text('유형은 수정할 수 없습니다'),
+              tileColor: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -308,8 +334,42 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
           const SizedBox(height: 32),
           // Submit button
           FilledButton(
-            onPressed: _submit,
-            child: Text(isEdit ? '수정' : '추가'),
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(isEdit ? '수정' : '추가'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('반복 거래 삭제'),
+        content: const Text('정말 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<RecurringBloc>().add(
+                    DeleteRecurringTransaction(widget.recurringId!),
+                  );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('삭제'),
           ),
         ],
       ),
@@ -318,6 +378,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
 
     final amount = int.parse(_amountController.text);
     final description = _descriptionController.text.trim();

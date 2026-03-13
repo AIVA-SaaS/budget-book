@@ -31,8 +31,42 @@ class SummaryTab extends StatelessWidget {
         ),
       );
     }
-    if (summary == null) {
-      return const Center(child: Text('데이터가 없습니다'));
+    if (summary == null || summary!.transactionCount == 0) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.bar_chart_outlined,
+              size: 64,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '이 달에 기록된 거래가 없습니다',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '거래를 추가하면 통계를 확인할 수 있습니다',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4),
+                  ),
+            ),
+          ],
+        ),
+      );
     }
 
     return SingleChildScrollView(

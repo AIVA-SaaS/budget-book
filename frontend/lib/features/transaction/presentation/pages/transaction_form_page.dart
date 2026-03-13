@@ -12,6 +12,12 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
+import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
+import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -38,6 +44,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _selectedPocketId;
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
+  bool _isSubmitting = false;
+  int _dropdownResetKey = 0;
 
   bool get isEditing => widget.transactionId != null;
 
@@ -113,12 +121,20 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? '거래 수정' : '거래 추가'),
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _isSubmitting ? null : () => _confirmDelete(context),
+            ),
+        ],
       ),
       body: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionLoaded) {
             context.pop();
           } else if (state is TransactionError) {
+            setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -149,12 +165,14 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                     ),
                   ],
                   selected: {_selectedType},
-                  onSelectionChanged: (value) {
-                    setState(() {
-                      _selectedType = value.first;
-                      _selectedCategoryId = null;
-                    });
-                  },
+                  onSelectionChanged: isEditing
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _selectedType = value.first;
+                            _selectedCategoryId = null;
+                          });
+                        },
                 ),
                 const SizedBox(height: 24),
                 // Amount
@@ -221,11 +239,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 const SizedBox(height: 32),
                 // Submit button
                 FilledButton(
-                  onPressed: _onSubmit,
+                  onPressed: _isSubmitting ? null : _onSubmit,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Text(isEditing ? '수정' : '추가'),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isEditing ? '수정' : '추가'),
                 ),
               ],
             ),
@@ -245,6 +269,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             : <Category>[];
 
         return DropdownButtonFormField<String>(
+          key: ValueKey('cat_$_dropdownResetKey'),
           initialValue: _selectedCategoryId,
           decoration: const InputDecoration(
             labelText: '카테고리',
@@ -259,8 +284,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                   value: c.id,
                   child: Text(c.name),
                 )),
+            const DropdownMenuItem<String>(
+              value: '__create__',
+              child: Text('+ 새 카테고리'),
+            ),
           ],
           onChanged: (value) {
+            if (value == '__create__') {
+              setState(() => _dropdownResetKey++);
+              _showCreateCategorySheet(context);
+              return;
+            }
             setState(() {
               _selectedCategoryId = value;
             });
@@ -278,6 +312,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             : <PaymentMethod>[];
 
         return DropdownButtonFormField<String>(
+          key: ValueKey('pm_$_dropdownResetKey'),
           initialValue: _selectedPaymentMethodId,
           decoration: const InputDecoration(
             labelText: '결제수단',
@@ -292,8 +327,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                   value: pm.id,
                   child: Text(pm.name),
                 )),
+            const DropdownMenuItem<String>(
+              value: '__create__',
+              child: Text('+ 새 결제수단'),
+            ),
           ],
           onChanged: (value) {
+            if (value == '__create__') {
+              setState(() => _dropdownResetKey++);
+              _showCreatePaymentMethodSheet(context);
+              return;
+            }
             setState(() {
               _selectedPaymentMethodId = value;
             });
@@ -311,6 +355,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             : <MoneyPocket>[];
 
         return DropdownButtonFormField<String>(
+          key: ValueKey('pocket_$_dropdownResetKey'),
           initialValue: _selectedPocketId,
           decoration: const InputDecoration(
             labelText: '포켓 (선택)',
@@ -325,8 +370,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                   value: p.id,
                   child: Text(p.name),
                 )),
+            const DropdownMenuItem<String>(
+              value: '__create__',
+              child: Text('+ 새 포켓'),
+            ),
           ],
           onChanged: (value) {
+            if (value == '__create__') {
+              setState(() => _dropdownResetKey++);
+              _showCreatePocketSheet(context);
+              return;
+            }
             setState(() {
               _selectedPocketId = value;
             });
@@ -362,8 +416,92 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  void _showCreateCategorySheet(BuildContext context) {
+    final bloc = context.read<CategoryBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CategoryFormSheet(
+        onSubmit: (name, type, icon, color) {
+          bloc.add(CreateCategory(
+            name: name,
+            type: type,
+            icon: icon,
+            color: color,
+          ));
+        },
+      ),
+    );
+  }
+
+  void _showCreatePaymentMethodSheet(BuildContext context) {
+    final bloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PaymentMethodFormSheet(
+        onSubmit: (name, type, settlementDay, closingDay) {
+          bloc.add(CreatePaymentMethod(
+            name: name,
+            type: type,
+            settlementDay: settlementDay,
+            closingDay: closingDay,
+          ));
+        },
+      ),
+    );
+  }
+
+  void _showCreatePocketSheet(BuildContext context) {
+    final bloc = context.read<PocketBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PocketFormSheet(
+        onSubmit: (name, type, allocatedAmount, icon, color) {
+          bloc.add(CreatePocket(
+            name: name,
+            type: type,
+            allocatedAmount: allocatedAmount,
+            icon: icon,
+            color: color,
+          ));
+        },
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('거래 삭제'),
+        content: const Text('정말 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<TransactionBloc>().add(
+                    DeleteTransaction(widget.transactionId!),
+                  );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isSubmitting = true);
       final amount = int.parse(_amountController.text.trim());
       final description = _descriptionController.text.trim();
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);

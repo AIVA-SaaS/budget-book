@@ -1,6 +1,7 @@
 package com.budgetbook.pocket.dto
 
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
@@ -17,6 +18,7 @@ data class CreateTransferRequest(
 
     @field:NotNull
     @field:Min(1)
+    @field:Max(999_999_999)
     val amount: Long,
 
     @field:Size(max = 255)
@@ -46,6 +48,7 @@ data class PocketSummary(
 data class DistributeRequest(
     @field:NotNull
     @field:Min(0)
+    @field:Max(999_999_999)
     val totalAmount: Long,
 
     @field:NotNull
@@ -59,6 +62,7 @@ data class DistributionItem(
 
     @field:NotNull
     @field:Min(0)
+    @field:Max(999_999_999)
     val amount: Long
 )
 
