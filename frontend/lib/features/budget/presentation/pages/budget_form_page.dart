@@ -386,7 +386,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       final currentIds = currentState.categories.map((c) => c.id).toSet();
       final diff = currentIds.difference(oldIds);
       if (diff.isNotEmpty) {
-        setState(() => _selectedCategoryId = diff.first);
+        setState(() {
+          _selectedCategoryId = diff.first;
+          _dropdownResetKey++;
+        });
         return;
       }
     }
@@ -399,7 +402,12 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           final newIds = state.categories.map((c) => c.id).toSet();
           final diff = newIds.difference(oldIds);
           if (diff.isNotEmpty) {
-            if (mounted) setState(() => _selectedCategoryId = diff.first);
+            if (mounted) {
+              setState(() {
+                _selectedCategoryId = diff.first;
+                _dropdownResetKey++;
+              });
+            }
             return;
           }
         }

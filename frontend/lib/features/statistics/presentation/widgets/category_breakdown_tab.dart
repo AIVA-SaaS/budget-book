@@ -59,7 +59,31 @@ class CategoryBreakdownTab extends StatelessWidget {
       );
     }
     if (categoryStats.isEmpty) {
-      return const Center(child: Text('데이터가 없습니다'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.pie_chart_outline,
+              size: 64,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '이 달에 기록된 거래가 없습니다',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+            ),
+          ],
+        ),
+      );
     }
 
     return SingleChildScrollView(
