@@ -95,7 +95,7 @@ class CoupleControllerTest : FunSpec({
             status = "ACTIVE",
             createdAt = Instant.now()
         )
-        every { rateLimiter.tryAcquire("invite-accept:203.0.113.50", 5, 60000L) } returns true
+        every { rateLimiter.tryAcquire("invite-accept:203.0.113.50", 5, 3_600_000L) } returns true
         every { coupleService.acceptInvitation(testUserId, "CODE1234") } returns expectedResponse
 
         val result = controller.acceptInvitation(auth, "CODE1234", request)
