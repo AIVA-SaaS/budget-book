@@ -27,7 +27,7 @@ class CoupleController(
 
     companion object {
         private const val INVITE_ACCEPT_MAX_REQUESTS = 5
-        private const val INVITE_ACCEPT_WINDOW_MILLIS = 60_000L // 1 minute
+        private const val INVITE_ACCEPT_WINDOW_MILLIS = 3_600_000L // 1 hour
     }
 
     @PostMapping("/invitations")

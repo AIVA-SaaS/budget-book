@@ -11,6 +11,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -29,7 +30,10 @@ class Couple(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    var status: CoupleStatus = CoupleStatus.PENDING
+    var status: CoupleStatus = CoupleStatus.PENDING,
+
+    @Column(name = "dissolved_at")
+    var dissolvedAt: Instant? = null
 ) : BaseTimeEntity()
 
 enum class CoupleStatus { PENDING, ACTIVE, DISSOLVED }
