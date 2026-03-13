@@ -36,7 +36,31 @@ class MonthlyTrendTab extends StatelessWidget {
       );
     }
     if (trends.isEmpty) {
-      return const Center(child: Text('데이터가 없습니다'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.show_chart,
+              size: 64,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '추이 데이터가 없습니다',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+            ),
+          ],
+        ),
+      );
     }
 
     return SingleChildScrollView(
