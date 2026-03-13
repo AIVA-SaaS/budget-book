@@ -13,6 +13,10 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_event.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 
 import 'sync_event.dart';
 
@@ -43,8 +47,10 @@ class SyncEventHandler {
     switch (event.entityType) {
       case 'TRANSACTION':
         _refreshTransactions();
+        _refreshDashboard();
       case 'BUDGET':
         _refreshBudgets();
+        _refreshDashboard();
       case 'CATEGORY':
         _refreshCategories();
       case 'PAYMENT_METHOD':
@@ -52,8 +58,12 @@ class SyncEventHandler {
       case 'CATEGORY_GROUP':
         _refreshCategoryGroups();
       case 'POCKET':
+        _refreshPockets();
+        _refreshDashboard();
       case 'POCKET_TRANSFER':
         _refreshPockets();
+        _refreshPocketTransfers();
+        _refreshDashboard();
       default:
         _logger.w('Unknown entity type: ${event.entityType}');
     }
@@ -118,6 +128,27 @@ class SyncEventHandler {
       _logger.d('Dispatched LoadPockets refresh');
     } catch (e) {
       _logger.e('Failed to refresh pockets: $e');
+    }
+  }
+
+  void _refreshPocketTransfers() {
+    try {
+      final bloc = _getIt<PocketTransferBloc>();
+      bloc.add(const LoadPocketTransfers());
+      _logger.d('Dispatched LoadPocketTransfers refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh pocket transfers: $e');
+    }
+  }
+
+  void _refreshDashboard() {
+    try {
+      final now = DateTime.now();
+      final bloc = _getIt<DashboardBloc>();
+      bloc.add(LoadDashboard(year: now.year, month: now.month));
+      _logger.d('Dispatched LoadDashboard refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh dashboard: $e');
     }
   }
 }

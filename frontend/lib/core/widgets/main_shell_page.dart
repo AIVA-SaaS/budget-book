@@ -2,14 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_state.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 
-class MainShellPage extends StatelessWidget {
+class MainShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const MainShellPage({super.key, required this.navigationShell});
+
+  @override
+  State<MainShellPage> createState() => _MainShellPageState();
+}
+
+class _MainShellPageState extends State<MainShellPage> {
+  int _previousIndex = 0;
+
+  void _onDestinationSelected(int index) {
+    final previousIndex = _previousIndex;
+    _previousIndex = index;
+
+    // Refresh data when switching to a different tab
+    if (index != previousIndex) {
+      final now = DateTime.now();
+      switch (index) {
+        case 0:
+          getIt<DashboardBloc>()
+              .add(LoadDashboard(year: now.year, month: now.month));
+        case 1:
+          getIt<TransactionBloc>()
+              .add(LoadTransactions(year: now.year, month: now.month));
+        case 2:
+          getIt<BudgetBloc>()
+              .add(LoadBudgets(year: now.year, month: now.month));
+        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
+        // Tab 4 (Settings) needs no refresh
+      }
+    }
+
+    widget.navigationShell.goBranch(
+      index,
+      initialLocation: index == widget.navigationShell.currentIndex,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,17 +59,12 @@ class MainShellPage extends StatelessWidget {
       body: Column(
         children: [
           const _ConnectionStatusBanner(),
-          Expanded(child: navigationShell),
+          Expanded(child: widget.navigationShell),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
-        },
+        selectedIndex: widget.navigationShell.currentIndex,
+        onDestinationSelected: _onDestinationSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

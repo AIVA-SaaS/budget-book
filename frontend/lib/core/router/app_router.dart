@@ -144,9 +144,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               path: '/home',
               builder: (context, state) {
                 final now = DateTime.now();
-                return BlocProvider<DashboardBloc>(
-                  create: (_) => getIt<DashboardBloc>()
-                    ..add(LoadDashboard(year: now.year, month: now.month)),
+                getIt<DashboardBloc>()
+                    .add(LoadDashboard(year: now.year, month: now.month));
+                return BlocProvider<DashboardBloc>.value(
+                  value: getIt<DashboardBloc>(),
                   child: const DashboardPage(),
                 );
               },
