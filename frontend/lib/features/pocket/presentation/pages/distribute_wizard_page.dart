@@ -20,6 +20,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
   final _totalAmountController = TextEditingController();
   final Map<String, TextEditingController> _allocationControllers = {};
   final _formatter = NumberFormat('#,###');
+  bool _isSubmitting = false;
 
   int get _totalAmount =>
       int.tryParse(_totalAmountController.text.replaceAll(',', '')) ?? 0;
@@ -61,12 +62,18 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
       body: BlocConsumer<PocketBloc, PocketState>(
         listener: (context, state) {
           if (state is PocketLoaded && state.operationError != null) {
+            setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
                 backgroundColor: Colors.red,
               ),
             );
+          } else if (state is PocketLoaded && _isSubmitting) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('분배가 완료되었습니다')),
+            );
+            context.pop();
           }
         },
         builder: (context, state) {
@@ -110,17 +117,29 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
               }
             },
             controlsBuilder: (context, details) {
+              final isConfirmStep = _currentStep == 2;
+              final canContinue = isConfirmStep
+                  ? !_isSubmitting && _remaining == 0
+                  : true;
               return Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: Row(
                   children: [
                     FilledButton(
-                      onPressed: details.onStepContinue,
-                      child: Text(_currentStep == 2 ? '확정' : '다음'),
+                      onPressed: canContinue ? details.onStepContinue : null,
+                      child: _isSubmitting && isConfirmStep
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(isConfirmStep ? '확정' : '다음'),
                     ),
                     const SizedBox(width: 12),
                     TextButton(
-                      onPressed: details.onStepCancel,
+                      onPressed: _isSubmitting ? null : details.onStepCancel,
                       child: Text(_currentStep == 0 ? '취소' : '이전'),
                     ),
                   ],
@@ -289,6 +308,8 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
 
   void _submitDistribution(
       BuildContext context, List<MoneyPocket> pockets) {
+    setState(() => _isSubmitting = true);
+
     final distributions = <Map<String, dynamic>>[];
     for (final pocket in pockets) {
       final amount = int.tryParse(
@@ -310,10 +331,6 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
           totalAmount: _totalAmount,
           distributions: distributions,
         ));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('분배가 완료되었습니다')),
-    );
-    context.pop();
+    // Pop happens in BlocListener after successful response
   }
 }

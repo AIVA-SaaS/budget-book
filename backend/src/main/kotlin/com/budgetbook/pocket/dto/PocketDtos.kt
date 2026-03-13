@@ -1,5 +1,6 @@
 package com.budgetbook.pocket.dto
 
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -17,6 +18,7 @@ data class CreatePocketRequest(
 
     @field:NotNull
     @field:Min(0)
+    @field:Max(999_999_999)
     val allocatedAmount: Long,
 
     val icon: String? = null,
@@ -29,6 +31,7 @@ data class UpdatePocketRequest(
     val name: String? = null,
 
     @field:Min(0)
+    @field:Max(999_999_999)
     val allocatedAmount: Long? = null,
 
     val icon: String? = null,

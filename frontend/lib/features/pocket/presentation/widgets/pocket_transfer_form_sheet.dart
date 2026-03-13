@@ -31,6 +31,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
   String? _fromPocketId;
   String? _toPocketId;
   late DateTime _selectedDate;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -184,11 +185,17 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _onSubmit,
+                onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text('이체'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('이체'),
               ),
             ],
           ),
@@ -199,6 +206,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
 
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isSubmitting = true);
       final amount = int.parse(_amountController.text.trim());
       final description = _descriptionController.text.trim().isEmpty
           ? null
