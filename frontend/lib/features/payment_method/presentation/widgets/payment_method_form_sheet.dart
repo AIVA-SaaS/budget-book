@@ -154,6 +154,11 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   validator: (value) {
+                    if (_selectedType == 'CREDIT') {
+                      if (value == null || value.trim().isEmpty) {
+                        return '신용카드는 결제일을 입력해야 합니다';
+                      }
+                    }
                     if (value != null && value.isNotEmpty) {
                       final day = int.tryParse(value);
                       if (day == null || day < 1 || day > 31) {
