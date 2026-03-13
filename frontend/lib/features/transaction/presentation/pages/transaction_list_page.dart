@@ -15,29 +15,7 @@ class TransactionListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budget Book'),
-        actions: [
-          IconButton(
-            onPressed: () => context.push('/statistics'),
-            icon: const Icon(Icons.pie_chart),
-            tooltip: '통계',
-          ),
-          IconButton(
-            onPressed: () => context.push('/budgets'),
-            icon: const Icon(Icons.account_balance_wallet),
-            tooltip: '예산 관리',
-          ),
-          IconButton(
-            onPressed: () => context.push('/categories'),
-            icon: const Icon(Icons.category),
-            tooltip: '카테고리 관리',
-          ),
-          IconButton(
-            onPressed: () => context.push('/couple'),
-            icon: const Icon(Icons.favorite),
-            tooltip: '커플 연결',
-          ),
-        ],
+        title: const Text('거래'),
       ),
       body: BlocConsumer<TransactionBloc, TransactionState>(
         listener: (context, state) {
