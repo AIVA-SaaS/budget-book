@@ -258,11 +258,12 @@ Future<void> configureDependencies() async {
   );
 
   // Dashboard feature
-  getIt.registerFactory<DashboardBloc>(
+  getIt.registerLazySingleton<DashboardBloc>(
     () => DashboardBloc(
       statisticsRepository: getIt<StatisticsRepository>(),
       transactionRepository: getIt<TransactionRepository>(),
       budgetRepository: getIt<BudgetRepository>(),
     ),
+    dispose: (bloc) => bloc.close(),
   );
 }

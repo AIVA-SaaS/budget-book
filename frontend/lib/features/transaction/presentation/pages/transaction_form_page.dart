@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -416,9 +418,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
-  void _showCreateCategorySheet(BuildContext context) {
+  Future<void> _showCreateCategorySheet(BuildContext context) async {
     final bloc = context.read<CategoryBloc>();
-    showModalBottomSheet(
+    final oldIds = (bloc.state is CategoryLoaded)
+        ? (bloc.state as CategoryLoaded).categories.map((c) => c.id).toSet()
+        : <String>{};
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
@@ -432,11 +438,28 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         },
       ),
     );
+
+    if (!mounted) return;
+    await _autoSelectNewItem<CategoryBloc, CategoryState>(
+      bloc: bloc,
+      getIds: (s) => s is CategoryLoaded
+          ? s.categories.map((c) => c.id).toSet()
+          : <String>{},
+      oldIds: oldIds,
+      onSelect: (newId) => setState(() => _selectedCategoryId = newId),
+    );
   }
 
-  void _showCreatePaymentMethodSheet(BuildContext context) {
+  Future<void> _showCreatePaymentMethodSheet(BuildContext context) async {
     final bloc = context.read<PaymentMethodBloc>();
-    showModalBottomSheet(
+    final oldIds = (bloc.state is PaymentMethodLoaded)
+        ? (bloc.state as PaymentMethodLoaded)
+            .paymentMethods
+            .map((pm) => pm.id)
+            .toSet()
+        : <String>{};
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => PaymentMethodFormSheet(
@@ -450,11 +473,25 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         },
       ),
     );
+
+    if (!mounted) return;
+    await _autoSelectNewItem<PaymentMethodBloc, PaymentMethodState>(
+      bloc: bloc,
+      getIds: (s) => s is PaymentMethodLoaded
+          ? s.paymentMethods.map((pm) => pm.id).toSet()
+          : <String>{},
+      oldIds: oldIds,
+      onSelect: (newId) => setState(() => _selectedPaymentMethodId = newId),
+    );
   }
 
-  void _showCreatePocketSheet(BuildContext context) {
+  Future<void> _showCreatePocketSheet(BuildContext context) async {
     final bloc = context.read<PocketBloc>();
-    showModalBottomSheet(
+    final oldIds = (bloc.state is PocketLoaded)
+        ? (bloc.state as PocketLoaded).pockets.map((p) => p.id).toSet()
+        : <String>{};
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => PocketFormSheet(
@@ -469,6 +506,45 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         },
       ),
     );
+
+    if (!mounted) return;
+    await _autoSelectNewItem<PocketBloc, PocketState>(
+      bloc: bloc,
+      getIds: (s) => s is PocketLoaded
+          ? s.pockets.map((p) => p.id).toSet()
+          : <String>{},
+      oldIds: oldIds,
+      onSelect: (newId) => setState(() => _selectedPocketId = newId),
+    );
+  }
+
+  Future<void> _autoSelectNewItem<B extends BlocBase<S>, S>({
+    required B bloc,
+    required Set<String> Function(S state) getIds,
+    required Set<String> oldIds,
+    required void Function(String newId) onSelect,
+  }) async {
+    // Check if already updated
+    final currentIds = getIds(bloc.state);
+    final diff = currentIds.difference(oldIds);
+    if (diff.isNotEmpty) {
+      onSelect(diff.first);
+      return;
+    }
+
+    // Wait for next state with new item
+    try {
+      await for (final state in bloc.stream.timeout(const Duration(seconds: 10))) {
+        final newIds = getIds(state);
+        final newDiff = newIds.difference(oldIds);
+        if (newDiff.isNotEmpty) {
+          if (mounted) onSelect(newDiff.first);
+          return;
+        }
+      }
+    } catch (_) {
+      // Timeout — user can manually select
+    }
   }
 
   void _confirmDelete(BuildContext context) {
