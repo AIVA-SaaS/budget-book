@@ -339,6 +339,7 @@ void main() {
             month: 1,
             totalElements: 1,
             hasMore: false,
+            operationSuccess: '거래가 삭제되었습니다',
           ),
         ],
       );
