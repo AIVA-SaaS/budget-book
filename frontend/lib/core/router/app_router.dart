@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
+import 'package:budget_book/core/websocket/websocket_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -51,15 +53,30 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_ev
 import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
-import 'package:budget_book/core/websocket/websocket_bloc.dart';
+
+/// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
+class _BlocListenable extends ChangeNotifier {
+  late final StreamSubscription _subscription;
+
+  _BlocListenable(Bloc bloc) {
+    _subscription = bloc.stream.listen((_) => notifyListeners());
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-final appRouter = GoRouter(
+GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
+  refreshListenable: _BlocListenable(authBloc),
   redirect: (context, state) {
-    final authState = context.read<AuthBloc>().state;
+    final authState = authBloc.state;
     final isAuthenticated = authState is AuthAuthenticated;
     final isOnLoginPage = state.matchedLocation == '/login';
     final isOnCallbackPage = state.matchedLocation == '/auth/callback';
@@ -83,10 +100,9 @@ final appRouter = GoRouter(
       return null;
     }
 
-    // If not authenticated and not on login page, go to login
+    // If not authenticated and not on login page, redirect to login
+    // This includes AuthInitial, AuthLoading, AuthUnauthenticated, AuthError
     if (!isAuthenticated && !isOnLoginPage) {
-      // Allow initial/loading states to proceed without redirecting
-      if (authState is AuthInitial || authState is AuthLoading) return null;
       return '/login';
     }
 
