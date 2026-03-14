@@ -5,6 +5,7 @@ import com.budgetbook.auth.domain.RefreshToken
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.dto.LogoutRequest
 import com.budgetbook.auth.dto.RefreshTokenRequest
+import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.repository.RefreshTokenRepository
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.common.exception.NotFoundException
@@ -244,6 +245,123 @@ class AuthServiceTest : BehaviorSpec({
                     authService.logout(testUser.id, request)
                 }
                 exception.code shouldBe "AUTH_TOKEN_MISMATCH"
+            }
+        }
+    }
+
+    Given("an updateProfile request with nickname only") {
+        val user = User(
+            email = "profile@example.com",
+            nickname = "OldNick",
+            profileImageUrl = "https://example.com/old.png",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-profile-1"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called with a new nickname") {
+            val request = UpdateProfileRequest(nickname = "NewNick")
+            val result = authService.updateProfile(user.id, request)
+
+            Then("updates the nickname and keeps profileImageUrl") {
+                result.nickname shouldBe "NewNick"
+                result.profileImageUrl shouldBe "https://example.com/old.png"
+            }
+
+            Then("evicts the user cache") {
+                verify { userCacheService.evict(user.id) }
+            }
+        }
+    }
+
+    Given("an updateProfile request with profileImageUrl only") {
+        val user = User(
+            email = "profile2@example.com",
+            nickname = "KeepNick",
+            profileImageUrl = "https://example.com/old.png",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-profile-2"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called with a new profileImageUrl") {
+            val request = UpdateProfileRequest(profileImageUrl = "https://example.com/new.png")
+            val result = authService.updateProfile(user.id, request)
+
+            Then("updates the profileImageUrl and keeps nickname") {
+                result.nickname shouldBe "KeepNick"
+                result.profileImageUrl shouldBe "https://example.com/new.png"
+            }
+        }
+    }
+
+    Given("an updateProfile request with clearProfileImage = true") {
+        val user = User(
+            email = "profile3@example.com",
+            nickname = "ClearImg",
+            profileImageUrl = "https://example.com/existing.png",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-profile-3"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called with clearProfileImage = true") {
+            val request = UpdateProfileRequest(clearProfileImage = true)
+            val result = authService.updateProfile(user.id, request)
+
+            Then("clears the profileImageUrl") {
+                result.profileImageUrl shouldBe null
+            }
+        }
+    }
+
+    Given("an updateProfile request with clearProfileImage = true and profileImageUrl provided") {
+        val user = User(
+            email = "profile4@example.com",
+            nickname = "ClearWins",
+            profileImageUrl = "https://example.com/existing.png",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-profile-4"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called") {
+            val request = UpdateProfileRequest(
+                profileImageUrl = "https://example.com/new.png",
+                clearProfileImage = true
+            )
+            val result = authService.updateProfile(user.id, request)
+
+            Then("clearProfileImage takes precedence and sets profileImageUrl to null") {
+                result.profileImageUrl shouldBe null
+            }
+        }
+    }
+
+    Given("an updateProfile request for a non-existent user") {
+        val unknownId = UUID.randomUUID()
+        every { userRepository.findById(unknownId) } returns Optional.empty()
+
+        When("updateProfile is called") {
+            val request = UpdateProfileRequest(nickname = "NewNick")
+
+            Then("throws NotFoundException") {
+                val exception = shouldThrow<NotFoundException> {
+                    authService.updateProfile(unknownId, request)
+                }
+                exception.code shouldBe "USER_NOT_FOUND"
             }
         }
     }

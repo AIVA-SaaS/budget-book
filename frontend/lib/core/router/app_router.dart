@@ -46,6 +46,7 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
+import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
@@ -445,6 +446,12 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           child: RecurringFormPage(recurringId: recurringId),
         );
       },
+    ),
+    // Profile Edit
+    GoRoute(
+      path: '/settings/profile-edit',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ProfileEditPage(),
     ),
     // Money Pockets
     GoRoute(
