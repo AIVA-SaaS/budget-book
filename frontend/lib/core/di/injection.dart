@@ -57,6 +57,8 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/core/websocket/websocket_service.dart';
 import 'package:budget_book/core/websocket/sync_event_handler.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
+import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
+import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 
 final getIt = GetIt.instance;
 
@@ -255,6 +257,16 @@ Future<void> configureDependencies() async {
       syncEventHandler: getIt<SyncEventHandler>(),
     ),
     dispose: (bloc) => bloc.close(),
+  );
+
+  // Settings cubits
+  getIt.registerLazySingleton<ThemeCubit>(
+    () => ThemeCubit(),
+    dispose: (cubit) => cubit.close(),
+  );
+  getIt.registerLazySingleton<LocaleCubit>(
+    () => LocaleCubit(),
+    dispose: (cubit) => cubit.close(),
   );
 
   // Dashboard feature

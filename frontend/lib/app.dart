@@ -8,6 +8,8 @@ import 'package:budget_book/core/router/app_router.dart';
 import 'package:budget_book/core/theme/app_theme.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
+import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
+import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 
 class BudgetBookApp extends StatefulWidget {
   const BudgetBookApp({super.key});
@@ -29,26 +31,38 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthBloc>.value(
-      value: _authBloc,
-      child: MaterialApp.router(
-        title: 'Budget Book',
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system,
-        scaffoldMessengerKey: rootScaffoldMessengerKey,
-        routerConfig: _router,
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('ko'),
-          Locale('en'),
-        ],
-        locale: const Locale('ko'),
-        debugShowCheckedModeBanner: false,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
+        BlocProvider<LocaleCubit>.value(value: getIt<LocaleCubit>()),
+      ],
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return BlocBuilder<LocaleCubit, Locale?>(
+            builder: (context, locale) {
+              return MaterialApp.router(
+                title: 'Budget Book',
+                theme: AppTheme.light,
+                darkTheme: AppTheme.dark,
+                themeMode: themeMode,
+                scaffoldMessengerKey: rootScaffoldMessengerKey,
+                routerConfig: _router,
+                localizationsDelegates: const [
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                supportedLocales: const [
+                  Locale('ko'),
+                  Locale('en'),
+                ],
+                locale: locale,
+                debugShowCheckedModeBanner: false,
+              );
+            },
+          );
+        },
       ),
     );
   }
