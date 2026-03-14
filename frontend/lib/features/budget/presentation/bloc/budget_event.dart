@@ -72,3 +72,13 @@ class DeleteBudget extends BudgetEvent {
   @override
   List<Object?> get props => [id];
 }
+
+class CopyPreviousMonthBudgets extends BudgetEvent {
+  final int year;
+  final int month;
+
+  const CopyPreviousMonthBudgets({required this.year, required this.month});
+
+  @override
+  List<Object?> get props => [year, month];
+}

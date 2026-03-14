@@ -7,6 +7,7 @@ import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryItemResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.toResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryRepository
@@ -233,6 +234,65 @@ class BudgetService(
             totalSpent = totalSpent,
             items = items
         )
+    }
+
+    @Transactional
+    fun copyFromPreviousMonth(userId: UUID, request: CopyBudgetRequest): List<BudgetResponse> {
+        val couple = getActiveCouple(userId)
+
+        val sourceYearMonth = formatYearMonth(request.sourceYear, request.sourceMonth)
+        val targetYearMonth = formatYearMonth(request.targetYear, request.targetMonth)
+
+        if (sourceYearMonth == targetYearMonth) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "Source and target month must be different."
+            )
+        }
+
+        val sourceBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, sourceYearMonth)
+        if (sourceBudgets.isEmpty()) {
+            throw NotFoundException("BUDGET_NOT_FOUND", "No budgets found for $sourceYearMonth.")
+        }
+
+        // Find existing budgets in target month to skip duplicates
+        val existingTargetBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, targetYearMonth)
+        val existingCategoryIds = existingTargetBudgets.map { it.category?.id }.toSet()
+
+        val numberOfWeeks = calculateNumberOfWeeks(targetYearMonth)
+
+        val newBudgets = sourceBudgets
+            .filter { it.category?.id !in existingCategoryIds }
+            .map { source ->
+                val weeklyAmount = if (source.budgetPeriod == BudgetPeriod.WEEKLY) {
+                    source.amount / numberOfWeeks
+                } else {
+                    null
+                }
+                MonthlyBudget(
+                    couple = couple,
+                    category = source.category,
+                    yearMonth = targetYearMonth,
+                    amount = source.amount,
+                    budgetPeriod = source.budgetPeriod,
+                    weeklyAmount = weeklyAmount
+                )
+            }
+
+        if (newBudgets.isEmpty()) {
+            return emptyList()
+        }
+
+        val saved = budgetRepository.saveAll(newBudgets)
+        saved.forEach { budget ->
+            syncEventPublisher.publish(SyncEvent(
+                type = "BUDGET_CREATED",
+                entityType = "BUDGET",
+                entityId = budget.id,
+                coupleId = couple.id,
+                authorId = userId
+            ))
+        }
+        return saved.map { it.toResponse() }
     }
 
     private fun getActiveCouple(userId: UUID): Couple {

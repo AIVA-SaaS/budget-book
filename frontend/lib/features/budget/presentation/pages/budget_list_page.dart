@@ -7,6 +7,8 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
+import 'package:budget_book/core/widgets/icon_picker.dart';
+import 'package:budget_book/core/widgets/color_picker.dart';
 
 class BudgetListPage extends StatelessWidget {
   const BudgetListPage({super.key});
@@ -17,6 +19,45 @@ class BudgetListPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('예산 관리'),
         actions: [
+          IconButton(
+            onPressed: () {
+              final state = context.read<BudgetBloc>().state;
+              final year =
+                  state is BudgetLoaded ? state.year : DateTime.now().year;
+              final month =
+                  state is BudgetLoaded ? state.month : DateTime.now().month;
+
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('전월 예산 복사'),
+                  content: const Text(
+                    '이전 달의 예산 설정을 현재 달로 복사하시겠습니까?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('취소'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        context.read<BudgetBloc>().add(
+                              CopyPreviousMonthBudgets(
+                                year: year,
+                                month: month,
+                              ),
+                            );
+                      },
+                      child: const Text('복사'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            icon: const Icon(Icons.content_copy),
+            tooltip: '전월 예산 복사',
+          ),
           IconButton(
             onPressed: () => context.push('/categories'),
             icon: const Icon(Icons.category),
@@ -38,6 +79,13 @@ class BudgetListPage extends StatelessWidget {
               SnackBar(
                 content: Text(state.operationError!),
                 backgroundColor: Colors.red,
+              ),
+            );
+          } else if (state is BudgetLoaded &&
+              state.operationSuccess != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.operationSuccess!),
               ),
             );
           }
@@ -256,39 +304,11 @@ class BudgetListPage extends StatelessWidget {
   }
 
   Color _getCategoryColor(String? colorHex) {
-    if (colorHex == null) return Colors.grey;
-    try {
-      return Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
-    } catch (_) {
-      return Colors.grey;
-    }
+    return parseHexColor(colorHex);
   }
 
   IconData _getCategoryIcon(String? iconName) {
-    switch (iconName) {
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'directions_car':
-        return Icons.directions_car;
-      case 'home':
-        return Icons.home;
-      case 'shopping_cart':
-        return Icons.shopping_cart;
-      case 'local_hospital':
-        return Icons.local_hospital;
-      case 'school':
-        return Icons.school;
-      case 'sports_esports':
-        return Icons.sports_esports;
-      case 'checkroom':
-        return Icons.checkroom;
-      case 'savings':
-        return Icons.savings;
-      case 'work':
-        return Icons.work;
-      default:
-        return Icons.account_balance_wallet;
-    }
+    return resolveIcon(iconName);
   }
 }
 
