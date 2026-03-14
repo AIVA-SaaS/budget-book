@@ -27,6 +27,8 @@ class MockPocketRepository extends Mock implements PocketRepository {
     required int allocatedAmount,
     String? icon,
     String? color,
+    int? goalAmount,
+    String? targetDate,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createPocket, [], {
@@ -35,6 +37,8 @@ class MockPocketRepository extends Mock implements PocketRepository {
           #allocatedAmount: allocatedAmount,
           #icon: icon,
           #color: color,
+          #goalAmount: goalAmount,
+          #targetDate: targetDate,
         }),
         returnValue: Future.value(
           const Right<Failure, MoneyPocket>(MoneyPocket(
@@ -58,6 +62,8 @@ class MockPocketRepository extends Mock implements PocketRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    int? goalAmount,
+    String? targetDate,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updatePocket, [], {
@@ -68,6 +74,8 @@ class MockPocketRepository extends Mock implements PocketRepository {
           #icon: icon,
           #color: color,
           #displayOrder: displayOrder,
+          #goalAmount: goalAmount,
+          #targetDate: targetDate,
         }),
         returnValue: Future.value(
           const Right<Failure, MoneyPocket>(MoneyPocket(
@@ -106,6 +114,24 @@ class MockPocketRepository extends Mock implements PocketRepository {
           )),
         ),
       ) as Future<Either<Failure, DistributeResult>>;
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>>
+      getDistributionRatios() =>
+          super.noSuchMethod(
+            Invocation.method(#getDistributionRatios, []),
+            returnValue: Future.value(
+              const Right<Failure, List<Map<String, dynamic>>>([]),
+            ),
+          ) as Future<Either<Failure, List<Map<String, dynamic>>>>;
+
+  @override
+  Future<Either<Failure, void>> saveDistributionRatios(
+          List<Map<String, dynamic>> ratios) =>
+      super.noSuchMethod(
+        Invocation.method(#saveDistributionRatios, [ratios]),
+        returnValue: Future.value(const Right<Failure, void>(null)),
+      ) as Future<Either<Failure, void>>;
 }
 
 void main() {
@@ -244,6 +270,52 @@ void main() {
         expect: () => [
           PocketLoaded(tPockets,
               operationError: 'Failed to create pocket'),
+        ],
+      );
+
+      blocTest<PocketBloc, PocketState>(
+        'emits [PocketLoaded] with goal fields when creating with goal',
+        build: () {
+          const pocketWithGoal = MoneyPocket(
+            id: 'pocket-g1',
+            name: '여행',
+            type: 'SAVINGS',
+            allocatedAmount: 0,
+            balance: 0,
+            icon: 'savings',
+            color: '#2196F3',
+            displayOrder: 3,
+            isActive: true,
+            goalAmount: 3000000,
+            targetDate: '2026-12-31',
+          );
+          when(mockRepository.createPocket(
+            name: '여행',
+            type: 'SAVINGS',
+            allocatedAmount: 0,
+            icon: 'savings',
+            color: '#2196F3',
+            goalAmount: 3000000,
+            targetDate: '2026-12-31',
+          )).thenAnswer((_) async => const Right(pocketWithGoal));
+          return bloc;
+        },
+        seed: () => PocketLoaded(tPockets),
+        act: (bloc) => bloc.add(const CreatePocket(
+          name: '여행',
+          type: 'SAVINGS',
+          allocatedAmount: 0,
+          icon: 'savings',
+          color: '#2196F3',
+          goalAmount: 3000000,
+          targetDate: '2026-12-31',
+        )),
+        expect: () => [
+          isA<PocketLoaded>().having(
+            (s) => s.pockets.last.goalAmount,
+            'last pocket goalAmount',
+            3000000,
+          ),
         ],
       );
     });
@@ -400,6 +472,76 @@ void main() {
         ],
       );
     });
+
+    group('LoadDistributionRatios', () {
+      blocTest<PocketBloc, PocketState>(
+        'emits PocketLoaded with distribution ratios on success',
+        build: () {
+          final ratios = [
+            {'pocketId': 'pocket-1', 'percentage': 60},
+            {'pocketId': 'pocket-2', 'percentage': 40},
+          ];
+          when(mockRepository.getDistributionRatios())
+              .thenAnswer((_) async => Right(ratios));
+          return bloc;
+        },
+        seed: () => PocketLoaded(tPockets),
+        act: (bloc) => bloc.add(const LoadDistributionRatios()),
+        expect: () => [
+          isA<PocketLoaded>().having(
+            (s) => s.distributionRatios,
+            'distributionRatios',
+            [
+              {'pocketId': 'pocket-1', 'percentage': 60},
+              {'pocketId': 'pocket-2', 'percentage': 40},
+            ],
+          ),
+        ],
+      );
+
+      blocTest<PocketBloc, PocketState>(
+        'emits PocketLoaded with operationError on failure',
+        build: () {
+          when(mockRepository.getDistributionRatios()).thenAnswer((_) async =>
+              const Left(
+                  ServerFailure('Failed to load distribution ratios')));
+          return bloc;
+        },
+        seed: () => PocketLoaded(tPockets),
+        act: (bloc) => bloc.add(const LoadDistributionRatios()),
+        expect: () => [
+          PocketLoaded(tPockets,
+              operationError: 'Failed to load distribution ratios'),
+        ],
+      );
+    });
+
+    group('SaveDistributionRatios', () {
+      blocTest<PocketBloc, PocketState>(
+        'emits PocketLoaded with ratiosSaved=true on success',
+        build: () {
+          final ratios = [
+            {'pocketId': 'pocket-1', 'percentage': 60},
+            {'pocketId': 'pocket-2', 'percentage': 40},
+          ];
+          when(mockRepository.saveDistributionRatios(ratios))
+              .thenAnswer((_) async => const Right(null));
+          return bloc;
+        },
+        seed: () => PocketLoaded(tPockets),
+        act: (bloc) => bloc.add(const SaveDistributionRatios(ratios: [
+          {'pocketId': 'pocket-1', 'percentage': 60},
+          {'pocketId': 'pocket-2', 'percentage': 40},
+        ])),
+        expect: () => [
+          isA<PocketLoaded>().having(
+            (s) => s.ratiosSaved,
+            'ratiosSaved',
+            true,
+          ),
+        ],
+      );
+    });
   });
 
   group('PocketLoaded helpers', () {
@@ -441,6 +583,38 @@ void main() {
 
     test('isFixed returns true for FIXED type', () {
       expect(tNewPocket.isFixed, true);
+    });
+
+    test('goalProgress returns null when no goal set', () {
+      expect(tLivingPocket.goalProgress, null);
+    });
+
+    test('goalProgress returns correct ratio', () {
+      const pocketWithGoal = MoneyPocket(
+        id: 'g1',
+        name: 'Goal',
+        type: 'SAVINGS',
+        allocatedAmount: 0,
+        balance: 750000,
+        displayOrder: 0,
+        isActive: true,
+        goalAmount: 1000000,
+      );
+      expect(pocketWithGoal.goalProgress, 0.75);
+    });
+
+    test('goalProgress handles zero goalAmount', () {
+      const pocket = MoneyPocket(
+        id: 'g2',
+        name: 'Zero',
+        type: 'SAVINGS',
+        allocatedAmount: 0,
+        balance: 100,
+        displayOrder: 0,
+        isActive: true,
+        goalAmount: 0,
+      );
+      expect(pocket.goalProgress, null);
     });
   });
 }

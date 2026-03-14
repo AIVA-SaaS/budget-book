@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -59,6 +61,35 @@ class _TransactionListPageState extends State<TransactionListPage> {
           amountMin: _filterAmountMin,
           amountMax: _filterAmountMax,
         ));
+  }
+
+  Future<void> _exportCsv(BuildContext context) async {
+    final state = context.read<TransactionBloc>().state;
+    final year = state is TransactionLoaded ? state.year : DateTime.now().year;
+    final month =
+        state is TransactionLoaded ? state.month : DateTime.now().month;
+
+    final csvUrl = Uri.parse(
+      '${ApiEndpoints.baseUrl}${ApiEndpoints.transactionsExportCsv}?year=$year&month=$month',
+    );
+
+    try {
+      if (await canLaunchUrl(csvUrl)) {
+        await launchUrl(csvUrl, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('내보내기 URL을 열 수 없습니다')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('내보내기 실패: $e')),
+        );
+      }
+    }
   }
 
   void _showFilterSheet() {
@@ -249,6 +280,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('거래'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download),
+            tooltip: '내보내기',
+            onPressed: () => _exportCsv(context),
+          ),
+        ],
       ),
       body: BlocConsumer<TransactionBloc, TransactionState>(
         listener: (context, state) {
