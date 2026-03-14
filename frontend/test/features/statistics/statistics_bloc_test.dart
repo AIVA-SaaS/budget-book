@@ -29,6 +29,14 @@ void main() {
     transactionCount: 45,
   );
 
+  const testPrevYearSummary = StatisticsSummary(
+    yearMonth: '2025-03',
+    totalIncome: 4200000,
+    totalExpense: 2800000,
+    balance: 1400000,
+    transactionCount: 38,
+  );
+
   final testCategoryStats = [
     const CategoryStatistics(
       category: TransactionCategory(
@@ -186,5 +194,64 @@ void main() {
         expect(bloc.state.trendLoading, false);
       },
     );
+
+    group('LoadYearComparison', () {
+      blocTest<StatisticsBloc, StatisticsState>(
+        'emits comparison data when both years succeed',
+        build: () {
+          when(() => mockRepository.getSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(testSummary));
+          when(() => mockRepository.getSummary(year: 2025, month: 3))
+              .thenAnswer((_) async => const Right(testPrevYearSummary));
+          return StatisticsBloc(statisticsRepository: mockRepository);
+        },
+        act: (bloc) =>
+            bloc.add(const LoadYearComparison(year: 2026, month: 3)),
+        verify: (bloc) {
+          expect(bloc.state.comparisonLoading, false);
+          expect(bloc.state.currentYearSummary, testSummary);
+          expect(bloc.state.previousYearSummary, testPrevYearSummary);
+          expect(bloc.state.comparisonError, null);
+        },
+      );
+
+      blocTest<StatisticsBloc, StatisticsState>(
+        'handles previous year failure gracefully',
+        build: () {
+          when(() => mockRepository.getSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(testSummary));
+          when(() => mockRepository.getSummary(year: 2025, month: 3))
+              .thenAnswer((_) async =>
+                  const Left(ServerFailure('No data')));
+          return StatisticsBloc(statisticsRepository: mockRepository);
+        },
+        act: (bloc) =>
+            bloc.add(const LoadYearComparison(year: 2026, month: 3)),
+        verify: (bloc) {
+          expect(bloc.state.comparisonLoading, false);
+          expect(bloc.state.currentYearSummary, testSummary);
+          expect(bloc.state.previousYearSummary, null);
+          expect(bloc.state.comparisonError, null);
+        },
+      );
+
+      blocTest<StatisticsBloc, StatisticsState>(
+        'emits error when current year fails',
+        build: () {
+          when(() => mockRepository.getSummary(year: 2026, month: 3))
+              .thenAnswer((_) async =>
+                  const Left(ServerFailure('통계 요약을 불러오지 못했습니다')));
+          when(() => mockRepository.getSummary(year: 2025, month: 3))
+              .thenAnswer((_) async => const Right(testPrevYearSummary));
+          return StatisticsBloc(statisticsRepository: mockRepository);
+        },
+        act: (bloc) =>
+            bloc.add(const LoadYearComparison(year: 2026, month: 3)),
+        verify: (bloc) {
+          expect(bloc.state.comparisonLoading, false);
+          expect(bloc.state.comparisonError, '통계 요약을 불러오지 못했습니다');
+        },
+      );
+    });
   });
 }

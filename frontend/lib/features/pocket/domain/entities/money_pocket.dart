@@ -10,6 +10,8 @@ class MoneyPocket extends Equatable {
   final String? color;
   final int displayOrder;
   final bool isActive;
+  final int? goalAmount;
+  final String? targetDate;
 
   const MoneyPocket({
     required this.id,
@@ -21,6 +23,8 @@ class MoneyPocket extends Equatable {
     this.color,
     required this.displayOrder,
     required this.isActive,
+    this.goalAmount,
+    this.targetDate,
   });
 
   bool get isLiving => type == 'LIVING';
@@ -28,6 +32,12 @@ class MoneyPocket extends Equatable {
   bool get isCardPending => type == 'CARD_PENDING';
   bool get isSavings => type == 'SAVINGS';
   bool get isCustom => type == 'CUSTOM';
+
+  /// Returns goal progress as a ratio (0.0 to 1.0+), or null if no goal set.
+  double? get goalProgress {
+    if (goalAmount == null || goalAmount! <= 0) return null;
+    return balance / goalAmount!;
+  }
 
   @override
   List<Object?> get props => [
@@ -40,5 +50,7 @@ class MoneyPocket extends Equatable {
         color,
         displayOrder,
         isActive,
+        goalAmount,
+        targetDate,
       ];
 }

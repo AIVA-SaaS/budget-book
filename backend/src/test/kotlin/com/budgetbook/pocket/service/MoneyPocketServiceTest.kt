@@ -24,6 +24,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.time.LocalDate
 
 class MoneyPocketServiceTest : BehaviorSpec({
 
@@ -211,6 +212,51 @@ class MoneyPocketServiceTest : BehaviorSpec({
                 result[2].type shouldBe PocketType.CARD_PENDING
                 result[3].name shouldBe "저축"
                 result[3].type shouldBe PocketType.SAVINGS
+            }
+        }
+    }
+
+    // --- goal amount in create ---
+
+    Given("a user creating a pocket with goal fields") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { moneyPocketRepository.maxDisplayOrderByCoupleId(couple.id) } returns 0
+
+        When("creating a pocket with goalAmount and targetDate") {
+            val request = CreatePocketRequest(
+                name = "여행적금",
+                type = "SAVINGS",
+                allocatedAmount = 0,
+                goalAmount = 3000000,
+                targetDate = LocalDate.of(2026, 12, 31)
+            )
+            val pocketSlot = slot<MoneyPocket>()
+            every { moneyPocketRepository.save(capture(pocketSlot)) } answers { pocketSlot.captured }
+
+            val result = service.createPocket(user1.id, request)
+
+            Then("response includes goalAmount and targetDate") {
+                result.goalAmount shouldBe 3000000
+                result.targetDate shouldBe LocalDate.of(2026, 12, 31)
+            }
+        }
+    }
+
+    // --- goal amount in update ---
+
+    Given("an existing pocket to update with goal fields") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val pocket = MoneyPocket(couple = couple, name = "저축", type = PocketType.SAVINGS, allocatedAmount = 100000, displayOrder = 1)
+        every { moneyPocketRepository.findByIdAndCoupleId(pocket.id, couple.id) } returns pocket
+        every { moneyPocketRepository.save(pocket) } returns pocket
+
+        When("updating goalAmount and targetDate") {
+            val request = UpdatePocketRequest(goalAmount = 5000000, targetDate = LocalDate.of(2027, 6, 30))
+            val result = service.updatePocket(user1.id, pocket.id, request)
+
+            Then("response reflects updated goal fields") {
+                result.goalAmount shouldBe 5000000
+                result.targetDate shouldBe LocalDate.of(2027, 6, 30)
             }
         }
     }

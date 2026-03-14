@@ -53,8 +53,14 @@ class ApiEndpoints {
   // Money Pockets
   static const String pockets = '/api/v1/pockets';
   static const String pocketsDistribute = '/api/v1/pockets/distribute';
+  static const String pocketsDistributionRatios =
+      '/api/v1/pockets/distribution-ratios';
 
   // Pocket Transfers
   static const String pocketTransfers = '/api/v1/pocket-transfers';
+
+  // Export
+  static const String transactionsExportCsv =
+      '/api/v1/transactions/export/csv';
 
 }
