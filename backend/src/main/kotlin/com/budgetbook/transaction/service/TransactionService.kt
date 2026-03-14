@@ -22,7 +22,9 @@ import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transaction.repository.TransactionSpecifications
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -47,6 +49,11 @@ class TransactionService(
         month: Int?,
         type: String?,
         categoryId: UUID?,
+        keyword: String? = null,
+        paymentMethodId: UUID? = null,
+        pocketId: UUID? = null,
+        amountMin: Long? = null,
+        amountMax: Long? = null,
         page: Int,
         size: Int
     ): PageResponse<TransactionResponse> {
@@ -66,16 +73,36 @@ class TransactionService(
         }
 
         val pageSize = size.coerceIn(1, 100)
-        val pageable = PageRequest.of(page, pageSize)
+        val sort = Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt"))
+        val pageable = PageRequest.of(page, pageSize, sort)
 
-        val result = transactionRepository.findByCoupleIdAndFilters(
-            coupleId = couple.id,
-            startDate = startDate,
-            endDate = endDate,
-            type = transactionType,
-            categoryId = categoryId,
-            pageable = pageable
-        )
+        val hasExtendedFilters = keyword != null || paymentMethodId != null ||
+            pocketId != null || amountMin != null || amountMax != null
+
+        val result = if (hasExtendedFilters) {
+            val spec = TransactionSpecifications.withFilters(
+                coupleId = couple.id,
+                startDate = startDate,
+                endDate = endDate,
+                type = transactionType,
+                categoryId = categoryId,
+                keyword = keyword,
+                paymentMethodId = paymentMethodId,
+                pocketId = pocketId,
+                amountMin = amountMin,
+                amountMax = amountMax
+            )
+            transactionRepository.findAll(spec, pageable)
+        } else {
+            transactionRepository.findByCoupleIdAndFilters(
+                coupleId = couple.id,
+                startDate = startDate,
+                endDate = endDate,
+                type = transactionType,
+                categoryId = categoryId,
+                pageable = pageable
+            )
+        }
 
         return PageResponse(
             content = result.content.map { it.toResponse() },

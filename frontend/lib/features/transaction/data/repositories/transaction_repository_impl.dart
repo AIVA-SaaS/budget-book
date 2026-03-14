@@ -17,6 +17,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
     int? month,
     String? type,
     String? categoryId,
+    String? keyword,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amountMin,
+    int? amountMax,
     int page = 0,
     int size = 20,
   }) async {
@@ -26,6 +31,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
         month: month,
         type: type,
         categoryId: categoryId,
+        keyword: keyword,
+        paymentMethodId: paymentMethodId,
+        pocketId: pocketId,
+        amountMin: amountMin,
+        amountMax: amountMax,
         page: page,
         size: size,
       );

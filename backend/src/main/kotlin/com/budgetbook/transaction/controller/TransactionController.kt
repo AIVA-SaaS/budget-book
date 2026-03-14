@@ -34,11 +34,20 @@ class TransactionController(
         @RequestParam(required = false) month: Int?,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) categoryId: UUID?,
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false) paymentMethodId: UUID?,
+        @RequestParam(required = false) pocketId: UUID?,
+        @RequestParam(required = false) amountMin: Long?,
+        @RequestParam(required = false) amountMax: Long?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ApiResponse<PageResponse<TransactionResponse>> {
         val userId = authentication.principal as UUID
-        return ApiResponse.ok(transactionService.listTransactions(userId, year, month, type, categoryId, page, size))
+        return ApiResponse.ok(transactionService.listTransactions(
+            userId, year, month, type, categoryId,
+            keyword, paymentMethodId, pocketId, amountMin, amountMax,
+            page, size
+        ))
     }
 
     @PostMapping

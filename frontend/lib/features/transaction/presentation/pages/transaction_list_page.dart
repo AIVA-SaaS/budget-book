@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +9,240 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_s
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 
-class TransactionListPage extends StatelessWidget {
+class TransactionListPage extends StatefulWidget {
   const TransactionListPage({super.key});
+
+  @override
+  State<TransactionListPage> createState() => _TransactionListPageState();
+}
+
+class _TransactionListPageState extends State<TransactionListPage> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
+
+  // Filter state
+  String? _filterPaymentMethodId;
+  String? _filterPocketId;
+  int? _filterAmountMin;
+  int? _filterAmountMax;
+  bool _hasActiveFilters = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _reloadWithFilters();
+    });
+  }
+
+  void _reloadWithFilters() {
+    final state = context.read<TransactionBloc>().state;
+    final year = state is TransactionLoaded ? state.year : DateTime.now().year;
+    final month =
+        state is TransactionLoaded ? state.month : DateTime.now().month;
+
+    final keyword =
+        _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+
+    context.read<TransactionBloc>().add(LoadTransactions(
+          year: year,
+          month: month,
+          keyword: keyword,
+          paymentMethodId: _filterPaymentMethodId,
+          pocketId: _filterPocketId,
+          amountMin: _filterAmountMin,
+          amountMax: _filterAmountMax,
+        ));
+  }
+
+  void _showFilterSheet() {
+    final amountMinController = TextEditingController(
+      text: _filterAmountMin?.toString() ?? '',
+    );
+    final amountMaxController = TextEditingController(
+      text: _filterAmountMax?.toString() ?? '',
+    );
+    String? tempPaymentMethodId = _filterPaymentMethodId;
+    String? tempPocketId = _filterPocketId;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '필터',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Amount range
+                  Text(
+                    '금액 범위',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: amountMinController,
+                          decoration: const InputDecoration(
+                            labelText: '최소 금액',
+                            hintText: '0',
+                            suffixText: '원',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('~'),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: amountMaxController,
+                          decoration: const InputDecoration(
+                            labelText: '최대 금액',
+                            hintText: '무제한',
+                            suffixText: '원',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Payment method ID
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: '결제수단 ID',
+                      hintText: '결제수단 ID를 입력하세요',
+                      suffixIcon: tempPaymentMethodId != null
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setSheetState(
+                                    () => tempPaymentMethodId = null);
+                              },
+                            )
+                          : null,
+                    ),
+                    controller:
+                        TextEditingController(text: tempPaymentMethodId ?? ''),
+                    onChanged: (value) {
+                      tempPaymentMethodId =
+                          value.trim().isEmpty ? null : value.trim();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Pocket ID
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: '포켓 ID',
+                      hintText: '포켓 ID를 입력하세요',
+                      suffixIcon: tempPocketId != null
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setSheetState(() => tempPocketId = null);
+                              },
+                            )
+                          : null,
+                    ),
+                    controller:
+                        TextEditingController(text: tempPocketId ?? ''),
+                    onChanged: (value) {
+                      tempPocketId =
+                          value.trim().isEmpty ? null : value.trim();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _filterPaymentMethodId = null;
+                              _filterPocketId = null;
+                              _filterAmountMin = null;
+                              _filterAmountMax = null;
+                              _hasActiveFilters = false;
+                            });
+                            Navigator.of(ctx).pop();
+                            _reloadWithFilters();
+                          },
+                          child: const Text('초기화'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            final minText = amountMinController.text.trim();
+                            final maxText = amountMaxController.text.trim();
+                            setState(() {
+                              _filterAmountMin =
+                                  minText.isEmpty ? null : int.tryParse(minText);
+                              _filterAmountMax =
+                                  maxText.isEmpty ? null : int.tryParse(maxText);
+                              _filterPaymentMethodId = tempPaymentMethodId;
+                              _filterPocketId = tempPocketId;
+                              _hasActiveFilters = _filterAmountMin != null ||
+                                  _filterAmountMax != null ||
+                                  _filterPaymentMethodId != null ||
+                                  _filterPocketId != null;
+                            });
+                            Navigator.of(ctx).pop();
+                            _reloadWithFilters();
+                          },
+                          child: const Text('적용'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +298,59 @@ class TransactionListPage extends StatelessWidget {
     return Column(
       children: [
         // Month navigator
-        _MonthNavigator(year: state.year, month: state.month),
+        _MonthNavigator(
+          year: state.year,
+          month: state.month,
+          keyword: _searchController.text.trim().isEmpty
+              ? null
+              : _searchController.text.trim(),
+          paymentMethodId: _filterPaymentMethodId,
+          pocketId: _filterPocketId,
+          amountMin: _filterAmountMin,
+          amountMax: _filterAmountMax,
+        ),
+        // Search bar and filter button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: '거래 검색...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _reloadWithFilters();
+                            },
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Badge(
+                isLabelVisible: _hasActiveFilters,
+                child: IconButton(
+                  icon: const Icon(Icons.tune),
+                  onPressed: _showFilterSheet,
+                  tooltip: '필터',
+                ),
+              ),
+            ],
+          ),
+        ),
         // Summary bar
         MonthSummaryBar(
           totalIncome: state.totalIncome,
@@ -203,8 +488,21 @@ class TransactionListPage extends StatelessWidget {
 class _MonthNavigator extends StatelessWidget {
   final int year;
   final int month;
+  final String? keyword;
+  final String? paymentMethodId;
+  final String? pocketId;
+  final int? amountMin;
+  final int? amountMax;
 
-  const _MonthNavigator({required this.year, required this.month});
+  const _MonthNavigator({
+    required this.year,
+    required this.month,
+    this.keyword,
+    this.paymentMethodId,
+    this.pocketId,
+    this.amountMin,
+    this.amountMax,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +520,15 @@ class _MonthNavigator extends StatelessWidget {
                   ? DateTime(year - 1, 12)
                   : DateTime(year, month - 1);
               context.read<TransactionBloc>().add(
-                    LoadTransactions(year: prev.year, month: prev.month),
+                    LoadTransactions(
+                      year: prev.year,
+                      month: prev.month,
+                      keyword: keyword,
+                      paymentMethodId: paymentMethodId,
+                      pocketId: pocketId,
+                      amountMin: amountMin,
+                      amountMax: amountMax,
+                    ),
                   );
             },
             tooltip: '이전 달',
@@ -238,7 +544,14 @@ class _MonthNavigator extends StatelessWidget {
               if (picked != null && context.mounted) {
                 context.read<TransactionBloc>().add(
                       LoadTransactions(
-                          year: picked.year, month: picked.month),
+                        year: picked.year,
+                        month: picked.month,
+                        keyword: keyword,
+                        paymentMethodId: paymentMethodId,
+                        pocketId: pocketId,
+                        amountMin: amountMin,
+                        amountMax: amountMax,
+                      ),
                     );
               }
             },
@@ -256,7 +569,15 @@ class _MonthNavigator extends StatelessWidget {
                   ? DateTime(year + 1, 1)
                   : DateTime(year, month + 1);
               context.read<TransactionBloc>().add(
-                    LoadTransactions(year: next.year, month: next.month),
+                    LoadTransactions(
+                      year: next.year,
+                      month: next.month,
+                      keyword: keyword,
+                      paymentMethodId: paymentMethodId,
+                      pocketId: pocketId,
+                      amountMin: amountMin,
+                      amountMax: amountMax,
+                    ),
                   );
             },
             tooltip: '다음 달',

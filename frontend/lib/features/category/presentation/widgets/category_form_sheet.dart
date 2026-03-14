@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/core/widgets/icon_picker.dart';
+import 'package:budget_book/core/widgets/color_picker.dart';
 
 class CategoryFormSheet extends StatefulWidget {
   final Category? category;
@@ -25,48 +27,6 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   bool _isSubmitting = false;
 
   bool get isEditing => widget.category != null;
-
-  static const _availableIcons = <String, IconData>{
-    'restaurant': Icons.restaurant,
-    'shopping_cart': Icons.shopping_cart,
-    'directions_bus': Icons.directions_bus,
-    'home': Icons.home,
-    'local_hospital': Icons.local_hospital,
-    'school': Icons.school,
-    'pets': Icons.pets,
-    'payments': Icons.payments,
-    'work': Icons.work,
-    'savings': Icons.savings,
-    'card_giftcard': Icons.card_giftcard,
-    'trending_up': Icons.trending_up,
-    'local_cafe': Icons.local_cafe,
-    'movie': Icons.movie,
-    'fitness_center': Icons.fitness_center,
-    'child_care': Icons.child_care,
-    'phone': Icons.phone,
-    'electric_bolt': Icons.electric_bolt,
-    'account_balance': Icons.account_balance,
-    'category': Icons.category,
-  };
-
-  static const _availableColors = [
-    '#FF5733',
-    '#E91E63',
-    '#9C27B0',
-    '#673AB7',
-    '#3F51B5',
-    '#2196F3',
-    '#03A9F4',
-    '#00BCD4',
-    '#009688',
-    '#4CAF50',
-    '#8BC34A',
-    '#CDDC39',
-    '#FFC107',
-    '#FF9800',
-    '#FF5722',
-    '#795548',
-  ];
 
   @override
   void initState() {
@@ -120,6 +80,23 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                     ),
               ),
               const SizedBox(height: 24),
+              // Preview of selected icon and color
+              Center(
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundColor: _selectedColor != null
+                      ? parseHexColor(_selectedColor)
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: Icon(
+                    resolveIcon(_selectedIcon),
+                    color: _selectedColor != null
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface,
+                    size: 32,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               // Name field
               TextFormField(
                 controller: _nameController,
@@ -165,99 +142,70 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              // Icon picker
+              // Icon picker button
               Text(
                 '아이콘',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableIcons.entries.map((entry) {
-                  final isSelected = _selectedIcon == entry.key;
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedIcon = entry.key;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withValues(alpha: 0.15)
-                            : Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 2,
-                              )
-                            : null,
-                      ),
-                      child: Icon(
-                        entry.value,
-                        size: 20,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                    ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await showIconPicker(
+                    context: context,
+                    selectedIcon: _selectedIcon,
                   );
-                }).toList(),
+                  if (result != null) {
+                    setState(() {
+                      _selectedIcon = result;
+                    });
+                  }
+                },
+                icon: Icon(
+                  resolveIcon(_selectedIcon),
+                  size: 20,
+                ),
+                label: Text(
+                  _selectedIcon ?? '아이콘을 선택하세요',
+                ),
               ),
               const SizedBox(height: 16),
-              // Color picker
+              // Color picker button
               Text(
                 '색상',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableColors.map((hex) {
-                  final isSelected = _selectedColor == hex;
-                  final color = _parseColor(hex);
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedColor = hex;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(
-                                color:
-                                    Theme.of(context).colorScheme.onSurface,
-                                width: 3,
-                              )
-                            : null,
-                      ),
-                      child: isSelected
-                          ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 18,
-                            )
-                          : null,
-                    ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await showColorPicker(
+                    context: context,
+                    selectedColor: _selectedColor,
                   );
-                }).toList(),
+                  if (result != null) {
+                    setState(() {
+                      _selectedColor = result;
+                    });
+                  }
+                },
+                icon: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: _selectedColor != null
+                        ? parseHexColor(_selectedColor)
+                        : Colors.grey,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+                label: Text(
+                  _selectedColor ?? '색상을 선택하세요',
+                ),
               ),
               const SizedBox(height: 24),
               FilledButton(
@@ -290,15 +238,6 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
         _selectedColor,
       );
       Navigator.of(context).pop();
-    }
-  }
-
-  Color _parseColor(String hex) {
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
     }
   }
 }
