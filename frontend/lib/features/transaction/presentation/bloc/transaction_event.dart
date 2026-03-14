@@ -10,11 +10,25 @@ sealed class TransactionEvent extends Equatable {
 class LoadTransactions extends TransactionEvent {
   final int year;
   final int month;
+  final String? keyword;
+  final String? paymentMethodId;
+  final String? pocketId;
+  final int? amountMin;
+  final int? amountMax;
 
-  const LoadTransactions({required this.year, required this.month});
+  const LoadTransactions({
+    required this.year,
+    required this.month,
+    this.keyword,
+    this.paymentMethodId,
+    this.pocketId,
+    this.amountMin,
+    this.amountMax,
+  });
 
   @override
-  List<Object?> get props => [year, month];
+  List<Object?> get props =>
+      [year, month, keyword, paymentMethodId, pocketId, amountMin, amountMax];
 }
 
 class CreateTransaction extends TransactionEvent {

@@ -91,6 +91,22 @@ class BudgetRepositoryImpl implements BudgetRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<Budget>>> copyPreviousMonthBudgets({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      final result = await remoteDataSource.copyPreviousMonthBudgets(
+        year: year,
+        month: month,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e, '전월 예산 복사에 실패했습니다'));
+    }
+  }
+
   Failure _mapDioError(DioException e, String defaultMessage) {
     final errorData = e.response?.data?['error'];
     return ServerFailure(
