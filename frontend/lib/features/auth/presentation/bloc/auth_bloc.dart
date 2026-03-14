@@ -18,6 +18,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthTokenRefreshRequested>(_onTokenRefreshRequested);
     on<AuthRefreshUser>(_onRefreshUser);
     on<AuthSessionExpired>(_onSessionExpired);
+    on<UpdateProfile>(_onUpdateProfile);
   }
 
   Future<void> _onCheckRequested(
@@ -85,6 +86,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthUnauthenticated(
       message: '세션이 만료되었습니다. 다시 로그인해주세요.',
     ));
+  }
+
+  Future<void> _onUpdateProfile(
+    UpdateProfile event,
+    Emitter<AuthState> emit,
+  ) async {
+    final result = await authRepository.updateProfile(
+      nickname: event.nickname,
+      profileImageUrl: event.profileImageUrl,
+      clearProfileImage: event.clearProfileImage,
+    );
+    result.fold(
+      (failure) => emit(AuthError(failure.message)),
+      (user) => emit(AuthAuthenticated(user)),
+    );
   }
 
   Future<void> _onTokenRefreshRequested(
