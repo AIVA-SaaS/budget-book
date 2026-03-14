@@ -11,6 +11,8 @@ class PocketModel extends MoneyPocket {
     super.color,
     required super.displayOrder,
     required super.isActive,
+    super.goalAmount,
+    super.targetDate,
   });
 
   factory PocketModel.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,8 @@ class PocketModel extends MoneyPocket {
       color: json['color'] as String?,
       displayOrder: json['displayOrder'] as int? ?? 0,
       isActive: json['isActive'] as bool? ?? true,
+      goalAmount: json['goalAmount'] as int?,
+      targetDate: json['targetDate'] as String?,
     );
   }
 }

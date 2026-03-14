@@ -5,6 +5,7 @@ import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
+import com.budgetbook.transaction.service.TransactionExportService
 import com.budgetbook.transaction.service.TransactionService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -22,7 +23,8 @@ import java.util.UUID
 class TransactionControllerTest : FunSpec({
 
     val transactionService = mockk<TransactionService>()
-    val controller = TransactionController(transactionService)
+    val transactionExportService = mockk<TransactionExportService>()
+    val controller = TransactionController(transactionService, transactionExportService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =
@@ -133,5 +135,17 @@ class TransactionControllerTest : FunSpec({
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { transactionService.deleteTransaction(testUserId, txId) }
+    }
+
+    test("exportCsv returns CSV with correct headers") {
+        val auth = createAuth(testUserId)
+        val csvContent = "\uFEFF날짜,유형,카테고리,설명,금액,메모,결제수단\n2026-03-01,수입,,월급,3000000,,\n"
+        every { transactionExportService.exportCsv(testUserId, 2026, 3, null, null) } returns csvContent
+
+        val result = controller.exportCsv(auth, 2026, 3, null, null)
+
+        result.statusCode shouldBe HttpStatus.OK
+        result.headers["Content-Disposition"]!![0] shouldBe "attachment; filename=\"transactions_2026_03.csv\""
+        result.headers.contentType.toString() shouldBe "text/csv;charset=UTF-8"
     }
 })
