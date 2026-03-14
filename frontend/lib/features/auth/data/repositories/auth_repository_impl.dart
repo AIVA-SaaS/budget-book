@@ -78,4 +78,36 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
   }
+
+  @override
+  Future<Either<Failure, User>> uploadProfileImage(
+      List<int> imageBytes, String fileName) async {
+    try {
+      final result =
+          await remoteDataSource.uploadProfileImage(imageBytes, fileName);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(
+        ServerFailure(
+          e.response?.data?['error']?['message'] as String? ??
+              'Failed to upload profile image',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteProfileImage() async {
+    try {
+      await remoteDataSource.deleteProfileImage();
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(
+        ServerFailure(
+          e.response?.data?['error']?['message'] as String? ??
+              'Failed to delete profile image',
+        ),
+      );
+    }
+  }
 }
