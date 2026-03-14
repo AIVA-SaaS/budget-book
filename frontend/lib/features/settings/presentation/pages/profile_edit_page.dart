@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -15,6 +17,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nicknameController;
   bool _isSubmitting = false;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -39,21 +42,111 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         );
   }
 
+  Future<void> _showImageOptions() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('카메라'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('갤러리에서 선택'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('이미지 삭제',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _deleteImage();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingImage = true);
+      final bytes = await pickedFile.readAsBytes();
+      if (!mounted) return;
+
+      context.read<AuthBloc>().add(
+            UploadProfileImage(
+              imageBytes: bytes,
+              fileName: pickedFile.name,
+            ),
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('이미지를 선택할 수 없습니다: $e')),
+        );
+      }
+    }
+  }
+
+  void _deleteImage() {
+    setState(() => _isUploadingImage = true);
+    context.read<AuthBloc>().add(const DeleteProfileImage());
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthAuthenticated && _isSubmitting) {
-          setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('프로필이 수정되었습니다')),
-          );
-          Navigator.of(context).pop();
-        } else if (state is AuthError && _isSubmitting) {
-          setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('프로필 수정 실패: ${state.message}')),
-          );
+        if (state is AuthAuthenticated) {
+          if (_isSubmitting) {
+            setState(() => _isSubmitting = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('프로필이 수정되었습니다')),
+            );
+            Navigator.of(context).pop();
+          }
+          if (_isUploadingImage) {
+            setState(() => _isUploadingImage = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('프로필 이미지가 변경되었습니다')),
+            );
+          }
+        } else if (state is AuthError) {
+          if (_isSubmitting) {
+            setState(() => _isSubmitting = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('프로필 수정 실패: ${state.message}')),
+            );
+          }
+          if (_isUploadingImage) {
+            setState(() => _isUploadingImage = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('이미지 변경 실패: ${state.message}')),
+            );
+          }
         }
       },
       child: Scaffold(
@@ -71,16 +164,34 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                 child: Column(
                   children: [
                     // Avatar
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundImage: user?.profileImageUrl != null
-                          ? NetworkImage(user!.profileImageUrl!)
-                          : null,
-                      child: user?.profileImageUrl == null
-                          ? const Icon(Icons.person, size: 48)
-                          : null,
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundImage: user?.profileImageUrl != null
+                              ? NetworkImage(user!.profileImageUrl!)
+                              : null,
+                          child: user?.profileImageUrl == null
+                              ? const Icon(Icons.person, size: 48)
+                              : null,
+                        ),
+                        if (_isUploadingImage)
+                          const CircleAvatar(
+                            radius: 48,
+                            backgroundColor: Colors.black26,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _isUploadingImage ? null : _showImageOptions,
+                      icon: const Icon(Icons.camera_alt, size: 16),
+                      label: const Text('이미지 변경'),
+                    ),
                     Text(
                       user?.email ?? '',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(

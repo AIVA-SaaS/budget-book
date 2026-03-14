@@ -51,6 +51,12 @@ dependencies:
   # Localization
   intl: any
 
+  # Image picking
+  image_picker: ^1.0.0
+
+  # Connectivity
+  connectivity_plus: ^6.0.0
+
   # Utils
   uuid: ^4.5.1
   logger: ^2.4.0

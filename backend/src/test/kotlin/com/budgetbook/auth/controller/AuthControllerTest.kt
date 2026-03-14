@@ -13,6 +13,7 @@ import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
+import org.springframework.mock.web.MockMultipartFile
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
 import java.time.Instant
@@ -236,5 +237,50 @@ class AuthControllerTest : FunSpec({
 
         result.data!!.id shouldBe specificUserId
         verify { authService.updateProfile(specificUserId, request) }
+    }
+
+    test("uploadProfileImage calls authService.uploadProfileImage and returns ApiResponse.ok") {
+        val authentication = createAuthentication(testUserId)
+        val file = MockMultipartFile("file", "photo.jpg", "image/jpeg", byteArrayOf(0x01, 0x02))
+        val expectedUser = UserResponse(
+            id = testUserId,
+            email = "test@example.com",
+            nickname = "TestUser",
+            profileImageUrl = "data:image/jpeg;base64,AQI=",
+            provider = "GOOGLE",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.uploadProfileImage(testUserId, any()) } returns expectedUser
+
+        val result = authController.uploadProfileImage(authentication, file)
+
+        result.success shouldBe true
+        result.data!!.profileImageUrl shouldBe "data:image/jpeg;base64,AQI="
+        verify(exactly = 1) { authService.uploadProfileImage(testUserId, any()) }
+    }
+
+    test("removeProfileImage calls authService.removeProfileImage and returns ApiResponse.ok") {
+        val authentication = createAuthentication(testUserId)
+        val expectedUser = UserResponse(
+            id = testUserId,
+            email = "test@example.com",
+            nickname = "TestUser",
+            profileImageUrl = null,
+            provider = "GOOGLE",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.removeProfileImage(testUserId) } returns expectedUser
+
+        val result = authController.removeProfileImage(authentication)
+
+        result.success shouldBe true
+        result.data!!.profileImageUrl shouldBe null
+        verify(exactly = 1) { authService.removeProfileImage(testUserId) }
     }
 })

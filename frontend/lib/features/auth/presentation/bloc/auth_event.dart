@@ -57,3 +57,22 @@ class UpdateProfile extends AuthEvent {
   @override
   List<Object?> get props => [nickname, profileImageUrl, clearProfileImage];
 }
+
+/// Uploads a profile image from the given file bytes.
+class UploadProfileImage extends AuthEvent {
+  final List<int> imageBytes;
+  final String fileName;
+
+  const UploadProfileImage({
+    required this.imageBytes,
+    required this.fileName,
+  });
+
+  @override
+  List<Object?> get props => [imageBytes, fileName];
+}
+
+/// Deletes the current user's profile image.
+class DeleteProfileImage extends AuthEvent {
+  const DeleteProfileImage();
+}
