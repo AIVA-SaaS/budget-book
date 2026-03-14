@@ -2,6 +2,7 @@ package com.budgetbook.auth.dto
 
 import com.budgetbook.auth.domain.User
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
 
@@ -19,6 +20,13 @@ data class RefreshTokenRequest(
 data class LogoutRequest(
     @field:NotBlank(message = "Refresh token is required")
     val refreshToken: String
+)
+
+data class UpdateProfileRequest(
+    @field:Size(min = 1, max = 50, message = "닉네임은 1~50자 이내로 입력해주세요")
+    val nickname: String? = null,
+    val profileImageUrl: String? = null,
+    val clearProfileImage: Boolean = false
 )
 
 data class UserResponse(

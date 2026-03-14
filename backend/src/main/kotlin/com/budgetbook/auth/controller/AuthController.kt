@@ -3,12 +3,14 @@ package com.budgetbook.auth.controller
 import com.budgetbook.auth.dto.LogoutRequest
 import com.budgetbook.auth.dto.RefreshTokenRequest
 import com.budgetbook.auth.dto.TokenResponse
+import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
 import com.budgetbook.common.dto.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -33,6 +35,16 @@ class AuthController(
     fun getCurrentUser(authentication: Authentication): ApiResponse<UserResponse> {
         val userId = authentication.principal as UUID
         val userResponse = authService.getCurrentUser(userId)
+        return ApiResponse.ok(userResponse)
+    }
+
+    @PatchMapping("/me")
+    fun updateProfile(
+        authentication: Authentication,
+        @Valid @RequestBody request: UpdateProfileRequest
+    ): ApiResponse<UserResponse> {
+        val userId = authentication.principal as UUID
+        val userResponse = authService.updateProfile(userId, request)
         return ApiResponse.ok(userResponse)
     }
 

@@ -42,6 +42,29 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, User>> updateProfile({
+    String? nickname,
+    String? profileImageUrl,
+    bool clearProfileImage = false,
+  }) async {
+    try {
+      final result = await remoteDataSource.updateProfile(
+        nickname: nickname,
+        profileImageUrl: profileImageUrl,
+        clearProfileImage: clearProfileImage,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(
+        ServerFailure(
+          e.response?.data?['error']?['message'] as String? ??
+              'Failed to update profile',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> logout(String refreshToken) async {
     try {
       await remoteDataSource.logout(refreshToken);
