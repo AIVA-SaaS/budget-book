@@ -29,4 +29,9 @@ abstract class BudgetRepository {
     required int year,
     required int month,
   });
+
+  Future<Either<Failure, List<Budget>>> copyPreviousMonthBudgets({
+    required int year,
+    required int month,
+  });
 }

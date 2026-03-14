@@ -22,6 +22,7 @@ class BudgetLoaded extends BudgetState {
   final int year;
   final int month;
   final String? operationError;
+  final String? operationSuccess;
 
   const BudgetLoaded({
     required this.budgets,
@@ -29,13 +30,15 @@ class BudgetLoaded extends BudgetState {
     required this.year,
     required this.month,
     this.operationError,
+    this.operationSuccess,
   });
 
   int get totalBudget => summary?.totalBudget ?? 0;
   int get totalSpent => summary?.totalSpent ?? 0;
 
   @override
-  List<Object?> get props => [budgets, summary, year, month, operationError];
+  List<Object?> get props =>
+      [budgets, summary, year, month, operationError, operationSuccess];
 }
 
 class BudgetError extends BudgetState {

@@ -4,6 +4,7 @@ import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
 import com.budgetbook.budget.service.BudgetService
@@ -69,6 +70,16 @@ class BudgetController(
         val userId = authentication.principal as UUID
         budgetService.deleteBudget(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @PostMapping("/copy-previous")
+    fun copyFromPreviousMonth(
+        authentication: Authentication,
+        @Valid @RequestBody request: CopyBudgetRequest
+    ): ResponseEntity<ApiResponse<List<BudgetResponse>>> {
+        val userId = authentication.principal as UUID
+        val result = budgetService.copyFromPreviousMonth(userId, request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @GetMapping("/summary")

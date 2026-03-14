@@ -6,6 +6,7 @@ import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryType
@@ -385,6 +386,90 @@ class BudgetServiceTest : BehaviorSpec({
                 totalItem.budgetAmount shouldBe 3000000
                 totalItem.spentAmount shouldBe 145000 // 95000 + 50000
                 totalItem.remainingAmount shouldBe 2855000
+            }
+        }
+    }
+
+    // --- copyFromPreviousMonth ---
+
+    Given("a user in an active couple for copy") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+
+        When("copying budgets from a month with budgets to an empty month") {
+            val sourceBudget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
+            val sourceBudget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-02", amount = 3000000)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget1, sourceBudget2)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
+            every { budgetRepository.saveAll(any<List<MonthlyBudget>>()) } answers { firstArg() }
+
+            val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
+            val result = service.copyFromPreviousMonth(user1.id, request)
+
+            Then("creates budgets for the target month") {
+                result.size shouldBe 2
+                result[0].yearMonth shouldBe "2026-03"
+                result[0].amount shouldBe 150000
+                result[1].yearMonth shouldBe "2026-03"
+                result[1].amount shouldBe 3000000
+            }
+        }
+
+        When("copying budgets when target month already has some budgets") {
+            val sourceBudget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
+            val sourceBudget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-02", amount = 3000000)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget1, sourceBudget2)
+
+            // Target month already has the category budget
+            val existingBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 200000)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(existingBudget)
+            every { budgetRepository.saveAll(any<List<MonthlyBudget>>()) } answers { firstArg() }
+
+            val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
+            val result = service.copyFromPreviousMonth(user1.id, request)
+
+            Then("only creates budgets for categories not yet in target") {
+                result.size shouldBe 1
+                result[0].category shouldBe null
+                result[0].amount shouldBe 3000000
+            }
+        }
+
+        When("copying budgets from a month with no budgets") {
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
+
+            val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 1, targetYear = 2026, targetMonth = 3)
+
+            Then("throws NotFoundException") {
+                val ex = shouldThrow<NotFoundException> {
+                    service.copyFromPreviousMonth(user1.id, request)
+                }
+                ex.code shouldBe "BUDGET_NOT_FOUND"
+            }
+        }
+
+        When("copying budgets with same source and target month") {
+            val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 3, targetYear = 2026, targetMonth = 3)
+
+            Then("throws BusinessException") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.copyFromPreviousMonth(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("all source categories already exist in target") {
+            val sourceBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget)
+
+            val existingBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-04", amount = 200000)
+            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-04") } returns listOf(existingBudget)
+
+            val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 4)
+            val result = service.copyFromPreviousMonth(user1.id, request)
+
+            Then("returns empty list") {
+                result.size shouldBe 0
             }
         }
     }

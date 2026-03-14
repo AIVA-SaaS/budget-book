@@ -55,6 +55,28 @@ data class BudgetSummaryResponse(
     val items: List<BudgetSummaryItemResponse>
 )
 
+data class CopyBudgetRequest(
+    @field:NotNull
+    @field:Min(2000)
+    @field:Max(2100)
+    val sourceYear: Int,
+
+    @field:NotNull
+    @field:Min(1)
+    @field:Max(12)
+    val sourceMonth: Int,
+
+    @field:NotNull
+    @field:Min(2000)
+    @field:Max(2100)
+    val targetYear: Int,
+
+    @field:NotNull
+    @field:Min(1)
+    @field:Max(12)
+    val targetMonth: Int
+)
+
 data class BudgetSummaryItemResponse(
     val category: CategorySummary?,
     val budgetAmount: Long,

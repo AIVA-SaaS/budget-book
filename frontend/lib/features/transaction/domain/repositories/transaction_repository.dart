@@ -9,6 +9,11 @@ abstract class TransactionRepository {
     int? month,
     String? type,
     String? categoryId,
+    String? keyword,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amountMin,
+    int? amountMax,
     int page = 0,
     int size = 20,
   });

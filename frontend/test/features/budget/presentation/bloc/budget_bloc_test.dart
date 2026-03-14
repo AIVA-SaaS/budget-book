@@ -90,6 +90,19 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
 
+  @override
+  Future<Either<Failure, List<Budget>>> copyPreviousMonthBudgets({
+    required int year,
+    required int month,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(
+            #copyPreviousMonthBudgets, [], {#year: year, #month: month}),
+        returnValue: Future.value(
+          const Right<Failure, List<Budget>>([]),
+        ),
+      ) as Future<Either<Failure, List<Budget>>>;
+
   static final _dummyBudget = Budget(
     id: '',
     coupleId: '',
@@ -384,6 +397,66 @@ void main() {
             year: 2026,
             month: 3,
             operationError: 'Failed to delete budget',
+          ),
+        ],
+      );
+    });
+
+    group('CopyPreviousMonthBudgets', () {
+      blocTest<BudgetBloc, BudgetState>(
+        'emits BudgetLoaded with operationSuccess on success, then reloads',
+        build: () {
+          when(mockRepository.copyPreviousMonthBudgets(
+            year: 2026,
+            month: 3,
+          )).thenAnswer((_) async => Right(tBudgets));
+          when(mockRepository.getBudgets(year: 2026, month: 3))
+              .thenAnswer((_) async => Right(tBudgets));
+          when(mockRepository.getBudgetSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(tSummary));
+          return budgetBloc;
+        },
+        seed: () => const BudgetLoaded(
+          budgets: [],
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) {
+          // Set year/month
+          bloc.add(const LoadBudgets(year: 2026, month: 3));
+        },
+        skip: 2, // skip Loading + Loaded from LoadBudgets
+        verify: (_) {
+          verify(mockRepository.getBudgets(year: 2026, month: 3)).called(1);
+        },
+      );
+
+      blocTest<BudgetBloc, BudgetState>(
+        'emits BudgetLoaded with operationError on failure',
+        build: () {
+          when(mockRepository.copyPreviousMonthBudgets(
+            year: 2026,
+            month: 3,
+          )).thenAnswer((_) async =>
+              const Left(ServerFailure('No budgets found for previous month')));
+          return budgetBloc;
+        },
+        seed: () => BudgetLoaded(
+          budgets: tBudgets,
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) => bloc.add(
+            const CopyPreviousMonthBudgets(year: 2026, month: 3)),
+        expect: () => [
+          BudgetLoaded(
+            budgets: tBudgets,
+            summary: tSummary,
+            year: 2026,
+            month: 3,
+            operationError: 'No budgets found for previous month',
           ),
         ],
       );
