@@ -20,6 +20,11 @@ class MockTransactionRepository extends Mock
     int? month,
     String? type,
     String? categoryId,
+    String? keyword,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amountMin,
+    int? amountMax,
     int page = 0,
     int size = 20,
   }) =>
@@ -29,6 +34,11 @@ class MockTransactionRepository extends Mock
           #month: month,
           #type: type,
           #categoryId: categoryId,
+          #keyword: keyword,
+          #paymentMethodId: paymentMethodId,
+          #pocketId: pocketId,
+          #amountMin: amountMin,
+          #amountMax: amountMax,
           #page: page,
           #size: size,
         }),
@@ -216,6 +226,38 @@ void main() {
         },
         act: (bloc) =>
             bloc.add(const LoadTransactions(year: 2024, month: 1)),
+        expect: () => [
+          const TransactionLoading(),
+          TransactionLoaded(
+            transactions: tTransactions,
+            year: 2024,
+            month: 1,
+            totalElements: 2,
+            hasMore: false,
+          ),
+        ],
+      );
+
+      blocTest<TransactionBloc, TransactionState>(
+        'emits [TransactionLoading, TransactionLoaded] on success with filters',
+        build: () {
+          when(mockRepository.getTransactions(
+            year: 2024,
+            month: 1,
+            keyword: 'lunch',
+            amountMin: 5000,
+            amountMax: 20000,
+            size: 100,
+          )).thenAnswer((_) async => Right(tPageResponse));
+          return transactionBloc;
+        },
+        act: (bloc) => bloc.add(const LoadTransactions(
+          year: 2024,
+          month: 1,
+          keyword: 'lunch',
+          amountMin: 5000,
+          amountMax: 20000,
+        )),
         expect: () => [
           const TransactionLoading(),
           TransactionLoaded(

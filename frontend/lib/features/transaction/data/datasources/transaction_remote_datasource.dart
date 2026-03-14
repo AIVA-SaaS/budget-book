@@ -9,6 +9,11 @@ abstract class TransactionRemoteDataSource {
     int? month,
     String? type,
     String? categoryId,
+    String? keyword,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amountMin,
+    int? amountMax,
     int page = 0,
     int size = 20,
   });
@@ -30,6 +35,11 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     int? month,
     String? type,
     String? categoryId,
+    String? keyword,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amountMin,
+    int? amountMax,
     int page = 0,
     int size = 20,
   }) async {
@@ -41,6 +51,11 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     if (month != null) queryParams['month'] = month;
     if (type != null) queryParams['type'] = type;
     if (categoryId != null) queryParams['categoryId'] = categoryId;
+    if (keyword != null && keyword.isNotEmpty) queryParams['keyword'] = keyword;
+    if (paymentMethodId != null) queryParams['paymentMethodId'] = paymentMethodId;
+    if (pocketId != null) queryParams['pocketId'] = pocketId;
+    if (amountMin != null) queryParams['amountMin'] = amountMin;
+    if (amountMax != null) queryParams['amountMax'] = amountMax;
 
     final response = await apiClient.dio.get(
       ApiEndpoints.transactions,

@@ -11,6 +11,10 @@ abstract class BudgetRemoteDataSource {
     required int year,
     required int month,
   });
+  Future<List<BudgetModel>> copyPreviousMonthBudgets({
+    required int year,
+    required int month,
+  });
 }
 
 class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
@@ -73,5 +77,22 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
     return BudgetSummaryModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<List<BudgetModel>> copyPreviousMonthBudgets({
+    required int year,
+    required int month,
+  }) async {
+    final yearMonth =
+        '$year-${month.toString().padLeft(2, '0')}';
+    final response = await apiClient.dio.post(
+      '${ApiEndpoints.budgets}/copy-previous',
+      data: {'yearMonth': yearMonth},
+    );
+    final data = response.data['data'] as List<dynamic>;
+    return data
+        .map((e) => BudgetModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }
