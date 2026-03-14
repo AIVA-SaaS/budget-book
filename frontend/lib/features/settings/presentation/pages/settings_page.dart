@@ -22,6 +22,36 @@ class SettingsPage extends StatelessWidget {
         ),
         body: ListView(
           children: [
+            // Profile card
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                if (state is AuthAuthenticated) {
+                  final user = state.user;
+                  return Card(
+                    margin: const EdgeInsets.all(16),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: user.profileImageUrl != null
+                            ? NetworkImage(user.profileImageUrl!)
+                            : null,
+                        child: user.profileImageUrl == null
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      title: Text(user.nickname),
+                      subtitle: Text(user.email),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => context.push('/settings/profile-edit'),
+                        tooltip: '프로필 수정',
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             // Couple management
             ListTile(
               leading: const Icon(Icons.favorite),

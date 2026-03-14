@@ -3,6 +3,7 @@ package com.budgetbook.auth.controller
 import com.budgetbook.auth.dto.LogoutRequest
 import com.budgetbook.auth.dto.RefreshTokenRequest
 import com.budgetbook.auth.dto.TokenResponse
+import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
 import io.kotest.core.spec.style.FunSpec
@@ -163,5 +164,77 @@ class AuthControllerTest : FunSpec({
         authController.logout(authentication, request)
 
         verify { authService.logout(specificUserId, request) }
+    }
+
+    test("updateProfile calls authService.updateProfile and returns ApiResponse.ok") {
+        val authentication = createAuthentication(testUserId)
+        val request = UpdateProfileRequest(nickname = "NewNickname")
+        val expectedUser = UserResponse(
+            id = testUserId,
+            email = "test@example.com",
+            nickname = "NewNickname",
+            profileImageUrl = "https://example.com/photo.png",
+            provider = "GOOGLE",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.updateProfile(testUserId, request) } returns expectedUser
+
+        val result = authController.updateProfile(authentication, request)
+
+        result.success shouldBe true
+        result.data shouldBe expectedUser
+        result.data!!.nickname shouldBe "NewNickname"
+
+        verify(exactly = 1) { authService.updateProfile(testUserId, request) }
+    }
+
+    test("updateProfile with clearProfileImage returns null profileImageUrl") {
+        val authentication = createAuthentication(testUserId)
+        val request = UpdateProfileRequest(clearProfileImage = true)
+        val expectedUser = UserResponse(
+            id = testUserId,
+            email = "test@example.com",
+            nickname = "TestUser",
+            profileImageUrl = null,
+            provider = "GOOGLE",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.updateProfile(testUserId, request) } returns expectedUser
+
+        val result = authController.updateProfile(authentication, request)
+
+        result.success shouldBe true
+        result.data!!.profileImageUrl shouldBe null
+
+        verify(exactly = 1) { authService.updateProfile(testUserId, request) }
+    }
+
+    test("updateProfile extracts UUID from authentication principal") {
+        val specificUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+        val authentication = createAuthentication(specificUserId)
+        val request = UpdateProfileRequest(nickname = "Updated")
+        val expectedUser = UserResponse(
+            id = specificUserId,
+            email = "specific@example.com",
+            nickname = "Updated",
+            profileImageUrl = null,
+            provider = "KAKAO",
+            role = "USER",
+            coupleId = null,
+            createdAt = Instant.now()
+        )
+
+        every { authService.updateProfile(specificUserId, request) } returns expectedUser
+
+        val result = authController.updateProfile(authentication, request)
+
+        result.data!!.id shouldBe specificUserId
+        verify { authService.updateProfile(specificUserId, request) }
     }
 })
