@@ -19,6 +19,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthRefreshUser>(_onRefreshUser);
     on<AuthSessionExpired>(_onSessionExpired);
     on<UpdateProfile>(_onUpdateProfile);
+    on<UploadProfileImage>(_onUploadProfileImage);
+    on<DeleteProfileImage>(_onDeleteProfileImage);
   }
 
   Future<void> _onCheckRequested(
@@ -100,6 +102,40 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     result.fold(
       (failure) => emit(AuthError(failure.message)),
       (user) => emit(AuthAuthenticated(user)),
+    );
+  }
+
+  Future<void> _onUploadProfileImage(
+    UploadProfileImage event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    final result = await authRepository.uploadProfileImage(
+      event.imageBytes,
+      event.fileName,
+    );
+    result.fold(
+      (failure) => emit(AuthError(failure.message)),
+      (user) => emit(AuthAuthenticated(user)),
+    );
+  }
+
+  Future<void> _onDeleteProfileImage(
+    DeleteProfileImage event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    final result = await authRepository.deleteProfileImage();
+    result.fold(
+      (failure) => emit(AuthError(failure.message)),
+      (_) async {
+        // Refresh user data to get updated profile
+        final userResult = await authRepository.getCurrentUser();
+        userResult.fold(
+          (failure) => emit(AuthError(failure.message)),
+          (user) => emit(AuthAuthenticated(user)),
+        );
+      },
     );
   }
 

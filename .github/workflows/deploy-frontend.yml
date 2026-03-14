@@ -1,43 +1,15 @@
 name: Deploy Frontend
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Frontend CI"]
+    types: [completed]
     branches: [main]
-    paths: ['frontend/**']
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          #flutter-version: '3.24.0'
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: |
-          if find test -name "*_test.dart" | grep -q .; then
-            flutter test --no-pub
-          else
-            echo "No test files found, skipping"
-          fi
-
   deploy:
-    needs: test
+    # Only deploy when CI succeeded on main branch
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,7 +23,6 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          #flutter-version: '3.24.0'
           channel: stable
           cache: true
 
@@ -75,8 +46,8 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for GitHub Pages propagation (60s)
-        run: sleep 60
+      - name: Wait for GitHub Pages propagation (90s)
+        run: sleep 90
 
       - name: Verify frontend loads
         run: |
