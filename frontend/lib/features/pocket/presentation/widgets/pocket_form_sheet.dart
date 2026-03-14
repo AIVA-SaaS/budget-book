@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 
 class PocketFormSheet extends StatefulWidget {
@@ -10,6 +11,8 @@ class PocketFormSheet extends StatefulWidget {
     int allocatedAmount,
     String? icon,
     String? color,
+    int? goalAmount,
+    String? targetDate,
   ) onSubmit;
 
   const PocketFormSheet({
@@ -26,9 +29,11 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _amountController;
+  late final TextEditingController _goalAmountController;
   late String _selectedType;
   late String _selectedIcon;
   late String _selectedColor;
+  DateTime? _selectedTargetDate;
   bool _isSubmitting = false;
 
   bool get isEditing => widget.pocket != null;
@@ -71,15 +76,26 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
     _amountController = TextEditingController(
       text: p != null ? p.allocatedAmount.toString() : '',
     );
+    _goalAmountController = TextEditingController(
+      text: p?.goalAmount != null ? p!.goalAmount.toString() : '',
+    );
     _selectedType = p?.type ?? 'LIVING';
     _selectedIcon = p?.icon ?? 'home';
     _selectedColor = p?.color ?? '#4CAF50';
+    if (p?.targetDate != null) {
+      try {
+        _selectedTargetDate = DateTime.parse(p!.targetDate!);
+      } catch (_) {
+        _selectedTargetDate = null;
+      }
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
+    _goalAmountController.dispose();
     super.dispose();
   }
 
@@ -180,6 +196,60 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                 },
               ),
               const SizedBox(height: 16),
+              // Goal amount field (optional)
+              TextFormField(
+                controller: _goalAmountController,
+                decoration: const InputDecoration(
+                  labelText: '목표 금액 (선택)',
+                  suffixText: '원',
+                  prefixIcon: Icon(Icons.flag),
+                  hintText: '설정하지 않으면 목표 없음',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (value) {
+                  if (value != null && value.trim().isNotEmpty) {
+                    final amount = int.tryParse(value);
+                    if (amount == null || amount <= 0) {
+                      return '0보다 큰 금액을 입력하세요';
+                    }
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // Target date field (optional)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today),
+                title: Text(
+                  _selectedTargetDate != null
+                      ? '목표일: ${DateFormat('yyyy-MM-dd').format(_selectedTargetDate!)}'
+                      : '목표일 (선택)',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                trailing: _selectedTargetDate != null
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _selectedTargetDate = null);
+                        },
+                      )
+                    : null,
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        _selectedTargetDate ?? DateTime.now().add(const Duration(days: 30)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2030, 12, 31),
+                  );
+                  if (picked != null) {
+                    setState(() => _selectedTargetDate = picked);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
               // Icon selector
               Text(
                 '아이콘',
@@ -268,12 +338,20 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isSubmitting = true);
       final amount = int.parse(_amountController.text.trim());
+      final goalText = _goalAmountController.text.trim();
+      final goalAmount =
+          goalText.isNotEmpty ? int.tryParse(goalText) : null;
+      final targetDate = _selectedTargetDate != null
+          ? DateFormat('yyyy-MM-dd').format(_selectedTargetDate!)
+          : null;
       widget.onSubmit(
         _nameController.text.trim(),
         _selectedType,
         amount,
         _selectedIcon,
         _selectedColor,
+        goalAmount,
+        targetDate,
       );
       Navigator.of(context).pop();
     }

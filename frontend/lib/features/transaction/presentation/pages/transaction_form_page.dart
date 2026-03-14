@@ -521,13 +521,16 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       context: context,
       isScrollControlled: true,
       builder: (_) => PocketFormSheet(
-        onSubmit: (name, type, allocatedAmount, icon, color) {
+        onSubmit: (name, type, allocatedAmount, icon, color, goalAmount,
+            targetDate) {
           bloc.add(CreatePocket(
             name: name,
             type: type,
             allocatedAmount: allocatedAmount,
             icon: icon,
             color: color,
+            goalAmount: goalAmount,
+            targetDate: targetDate,
           ));
         },
       ),

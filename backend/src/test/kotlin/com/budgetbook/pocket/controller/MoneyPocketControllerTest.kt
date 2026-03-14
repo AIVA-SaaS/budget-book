@@ -1,9 +1,14 @@
 package com.budgetbook.pocket.controller
 
 import com.budgetbook.pocket.dto.CreatePocketRequest
+import com.budgetbook.pocket.dto.DistributionRatioResponse
 import com.budgetbook.pocket.dto.PocketResponse
+import com.budgetbook.pocket.dto.SaveDistributionRatiosRequest
+import com.budgetbook.pocket.dto.RatioEntry
 import com.budgetbook.pocket.dto.UpdatePocketRequest
+import com.budgetbook.pocket.service.DistributionRatioService
 import com.budgetbook.pocket.service.MoneyPocketService
+import java.math.BigDecimal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -19,7 +24,8 @@ import java.util.UUID
 class MoneyPocketControllerTest : FunSpec({
 
     val moneyPocketService = mockk<MoneyPocketService>()
-    val controller = MoneyPocketController(moneyPocketService)
+    val distributionRatioService = mockk<DistributionRatioService>()
+    val controller = MoneyPocketController(moneyPocketService, distributionRatioService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =
@@ -35,6 +41,8 @@ class MoneyPocketControllerTest : FunSpec({
         color = "#FF5733",
         displayOrder = 1,
         isActive = true,
+        goalAmount = null,
+        targetDate = null,
         createdAt = Instant.now(),
         updatedAt = Instant.now()
     )
@@ -88,5 +96,41 @@ class MoneyPocketControllerTest : FunSpec({
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { moneyPocketService.deletePocket(testUserId, pocketId) }
+    }
+
+    test("getDistributionRatios returns saved ratios") {
+        val auth = createAuth(testUserId)
+        val ratios = listOf(
+            DistributionRatioResponse(UUID.randomUUID(), "생활비", BigDecimal("70.00")),
+            DistributionRatioResponse(UUID.randomUUID(), "저축", BigDecimal("30.00"))
+        )
+        every { distributionRatioService.getRatios(testUserId) } returns ratios
+
+        val result = controller.getDistributionRatios(auth)
+
+        result.success shouldBe true
+        result.data!!.size shouldBe 2
+    }
+
+    test("saveDistributionRatios replaces ratios") {
+        val auth = createAuth(testUserId)
+        val pocketId1 = UUID.randomUUID()
+        val pocketId2 = UUID.randomUUID()
+        val request = SaveDistributionRatiosRequest(
+            ratios = listOf(
+                RatioEntry(pocketId1, BigDecimal("60.00")),
+                RatioEntry(pocketId2, BigDecimal("40.00"))
+            )
+        )
+        val response = listOf(
+            DistributionRatioResponse(pocketId1, "생활비", BigDecimal("60.00")),
+            DistributionRatioResponse(pocketId2, "저축", BigDecimal("40.00"))
+        )
+        every { distributionRatioService.saveRatios(testUserId, request) } returns response
+
+        val result = controller.saveDistributionRatios(auth, request)
+
+        result.success shouldBe true
+        result.data!!.size shouldBe 2
     }
 })

@@ -153,13 +153,16 @@ class PocketPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => PocketFormSheet(
-        onSubmit: (name, type, allocatedAmount, icon, color) {
+        onSubmit: (name, type, allocatedAmount, icon, color, goalAmount,
+            targetDate) {
           bloc.add(CreatePocket(
             name: name,
             type: type,
             allocatedAmount: allocatedAmount,
             icon: icon,
             color: color,
+            goalAmount: goalAmount,
+            targetDate: targetDate,
           ));
         },
       ),
@@ -173,7 +176,8 @@ class PocketPage extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) => PocketFormSheet(
         pocket: pocket,
-        onSubmit: (name, type, allocatedAmount, icon, color) {
+        onSubmit: (name, type, allocatedAmount, icon, color, goalAmount,
+            targetDate) {
           bloc.add(UpdatePocket(
             id: pocket.id,
             name: name,
@@ -181,6 +185,8 @@ class PocketPage extends StatelessWidget {
             allocatedAmount: allocatedAmount,
             icon: icon,
             color: color,
+            goalAmount: goalAmount,
+            targetDate: targetDate,
           ));
         },
       ),
@@ -278,6 +284,8 @@ class _PocketCard extends StatelessWidget {
       _ => pocket.type,
     };
 
+    final goalProgress = pocket.goalProgress;
+
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -285,69 +293,97 @@ class _PocketCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(
-                  _resolveIcon(pocket.icon),
-                  color: color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    child: Icon(
+                      _resolveIcon(pocket.icon),
+                      color: color,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          pocket.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: color,
+                        Row(
+                          children: [
+                            Text(
+                              pocket.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                typeLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '할당: ${formatter.format(pocket.allocatedAmount)}원',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '할당: ${formatter.format(pocket.allocatedAmount)}원',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                    ),
-                  ],
+                  ),
+                  Text(
+                    '${formatter.format(pocket.balance)}원',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: isPositive ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              // Goal progress section
+              if (goalProgress != null) ...[
+                const SizedBox(height: 12),
+                _GoalProgressSection(
+                  pocket: pocket,
+                  progress: goalProgress,
+                  formatter: formatter,
                 ),
-              ),
-              Text(
-                '${formatter.format(pocket.balance)}원',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: isPositive ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
+              ],
+              // Target date
+              if (pocket.targetDate != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '목표일: ${pocket.targetDate}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                ),
+              ],
             ],
           ),
         ),
@@ -378,5 +414,73 @@ class _PocketCard extends StatelessWidget {
       'card_giftcard': Icons.card_giftcard,
     };
     return iconMap[iconName] ?? Icons.account_balance_wallet;
+  }
+}
+
+class _GoalProgressSection extends StatelessWidget {
+  final MoneyPocket pocket;
+  final double progress;
+  final NumberFormat formatter;
+
+  const _GoalProgressSection({
+    required this.pocket,
+    required this.progress,
+    required this.formatter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = (progress * 100).clamp(0, 999).toInt();
+    final clampedProgress = progress.clamp(0.0, 1.0);
+
+    // Color: green < 50%, yellow 50-80%, blue > 80%
+    final Color barColor;
+    if (progress < 0.5) {
+      barColor = Colors.green;
+    } else if (progress < 0.8) {
+      barColor = Colors.amber;
+    } else {
+      barColor = Colors.blue;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '목표: ${formatter.format(pocket.goalAmount)}원',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+            ),
+            Text(
+              '$percentage%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: barColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: clampedProgress,
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
   }
 }
