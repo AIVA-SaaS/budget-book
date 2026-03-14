@@ -162,13 +162,13 @@ class _QuickActions extends StatelessWidget {
           icon: Icons.arrow_downward,
           label: '지출',
           color: Colors.red,
-          onTap: () => context.push('/transactions/create'),
+          onTap: () => context.push('/transactions/create?type=EXPENSE'),
         ),
         _QuickActionButton(
           icon: Icons.arrow_upward,
           label: '수입',
           color: Colors.blue,
-          onTap: () => context.push('/transactions/create'),
+          onTap: () => context.push('/transactions/create?type=INCOME'),
         ),
         _QuickActionButton(
           icon: Icons.bar_chart,

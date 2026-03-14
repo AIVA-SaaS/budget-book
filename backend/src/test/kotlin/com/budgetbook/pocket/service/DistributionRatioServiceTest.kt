@@ -90,6 +90,54 @@ class DistributionRatioServiceTest : BehaviorSpec({
         }
     }
 
+    Given("ratios that sum to 99.99 (within tolerance)") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
+        justRun { distributionRatioRepository.deleteByCoupleId(couple.id) }
+        val ratioSlot = slot<DistributionRatio>()
+        every { distributionRatioRepository.save(capture(ratioSlot)) } answers { ratioSlot.captured }
+
+        When("saving ratios summing to 99.99") {
+            val request = SaveDistributionRatiosRequest(
+                ratios = listOf(
+                    RatioEntry(pocket1.id, BigDecimal("60.00")),
+                    RatioEntry(pocket2.id, BigDecimal("39.99"))
+                )
+            )
+            val result = service.saveRatios(user1.id, request)
+
+            Then("normalizes last ratio so total is exactly 100.00") {
+                result shouldHaveSize 2
+                result[0].ratio shouldBe BigDecimal("60.00")
+                result[1].ratio shouldBe BigDecimal("40.00")
+            }
+        }
+    }
+
+    Given("ratios that sum to 100.01 (within tolerance)") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
+        justRun { distributionRatioRepository.deleteByCoupleId(couple.id) }
+        val ratioSlot = slot<DistributionRatio>()
+        every { distributionRatioRepository.save(capture(ratioSlot)) } answers { ratioSlot.captured }
+
+        When("saving ratios summing to 100.01") {
+            val request = SaveDistributionRatiosRequest(
+                ratios = listOf(
+                    RatioEntry(pocket1.id, BigDecimal("60.00")),
+                    RatioEntry(pocket2.id, BigDecimal("40.01"))
+                )
+            )
+            val result = service.saveRatios(user1.id, request)
+
+            Then("normalizes last ratio so total is exactly 100.00") {
+                result shouldHaveSize 2
+                result[0].ratio shouldBe BigDecimal("60.00")
+                result[1].ratio shouldBe BigDecimal("40.00")
+            }
+        }
+    }
+
     Given("ratios that do not sum to 100") {
         every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
 
@@ -98,6 +146,26 @@ class DistributionRatioServiceTest : BehaviorSpec({
                 ratios = listOf(
                     RatioEntry(pocket1.id, BigDecimal("50.00")),
                     RatioEntry(pocket2.id, BigDecimal("40.00"))
+                )
+            )
+
+            Then("throws BusinessException") {
+                val ex = shouldThrow<BusinessException> {
+                    service.saveRatios(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+    }
+
+    Given("ratios that sum to 99.98 (outside tolerance)") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+
+        When("saving ratios summing to 99.98") {
+            val request = SaveDistributionRatiosRequest(
+                ratios = listOf(
+                    RatioEntry(pocket1.id, BigDecimal("60.00")),
+                    RatioEntry(pocket2.id, BigDecimal("39.98"))
                 )
             )
 

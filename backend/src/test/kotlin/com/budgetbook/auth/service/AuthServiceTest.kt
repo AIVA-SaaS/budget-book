@@ -8,6 +8,7 @@ import com.budgetbook.auth.dto.RefreshTokenRequest
 import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.repository.RefreshTokenRepository
 import com.budgetbook.auth.repository.UserRepository
+import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.exception.UnauthorizedException
 import com.budgetbook.couple.domain.Couple
@@ -16,9 +17,11 @@ import com.budgetbook.couple.repository.CoupleRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.springframework.web.multipart.MultipartFile
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
@@ -360,6 +363,169 @@ class AuthServiceTest : BehaviorSpec({
             Then("throws NotFoundException") {
                 val exception = shouldThrow<NotFoundException> {
                     authService.updateProfile(unknownId, request)
+                }
+                exception.code shouldBe "USER_NOT_FOUND"
+            }
+        }
+    }
+
+    // --- uploadProfileImage ---
+
+    Given("a valid JPEG image file") {
+        val user = User(
+            email = "upload@example.com",
+            nickname = "Uploader",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-upload-1"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 1024L
+        every { file.contentType } returns "image/jpeg"
+        every { file.bytes } returns byteArrayOf(0x01, 0x02, 0x03)
+
+        When("uploadProfileImage is called") {
+            val result = authService.uploadProfileImage(user.id, file)
+
+            Then("stores base64 data URL in profileImageUrl") {
+                result.profileImageUrl shouldStartWith "data:image/jpeg;base64,"
+            }
+
+            Then("evicts the user cache") {
+                verify { userCacheService.evict(user.id) }
+            }
+        }
+    }
+
+    Given("a PNG image file") {
+        val user = User(
+            email = "upload-png@example.com",
+            nickname = "PngUploader",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-upload-png"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 500L
+        every { file.contentType } returns "image/png"
+        every { file.bytes } returns byteArrayOf(0x50, 0x4E, 0x47, 0x0A)
+
+        When("uploadProfileImage is called") {
+            val result = authService.uploadProfileImage(user.id, file)
+
+            Then("stores base64 data URL with image/png content type") {
+                result.profileImageUrl shouldStartWith "data:image/png;base64,"
+            }
+        }
+    }
+
+    Given("a file exceeding 2MB") {
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 3 * 1024 * 1024L // 3MB
+
+        When("uploadProfileImage is called") {
+            Then("throws BusinessException for file size") {
+                val exception = shouldThrow<BusinessException> {
+                    authService.uploadProfileImage(UUID.randomUUID(), file)
+                }
+                exception.code shouldBe "VALIDATION_ERROR"
+                exception.message shouldBe "File size must not exceed 2MB"
+            }
+        }
+    }
+
+    Given("a file with unsupported content type") {
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 1024L
+        every { file.contentType } returns "image/gif"
+
+        When("uploadProfileImage is called") {
+            Then("throws BusinessException for content type") {
+                val exception = shouldThrow<BusinessException> {
+                    authService.uploadProfileImage(UUID.randomUUID(), file)
+                }
+                exception.code shouldBe "VALIDATION_ERROR"
+                exception.message shouldBe "File type must be one of: image/jpeg, image/png, image/webp"
+            }
+        }
+    }
+
+    Given("a file with null content type") {
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 1024L
+        every { file.contentType } returns null
+
+        When("uploadProfileImage is called") {
+            Then("throws BusinessException for content type") {
+                val exception = shouldThrow<BusinessException> {
+                    authService.uploadProfileImage(UUID.randomUUID(), file)
+                }
+                exception.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+    }
+
+    Given("uploadProfileImage for a non-existent user") {
+        val unknownId = UUID.randomUUID()
+        val file = mockk<MultipartFile>()
+        every { file.size } returns 1024L
+        every { file.contentType } returns "image/jpeg"
+        every { userRepository.findById(unknownId) } returns Optional.empty()
+
+        When("uploadProfileImage is called") {
+            Then("throws NotFoundException") {
+                val exception = shouldThrow<NotFoundException> {
+                    authService.uploadProfileImage(unknownId, file)
+                }
+                exception.code shouldBe "USER_NOT_FOUND"
+            }
+        }
+    }
+
+    // --- removeProfileImage ---
+
+    Given("a user with an existing profile image") {
+        val user = User(
+            email = "remove@example.com",
+            nickname = "Remover",
+            profileImageUrl = "data:image/jpeg;base64,abc123",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-remove-1"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("removeProfileImage is called") {
+            val result = authService.removeProfileImage(user.id)
+
+            Then("sets profileImageUrl to null") {
+                result.profileImageUrl shouldBe null
+            }
+
+            Then("evicts the user cache") {
+                verify { userCacheService.evict(user.id) }
+            }
+        }
+    }
+
+    Given("removeProfileImage for a non-existent user") {
+        val unknownId = UUID.randomUUID()
+        every { userRepository.findById(unknownId) } returns Optional.empty()
+
+        When("removeProfileImage is called") {
+            Then("throws NotFoundException") {
+                val exception = shouldThrow<NotFoundException> {
+                    authService.removeProfileImage(unknownId)
                 }
                 exception.code shouldBe "USER_NOT_FOUND"
             }

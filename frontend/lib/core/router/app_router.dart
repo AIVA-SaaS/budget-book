@@ -235,6 +235,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/transactions/create',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
+        final type = state.uri.queryParameters['type'];
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         getIt<PocketBloc>().add(const LoadPockets());
@@ -253,7 +254,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               value: getIt<PocketBloc>(),
             ),
           ],
-          child: const TransactionFormPage(),
+          child: TransactionFormPage(initialType: type),
         );
       },
     ),

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/auth/data/models/user_model.dart';
@@ -12,6 +13,8 @@ abstract class AuthRemoteDataSource {
     bool clearProfileImage = false,
   });
   Future<void> logout(String refreshToken);
+  Future<UserModel> uploadProfileImage(List<int> imageBytes, String fileName);
+  Future<void> deleteProfileImage();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -64,5 +67,26 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       ApiEndpoints.authLogout,
       data: {'refreshToken': refreshToken},
     );
+  }
+
+  @override
+  Future<UserModel> uploadProfileImage(
+      List<int> imageBytes, String fileName) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(imageBytes, filename: fileName),
+    });
+    final response = await apiClient.dio.post(
+      ApiEndpoints.authProfileImage,
+      data: formData,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return UserModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<void> deleteProfileImage() async {
+    await apiClient.dio.delete(ApiEndpoints.authProfileImage);
   }
 }
