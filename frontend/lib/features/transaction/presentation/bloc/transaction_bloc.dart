@@ -8,6 +8,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
+  String? _currentKeyword;
+  String? _currentPaymentMethodId;
+  String? _currentPocketId;
+  int? _currentAmountMin;
+  int? _currentAmountMax;
 
   TransactionBloc({required this.transactionRepository})
       : super(const TransactionInitial()) {
@@ -23,11 +28,21 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   ) async {
     _currentYear = event.year;
     _currentMonth = event.month;
+    _currentKeyword = event.keyword;
+    _currentPaymentMethodId = event.paymentMethodId;
+    _currentPocketId = event.pocketId;
+    _currentAmountMin = event.amountMin;
+    _currentAmountMax = event.amountMax;
     emit(const TransactionLoading());
 
     final result = await transactionRepository.getTransactions(
       year: event.year,
       month: event.month,
+      keyword: event.keyword,
+      paymentMethodId: event.paymentMethodId,
+      pocketId: event.pocketId,
+      amountMin: event.amountMin,
+      amountMax: event.amountMax,
       size: 100,
     );
     result.fold(
@@ -58,7 +73,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     );
     result.fold(
       (failure) => emit(TransactionError(failure.message)),
-      (_) => add(LoadTransactions(year: _currentYear, month: _currentMonth)),
+      (_) => add(LoadTransactions(
+            year: _currentYear,
+            month: _currentMonth,
+            keyword: _currentKeyword,
+            paymentMethodId: _currentPaymentMethodId,
+            pocketId: _currentPocketId,
+            amountMin: _currentAmountMin,
+            amountMax: _currentAmountMax,
+          )),
     );
   }
 
@@ -79,7 +102,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     );
     result.fold(
       (failure) => emit(TransactionError(failure.message)),
-      (_) => add(LoadTransactions(year: _currentYear, month: _currentMonth)),
+      (_) => add(LoadTransactions(
+            year: _currentYear,
+            month: _currentMonth,
+            keyword: _currentKeyword,
+            paymentMethodId: _currentPaymentMethodId,
+            pocketId: _currentPocketId,
+            amountMin: _currentAmountMin,
+            amountMax: _currentAmountMax,
+          )),
     );
   }
 

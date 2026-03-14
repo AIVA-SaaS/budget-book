@@ -375,15 +375,74 @@ class TransactionServiceTest : BehaviorSpec({
             couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, any()
         ) } returns page
 
-        When("listTransactions is called for January 2024") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, 0, 20)
+        When("listTransactions is called for January 2024 without extended filters") {
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, null, null, 0, 20)
 
-            Then("returns paginated results") {
+            Then("returns paginated results using legacy query") {
                 result.content.size shouldBe 2
                 result.totalElements shouldBe 2
                 result.page shouldBe 0
                 result.first shouldBe true
                 result.last shouldBe true
+            }
+        }
+    }
+
+    Given("transactions exist and keyword filter is used") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심 식사", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val page = PageImpl(listOf(tx1), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with keyword filter") {
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, "점심", null, null, null, null, 0, 20)
+
+            Then("returns filtered results via specification") {
+                result.content.size shouldBe 1
+                result.totalElements shouldBe 1
+            }
+        }
+    }
+
+    Given("transactions exist and amount range filter is used") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 20000, description = "저녁", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val page = PageImpl(listOf(tx1), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with amountMin and amountMax") {
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20)
+
+            Then("returns filtered results via specification") {
+                result.content.size shouldBe 1
+            }
+        }
+    }
+
+    Given("transactions exist and paymentMethodId filter is used") {
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        val pmId = UUID.randomUUID()
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "카드 결제", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val page = PageImpl(listOf(tx1), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with paymentMethodId") {
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, pmId, null, null, null, 0, 20)
+
+            Then("returns filtered results via specification") {
+                result.content.size shouldBe 1
             }
         }
     }

@@ -5,6 +5,7 @@ import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryItemResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
+import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
 import com.budgetbook.budget.dto.WeeklyGroupSummary
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
@@ -95,6 +96,34 @@ class BudgetControllerTest : FunSpec({
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { budgetService.deleteBudget(testUserId, budgetId) }
+    }
+
+    test("copyFromPreviousMonth returns 201 with copied budgets") {
+        val auth = createAuth(testUserId)
+        val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
+        val copiedBudgets = listOf(
+            sampleBudgetResponse(),
+            sampleBudgetResponse(null)
+        )
+        every { budgetService.copyFromPreviousMonth(testUserId, request) } returns copiedBudgets
+
+        val result = controller.copyFromPreviousMonth(auth, request)
+
+        result.statusCode shouldBe HttpStatus.CREATED
+        result.body!!.success shouldBe true
+        result.body!!.data!!.size shouldBe 2
+    }
+
+    test("copyFromPreviousMonth returns 201 with empty list when all duplicates") {
+        val auth = createAuth(testUserId)
+        val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
+        every { budgetService.copyFromPreviousMonth(testUserId, request) } returns emptyList()
+
+        val result = controller.copyFromPreviousMonth(auth, request)
+
+        result.statusCode shouldBe HttpStatus.CREATED
+        result.body!!.success shouldBe true
+        result.body!!.data!!.size shouldBe 0
     }
 
     test("getBudgetSummary returns summary") {

@@ -15,6 +15,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     on<CreateBudget>(_onCreateBudget);
     on<UpdateBudget>(_onUpdateBudget);
     on<DeleteBudget>(_onDeleteBudget);
+    on<CopyPreviousMonthBudgets>(_onCopyPreviousMonthBudgets);
   }
 
   Future<void> _onLoadBudgets(
@@ -179,6 +180,45 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
             month: currentState.month,
           ));
           // Reload to get updated summary
+          add(LoadBudgets(year: _currentYear, month: _currentMonth));
+        }
+      },
+    );
+  }
+
+  Future<void> _onCopyPreviousMonthBudgets(
+    CopyPreviousMonthBudgets event,
+    Emitter<BudgetState> emit,
+  ) async {
+    final currentState = state;
+    final result = await budgetRepository.copyPreviousMonthBudgets(
+      year: event.year,
+      month: event.month,
+    );
+    result.fold(
+      (failure) {
+        if (currentState is BudgetLoaded) {
+          emit(BudgetLoaded(
+            budgets: currentState.budgets,
+            summary: currentState.summary,
+            year: currentState.year,
+            month: currentState.month,
+            operationError: failure.message,
+          ));
+        } else {
+          emit(BudgetError(failure.message));
+        }
+      },
+      (copiedBudgets) {
+        if (currentState is BudgetLoaded) {
+          emit(BudgetLoaded(
+            budgets: currentState.budgets,
+            summary: currentState.summary,
+            year: currentState.year,
+            month: currentState.month,
+            operationSuccess: '전월 예산이 복사되었습니다 (${copiedBudgets.length}건)',
+          ));
+          // Reload to get fresh data
           add(LoadBudgets(year: _currentYear, month: _currentMonth));
         }
       },
