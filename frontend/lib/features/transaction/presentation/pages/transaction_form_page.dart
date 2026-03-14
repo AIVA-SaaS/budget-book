@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -64,6 +65,19 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       _isLoadingTransaction = true;
       // Load the transaction by ID via the bloc
       _loadTransaction();
+    } else {
+      // Pre-select default payment method for new transactions
+      _loadDefaultPaymentMethod();
+    }
+  }
+
+  Future<void> _loadDefaultPaymentMethod() async {
+    final prefs = await SharedPreferences.getInstance();
+    final defaultId = prefs.getString('default_payment_method_id');
+    if (defaultId != null && mounted) {
+      setState(() {
+        _selectedPaymentMethodId = defaultId;
+      });
     }
   }
 

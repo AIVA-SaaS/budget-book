@@ -2,10 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/app.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
+import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
+import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
     implements AuthBloc {}
@@ -13,11 +16,14 @@ class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
 void main() {
   testWidgets('BudgetBookApp renders login page with all elements',
       (tester) async {
+    SharedPreferences.setMockInitialValues({});
     final mockAuthBloc = MockAuthBloc();
     when(() => mockAuthBloc.state).thenReturn(const AuthUnauthenticated());
 
     await GetIt.instance.reset();
     GetIt.instance.registerFactory<AuthBloc>(() => mockAuthBloc);
+    GetIt.instance.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
+    GetIt.instance.registerLazySingleton<LocaleCubit>(() => LocaleCubit());
 
     await tester.pumpWidget(const BudgetBookApp());
     await tester.pump();
