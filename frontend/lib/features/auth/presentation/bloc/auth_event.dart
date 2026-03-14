@@ -41,3 +41,19 @@ class AuthRefreshUser extends AuthEvent {
 class AuthSessionExpired extends AuthEvent {
   const AuthSessionExpired();
 }
+
+/// Updates the current user's profile (nickname, profile image).
+class UpdateProfile extends AuthEvent {
+  final String? nickname;
+  final String? profileImageUrl;
+  final bool clearProfileImage;
+
+  const UpdateProfile({
+    this.nickname,
+    this.profileImageUrl,
+    this.clearProfileImage = false,
+  });
+
+  @override
+  List<Object?> get props => [nickname, profileImageUrl, clearProfileImage];
+}

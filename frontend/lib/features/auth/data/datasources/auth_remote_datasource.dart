@@ -6,6 +6,11 @@ import 'package:budget_book/features/auth/data/models/auth_token_model.dart';
 abstract class AuthRemoteDataSource {
   Future<AuthTokenModel> refreshToken(String refreshToken);
   Future<UserModel> getCurrentUser();
+  Future<UserModel> updateProfile({
+    String? nickname,
+    String? profileImageUrl,
+    bool clearProfileImage = false,
+  });
   Future<void> logout(String refreshToken);
 }
 
@@ -28,6 +33,26 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> getCurrentUser() async {
     final response = await apiClient.dio.get(ApiEndpoints.authMe);
+    return UserModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<UserModel> updateProfile({
+    String? nickname,
+    String? profileImageUrl,
+    bool clearProfileImage = false,
+  }) async {
+    final data = <String, dynamic>{};
+    if (nickname != null) data['nickname'] = nickname;
+    if (profileImageUrl != null) data['profileImageUrl'] = profileImageUrl;
+    if (clearProfileImage) data['clearProfileImage'] = true;
+
+    final response = await apiClient.dio.patch(
+      ApiEndpoints.authMe,
+      data: data,
+    );
     return UserModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );

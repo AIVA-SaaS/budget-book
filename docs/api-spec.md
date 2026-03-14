@@ -13,7 +13,8 @@
   - [OAuth2 Login Redirect](#1-oauth2-login-redirect)
   - [Refresh Token](#2-refresh-token)
   - [Get Current User](#3-get-current-user)
-  - [Logout](#4-logout)
+  - [Update Profile](#4-update-profile)
+  - [Logout](#5-logout)
 - [Couple](#couple)
   - [Create Invitation Code](#1-create-invitation-code)
   - [Accept Invitation](#2-accept-invitation)
@@ -304,7 +305,63 @@ Note: `coupleId` is omitted from the response when the user is not in an active 
 
 ---
 
-### 4. Logout
+### 4. Update Profile
+
+Updates the current user's profile information (nickname, profile image).
+
+| Item        | Value                        |
+|:------------|:-----------------------------|
+| **Method**  | `PATCH`                      |
+| **Path**    | `/api/v1/auth/me`            |
+| **Auth**    | Required                     |
+
+**Headers**
+
+| Header          | Value                    | Required |
+|:----------------|:-------------------------|:--------:|
+| `Authorization` | `Bearer {accessToken}`   | Yes      |
+| `Content-Type`  | `application/json`       | Yes      |
+
+**Request Body**
+
+| Field               | Type      | Required | Description                        |
+|:--------------------|:----------|:--------:|:-----------------------------------|
+| `nickname`          | `string`  | No       | New nickname (1-50 chars)          |
+| `profileImageUrl`   | `string`  | No       | New profile image URL              |
+| `clearProfileImage` | `boolean` | No       | Set true to remove profile image   |
+
+```json
+{
+  "nickname": "새닉네임",
+  "profileImageUrl": null,
+  "clearProfileImage": false
+}
+```
+
+**Response `200 OK`**: `ApiResponse<UserResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "nickname": "새닉네임",
+    "profileImageUrl": "https://lh3.googleusercontent.com/...",
+    "provider": "GOOGLE",
+    "role": "USER",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "createdAt": "2024-01-01T12:00:00Z"
+  },
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+**Response `400 Bad Request`**: Validation error (e.g., nickname too long)
+
+---
+
+### 5. Logout
 
 Revokes the refresh token and invalidates the current session.
 

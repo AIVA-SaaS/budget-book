@@ -4,6 +4,7 @@ import com.budgetbook.auth.domain.RefreshToken
 import com.budgetbook.auth.dto.LogoutRequest
 import com.budgetbook.auth.dto.RefreshTokenRequest
 import com.budgetbook.auth.dto.TokenResponse
+import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.repository.RefreshTokenRepository
 import com.budgetbook.auth.repository.UserRepository
@@ -87,5 +88,24 @@ class AuthService(
 
         val couple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
         return UserResponse.from(user, couple?.id)
+    }
+
+    @Transactional
+    fun updateProfile(userId: UUID, request: UpdateProfileRequest): UserResponse {
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found") }
+
+        request.nickname?.let { user.nickname = it }
+        if (request.clearProfileImage) {
+            user.profileImageUrl = null
+        } else {
+            request.profileImageUrl?.let { user.profileImageUrl = it }
+        }
+
+        val savedUser = userRepository.save(user)
+        userCacheService.evict(userId)
+
+        val couple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+        return UserResponse.from(savedUser, couple?.id)
     }
 }
