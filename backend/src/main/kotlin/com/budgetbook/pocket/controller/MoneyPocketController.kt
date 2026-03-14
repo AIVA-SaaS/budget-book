@@ -2,8 +2,11 @@ package com.budgetbook.pocket.controller
 
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.pocket.dto.CreatePocketRequest
+import com.budgetbook.pocket.dto.DistributionRatioResponse
 import com.budgetbook.pocket.dto.PocketResponse
+import com.budgetbook.pocket.dto.SaveDistributionRatiosRequest
 import com.budgetbook.pocket.dto.UpdatePocketRequest
+import com.budgetbook.pocket.service.DistributionRatioService
 import com.budgetbook.pocket.service.MoneyPocketService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -22,7 +25,8 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/pockets")
 class MoneyPocketController(
-    private val moneyPocketService: MoneyPocketService
+    private val moneyPocketService: MoneyPocketService,
+    private val distributionRatioService: DistributionRatioService
 ) {
 
     @GetMapping
@@ -59,5 +63,22 @@ class MoneyPocketController(
         val userId = authentication.principal as UUID
         moneyPocketService.deletePocket(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/distribution-ratios")
+    fun getDistributionRatios(
+        authentication: Authentication
+    ): ApiResponse<List<DistributionRatioResponse>> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(distributionRatioService.getRatios(userId))
+    }
+
+    @PutMapping("/distribution-ratios")
+    fun saveDistributionRatios(
+        authentication: Authentication,
+        @Valid @RequestBody request: SaveDistributionRatiosRequest
+    ): ApiResponse<List<DistributionRatioResponse>> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(distributionRatioService.saveRatios(userId, request))
     }
 }

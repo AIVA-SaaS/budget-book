@@ -14,6 +14,8 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
     on<UpdatePocket>(_onUpdatePocket);
     on<DeletePocket>(_onDeletePocket);
     on<DistributeIncome>(_onDistributeIncome);
+    on<LoadDistributionRatios>(_onLoadDistributionRatios);
+    on<SaveDistributionRatios>(_onSaveDistributionRatios);
   }
 
   Future<void> _onLoadPockets(
@@ -42,6 +44,8 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
       allocatedAmount: event.allocatedAmount,
       icon: event.icon,
       color: event.color,
+      goalAmount: event.goalAmount,
+      targetDate: event.targetDate,
     );
     result.fold(
       (failure) => emit(PocketLoaded(
@@ -68,6 +72,8 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
       icon: event.icon,
       color: event.color,
       displayOrder: event.displayOrder,
+      goalAmount: event.goalAmount,
+      targetDate: event.targetDate,
     );
     result.fold(
       (failure) => emit(PocketLoaded(
@@ -126,6 +132,49 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         // Reload pockets after distribution to get fresh balances
         add(const LoadPockets());
       },
+    );
+  }
+
+  Future<void> _onLoadDistributionRatios(
+    LoadDistributionRatios event,
+    Emitter<PocketState> emit,
+  ) async {
+    final currentPockets = state is PocketLoaded
+        ? (state as PocketLoaded).pockets
+        : <MoneyPocket>[];
+
+    final result = await pocketRepository.getDistributionRatios();
+    result.fold(
+      (failure) => emit(PocketLoaded(
+        currentPockets,
+        operationError: failure.message,
+      )),
+      (ratios) => emit(PocketLoaded(
+        currentPockets,
+        distributionRatios: ratios,
+      )),
+    );
+  }
+
+  Future<void> _onSaveDistributionRatios(
+    SaveDistributionRatios event,
+    Emitter<PocketState> emit,
+  ) async {
+    final currentPockets = state is PocketLoaded
+        ? (state as PocketLoaded).pockets
+        : <MoneyPocket>[];
+
+    final result =
+        await pocketRepository.saveDistributionRatios(event.ratios);
+    result.fold(
+      (failure) => emit(PocketLoaded(
+        currentPockets,
+        operationError: failure.message,
+      )),
+      (_) => emit(PocketLoaded(
+        currentPockets,
+        ratiosSaved: true,
+      )),
     );
   }
 }

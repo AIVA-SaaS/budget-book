@@ -17,6 +17,8 @@ class CreatePocket extends PocketEvent {
   final int allocatedAmount;
   final String? icon;
   final String? color;
+  final int? goalAmount;
+  final String? targetDate;
 
   const CreatePocket({
     required this.name,
@@ -24,10 +26,13 @@ class CreatePocket extends PocketEvent {
     required this.allocatedAmount,
     this.icon,
     this.color,
+    this.goalAmount,
+    this.targetDate,
   });
 
   @override
-  List<Object?> get props => [name, type, allocatedAmount, icon, color];
+  List<Object?> get props =>
+      [name, type, allocatedAmount, icon, color, goalAmount, targetDate];
 }
 
 class UpdatePocket extends PocketEvent {
@@ -38,6 +43,8 @@ class UpdatePocket extends PocketEvent {
   final String? icon;
   final String? color;
   final int? displayOrder;
+  final int? goalAmount;
+  final String? targetDate;
 
   const UpdatePocket({
     required this.id,
@@ -47,11 +54,22 @@ class UpdatePocket extends PocketEvent {
     this.icon,
     this.color,
     this.displayOrder,
+    this.goalAmount,
+    this.targetDate,
   });
 
   @override
-  List<Object?> get props =>
-      [id, name, type, allocatedAmount, icon, color, displayOrder];
+  List<Object?> get props => [
+        id,
+        name,
+        type,
+        allocatedAmount,
+        icon,
+        color,
+        displayOrder,
+        goalAmount,
+        targetDate,
+      ];
 }
 
 class DeletePocket extends PocketEvent {
@@ -74,4 +92,17 @@ class DistributeIncome extends PocketEvent {
 
   @override
   List<Object?> get props => [totalAmount, distributions];
+}
+
+class LoadDistributionRatios extends PocketEvent {
+  const LoadDistributionRatios();
+}
+
+class SaveDistributionRatios extends PocketEvent {
+  final List<Map<String, dynamic>> ratios;
+
+  const SaveDistributionRatios({required this.ratios});
+
+  @override
+  List<Object?> get props => [ratios];
 }

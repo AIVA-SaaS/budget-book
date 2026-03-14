@@ -5,11 +5,14 @@ import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
+import com.budgetbook.transaction.service.TransactionExportService
 import com.budgetbook.transaction.service.TransactionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -24,7 +27,8 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/transactions")
 class TransactionController(
-    private val transactionService: TransactionService
+    private val transactionService: TransactionService,
+    private val transactionExportService: TransactionExportService
 ) {
 
     @GetMapping
@@ -87,5 +91,25 @@ class TransactionController(
         val userId = authentication.principal as UUID
         transactionService.deleteTransaction(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/export/csv")
+    fun exportCsv(
+        authentication: Authentication,
+        @RequestParam year: Int,
+        @RequestParam month: Int,
+        @RequestParam(required = false) type: String?,
+        @RequestParam(required = false) categoryId: UUID?
+    ): ResponseEntity<ByteArray> {
+        val userId = authentication.principal as UUID
+        val csv = transactionExportService.exportCsv(userId, year, month, type, categoryId)
+        val bytes = csv.toByteArray(Charsets.UTF_8)
+        val filename = "transactions_${year}_${String.format("%02d", month)}.csv"
+
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$filename\"")
+            .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+            .contentLength(bytes.size.toLong())
+            .body(bytes)
     }
 }

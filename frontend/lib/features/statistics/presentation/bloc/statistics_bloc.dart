@@ -18,6 +18,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     on<LoadSummary>(_onLoadSummary);
     on<LoadCategoryBreakdown>(_onLoadCategoryBreakdown);
     on<LoadMonthlyTrend>(_onLoadMonthlyTrend);
+    on<LoadYearComparison>(_onLoadYearComparison);
   }
 
   Future<void> _onLoadAll(
@@ -161,5 +162,52 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         trends: trends,
       )),
     );
+  }
+
+  Future<void> _onLoadYearComparison(
+    LoadYearComparison event,
+    Emitter<StatisticsState> emit,
+  ) async {
+    emit(state.copyWith(
+      comparisonLoading: true,
+      clearComparisonError: true,
+    ));
+
+    // Load current year and previous year summary in parallel
+    final results = await Future.wait([
+      statisticsRepository.getSummary(year: event.year, month: event.month),
+      statisticsRepository.getSummary(
+          year: event.year - 1, month: event.month),
+    ]);
+
+    StatisticsSummary? currentSummary;
+    StatisticsSummary? previousSummary;
+    String? error;
+
+    results[0].fold(
+      (failure) => error = failure.message,
+      (data) => currentSummary = data,
+    );
+
+    results[1].fold(
+      (failure) {
+        // Previous year data may not exist - that's ok
+        previousSummary = null;
+      },
+      (data) => previousSummary = data,
+    );
+
+    if (error != null) {
+      emit(state.copyWith(
+        comparisonLoading: false,
+        comparisonError: error,
+      ));
+    } else {
+      emit(state.copyWith(
+        comparisonLoading: false,
+        currentYearSummary: currentSummary,
+        previousYearSummary: previousSummary,
+      ));
+    }
   }
 }

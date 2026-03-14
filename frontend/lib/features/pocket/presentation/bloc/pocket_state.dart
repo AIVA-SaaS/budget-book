@@ -19,8 +19,15 @@ class PocketLoading extends PocketState {
 class PocketLoaded extends PocketState {
   final List<MoneyPocket> pockets;
   final String? operationError;
+  final List<Map<String, dynamic>>? distributionRatios;
+  final bool ratiosSaved;
 
-  const PocketLoaded(this.pockets, {this.operationError});
+  const PocketLoaded(
+    this.pockets, {
+    this.operationError,
+    this.distributionRatios,
+    this.ratiosSaved = false,
+  });
 
   List<MoneyPocket> get activePockets =>
       pockets.where((p) => p.isActive).toList();
@@ -31,7 +38,8 @@ class PocketLoaded extends PocketState {
       pockets.fold(0, (sum, p) => sum + p.allocatedAmount);
 
   @override
-  List<Object?> get props => [pockets, operationError];
+  List<Object?> get props =>
+      [pockets, operationError, distributionRatios, ratiosSaved];
 }
 
 class PocketError extends PocketState {

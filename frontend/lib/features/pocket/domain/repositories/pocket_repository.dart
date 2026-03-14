@@ -11,6 +11,8 @@ abstract class PocketRepository {
     required int allocatedAmount,
     String? icon,
     String? color,
+    int? goalAmount,
+    String? targetDate,
   });
   Future<Either<Failure, MoneyPocket>> updatePocket({
     required String id,
@@ -20,10 +22,15 @@ abstract class PocketRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    int? goalAmount,
+    String? targetDate,
   });
   Future<Either<Failure, void>> deletePocket(String id);
   Future<Either<Failure, DistributeResult>> distributeIncome({
     required int totalAmount,
     required List<Map<String, dynamic>> distributions,
   });
+  Future<Either<Failure, List<Map<String, dynamic>>>> getDistributionRatios();
+  Future<Either<Failure, void>> saveDistributionRatios(
+      List<Map<String, dynamic>> ratios);
 }

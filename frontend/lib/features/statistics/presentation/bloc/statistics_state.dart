@@ -23,6 +23,12 @@ class StatisticsState extends Equatable {
   final List<MonthlyTrend> trends;
   final String? trendError;
 
+  // Year comparison
+  final bool comparisonLoading;
+  final StatisticsSummary? currentYearSummary;
+  final StatisticsSummary? previousYearSummary;
+  final String? comparisonError;
+
   const StatisticsState({
     required this.year,
     required this.month,
@@ -36,6 +42,10 @@ class StatisticsState extends Equatable {
     this.trendLoading = false,
     this.trends = const [],
     this.trendError,
+    this.comparisonLoading = false,
+    this.currentYearSummary,
+    this.previousYearSummary,
+    this.comparisonError,
   });
 
   bool get isAllLoading => summaryLoading && categoryLoading && trendLoading;
@@ -56,6 +66,11 @@ class StatisticsState extends Equatable {
     List<MonthlyTrend>? trends,
     String? trendError,
     bool clearTrendError = false,
+    bool? comparisonLoading,
+    StatisticsSummary? currentYearSummary,
+    StatisticsSummary? previousYearSummary,
+    String? comparisonError,
+    bool clearComparisonError = false,
   }) {
     return StatisticsState(
       year: year ?? this.year,
@@ -72,6 +87,12 @@ class StatisticsState extends Equatable {
       trendLoading: trendLoading ?? this.trendLoading,
       trends: trends ?? this.trends,
       trendError: clearTrendError ? null : (trendError ?? this.trendError),
+      comparisonLoading: comparisonLoading ?? this.comparisonLoading,
+      currentYearSummary: currentYearSummary ?? this.currentYearSummary,
+      previousYearSummary: previousYearSummary ?? this.previousYearSummary,
+      comparisonError: clearComparisonError
+          ? null
+          : (comparisonError ?? this.comparisonError),
     );
   }
 
@@ -89,5 +110,9 @@ class StatisticsState extends Equatable {
         trendLoading,
         trends,
         trendError,
+        comparisonLoading,
+        currentYearSummary,
+        previousYearSummary,
+        comparisonError,
       ];
 }
