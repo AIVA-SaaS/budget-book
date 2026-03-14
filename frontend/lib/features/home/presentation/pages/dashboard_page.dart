@@ -64,8 +64,11 @@ class DashboardPage extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Month/Year header
+                  // Month/Year header with navigation
                   _MonthHeader(year: state.year, month: state.month),
+                  const SizedBox(height: 16),
+                  // Quick action buttons
+                  const _QuickActions(),
                   const SizedBox(height: 16),
                   // Summary card
                   _SummaryCard(state: state),
@@ -97,13 +100,147 @@ class _MonthHeader extends StatelessWidget {
 
   const _MonthHeader({required this.year, required this.month});
 
+  void _goToPreviousMonth(BuildContext context) {
+    int newYear = year;
+    int newMonth = month - 1;
+    if (newMonth < 1) {
+      newMonth = 12;
+      newYear -= 1;
+    }
+    context.read<DashboardBloc>().add(
+          LoadDashboard(year: newYear, month: newMonth),
+        );
+  }
+
+  void _goToNextMonth(BuildContext context) {
+    int newYear = year;
+    int newMonth = month + 1;
+    if (newMonth > 12) {
+      newMonth = 1;
+      newYear += 1;
+    }
+    context.read<DashboardBloc>().add(
+          LoadDashboard(year: newYear, month: newMonth),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '$year년 $month월',
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: () => _goToPreviousMonth(context),
+          tooltip: '이전 달',
+        ),
+        Text(
+          '$year년 $month월',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          onPressed: () => _goToNextMonth(context),
+          tooltip: '다음 달',
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _QuickActionButton(
+          icon: Icons.arrow_downward,
+          label: '지출',
+          color: Colors.red,
+          onTap: () => context.push('/transactions/create'),
+        ),
+        _QuickActionButton(
+          icon: Icons.arrow_upward,
+          label: '수입',
+          color: Colors.blue,
+          onTap: () => context.push('/transactions/create'),
+        ),
+        _QuickActionButton(
+          icon: Icons.bar_chart,
+          label: '통계',
+          color: Colors.purple,
+          onTap: () {
+            // Navigate to statistics tab (index 3)
+            final shell = StatefulNavigationShell.maybeOf(context);
+            if (shell != null) {
+              shell.goBranch(3);
+            } else {
+              context.go('/statistics');
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.settings,
+          label: '설정',
+          color: Colors.grey,
+          onTap: () {
+            // Navigate to settings tab (index 4)
+            final shell = StatefulNavigationShell.maybeOf(context);
+            if (shell != null) {
+              shell.goBranch(4);
+            } else {
+              context.go('/settings');
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -319,11 +456,27 @@ class _RecentTransactionsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '최근 거래',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '최근 거래',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final shell = StatefulNavigationShell.maybeOf(context);
+                    if (shell != null) {
+                      shell.goBranch(1);
+                    } else {
+                      context.go('/transactions');
+                    }
+                  },
+                  child: const Text('더보기'),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             if (error != null)
