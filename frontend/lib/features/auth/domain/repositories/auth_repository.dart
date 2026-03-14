@@ -12,4 +12,7 @@ abstract class AuthRepository {
     bool clearProfileImage = false,
   });
   Future<Either<Failure, void>> logout(String refreshToken);
+  Future<Either<Failure, User>> uploadProfileImage(
+      List<int> imageBytes, String fileName);
+  Future<Either<Failure, void>> deleteProfileImage();
 }

@@ -30,7 +30,11 @@ class TransactionFormPage extends StatefulWidget {
   /// The page will load the transaction data from the BLoC/repository.
   final String? transactionId;
 
-  const TransactionFormPage({super.key, this.transactionId});
+  /// Optional initial transaction type ('EXPENSE' or 'INCOME').
+  /// Used when navigating from dashboard quick actions.
+  final String? initialType;
+
+  const TransactionFormPage({super.key, this.transactionId, this.initialType});
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -58,7 +62,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     _amountController = TextEditingController();
     _descriptionController = TextEditingController();
     _memoController = TextEditingController();
-    _selectedType = 'EXPENSE';
+    _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
+        ? widget.initialType!
+        : 'EXPENSE';
     _selectedDate = DateTime.now();
 
     if (isEditing) {

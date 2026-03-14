@@ -39,14 +39,24 @@ class DistributionRatioService(
     fun saveRatios(userId: UUID, request: SaveDistributionRatiosRequest): List<DistributionRatioResponse> {
         val couple = getActiveCouple(userId)
 
-        // Validate total ratio equals 100
+        // Validate total ratio equals 100 (with 0.01 tolerance for floating-point rounding)
         val totalRatio = request.ratios.fold(BigDecimal.ZERO) { acc, entry -> acc.add(entry.ratio) }
-        if (totalRatio.compareTo(BigDecimal("100.00")) != 0) {
+        val lowerBound = BigDecimal("99.99")
+        val upperBound = BigDecimal("100.01")
+        if (totalRatio < lowerBound || totalRatio > upperBound) {
             throw BusinessException("VALIDATION_ERROR", "Total ratio must equal 100.00, but was $totalRatio")
         }
 
+        // Normalize: adjust the last ratio so the sum is exactly 100.00
+        val normalizedRatios = request.ratios.toMutableList()
+        if (totalRatio.compareTo(BigDecimal("100.00")) != 0 && normalizedRatios.isNotEmpty()) {
+            val lastEntry = normalizedRatios.last()
+            val adjustment = BigDecimal("100.00") - totalRatio
+            normalizedRatios[normalizedRatios.lastIndex] = lastEntry.copy(ratio = lastEntry.ratio + adjustment)
+        }
+
         // Validate all pocket IDs belong to this couple and are active
-        val pocketIds = request.ratios.map { it.pocketId }.toSet()
+        val pocketIds = normalizedRatios.map { it.pocketId }.toSet()
         val pockets = moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id)
         val activePocketIds = pockets.map { it.id }.toSet()
 
@@ -56,7 +66,7 @@ class DistributionRatioService(
         }
 
         // Check for duplicate pocket IDs in request
-        if (pocketIds.size != request.ratios.size) {
+        if (pocketIds.size != normalizedRatios.size) {
             throw BusinessException("VALIDATION_ERROR", "Duplicate pocket IDs in request.")
         }
 
@@ -65,7 +75,7 @@ class DistributionRatioService(
         // Delete existing ratios and replace
         distributionRatioRepository.deleteByCoupleId(couple.id)
 
-        val saved = request.ratios.map { entry ->
+        val saved = normalizedRatios.map { entry ->
             distributionRatioRepository.save(
                 DistributionRatio(
                     couple = couple,
