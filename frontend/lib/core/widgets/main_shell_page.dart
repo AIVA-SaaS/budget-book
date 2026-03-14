@@ -6,6 +6,8 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_state.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
+import 'package:budget_book/core/widgets/offline_banner.dart';
+import 'package:budget_book/core/services/connectivity_service.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
@@ -60,6 +62,9 @@ class _MainShellPageState extends State<MainShellPage> {
         bottom: false, // Bottom is handled by NavigationBar
         child: Column(
           children: [
+            OfflineBanner(
+              connectivityService: getIt<ConnectivityService>(),
+            ),
             const _ConnectionStatusBanner(),
             Expanded(child: widget.navigationShell),
           ],

@@ -59,6 +59,8 @@ import 'package:budget_book/core/websocket/sync_event_handler.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
 import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
 import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
+import 'package:budget_book/core/services/connectivity_service.dart';
+import 'package:budget_book/core/services/cache_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -69,6 +71,17 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<ApiClient>(
     () => ApiClient(),
+  );
+
+  // Connectivity
+  getIt.registerLazySingleton<ConnectivityService>(
+    () => ConnectivityService(),
+    dispose: (service) => service.dispose(),
+  );
+
+  // Cache
+  getIt.registerLazySingleton<CacheService>(
+    () => CacheService(),
   );
 
   // Auth feature
