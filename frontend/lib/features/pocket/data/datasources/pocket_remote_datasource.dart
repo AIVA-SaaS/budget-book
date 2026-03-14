@@ -9,6 +9,8 @@ abstract class PocketRemoteDataSource {
   Future<PocketModel> updatePocket(String id, Map<String, dynamic> data);
   Future<void> deletePocket(String id);
   Future<DistributeResultModel> distributeIncome(Map<String, dynamic> data);
+  Future<List<Map<String, dynamic>>> getDistributionRatios();
+  Future<void> saveDistributionRatios(List<Map<String, dynamic>> ratios);
 }
 
 class PocketRemoteDataSourceImpl implements PocketRemoteDataSource {
@@ -62,6 +64,24 @@ class PocketRemoteDataSourceImpl implements PocketRemoteDataSource {
     );
     return DistributeResultModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getDistributionRatios() async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.pocketsDistributionRatios,
+    );
+    final list = response.data['data'] as List<dynamic>;
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  @override
+  Future<void> saveDistributionRatios(
+      List<Map<String, dynamic>> ratios) async {
+    await apiClient.dio.put(
+      ApiEndpoints.pocketsDistributionRatios,
+      data: ratios,
     );
   }
 }

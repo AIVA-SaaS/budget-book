@@ -18,6 +18,7 @@ import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.util.UUID
 
 @Service
@@ -55,7 +56,9 @@ class MoneyPocketService(
             allocatedAmount = request.allocatedAmount,
             icon = request.icon,
             color = request.color,
-            displayOrder = maxOrder + 1
+            displayOrder = maxOrder + 1,
+            goalAmount = request.goalAmount,
+            targetDate = request.targetDate
         )
 
         val saved = moneyPocketRepository.save(pocket)
@@ -88,6 +91,8 @@ class MoneyPocketService(
         request.icon?.let { pocket.icon = it }
         request.color?.let { pocket.color = it }
         request.displayOrder?.let { pocket.displayOrder = it }
+        request.goalAmount?.let { pocket.goalAmount = it }
+        request.targetDate?.let { pocket.targetDate = it }
 
         val saved = moneyPocketRepository.save(pocket)
         syncEventPublisher.publish(SyncEvent(
@@ -165,6 +170,8 @@ class MoneyPocketService(
         color = color,
         displayOrder = displayOrder,
         isActive = isActive,
+        goalAmount = goalAmount,
+        targetDate = targetDate,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

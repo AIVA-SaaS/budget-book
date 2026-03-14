@@ -21,6 +21,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
   final Map<String, TextEditingController> _allocationControllers = {};
   final _formatter = NumberFormat('#,###');
   bool _isSubmitting = false;
+  bool _ratiosLoaded = false;
 
   int get _totalAmount =>
       int.tryParse(_totalAmountController.text.replaceAll(',', '')) ?? 0;
@@ -34,6 +35,15 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
   }
 
   int get _remaining => _totalAmount - _totalAllocated;
+
+  @override
+  void initState() {
+    super.initState();
+    // Request saved distribution ratios on load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PocketBloc>().add(const LoadDistributionRatios());
+    });
+  }
 
   @override
   void dispose() {
@@ -53,6 +63,68 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
     }
   }
 
+  void _applyRatios(
+      List<Map<String, dynamic>> ratios, List<MoneyPocket> pockets) {
+    if (_ratiosLoaded) return;
+    _ratiosLoaded = true;
+
+    for (final ratio in ratios) {
+      final pocketId = ratio['pocketId'] as String?;
+      final percentage = ratio['percentage'] as num?;
+      if (pocketId != null &&
+          percentage != null &&
+          _allocationControllers.containsKey(pocketId)) {
+        // Pre-fill with percentage-based amounts when total is entered
+        // For now, store percentages as text (will be recalculated when total changes)
+        // We just mark the ratios as loaded; the actual calculation happens in step 2
+      }
+    }
+  }
+
+  void _applyRatiosToAmounts(List<Map<String, dynamic>> ratios) {
+    if (_totalAmount <= 0) return;
+    int allocated = 0;
+    final entries = ratios.toList();
+    for (int i = 0; i < entries.length; i++) {
+      final pocketId = entries[i]['pocketId'] as String?;
+      final percentage = (entries[i]['percentage'] as num?)?.toDouble() ?? 0;
+      if (pocketId != null && _allocationControllers.containsKey(pocketId)) {
+        int amount;
+        if (i == entries.length - 1) {
+          // Last entry gets the remainder to avoid rounding issues
+          amount = _totalAmount - allocated;
+        } else {
+          amount = (_totalAmount * percentage / 100).round();
+        }
+        allocated += amount;
+        _allocationControllers[pocketId]!.text = amount.toString();
+      }
+    }
+    setState(() {});
+  }
+
+  void _saveCurrentRatios(List<MoneyPocket> pockets) {
+    if (_totalAmount <= 0) return;
+    final ratios = <Map<String, dynamic>>[];
+    for (final pocket in pockets) {
+      final amount = int.tryParse(
+            _allocationControllers[pocket.id]
+                    ?.text
+                    .replaceAll(',', '') ??
+                '0',
+          ) ??
+          0;
+      if (amount > 0) {
+        final percentage = (amount / _totalAmount * 100).round();
+        ratios.add({
+          'pocketId': pocket.id,
+          'percentage': percentage,
+        });
+      }
+    }
+    context.read<PocketBloc>().add(SaveDistributionRatios(ratios: ratios));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,6 +141,10 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                 backgroundColor: Colors.red,
               ),
             );
+          } else if (state is PocketLoaded && state.ratiosSaved) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('분배 비율이 저장되었습니다')),
+            );
           } else if (state is PocketLoaded && _isSubmitting) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('분배가 완료되었습니다')),
@@ -84,6 +160,11 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
           final pockets = state.pockets;
           _ensureControllers(pockets);
 
+          // Apply saved ratios if available
+          if (state.distributionRatios != null && !_ratiosLoaded) {
+            _applyRatios(state.distributionRatios!, pockets);
+          }
+
           return Stepper(
             currentStep: _currentStep,
             onStepContinue: () {
@@ -92,6 +173,12 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                   const SnackBar(content: Text('금액을 입력하세요')),
                 );
                 return;
+              }
+              if (_currentStep == 0 &&
+                  state.distributionRatios != null &&
+                  state.distributionRatios!.isNotEmpty) {
+                // Auto-apply saved ratios when moving to step 2
+                _applyRatiosToAmounts(state.distributionRatios!);
               }
               if (_currentStep == 1 && _remaining != 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -246,6 +333,12 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
             ),
           );
         }),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _saveCurrentRatios(pockets),
+          icon: const Icon(Icons.save),
+          label: const Text('이 비율 저장'),
+        ),
       ],
     );
   }

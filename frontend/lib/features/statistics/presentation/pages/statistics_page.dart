@@ -7,6 +7,7 @@ import 'package:budget_book/features/statistics/presentation/bloc/statistics_sta
 import 'package:budget_book/features/statistics/presentation/widgets/summary_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/category_breakdown_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/monthly_trend_tab.dart';
+import 'package:budget_book/features/statistics/presentation/widgets/year_comparison_tab.dart';
 
 class StatisticsPage extends StatelessWidget {
   const StatisticsPage({super.key});
@@ -14,15 +15,17 @@ class StatisticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('통계'),
           bottom: const TabBar(
+            isScrollable: true,
             tabs: [
               Tab(text: '요약'),
               Tab(text: '카테고리별'),
               Tab(text: '추이'),
+              Tab(text: '전년 비교'),
             ],
           ),
         ),
@@ -61,6 +64,14 @@ class StatisticsPage extends StatelessWidget {
                         isLoading: state.trendLoading,
                         error: state.trendError,
                       ),
+                      YearComparisonTab(
+                        currentYear: state.currentYearSummary,
+                        previousYear: state.previousYearSummary,
+                        isLoading: state.comparisonLoading,
+                        error: state.comparisonError,
+                        year: state.year,
+                        month: state.month,
+                      ),
                     ],
                   ),
                 ),
@@ -94,9 +105,7 @@ class _MonthNavigator extends StatelessWidget {
               final prev = month == 1
                   ? DateTime(year - 1, 12)
                   : DateTime(year, month - 1);
-              context.read<StatisticsBloc>().add(
-                    LoadAllStatistics(year: prev.year, month: prev.month),
-                  );
+              _loadAll(context, prev.year, prev.month);
             },
             tooltip: '이전 달',
           ),
@@ -109,10 +118,7 @@ class _MonthNavigator extends StatelessWidget {
                 lastDate: DateTime(2030, 12, 31),
               );
               if (picked != null && context.mounted) {
-                context.read<StatisticsBloc>().add(
-                      LoadAllStatistics(
-                          year: picked.year, month: picked.month),
-                    );
+                _loadAll(context, picked.year, picked.month);
               }
             },
             child: Text(
@@ -128,14 +134,18 @@ class _MonthNavigator extends StatelessWidget {
               final next = month == 12
                   ? DateTime(year + 1, 1)
                   : DateTime(year, month + 1);
-              context.read<StatisticsBloc>().add(
-                    LoadAllStatistics(year: next.year, month: next.month),
-                  );
+              _loadAll(context, next.year, next.month);
             },
             tooltip: '다음 달',
           ),
         ],
       ),
     );
+  }
+
+  void _loadAll(BuildContext context, int year, int month) {
+    final bloc = context.read<StatisticsBloc>();
+    bloc.add(LoadAllStatistics(year: year, month: month));
+    bloc.add(LoadYearComparison(year: year, month: month));
   }
 }

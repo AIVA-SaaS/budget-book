@@ -28,6 +28,8 @@ class PocketRepositoryImpl implements PocketRepository {
     required int allocatedAmount,
     String? icon,
     String? color,
+    int? goalAmount,
+    String? targetDate,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -36,6 +38,8 @@ class PocketRepositoryImpl implements PocketRepository {
         'allocatedAmount': allocatedAmount,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
+        if (goalAmount != null) 'goalAmount': goalAmount,
+        if (targetDate != null) 'targetDate': targetDate,
       };
       final result = await remoteDataSource.createPocket(data);
       return Right(result);
@@ -53,6 +57,8 @@ class PocketRepositoryImpl implements PocketRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    int? goalAmount,
+    String? targetDate,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -62,6 +68,8 @@ class PocketRepositoryImpl implements PocketRepository {
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
         if (displayOrder != null) 'displayOrder': displayOrder,
+        if (goalAmount != null) 'goalAmount': goalAmount,
+        if (targetDate != null) 'targetDate': targetDate,
       };
       final result = await remoteDataSource.updatePocket(id, data);
       return Right(result);
@@ -94,6 +102,28 @@ class PocketRepositoryImpl implements PocketRepository {
       return Right(result);
     } on DioException catch (e) {
       return Left(_mapDioError(e, 'Failed to distribute income'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>>
+      getDistributionRatios() async {
+    try {
+      final result = await remoteDataSource.getDistributionRatios();
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e, 'Failed to load distribution ratios'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> saveDistributionRatios(
+      List<Map<String, dynamic>> ratios) async {
+    try {
+      await remoteDataSource.saveDistributionRatios(ratios);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e, 'Failed to save distribution ratios'));
     }
   }
 

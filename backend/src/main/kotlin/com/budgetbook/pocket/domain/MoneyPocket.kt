@@ -11,6 +11,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import java.time.LocalDate
 import java.util.UUID
 
 @Entity
@@ -43,5 +44,11 @@ class MoneyPocket(
     var displayOrder: Int = 0,
 
     @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true
+    var isActive: Boolean = true,
+
+    @Column(name = "goal_amount")
+    var goalAmount: Long? = null,
+
+    @Column(name = "target_date")
+    var targetDate: LocalDate? = null
 ) : BaseTimeEntity()
