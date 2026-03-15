@@ -23,3 +23,11 @@ data class MonthlyTrendResponse(
     val totalExpense: Long,
     val balance: Long
 )
+
+data class PaymentMethodStatResponse(
+    val paymentMethodId: String,
+    val paymentMethodName: String,
+    val totalAmount: Long,
+    val transactionCount: Int,
+    val percentage: Double
+)

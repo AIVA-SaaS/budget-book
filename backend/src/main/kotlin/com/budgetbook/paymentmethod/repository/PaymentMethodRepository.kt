@@ -10,4 +10,6 @@ interface PaymentMethodRepository : JpaRepository<PaymentMethod, UUID> {
     fun findByCoupleIdOrderByDisplayOrder(coupleId: UUID): List<PaymentMethod>
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): PaymentMethod?
     fun findByCoupleIdAndTypeAndIsActiveTrue(coupleId: UUID, type: PaymentMethodType): List<PaymentMethod>
+
+    fun findByCoupleIdAndNameIn(coupleId: UUID, names: List<String>): List<PaymentMethod>
 }

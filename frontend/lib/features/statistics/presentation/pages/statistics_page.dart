@@ -8,6 +8,7 @@ import 'package:budget_book/features/statistics/presentation/widgets/summary_tab
 import 'package:budget_book/features/statistics/presentation/widgets/category_breakdown_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/monthly_trend_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/year_comparison_tab.dart';
+import 'package:budget_book/features/statistics/presentation/widgets/payment_method_stats_tab.dart';
 
 class StatisticsPage extends StatelessWidget {
   const StatisticsPage({super.key});
@@ -15,7 +16,7 @@ class StatisticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('통계'),
@@ -26,6 +27,7 @@ class StatisticsPage extends StatelessWidget {
               Tab(text: '카테고리별'),
               Tab(text: '추이'),
               Tab(text: '전년 비교'),
+              Tab(text: '결제수단별'),
             ],
           ),
         ),
@@ -71,6 +73,11 @@ class StatisticsPage extends StatelessWidget {
                         error: state.comparisonError,
                         year: state.year,
                         month: state.month,
+                      ),
+                      PaymentMethodStatsTab(
+                        stats: state.paymentMethodStats,
+                        isLoading: state.paymentMethodLoading,
+                        error: state.paymentMethodError,
                       ),
                     ],
                   ),
@@ -147,5 +154,6 @@ class _MonthNavigator extends StatelessWidget {
     final bloc = context.read<StatisticsBloc>();
     bloc.add(LoadAllStatistics(year: year, month: month));
     bloc.add(LoadYearComparison(year: year, month: month));
+    bloc.add(LoadPaymentMethodStats(year: year, month: month));
   }
 }

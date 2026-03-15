@@ -2,10 +2,12 @@ package com.budgetbook.transaction.controller
 
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.transaction.dto.CreateTransactionRequest
+import com.budgetbook.transaction.dto.CsvImportResponse
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.transaction.service.TransactionExportService
+import com.budgetbook.transaction.service.TransactionImportService
 import com.budgetbook.transaction.service.TransactionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -22,13 +24,15 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.multipart.MultipartFile
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1/transactions")
 class TransactionController(
     private val transactionService: TransactionService,
-    private val transactionExportService: TransactionExportService
+    private val transactionExportService: TransactionExportService,
+    private val transactionImportService: TransactionImportService
 ) {
 
     @GetMapping
@@ -91,6 +95,15 @@ class TransactionController(
         val userId = authentication.principal as UUID
         transactionService.deleteTransaction(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @PostMapping("/import/csv")
+    fun importCsv(
+        authentication: Authentication,
+        @RequestParam("file") file: MultipartFile
+    ): ApiResponse<CsvImportResponse> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(transactionImportService.importCsv(userId, file))
     }
 
     @GetMapping("/export/csv")
