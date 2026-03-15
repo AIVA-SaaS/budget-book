@@ -33,7 +33,10 @@ class User(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    var role: UserRole = UserRole.USER
+    var role: UserRole = UserRole.USER,
+
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = true
 ) : BaseTimeEntity()
 
 enum class AuthProvider { GOOGLE, KAKAO }
