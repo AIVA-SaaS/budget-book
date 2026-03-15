@@ -38,13 +38,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
 # Task #18: Sentry error monitoring (disabled when SENTRY_DSN env var is not set)
 # Required GitHub Secret / Render env var: SENTRY_DSN
 sentry:
   dsn: ${SENTRY_DSN:}
   traces-sample-rate: 0.1
+  environment: ${SPRING_PROFILES_ACTIVE:local}
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5000}
