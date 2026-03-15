@@ -7,6 +7,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
 
 class PaymentMethodPage extends StatelessWidget {
   const PaymentMethodPage({super.key});
@@ -64,30 +65,12 @@ class PaymentMethodPage extends StatelessWidget {
     bool hasCardPendings,
   ) {
     if (methods.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.account_balance_wallet_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '등록된 결제수단이 없습니다',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-            ),
-          ],
-        ),
+      return EmptyStateWidget(
+        icon: Icons.payment,
+        title: '결제수단이 없습니다',
+        subtitle: '등록된 결제수단이 없습니다',
+        actionLabel: '결제수단 추가',
+        onAction: () => _showAddPaymentMethod(context),
       );
     }
 

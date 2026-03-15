@@ -10,6 +10,8 @@ import 'package:budget_book/features/budget/presentation/widgets/budget_summary_
 import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/widgets/skeleton_loader.dart';
 
 class BudgetListPage extends StatelessWidget {
   const BudgetListPage({super.key});
@@ -93,9 +95,8 @@ class BudgetListPage extends StatelessWidget {
         },
         builder: (context, state) {
           return switch (state) {
-            BudgetInitial() || BudgetLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
+            BudgetInitial() || BudgetLoading() =>
+              const SkeletonLoader(itemCount: 5),
             BudgetLoaded() => _buildLoaded(context, state),
             BudgetError() => _buildError(context),
           };
@@ -238,40 +239,15 @@ class BudgetListPage extends StatelessWidget {
   }
 
   Widget _buildEmpty(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.account_balance_wallet_outlined,
-            size: 64,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '이 달에 설정된 예산이 없습니다',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '+ 버튼을 눌러 예산을 설정하세요',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.4),
-                ),
-          ),
-        ],
-      ),
+    final state = context.read<BudgetBloc>().state;
+    final year = state is BudgetLoaded ? state.year : DateTime.now().year;
+    final month = state is BudgetLoaded ? state.month : DateTime.now().month;
+    return EmptyStateWidget(
+      icon: Icons.account_balance_wallet,
+      title: '예산이 없습니다',
+      subtitle: '이 달에 설정된 예산이 없습니다',
+      actionLabel: '예산 추가',
+      onAction: () => context.push('/budgets/create?year=$year&month=$month'),
     );
   }
 

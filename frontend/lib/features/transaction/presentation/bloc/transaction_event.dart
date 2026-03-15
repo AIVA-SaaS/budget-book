@@ -85,6 +85,10 @@ class UpdateTransaction extends TransactionEvent {
       [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId];
 }
 
+class LoadMoreTransactions extends TransactionEvent {
+  const LoadMoreTransactions();
+}
+
 class DeleteTransaction extends TransactionEvent {
   final String id;
 

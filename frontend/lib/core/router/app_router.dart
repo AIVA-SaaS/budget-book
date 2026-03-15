@@ -55,6 +55,8 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_ev
 import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
+import 'package:budget_book/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
 class _BlocListenable extends ChangeNotifier {
@@ -73,6 +75,23 @@ class _BlocListenable extends ChangeNotifier {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Cached onboarding completion flag.
+/// Set by [initOnboardingFlag] at app startup.
+bool _onboardingCompleted = false;
+
+/// Must be called before [createAppRouter] to load the cached flag.
+Future<void> initOnboardingFlag() async {
+  final prefs = await SharedPreferences.getInstance();
+  _onboardingCompleted = prefs.getBool(kOnboardingCompleted) ?? false;
+}
+
+/// Marks onboarding as completed and updates the cached flag.
+Future<void> markOnboardingCompleted() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(kOnboardingCompleted, true);
+  _onboardingCompleted = true;
+}
+
 GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
@@ -83,15 +102,27 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     final isOnLoginPage = state.matchedLocation == '/login';
     final isOnCallbackPage = state.matchedLocation == '/auth/callback';
     final isOnCouplePage = state.matchedLocation == '/couple';
+    final isOnOnboardingPage = state.matchedLocation == '/onboarding';
 
     // Allow callback page to proceed regardless of auth state
     if (isOnCallbackPage) return null;
 
     if (authState is AuthAuthenticated && isOnLoginPage) {
+      // Check onboarding first
+      if (!_onboardingCompleted) return '/onboarding';
       return authState.user.coupleId != null ? '/home' : '/couple';
     }
 
     if (authState is AuthAuthenticated) {
+      // Allow onboarding page to pass through
+      if (isOnOnboardingPage) return null;
+
+      // If onboarding not completed, redirect to onboarding
+      // (except couple page which can be accessed from onboarding)
+      if (!_onboardingCompleted && !isOnCouplePage) {
+        return '/onboarding';
+      }
+
       // If no couple and trying to access couple-required pages, redirect to /couple
       // But allow /couple itself and /settings to pass through
       if (authState.user.coupleId == null &&
@@ -121,6 +152,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         accessToken: state.uri.queryParameters['accessToken'],
         refreshToken: state.uri.queryParameters['refreshToken'],
       ),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingPage(),
     ),
     GoRoute(
       path: '/couple',

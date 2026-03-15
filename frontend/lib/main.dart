@@ -4,6 +4,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:budget_book/app.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/router/app_router.dart';
 
 // Task #18: SENTRY_DSN is injected at build time via --dart-define=SENTRY_DSN=<dsn>
 // or via CI/CD environment (never hardcoded). Leave empty to disable Sentry.
@@ -13,6 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
   await configureDependencies();
+  await initOnboardingFlag();
   Bloc.observer = AppBlocObserver();
 
   if (_sentryDsn.isNotEmpty) {
