@@ -9,6 +9,7 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart'
 import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
+import 'package:budget_book/core/widgets/skeleton_loader.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
@@ -87,7 +88,7 @@ void main() {
         (tester) async {
       when(() => mockBudgetBloc.state).thenReturn(const BudgetLoading());
       await tester.pumpWidget(buildTestWidget());
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(SkeletonLoader), findsOneWidget);
     });
 
     testWidgets('shows empty state when no budgets', (tester) async {
