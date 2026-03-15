@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
+import 'package:budget_book/core/utils/error_reporter.dart';
 import 'package:get_it/get_it.dart';
 
 class AuthInterceptor extends Interceptor {
@@ -112,7 +113,12 @@ class AuthInterceptor extends Interceptor {
       _resolvePendingRequests(newAccessToken);
 
       handler.resolve(retryResponse);
-    } on DioException {
+    } on DioException catch (refreshError, stackTrace) {
+      ErrorReporter.captureException(
+        refreshError,
+        stackTrace: stackTrace,
+        context: 'api:token_refresh',
+      );
       final storage = GetIt.I<SecureStorageService>();
       await storage.clearTokens();
       _rejectPendingRequests(err);

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
+import 'package:budget_book/core/utils/error_reporter.dart';
 import 'package:budget_book/features/auth/domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -52,7 +53,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await storageService.saveRefreshToken(event.refreshToken);
     final result = await authRepository.getCurrentUser();
     result.fold(
-      (failure) => emit(AuthError(failure.message)),
+      (failure) {
+        ErrorReporter.captureException(
+          failure,
+          context: 'auth:callback_user_fetch',
+        );
+        emit(AuthError(failure.message));
+      },
       (user) => emit(AuthAuthenticated(user)),
     );
   }
@@ -151,6 +158,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await authRepository.refreshToken(refreshToken);
     await result.fold(
       (failure) async {
+        ErrorReporter.captureException(
+          failure,
+          context: 'auth:token_refresh',
+        );
         await storageService.clearTokens();
         emit(const AuthUnauthenticated());
       },
