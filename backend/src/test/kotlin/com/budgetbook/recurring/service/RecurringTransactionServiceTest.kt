@@ -11,7 +11,7 @@ import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.recurring.domain.Frequency
 import com.budgetbook.recurring.domain.RecurringTransaction
@@ -41,12 +41,12 @@ class RecurringTransactionServiceTest : BehaviorSpec({
 
     val recurringRepository = mockk<RecurringTransactionRepository>()
     val transactionRepository = mockk<TransactionRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val userRepository = mockk<UserRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val service = RecurringTransactionService(
-        recurringRepository, transactionRepository, coupleRepository,
+        recurringRepository, transactionRepository, coupleResolver,
         userRepository, categoryRepository, paymentMethodRepository
     )
 
@@ -58,7 +58,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     // --- createRecurringTransaction ---
 
     Given("a user in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
 
         When("creating a MONTHLY recurring transaction") {
@@ -196,7 +196,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     // --- listRecurringTransactions ---
 
     Given("recurring transactions exist for couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val recurring1 = RecurringTransaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -224,7 +224,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     // --- updateRecurringTransaction ---
 
     Given("an existing recurring transaction to update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val recurring = RecurringTransaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 50000, description = "월세", frequency = Frequency.MONTHLY,
@@ -254,7 +254,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     }
 
     Given("a recurring transaction from a different couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
         val recurring = RecurringTransaction(
             couple = otherCouple, author = user2, type = TransactionType.EXPENSE,
@@ -275,7 +275,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     // --- deleteRecurringTransaction ---
 
     Given("a recurring transaction to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val recurring = RecurringTransaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 50000, description = "월세", frequency = Frequency.MONTHLY,
@@ -387,7 +387,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     // --- user not in couple ---
 
     Given("a user not in any couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("listRecurringTransactions is called") {
             Then("throws NotFoundException") {

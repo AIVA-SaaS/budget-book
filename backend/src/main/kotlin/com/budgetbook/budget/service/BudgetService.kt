@@ -15,8 +15,7 @@ import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
@@ -31,7 +30,7 @@ import java.util.UUID
 @Service
 class BudgetService(
     private val budgetRepository: MonthlyBudgetRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher
@@ -296,8 +295,7 @@ class BudgetService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun formatYearMonth(year: Int, month: Int): String =

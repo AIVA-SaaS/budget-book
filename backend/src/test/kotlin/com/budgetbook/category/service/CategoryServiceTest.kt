@@ -14,7 +14,7 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.sync.SyncEventPublisher
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
@@ -34,10 +34,10 @@ class CategoryServiceTest : BehaviorSpec({
 
     val categoryRepository = mockk<CategoryRepository>()
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleRepository, syncEventPublisher, redisCacheService)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
 
     val user1 = User(
         email = "user1@example.com",
@@ -56,7 +56,7 @@ class CategoryServiceTest : BehaviorSpec({
     // --- listCategories ---
 
     Given("a user in an active couple with categories") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val category1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         val category2 = Category(couple = couple, name = "급여", type = CategoryType.INCOME, isDefault = true)
@@ -83,7 +83,7 @@ class CategoryServiceTest : BehaviorSpec({
     }
 
     Given("a user not in a couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("listCategories is called") {
             Then("throws NotFoundException") {
@@ -98,7 +98,7 @@ class CategoryServiceTest : BehaviorSpec({
     // --- createCategory ---
 
     Given("a user in a couple creating a category") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val categorySlot = slot<Category>()
         every { categoryRepository.save(capture(categorySlot)) } answers { categorySlot.captured }
@@ -129,7 +129,7 @@ class CategoryServiceTest : BehaviorSpec({
     // --- updateCategory ---
 
     Given("a category owned by the user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, icon = "restaurant", color = "#FF5733")
         every { categoryRepository.findById(category.id) } returns Optional.of(category)
@@ -149,7 +149,7 @@ class CategoryServiceTest : BehaviorSpec({
     }
 
     Given("a category owned by a different couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
         val category = Category(couple = otherCouple, name = "Other", type = CategoryType.EXPENSE)
@@ -166,7 +166,7 @@ class CategoryServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent category") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = UUID.randomUUID()
         every { categoryRepository.findById(fakeId) } returns Optional.empty()
 
@@ -183,7 +183,7 @@ class CategoryServiceTest : BehaviorSpec({
     // --- deleteCategory ---
 
     Given("a custom (non-default) category") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val category = Category(couple = couple, name = "Custom", type = CategoryType.EXPENSE, isDefault = false)
         every { categoryRepository.findById(category.id) } returns Optional.of(category)
@@ -199,7 +199,7 @@ class CategoryServiceTest : BehaviorSpec({
     }
 
     Given("a default category") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         every { categoryRepository.findById(category.id) } returns Optional.of(category)

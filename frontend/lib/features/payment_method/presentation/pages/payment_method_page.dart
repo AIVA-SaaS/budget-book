@@ -6,6 +6,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class PaymentMethodPage extends StatelessWidget {
   const PaymentMethodPage({super.key});
@@ -258,24 +259,14 @@ class PaymentMethodPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('결제수단을 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context
-                  .read<PaymentMethodBloc>()
-                  .add(const LoadPaymentMethods());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '결제수단을 불러오지 못했습니다',
+      onRetry: () {
+        context
+            .read<PaymentMethodBloc>()
+            .add(const LoadPaymentMethods());
+      },
+      showHomeButton: true,
     );
   }
 

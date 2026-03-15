@@ -13,7 +13,7 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -36,14 +36,14 @@ class ReportServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val budgetRepository = mockk<MonthlyBudgetRepository>()
 
     val service = ReportService(
         transactionRepository,
-        coupleRepository,
+        coupleResolver,
         categoryGroupRepository,
         categoryRepository,
         budgetRepository
@@ -68,7 +68,7 @@ class ReportServiceTest : BehaviorSpec({
     // --- getWeeklyReport ---
 
     Given("a user in an active couple for weekly report") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("requesting week 1 of March 2026 with transactions") {
             // Week 1: March 1-7
@@ -259,7 +259,7 @@ class ReportServiceTest : BehaviorSpec({
     }
 
     Given("a user NOT in a couple for weekly report") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("requesting weekly report") {
             Then("throws NotFoundException") {
@@ -273,7 +273,7 @@ class ReportServiceTest : BehaviorSpec({
     // --- getMonthlyReport ---
 
     Given("a user in an active couple for monthly report") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("requesting March 2026 monthly report") {
             // Income/expense totals
@@ -490,7 +490,7 @@ class ReportServiceTest : BehaviorSpec({
     }
 
     Given("a user NOT in a couple for monthly report") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("requesting monthly report") {
             Then("throws NotFoundException") {
