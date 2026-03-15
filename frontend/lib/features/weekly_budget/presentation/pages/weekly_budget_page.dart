@@ -6,6 +6,7 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
 import 'package:budget_book/features/weekly_budget/presentation/widgets/week_summary_card.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class WeeklyBudgetPage extends StatelessWidget {
   const WeeklyBudgetPage({super.key});
@@ -190,25 +191,15 @@ class WeeklyBudgetPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context, String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(message),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              final now = DateTime.now();
-              context.read<WeeklyBudgetBloc>()
-                ..add(LoadWeeklyOverview(year: now.year, month: now.month))
-                ..add(const LoadCurrentWeek());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: message,
+      onRetry: () {
+        final now = DateTime.now();
+        context.read<WeeklyBudgetBloc>()
+          ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+          ..add(const LoadCurrentWeek());
+      },
+      showHomeButton: true,
     );
   }
 }

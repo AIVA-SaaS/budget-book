@@ -6,9 +6,8 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.dto.UserSummary
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
@@ -34,7 +33,7 @@ import java.util.UUID
 @Service
 class TransactionService(
     private val transactionRepository: TransactionRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
@@ -306,8 +305,7 @@ class TransactionService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun calculateSettlementDate(

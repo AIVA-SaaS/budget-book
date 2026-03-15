@@ -7,6 +7,7 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -31,26 +32,14 @@ class DashboardPage extends StatelessWidget {
           }
 
           if (state is DashboardError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    state.message,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () {
-                      final now = DateTime.now();
-                      context.read<DashboardBloc>().add(
-                            LoadDashboard(year: now.year, month: now.month),
-                          );
-                    },
-                    child: const Text('다시 시도'),
-                  ),
-                ],
-              ),
+            return AppErrorWidget(
+              message: state.message,
+              onRetry: () {
+                final now = DateTime.now();
+                context.read<DashboardBloc>().add(
+                      LoadDashboard(year: now.year, month: now.month),
+                    );
+              },
             );
           }
 

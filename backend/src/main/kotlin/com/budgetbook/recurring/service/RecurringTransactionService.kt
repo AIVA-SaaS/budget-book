@@ -6,8 +6,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.recurring.domain.Frequency
 import com.budgetbook.recurring.domain.RecurringTransaction
@@ -30,7 +29,7 @@ import java.util.UUID
 class RecurringTransactionService(
     private val recurringRepository: RecurringTransactionRepository,
     private val transactionRepository: TransactionRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository
@@ -296,7 +295,6 @@ class RecurringTransactionService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 }
