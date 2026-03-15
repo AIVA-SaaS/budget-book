@@ -28,7 +28,7 @@ jobs:
       - name: Verify health endpoint
         run: |
           echo "Checking health endpoint..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 15); do
             STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" \
               --connect-timeout 10 --max-time 30 \
               https://budget-book-api.onrender.com/actuator/health 2>/dev/null || echo "000")
@@ -38,23 +38,23 @@ jobs:
               cat /tmp/health.json
               echo ""
 
-              # Verify DB is connected
-              DB_STATUS=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('components',{}).get('db',{}).get('status','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
+              # Check top-level status (details hidden behind auth via show-details: when_authorized)
+              APP_STATUS=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
 
-              if [ "$DB_STATUS" = "UP" ]; then
-                echo "DB status: UP - Deployment verified!"
+              if [ "$APP_STATUS" = "UP" ]; then
+                echo "Application status: UP - Deployment verified!"
                 exit 0
               else
-                echo "WARNING: Health is UP but DB status is: $DB_STATUS"
-                echo "Retrying in 20s... (attempt $i/30)"
+                echo "WARNING: Health returned 200 but status is: $APP_STATUS"
+                echo "Retrying in 20s... (attempt $i/15)"
               fi
             else
-              echo "Health check returned $STATUS, retrying in 20s... (attempt $i/30)"
+              echo "Health check returned $STATUS, retrying in 20s... (attempt $i/15)"
             fi
             sleep 20
           done
 
-          echo "FAILED: Health check did not pass after 10 minutes"
+          echo "FAILED: Health check did not pass after 5 minutes"
           exit 1
 
       - name: Verify OAuth2 endpoints accessible
