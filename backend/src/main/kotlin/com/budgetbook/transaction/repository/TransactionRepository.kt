@@ -141,4 +141,10 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
     """)
     fun sumExpenseByPocketId(@Param("pocketId") pocketId: UUID): Long
+
+    @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
+    fun countDistinctAuthorsSince(@Param("since") since: java.time.Instant): Long
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.couple.id = :coupleId")
+    fun countByCoupleId(@Param("coupleId") coupleId: UUID): Long
 }
