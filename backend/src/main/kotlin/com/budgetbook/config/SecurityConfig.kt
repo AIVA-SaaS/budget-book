@@ -42,6 +42,8 @@ class SecurityConfig(
                     .requestMatchers("/login/oauth2/**").permitAll()
                     .requestMatchers("/api/v1/auth/refresh").permitAll()
                     .requestMatchers("/ws/**").permitAll()
+                    .requestMatchers("/api/v1/announcements/active").permitAll()
+                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             }
             .oauth2Login { oauth2 ->
