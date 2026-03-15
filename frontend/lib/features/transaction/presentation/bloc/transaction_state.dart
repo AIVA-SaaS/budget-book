@@ -22,6 +22,8 @@ class TransactionLoaded extends TransactionState {
   final int month;
   final int totalElements;
   final bool hasMore;
+  final int currentPage;
+  final bool isLoadingMore;
   final String? operationError;
   final String? operationSuccess;
 
@@ -31,6 +33,8 @@ class TransactionLoaded extends TransactionState {
     required this.month,
     required this.totalElements,
     required this.hasMore,
+    this.currentPage = 0,
+    this.isLoadingMore = false,
     this.operationError,
     this.operationSuccess,
   });
@@ -55,7 +59,7 @@ class TransactionLoaded extends TransactionState {
 
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, operationError, operationSuccess];
+      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess];
 }
 
 class TransactionError extends TransactionState {

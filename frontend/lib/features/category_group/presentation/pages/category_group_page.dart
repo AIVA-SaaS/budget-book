@@ -7,6 +7,7 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
 import 'package:budget_book/features/category_group/presentation/widgets/category_group_form_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
 
 class CategoryGroupPage extends StatelessWidget {
   const CategoryGroupPage({super.key});
@@ -57,40 +58,12 @@ class CategoryGroupPage extends StatelessWidget {
 
   Widget _buildGroupList(BuildContext context, List<CategoryGroup> groups) {
     if (groups.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.folder_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '카테고리 그룹이 없습니다',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '그룹을 추가하여 카테고리를 정리하세요',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
-                  ),
-            ),
-          ],
-        ),
+      return EmptyStateWidget(
+        icon: Icons.folder,
+        title: '카테고리 그룹이 없습니다',
+        subtitle: '그룹을 추가하여 카테고리를 정리하세요',
+        actionLabel: '그룹 추가',
+        onAction: () => _showAddGroup(context),
       );
     }
 

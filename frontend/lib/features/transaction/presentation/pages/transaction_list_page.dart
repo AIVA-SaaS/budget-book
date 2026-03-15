@@ -11,6 +11,8 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_s
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/widgets/skeleton_loader.dart';
 
 class TransactionListPage extends StatefulWidget {
   const TransactionListPage({super.key});
@@ -317,9 +319,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
         builder: (context, state) {
           return switch (state) {
-            TransactionInitial() || TransactionLoading() => const Center(
-                child: CircularProgressIndicator(),
-              ),
+            TransactionInitial() || TransactionLoading() =>
+              const SkeletonLoader(itemCount: 5),
             TransactionLoaded() => _buildLoaded(context, state),
             TransactionError() => _buildError(context),
           };
@@ -410,93 +411,95 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final grouped = state.groupedByDate;
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    return ListView.builder(
-      itemCount: sortedDates.length,
-      itemBuilder: (context, index) {
-        final date = sortedDates[index];
-        final transactions = grouped[date]!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DateHeader(dateStr: date),
-            ...transactions.map((t) => TransactionListTile(
-                  transaction: t,
-                  onTap: () => context.push('/transactions/edit/${t.id}'),
-                  onDelete: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('거래 삭제'),
-                        content: const Text('정말 삭제하시겠습니까?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('취소'),
-                          ),
-                          FilledButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              context
-                                  .read<TransactionBloc>()
-                                  .add(DeleteTransaction(t.id));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('거래가 삭제되었습니다'),
-                                ),
-                              );
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.error,
-                            ),
-                            child: const Text('삭제'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                )),
-          ],
-        );
+    // Add 1 extra item for the loading indicator when loading more
+    final itemCount =
+        sortedDates.length + (state.isLoadingMore || state.hasMore ? 1 : 0);
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollUpdateNotification) {
+          final maxScroll = notification.metrics.maxScrollExtent;
+          final currentScroll = notification.metrics.pixels;
+          // Trigger load more at 80% scroll
+          if (currentScroll >= maxScroll * 0.8) {
+            final bloc = context.read<TransactionBloc>();
+            final currentState = bloc.state;
+            if (currentState is TransactionLoaded &&
+                currentState.hasMore &&
+                !currentState.isLoadingMore) {
+              bloc.add(const LoadMoreTransactions());
+            }
+          }
+        }
+        return false;
       },
+      child: ListView.builder(
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          // Last item is loading indicator
+          if (index >= sortedDates.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final date = sortedDates[index];
+          final transactions = grouped[date]!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DateHeader(dateStr: date),
+              ...transactions.map((t) => TransactionListTile(
+                    transaction: t,
+                    onTap: () => context.push('/transactions/edit/${t.id}'),
+                    onDelete: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('거래 삭제'),
+                          content: const Text('정말 삭제하시겠습니까?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('취소'),
+                            ),
+                            FilledButton(
+                              onPressed: () {
+                                Navigator.of(ctx).pop();
+                                context
+                                    .read<TransactionBloc>()
+                                    .add(DeleteTransaction(t.id));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('거래가 삭제되었습니다'),
+                                  ),
+                                );
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                              child: const Text('삭제'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  )),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Widget _buildEmpty(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 64,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '이 달에 기록된 거래가 없습니다',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '+ 버튼을 눌러 첫 거래를 추가하세요',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.4),
-                ),
-          ),
-        ],
-      ),
+    return EmptyStateWidget(
+      icon: Icons.receipt_long,
+      title: '거래 내역이 없습니다',
+      subtitle: '이 달에 기록된 거래가 없습니다',
+      actionLabel: '거래 추가',
+      onAction: () => context.push('/transactions/create'),
     );
   }
 

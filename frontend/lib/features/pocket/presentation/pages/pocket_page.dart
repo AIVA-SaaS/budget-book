@@ -8,6 +8,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart'
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
 
 class PocketPage extends StatelessWidget {
   const PocketPage({super.key});
@@ -72,40 +73,12 @@ class PocketPage extends StatelessWidget {
     PocketLoaded state,
   ) {
     if (pockets.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.account_balance_wallet_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '등록된 포켓이 없습니다',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '+ 버튼을 눌러 첫 포켓을 만드세요',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
-                  ),
-            ),
-          ],
-        ),
+      return EmptyStateWidget(
+        icon: Icons.savings,
+        title: '포켓이 없습니다',
+        subtitle: '+ 버튼을 눌러 첫 포켓을 만드세요',
+        actionLabel: '포켓 추가',
+        onAction: () => _showAddPocket(context),
       );
     }
 
