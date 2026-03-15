@@ -1,5 +1,6 @@
 package com.budgetbook.budget.controller
 
+import com.budgetbook.budget.dto.BudgetAlertResponse
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
@@ -7,6 +8,7 @@ import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
+import com.budgetbook.budget.service.BudgetAlertService
 import com.budgetbook.budget.service.BudgetService
 import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.common.dto.ApiResponse
@@ -29,7 +31,8 @@ import java.util.UUID
 @RequestMapping("/api/v1/budgets")
 class BudgetController(
     private val budgetService: BudgetService,
-    private val weeklyBudgetService: WeeklyBudgetService
+    private val weeklyBudgetService: WeeklyBudgetService,
+    private val budgetAlertService: BudgetAlertService
 ) {
 
     @PostMapping
@@ -80,6 +83,15 @@ class BudgetController(
         val userId = authentication.principal as UUID
         val result = budgetService.copyFromPreviousMonth(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    @GetMapping("/alerts")
+    fun getBudgetAlerts(
+        authentication: Authentication,
+        @RequestParam yearMonth: String
+    ): ApiResponse<List<BudgetAlertResponse>> {
+        val userId = authentication.principal as UUID
+        return ApiResponse.ok(budgetAlertService.getBudgetAlerts(userId, yearMonth))
     }
 
     @GetMapping("/summary")

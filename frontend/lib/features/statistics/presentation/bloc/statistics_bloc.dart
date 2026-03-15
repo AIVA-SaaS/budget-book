@@ -19,6 +19,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     on<LoadCategoryBreakdown>(_onLoadCategoryBreakdown);
     on<LoadMonthlyTrend>(_onLoadMonthlyTrend);
     on<LoadYearComparison>(_onLoadYearComparison);
+    on<LoadPaymentMethodStats>(_onLoadPaymentMethodStats);
   }
 
   Future<void> _onLoadAll(
@@ -209,5 +210,30 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         previousYearSummary: previousSummary,
       ));
     }
+  }
+
+  Future<void> _onLoadPaymentMethodStats(
+    LoadPaymentMethodStats event,
+    Emitter<StatisticsState> emit,
+  ) async {
+    emit(state.copyWith(
+      paymentMethodLoading: true,
+      clearPaymentMethodError: true,
+    ));
+
+    final result = await statisticsRepository.getPaymentMethodStats(
+      year: event.year,
+      month: event.month,
+    );
+    result.fold(
+      (failure) => emit(state.copyWith(
+        paymentMethodLoading: false,
+        paymentMethodError: failure.message,
+      )),
+      (stats) => emit(state.copyWith(
+        paymentMethodLoading: false,
+        paymentMethodStats: stats,
+      )),
+    );
   }
 }

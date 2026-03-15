@@ -1,10 +1,16 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/network/api_client.dart';
+import 'package:budget_book/core/utils/web_download_stub.dart'
+    if (dart.library.html) 'package:budget_book/core/utils/web_download_web.dart'
+    as web_download;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -72,19 +78,24 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final month =
         state is TransactionLoaded ? state.month : DateTime.now().month;
 
-    final csvUrl = Uri.parse(
-      '${ApiEndpoints.baseUrl}${ApiEndpoints.transactionsExportCsv}?year=$year&month=$month',
-    );
-
     try {
-      if (await canLaunchUrl(csvUrl)) {
-        await launchUrl(csvUrl, mode: LaunchMode.externalApplication);
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('내보내기 URL을 열 수 없습니다')),
-          );
-        }
+      final response = await getIt<ApiClient>().dio.get(
+        ApiEndpoints.transactionsExportCsv,
+        queryParameters: {'year': year, 'month': month},
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      final bytes = response.data as List<int>;
+      final filename = 'transactions_${year}_$month.csv';
+
+      if (kIsWeb) {
+        web_download.triggerBrowserDownload(bytes, filename, 'text/csv');
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSV 내보내기 완료')),
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -285,6 +296,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
         title: const Text('거래'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.file_upload),
+            tooltip: '가져오기',
+            onPressed: () => context.push('/transactions/import'),
+          ),
+          IconButton(
             icon: const Icon(Icons.file_download),
             tooltip: '내보내기',
             onPressed: () => _exportCsv(context),
@@ -451,7 +467,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
               _DateHeader(dateStr: date),
               ...transactions.map((t) => TransactionListTile(
                     transaction: t,
-                    onTap: () => context.push('/transactions/edit/${t.id}'),
+                    onTap: () => context.push('/transactions/detail/${t.id}'),
                     onDelete: () {
                       showDialog(
                         context: context,
