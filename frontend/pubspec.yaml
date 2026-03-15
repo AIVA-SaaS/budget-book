@@ -61,6 +61,7 @@ dependencies:
   uuid: ^4.5.1
   logger: ^2.4.0
   url_launcher: ^6.3.0
+  file_picker: ^8.0.0
 
   # Task #18: Sentry error monitoring (disabled when SENTRY_DSN dart-define is not set)
   sentry_flutter: ^8.10.1

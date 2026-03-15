@@ -142,6 +142,22 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     """)
     fun sumExpenseByPocketId(@Param("pocketId") pocketId: UUID): Long
 
+    @Query("""
+        SELECT t.paymentMethod.id, t.paymentMethod.name, SUM(t.amount), COUNT(t)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND t.paymentMethod IS NOT NULL
+        GROUP BY t.paymentMethod.id, t.paymentMethod.name
+        ORDER BY SUM(t.amount) DESC
+    """)
+    fun sumByPaymentMethodForCouple(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
+
     @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
     fun countDistinctAuthorsSince(@Param("since") since: java.time.Instant): Long
 

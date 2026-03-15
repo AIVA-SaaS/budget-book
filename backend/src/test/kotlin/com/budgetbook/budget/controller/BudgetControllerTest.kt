@@ -10,6 +10,7 @@ import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
 import com.budgetbook.budget.dto.WeeklyGroupSummary
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
 import com.budgetbook.budget.dto.WeeklySnapshotResponse
+import com.budgetbook.budget.service.BudgetAlertService
 import com.budgetbook.budget.service.BudgetService
 import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.transaction.dto.CategorySummary
@@ -29,7 +30,8 @@ class BudgetControllerTest : FunSpec({
 
     val budgetService = mockk<BudgetService>()
     val weeklyBudgetService = mockk<WeeklyBudgetService>()
-    val controller = BudgetController(budgetService, weeklyBudgetService)
+    val budgetAlertService = mockk<BudgetAlertService>()
+    val controller = BudgetController(budgetService, weeklyBudgetService, budgetAlertService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =

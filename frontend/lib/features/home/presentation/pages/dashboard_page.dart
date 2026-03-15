@@ -10,6 +10,7 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/widgets/announcement_banner.dart';
+import 'package:budget_book/features/budget/presentation/widgets/budget_alert_widget.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -57,6 +58,8 @@ class DashboardPage extends StatelessWidget {
                 children: [
                   // Announcement banner
                   const AnnouncementBanner(),
+                  // Budget alerts
+                  const BudgetAlertWidget(),
                   // Month/Year header with navigation
                   _MonthHeader(year: state.year, month: state.month),
                   const SizedBox(height: 16),
