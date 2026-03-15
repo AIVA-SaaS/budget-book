@@ -3,6 +3,7 @@ import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/statistics/data/models/statistics_summary_model.dart';
 import 'package:budget_book/features/statistics/data/models/category_statistics_model.dart';
 import 'package:budget_book/features/statistics/data/models/monthly_trend_model.dart';
+import 'package:budget_book/features/statistics/data/models/payment_method_statistics_model.dart';
 
 abstract class StatisticsRemoteDataSource {
   Future<StatisticsSummaryModel> getSummary({
@@ -18,6 +19,11 @@ abstract class StatisticsRemoteDataSource {
 
   Future<List<MonthlyTrendModel>> getMonthlyTrend({
     int months = 6,
+  });
+
+  Future<List<PaymentMethodStatisticsModel>> getPaymentMethodStats({
+    required int year,
+    required int month,
   });
 }
 
@@ -68,6 +74,22 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     final data = response.data['data'] as List<dynamic>;
     return data
         .map((e) => MonthlyTrendModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<PaymentMethodStatisticsModel>> getPaymentMethodStats({
+    required int year,
+    required int month,
+  }) async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.statisticsPaymentMethods,
+      queryParameters: {'yearMonth': '$year-${month.toString().padLeft(2, '0')}'},
+    );
+    final data = response.data['data'] as List<dynamic>;
+    return data
+        .map((e) => PaymentMethodStatisticsModel.fromJson(
+            e as Map<String, dynamic>))
         .toList();
   }
 }

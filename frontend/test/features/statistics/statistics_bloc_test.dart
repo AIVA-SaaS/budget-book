@@ -6,6 +6,7 @@ import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
@@ -250,6 +251,64 @@ void main() {
         verify: (bloc) {
           expect(bloc.state.comparisonLoading, false);
           expect(bloc.state.comparisonError, '통계 요약을 불러오지 못했습니다');
+        },
+      );
+    });
+
+    group('LoadPaymentMethodStats', () {
+      const testPaymentMethodStats = [
+        PaymentMethodStatistics(
+          paymentMethodId: 'pm-1',
+          paymentMethodName: '신한카드',
+          paymentMethodType: 'CREDIT_CARD',
+          totalAmount: 1500000,
+          transactionCount: 20,
+          percentage: 46.9,
+        ),
+        PaymentMethodStatistics(
+          paymentMethodId: 'pm-2',
+          paymentMethodName: '현금',
+          paymentMethodType: 'CASH',
+          totalAmount: 800000,
+          transactionCount: 15,
+          percentage: 25.0,
+        ),
+      ];
+
+      blocTest<StatisticsBloc, StatisticsState>(
+        'emits loaded payment method stats on success',
+        build: () {
+          when(() => mockRepository.getPaymentMethodStats(
+                year: 2026,
+                month: 3,
+              )).thenAnswer((_) async => const Right(testPaymentMethodStats));
+          return StatisticsBloc(statisticsRepository: mockRepository);
+        },
+        act: (bloc) =>
+            bloc.add(const LoadPaymentMethodStats(year: 2026, month: 3)),
+        verify: (bloc) {
+          expect(bloc.state.paymentMethodStats, testPaymentMethodStats);
+          expect(bloc.state.paymentMethodLoading, false);
+          expect(bloc.state.paymentMethodError, null);
+        },
+      );
+
+      blocTest<StatisticsBloc, StatisticsState>(
+        'emits error when LoadPaymentMethodStats fails',
+        build: () {
+          when(() => mockRepository.getPaymentMethodStats(
+                year: 2026,
+                month: 3,
+              )).thenAnswer((_) async =>
+              const Left(ServerFailure('결제수단별 통계를 불러오지 못했습니다')));
+          return StatisticsBloc(statisticsRepository: mockRepository);
+        },
+        act: (bloc) =>
+            bloc.add(const LoadPaymentMethodStats(year: 2026, month: 3)),
+        verify: (bloc) {
+          expect(
+              bloc.state.paymentMethodError, '결제수단별 통계를 불러오지 못했습니다');
+          expect(bloc.state.paymentMethodLoading, false);
         },
       );
     });
