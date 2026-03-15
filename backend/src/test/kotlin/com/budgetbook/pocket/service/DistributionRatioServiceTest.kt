@@ -6,7 +6,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.pocket.domain.DistributionRatio
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketType
@@ -32,8 +32,8 @@ class DistributionRatioServiceTest : BehaviorSpec({
 
     val distributionRatioRepository = mockk<DistributionRatioRepository>()
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
-    val service = DistributionRatioService(distributionRatioRepository, moneyPocketRepository, coupleRepository)
+    val coupleResolver = mockk<CoupleResolver>()
+    val service = DistributionRatioService(distributionRatioRepository, moneyPocketRepository, coupleResolver)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -45,7 +45,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     // --- getRatios ---
 
     Given("a couple with saved distribution ratios") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val ratio1 = DistributionRatio(couple = couple, pocket = pocket1, ratio = BigDecimal("70.00"))
         val ratio2 = DistributionRatio(couple = couple, pocket = pocket2, ratio = BigDecimal("30.00"))
         every { distributionRatioRepository.findByCoupleId(couple.id) } returns listOf(ratio1, ratio2)
@@ -66,7 +66,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     // --- saveRatios ---
 
     Given("a couple with active pockets") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
         justRun { distributionRatioRepository.deleteByCoupleId(couple.id) }
         val ratioSlot = slot<DistributionRatio>()
@@ -91,7 +91,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios that sum to 99.99 (within tolerance)") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
         justRun { distributionRatioRepository.deleteByCoupleId(couple.id) }
         val ratioSlot = slot<DistributionRatio>()
@@ -115,7 +115,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios that sum to 100.01 (within tolerance)") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
         justRun { distributionRatioRepository.deleteByCoupleId(couple.id) }
         val ratioSlot = slot<DistributionRatio>()
@@ -139,7 +139,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios that do not sum to 100") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("saving ratios summing to 90") {
             val request = SaveDistributionRatiosRequest(
@@ -159,7 +159,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios that sum to 99.98 (outside tolerance)") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("saving ratios summing to 99.98") {
             val request = SaveDistributionRatiosRequest(
@@ -179,7 +179,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios with an invalid pocket ID") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1)
 
         When("saving ratios referencing a non-existent pocket") {
@@ -201,7 +201,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     }
 
     Given("ratios with duplicate pocket IDs") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
 
         When("saving ratios with duplicated pocket") {
@@ -224,7 +224,7 @@ class DistributionRatioServiceTest : BehaviorSpec({
     // --- getActiveCouple error ---
 
     Given("a user not in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("getRatios is called") {
             Then("throws NotFoundException") {

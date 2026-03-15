@@ -16,7 +16,7 @@ import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -37,11 +37,11 @@ class BudgetServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val budgetRepository = mockk<MonthlyBudgetRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val categoryRepository = mockk<CategoryRepository>()
     val transactionRepository = mockk<TransactionRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = BudgetService(budgetRepository, coupleRepository, categoryRepository, transactionRepository, syncEventPublisher)
+    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, transactionRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -51,7 +51,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- createBudget ---
 
     Given("a user in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("creating a budget with a category") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
@@ -132,7 +132,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- getBudgetsByMonth ---
 
     Given("budgets exist for the user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val budget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
@@ -154,7 +154,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- updateBudget ---
 
     Given("an existing budget to update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
         every { budgetRepository.save(budget) } returns budget
@@ -170,7 +170,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("a budget from a different couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
         val budget = MonthlyBudget(couple = otherCouple, yearMonth = "2026-03", amount = 100000)
         every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
@@ -185,7 +185,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("an existing MONTHLY budget switching to WEEKLY") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 150000,
             budgetPeriod = BudgetPeriod.MONTHLY, weeklyAmount = null
@@ -207,7 +207,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("an existing WEEKLY budget updating amount only") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 150000,
             budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 30000
@@ -229,7 +229,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("an existing WEEKLY budget with explicit weeklyAmount") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 200000,
             budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 40000
@@ -249,7 +249,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("an existing WEEKLY budget switching to MONTHLY") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 200000,
             budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 40000
@@ -270,7 +270,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("an existing budget with invalid budgetPeriod in update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 150000
         )
@@ -287,7 +287,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent budget to update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = UUID.randomUUID()
         every { budgetRepository.findById(fakeId) } returns Optional.empty()
 
@@ -304,7 +304,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- deleteBudget ---
 
     Given("a budget to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val budget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
         every { budgetRepository.delete(budget) } returns Unit
@@ -319,7 +319,7 @@ class BudgetServiceTest : BehaviorSpec({
     }
 
     Given("a budget from a different couple to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
         val budget = MonthlyBudget(couple = otherCouple, yearMonth = "2026-03", amount = 100000)
         every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
@@ -336,7 +336,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- getBudgetSummary ---
 
     Given("budgets and transactions exist for summary") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val budget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
@@ -393,7 +393,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- copyFromPreviousMonth ---
 
     Given("a user in an active couple for copy") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("copying budgets from a month with budgets to an empty month") {
             val sourceBudget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
@@ -477,7 +477,7 @@ class BudgetServiceTest : BehaviorSpec({
     // --- user not in couple ---
 
     Given("a user not in any couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("any budget operation is called") {
             Then("throws NotFoundException for createBudget") {

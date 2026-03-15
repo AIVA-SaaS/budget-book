@@ -7,7 +7,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketTransfer
 import com.budgetbook.pocket.domain.PocketType
@@ -35,10 +35,10 @@ class PocketTransferServiceTest : BehaviorSpec({
 
     val pocketTransferRepository = mockk<PocketTransferRepository>()
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val userRepository = mockk<UserRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = PocketTransferService(pocketTransferRepository, moneyPocketRepository, coupleRepository, userRepository, syncEventPublisher)
+    val service = PocketTransferService(pocketTransferRepository, moneyPocketRepository, coupleResolver, userRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -49,7 +49,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     // --- getTransfers ---
 
     Given("a user with transfers") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val transfer = PocketTransfer(
             couple = couple, fromPocket = pocket1, toPocket = pocket2,
             amount = 100000, description = "저축 이동", transferDate = LocalDate.of(2024, 3, 1), author = user1
@@ -72,7 +72,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     // --- createTransfer ---
 
     Given("a user creating a transfer") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
         every { moneyPocketRepository.findByIdAndCoupleId(pocket1.id, couple.id) } returns pocket1
         every { moneyPocketRepository.findByIdAndCoupleId(pocket2.id, couple.id) } returns pocket2
@@ -120,7 +120,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     }
 
     Given("a user creating a transfer with non-existent source pocket") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
         val fakeId = java.util.UUID.randomUUID()
         every { moneyPocketRepository.findByIdAndCoupleId(fakeId, couple.id) } returns null
@@ -144,7 +144,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     // --- distribute ---
 
     Given("a user distributing income") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.findByIdAndCoupleId(pocket1.id, couple.id) } returns pocket1
         every { moneyPocketRepository.findByIdAndCoupleId(pocket2.id, couple.id) } returns pocket2
         every { moneyPocketRepository.save(any()) } answers { firstArg() }
@@ -177,7 +177,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     }
 
     Given("a user distributing with mismatched total") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("distribute is called with wrong total") {
             val request = DistributeRequest(
@@ -200,7 +200,7 @@ class PocketTransferServiceTest : BehaviorSpec({
     // --- getActiveCouple error ---
 
     Given("a user not in any active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("getTransfers is called") {
             Then("throws NotFoundException") {

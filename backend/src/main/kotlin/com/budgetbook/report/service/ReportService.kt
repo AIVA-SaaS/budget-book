@@ -6,8 +6,7 @@ import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.report.dto.CardPendingReportSummary
 import com.budgetbook.report.dto.CategorySpendingItem
 import com.budgetbook.report.dto.DailySpendingItem
@@ -32,7 +31,7 @@ import java.util.UUID
 @Service
 class ReportService(
     private val transactionRepository: TransactionRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val budgetRepository: MonthlyBudgetRepository
@@ -500,7 +499,6 @@ class ReportService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 }

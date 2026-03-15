@@ -10,6 +10,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_e
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class TransactionListPage extends StatefulWidget {
   const TransactionListPage({super.key});
@@ -501,24 +502,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
   Widget _buildError(BuildContext context) {
     final now = DateTime.now();
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('거래를 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context.read<TransactionBloc>().add(
-                    LoadTransactions(year: now.year, month: now.month),
-                  );
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '거래를 불러오지 못했습니다',
+      onRetry: () {
+        context.read<TransactionBloc>().add(
+              LoadTransactions(year: now.year, month: now.month),
+            );
+      },
+      showHomeButton: true,
     );
   }
 }

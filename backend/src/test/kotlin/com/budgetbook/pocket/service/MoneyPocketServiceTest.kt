@@ -6,7 +6,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketType
 import com.budgetbook.pocket.dto.CreatePocketRequest
@@ -31,7 +31,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val pocketTransferRepository = mockk<PocketTransferRepository> {
         every { sumAmountByToPocketId(any()) } returns 0L
@@ -40,7 +40,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     val transactionRepository = mockk<TransactionRepository> {
         every { sumExpenseByPocketId(any()) } returns 0L
     }
-    val service = MoneyPocketService(moneyPocketRepository, coupleRepository, syncEventPublisher, pocketTransferRepository, transactionRepository)
+    val service = MoneyPocketService(moneyPocketRepository, coupleResolver, syncEventPublisher, pocketTransferRepository, transactionRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -49,7 +49,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- getPockets ---
 
     Given("a user in an active couple with pockets") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val pocket1 = MoneyPocket(couple = couple, name = "생활비", type = PocketType.LIVING, allocatedAmount = 500000, displayOrder = 1)
         val pocket2 = MoneyPocket(couple = couple, name = "저축", type = PocketType.SAVINGS, allocatedAmount = 1000000, displayOrder = 2)
@@ -72,7 +72,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- createPocket ---
 
     Given("a user in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.maxDisplayOrderByCoupleId(couple.id) } returns 2
 
         When("creating a pocket with valid data") {
@@ -122,7 +122,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- updatePocket ---
 
     Given("an existing active pocket") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pocket = MoneyPocket(couple = couple, name = "생활비", type = PocketType.LIVING, allocatedAmount = 500000, displayOrder = 1)
         every { moneyPocketRepository.findByIdAndCoupleId(pocket.id, couple.id) } returns pocket
         every { moneyPocketRepository.save(pocket) } returns pocket
@@ -143,7 +143,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent pocket") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = java.util.UUID.randomUUID()
         every { moneyPocketRepository.findByIdAndCoupleId(fakeId, couple.id) } returns null
 
@@ -158,7 +158,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     }
 
     Given("an inactive pocket") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pocket = MoneyPocket(couple = couple, name = "삭제됨", type = PocketType.CUSTOM, allocatedAmount = 0, isActive = false)
         every { moneyPocketRepository.findByIdAndCoupleId(pocket.id, couple.id) } returns pocket
 
@@ -174,7 +174,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- deletePocket ---
 
     Given("an active pocket to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pocket = MoneyPocket(couple = couple, name = "삭제할거", type = PocketType.CUSTOM, allocatedAmount = 100000, displayOrder = 1)
         every { moneyPocketRepository.findByIdAndCoupleId(pocket.id, couple.id) } returns pocket
         every { moneyPocketRepository.save(pocket) } returns pocket
@@ -219,7 +219,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- goal amount in create ---
 
     Given("a user creating a pocket with goal fields") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { moneyPocketRepository.maxDisplayOrderByCoupleId(couple.id) } returns 0
 
         When("creating a pocket with goalAmount and targetDate") {
@@ -245,7 +245,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- goal amount in update ---
 
     Given("an existing pocket to update with goal fields") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pocket = MoneyPocket(couple = couple, name = "저축", type = PocketType.SAVINGS, allocatedAmount = 100000, displayOrder = 1)
         every { moneyPocketRepository.findByIdAndCoupleId(pocket.id, couple.id) } returns pocket
         every { moneyPocketRepository.save(pocket) } returns pocket
@@ -264,7 +264,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
     // --- getActiveCouple error ---
 
     Given("a user not in any active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("getPockets is called") {
             Then("throws NotFoundException") {
