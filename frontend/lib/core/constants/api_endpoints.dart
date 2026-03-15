@@ -64,4 +64,12 @@ class ApiEndpoints {
   static const String transactionsExportCsv =
       '/api/v1/transactions/export/csv';
 
+  // Admin
+  static const String adminStats = '/api/v1/admin/stats';
+  static const String adminUsers = '/api/v1/admin/users';
+  static const String adminAnnouncements = '/api/v1/admin/announcements';
+
+  // Announcements (public)
+  static const String announcementsActive = '/api/v1/announcements/active';
+
 }

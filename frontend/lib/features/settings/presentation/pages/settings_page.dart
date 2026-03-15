@@ -189,6 +189,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
+            // Admin (only visible for ADMIN users)
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                if (state is AuthAuthenticated &&
+                    state.user.role == 'ADMIN') {
+                  return ListTile(
+                    leading: const Icon(Icons.admin_panel_settings,
+                        color: Colors.red),
+                    title: const Text('관리자'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin'),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             const Divider(),
             // App info
             ListTile(
