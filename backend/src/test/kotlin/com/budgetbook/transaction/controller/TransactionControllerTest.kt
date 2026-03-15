@@ -6,6 +6,7 @@ import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.transaction.service.TransactionExportService
+import com.budgetbook.transaction.service.TransactionImportService
 import com.budgetbook.transaction.service.TransactionService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -24,7 +25,8 @@ class TransactionControllerTest : FunSpec({
 
     val transactionService = mockk<TransactionService>()
     val transactionExportService = mockk<TransactionExportService>()
-    val controller = TransactionController(transactionService, transactionExportService)
+    val transactionImportService = mockk<TransactionImportService>()
+    val controller = TransactionController(transactionService, transactionExportService, transactionImportService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =

@@ -5,6 +5,7 @@ import 'package:budget_book/features/statistics/data/datasources/statistics_remo
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 
 class StatisticsRepositoryImpl implements StatisticsRepository {
@@ -55,6 +56,23 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       return Right(result);
     } on DioException catch (e) {
       return Left(_mapDioError(e, '월별 추이를 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<PaymentMethodStatistics>>>
+      getPaymentMethodStats({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      final result = await remoteDataSource.getPaymentMethodStats(
+        year: year,
+        month: month,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e, '결제수단별 통계를 불러오지 못했습니다'));
     }
   }
 

@@ -60,9 +60,18 @@ class ApiEndpoints {
   // Pocket Transfers
   static const String pocketTransfers = '/api/v1/pocket-transfers';
 
-  // Export
+  // Export / Import
   static const String transactionsExportCsv =
       '/api/v1/transactions/export/csv';
+  static const String transactionsImportCsv =
+      '/api/v1/transactions/import/csv';
+
+  // Budget Alerts
+  static const String budgetAlerts = '/api/v1/budgets/alerts';
+
+  // Statistics - Payment Methods
+  static const String statisticsPaymentMethods =
+      '/api/v1/statistics/payment-methods';
 
   // Admin
   static const String adminStats = '/api/v1/admin/stats';

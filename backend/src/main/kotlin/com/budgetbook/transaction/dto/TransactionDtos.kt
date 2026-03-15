@@ -99,3 +99,14 @@ data class PageResponse<T>(
     val first: Boolean,
     val last: Boolean
 )
+
+data class CsvImportResponse(
+    val imported: Int,
+    val skipped: Int,
+    val errors: List<CsvImportError>
+)
+
+data class CsvImportError(
+    val row: Int,
+    val reason: String
+)

@@ -85,6 +85,15 @@ data class BudgetSummaryItemResponse(
     val usageRate: Double
 )
 
+data class BudgetAlertResponse(
+    val categoryId: String,
+    val categoryName: String,
+    val budgetAmount: Long,
+    val spentAmount: Long,
+    val percentage: Int,
+    val alertLevel: String  // "SAFE", "WARNING" (>=80%), "EXCEEDED" (>=100%)
+)
+
 fun MonthlyBudget.toResponse() = BudgetResponse(
     id = id,
     coupleId = couple.id,

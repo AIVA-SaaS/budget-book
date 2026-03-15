@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
 class StatisticsState extends Equatable {
   final int year;
@@ -29,6 +30,11 @@ class StatisticsState extends Equatable {
   final StatisticsSummary? previousYearSummary;
   final String? comparisonError;
 
+  // Payment method stats
+  final bool paymentMethodLoading;
+  final List<PaymentMethodStatistics> paymentMethodStats;
+  final String? paymentMethodError;
+
   const StatisticsState({
     required this.year,
     required this.month,
@@ -46,6 +52,9 @@ class StatisticsState extends Equatable {
     this.currentYearSummary,
     this.previousYearSummary,
     this.comparisonError,
+    this.paymentMethodLoading = false,
+    this.paymentMethodStats = const [],
+    this.paymentMethodError,
   });
 
   bool get isAllLoading => summaryLoading && categoryLoading && trendLoading;
@@ -71,6 +80,10 @@ class StatisticsState extends Equatable {
     StatisticsSummary? previousYearSummary,
     String? comparisonError,
     bool clearComparisonError = false,
+    bool? paymentMethodLoading,
+    List<PaymentMethodStatistics>? paymentMethodStats,
+    String? paymentMethodError,
+    bool clearPaymentMethodError = false,
   }) {
     return StatisticsState(
       year: year ?? this.year,
@@ -93,6 +106,11 @@ class StatisticsState extends Equatable {
       comparisonError: clearComparisonError
           ? null
           : (comparisonError ?? this.comparisonError),
+      paymentMethodLoading: paymentMethodLoading ?? this.paymentMethodLoading,
+      paymentMethodStats: paymentMethodStats ?? this.paymentMethodStats,
+      paymentMethodError: clearPaymentMethodError
+          ? null
+          : (paymentMethodError ?? this.paymentMethodError),
     );
   }
 
@@ -114,5 +132,8 @@ class StatisticsState extends Equatable {
         currentYearSummary,
         previousYearSummary,
         comparisonError,
+        paymentMethodLoading,
+        paymentMethodStats,
+        paymentMethodError,
       ];
 }
