@@ -56,6 +56,9 @@ import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart'
 import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
 import 'package:budget_book/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:budget_book/features/admin/presentation/pages/admin_dashboard_page.dart';
+import 'package:budget_book/features/admin/presentation/pages/admin_users_page.dart';
+import 'package:budget_book/features/admin/presentation/pages/admin_announcements_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
@@ -103,6 +106,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     final isOnCallbackPage = state.matchedLocation == '/auth/callback';
     final isOnCouplePage = state.matchedLocation == '/couple';
     final isOnOnboardingPage = state.matchedLocation == '/onboarding';
+    final isOnAdminPage = state.matchedLocation.startsWith('/admin');
 
     // Allow callback page to proceed regardless of auth state
     if (isOnCallbackPage) return null;
@@ -114,19 +118,25 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     }
 
     if (authState is AuthAuthenticated) {
+      // Admin guard: redirect non-admin users away from admin pages
+      if (isOnAdminPage && authState.user.role != 'ADMIN') {
+        return '/home';
+      }
+
       // Allow onboarding page to pass through
       if (isOnOnboardingPage) return null;
 
       // If onboarding not completed, redirect to onboarding
       // (except couple page which can be accessed from onboarding)
-      if (!_onboardingCompleted && !isOnCouplePage) {
+      if (!_onboardingCompleted && !isOnCouplePage && !isOnAdminPage) {
         return '/onboarding';
       }
 
       // If no couple and trying to access couple-required pages, redirect to /couple
-      // But allow /couple itself and /settings to pass through
+      // But allow /couple itself, /settings, and /admin to pass through
       if (authState.user.coupleId == null &&
           !isOnCouplePage &&
+          !isOnAdminPage &&
           state.matchedLocation != '/settings') {
         return '/couple';
       }
@@ -537,6 +547,22 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           child: const PocketTransferPage(),
         );
       },
+    ),
+    // Admin pages
+    GoRoute(
+      path: '/admin',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AdminDashboardPage(),
+    ),
+    GoRoute(
+      path: '/admin/users',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AdminUsersPage(),
+    ),
+    GoRoute(
+      path: '/admin/announcements',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AdminAnnouncementsPage(),
     ),
   ],
 );

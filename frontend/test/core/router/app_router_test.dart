@@ -39,6 +39,16 @@ void main() {
     mockAuthBloc = MockAuthBloc();
   });
 
+  final adminUser = User(
+    id: 'admin-id',
+    email: 'admin@example.com',
+    nickname: 'Admin',
+    provider: 'GOOGLE',
+    role: 'ADMIN',
+    coupleId: 'couple-123',
+    createdAt: DateTime(2024),
+  );
+
   // Build a test app with the same redirect logic as app_router.dart
   // but with simple page builders that don't require DI (getIt).
   Widget buildTestApp({String initialLocation = '/login'}) {
@@ -50,6 +60,7 @@ void main() {
         final isOnLoginPage = state.matchedLocation == '/login';
         final isOnCallbackPage = state.matchedLocation == '/auth/callback';
         final isOnCouplePage = state.matchedLocation == '/couple';
+        final isOnAdminPage = state.matchedLocation.startsWith('/admin');
 
         if (isOnCallbackPage) return null;
 
@@ -58,7 +69,13 @@ void main() {
         }
 
         if (authState is AuthAuthenticated) {
-          if (authState.user.coupleId == null && !isOnCouplePage) {
+          // Admin guard
+          if (isOnAdminPage && authState.user.role != 'ADMIN') {
+            return '/home';
+          }
+          if (authState.user.coupleId == null &&
+              !isOnCouplePage &&
+              !isOnAdminPage) {
             return '/couple';
           }
           return null;
@@ -87,6 +104,19 @@ void main() {
         GoRoute(
           path: '/couple',
           builder: (_, __) => const Scaffold(body: Text('Couple')),
+        ),
+        GoRoute(
+          path: '/admin',
+          builder: (_, __) => const Scaffold(body: Text('Admin')),
+        ),
+        GoRoute(
+          path: '/admin/users',
+          builder: (_, __) => const Scaffold(body: Text('Admin Users')),
+        ),
+        GoRoute(
+          path: '/admin/announcements',
+          builder: (_, __) =>
+              const Scaffold(body: Text('Admin Announcements')),
         ),
       ],
     );
@@ -203,6 +233,84 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Home'), findsOneWidget);
+    });
+
+    testWidgets('redirects non-admin user from /admin to /home',
+        (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(AuthAuthenticated(userWithCouple));
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester.pumpWidget(buildTestApp(initialLocation: '/admin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Home'), findsOneWidget);
+    });
+
+    testWidgets('redirects non-admin user from /admin/users to /home',
+        (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(AuthAuthenticated(userWithCouple));
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester.pumpWidget(buildTestApp(initialLocation: '/admin/users'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Home'), findsOneWidget);
+    });
+
+    testWidgets('allows admin user to access /admin', (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(AuthAuthenticated(adminUser));
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester.pumpWidget(buildTestApp(initialLocation: '/admin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Admin'), findsOneWidget);
+    });
+
+    testWidgets('allows admin user to access /admin/users', (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(AuthAuthenticated(adminUser));
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester
+          .pumpWidget(buildTestApp(initialLocation: '/admin/users'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Admin Users'), findsOneWidget);
+    });
+
+    testWidgets('allows admin user to access /admin/announcements',
+        (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(AuthAuthenticated(adminUser));
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester.pumpWidget(
+          buildTestApp(initialLocation: '/admin/announcements'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Admin Announcements'), findsOneWidget);
+    });
+
+    testWidgets('redirects unauthenticated user from /admin to /login',
+        (tester) async {
+      when(() => mockAuthBloc.state)
+          .thenReturn(const AuthUnauthenticated());
+      when(() => mockAuthBloc.stream)
+          .thenAnswer((_) => const Stream.empty());
+
+      await tester.pumpWidget(buildTestApp(initialLocation: '/admin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Login'), findsOneWidget);
     });
   });
 }
