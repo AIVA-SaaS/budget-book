@@ -9,6 +9,7 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart'
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
 import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class BudgetListPage extends StatelessWidget {
   const BudgetListPage({super.key});
@@ -276,24 +277,14 @@ class BudgetListPage extends StatelessWidget {
 
   Widget _buildError(BuildContext context) {
     final now = DateTime.now();
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('예산을 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context.read<BudgetBloc>().add(
-                    LoadBudgets(year: now.year, month: now.month),
-                  );
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '예산을 불러오지 못했습니다',
+      onRetry: () {
+        context.read<BudgetBloc>().add(
+              LoadBudgets(year: now.year, month: now.month),
+            );
+      },
+      showHomeButton: true,
     );
   }
 

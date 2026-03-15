@@ -13,8 +13,7 @@ import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
@@ -27,7 +26,7 @@ import java.util.UUID
 class WeeklyBudgetService(
     private val snapshotRepository: WeeklyBudgetSnapshotRepository,
     private val budgetRepository: MonthlyBudgetRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository
@@ -97,22 +96,26 @@ class WeeklyBudgetService(
         val weekNumber = currentWeekIndex + 1
         val (weekStart, weekEnd) = weekRanges[currentWeekIndex]
 
-        // Get all WEEKLY-type category groups for this couple
-        val weeklyGroups = categoryGroupRepository.findByCoupleId(couple.id)
-            .filter { it.budgetType == BudgetType.WEEKLY }
+        // Batch-fetch all data upfront (eliminates N+1 queries)
+        val allGroups = categoryGroupRepository.findByCoupleId(couple.id)
+        val weeklyGroups = allGroups.filter { it.budgetType == BudgetType.WEEKLY }
+
+        val allCategories = categoryRepository.findByCoupleId(couple.id)
+        val categoriesByGroupId = allCategories.groupBy { it.group?.id }
+
+        val allBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
+        val budgetByCategoryId = allBudgets.associateBy { it.category?.id }
 
         val groups = weeklyGroups.map { group ->
-            // Find categories in this group
-            val categoriesInGroup = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+            val categoriesInGroup = categoriesByGroupId[group.id] ?: emptyList()
             val categoryIds = categoriesInGroup.map { it.id }.toSet()
 
-            // Get monthly budget for this group's categories and calculate weekly amount
-            val budgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
-            val groupBudgetAmount = budgets
-                .filter { it.category != null && categoryIds.contains(it.category!!.id) }
-                .sumOf { it.weeklyAmount ?: (it.amount / weekRanges.size) }
+            val groupBudgetAmount = categoryIds.sumOf { catId ->
+                val budget = budgetByCategoryId[catId]
+                budget?.weeklyAmount ?: (budget?.amount?.div(weekRanges.size) ?: 0L)
+            }
 
-            // Use optimized SUM query filtered by categories
+            // Single SUM query per group (unavoidable without DB-level grouping)
             val spent = if (categoryIds.isNotEmpty()) {
                 calculateSpentForPeriodByCategories(couple.id, weekStart, weekEnd, categoryIds)
             } else {
@@ -236,8 +239,7 @@ class WeeklyBudgetService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun formatYearMonth(year: Int, month: Int): String =

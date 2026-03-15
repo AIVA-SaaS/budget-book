@@ -4,8 +4,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketType
 import com.budgetbook.pocket.dto.CreatePocketRequest
@@ -24,7 +23,7 @@ import java.util.UUID
 @Service
 class MoneyPocketService(
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
     private val pocketTransferRepository: PocketTransferRepository,
     private val transactionRepository: TransactionRepository
@@ -156,8 +155,7 @@ class MoneyPocketService(
     }
 
     internal fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun MoneyPocket.toResponse(balance: Long) = PocketResponse(

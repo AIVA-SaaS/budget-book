@@ -6,6 +6,7 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
 import 'package:budget_book/features/category_group/presentation/widgets/category_group_form_sheet.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class CategoryGroupPage extends StatelessWidget {
   const CategoryGroupPage({super.key});
@@ -244,24 +245,14 @@ class CategoryGroupPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('카테고리 그룹을 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context
-                  .read<CategoryGroupBloc>()
-                  .add(const LoadCategoryGroups());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '카테고리 그룹을 불러오지 못했습니다',
+      onRetry: () {
+        context
+            .read<CategoryGroupBloc>()
+            .add(const LoadCategoryGroups());
+      },
+      showHomeButton: true,
     );
   }
 

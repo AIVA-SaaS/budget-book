@@ -5,6 +5,7 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_state.dart';
 import 'package:budget_book/features/recurring/presentation/widgets/recurring_list_tile.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class RecurringListPage extends StatelessWidget {
   const RecurringListPage({super.key});
@@ -155,24 +156,14 @@ class RecurringListPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('반복 거래를 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context
-                  .read<RecurringBloc>()
-                  .add(const LoadRecurringTransactions());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '반복 거래를 불러오지 못했습니다',
+      onRetry: () {
+        context
+            .read<RecurringBloc>()
+            .add(const LoadRecurringTransactions());
+      },
+      showHomeButton: true,
     );
   }
 }
