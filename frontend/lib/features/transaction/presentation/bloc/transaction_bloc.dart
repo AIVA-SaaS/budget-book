@@ -17,10 +17,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   TransactionBloc({required this.transactionRepository})
       : super(const TransactionInitial()) {
     on<LoadTransactions>(_onLoadTransactions);
+    on<LoadMoreTransactions>(_onLoadMoreTransactions);
     on<CreateTransaction>(_onCreateTransaction);
     on<UpdateTransaction>(_onUpdateTransaction);
     on<DeleteTransaction>(_onDeleteTransaction);
   }
+
+  static const int _pageSize = 30;
 
   Future<void> _onLoadTransactions(
     LoadTransactions event,
@@ -43,7 +46,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       pocketId: event.pocketId,
       amountMin: event.amountMin,
       amountMax: event.amountMax,
-      size: 100,
+      page: 0,
+      size: _pageSize,
     );
     result.fold(
       (failure) => emit(TransactionError(failure.message)),
@@ -53,7 +57,75 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         month: event.month,
         totalElements: page.totalElements,
         hasMore: !page.last,
+        currentPage: 0,
       )),
+    );
+  }
+
+  Future<void> _onLoadMoreTransactions(
+    LoadMoreTransactions event,
+    Emitter<TransactionState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TransactionLoaded ||
+        !currentState.hasMore ||
+        currentState.isLoadingMore) {
+      return;
+    }
+
+    final nextPage = currentState.currentPage + 1;
+
+    // Emit loading-more state
+    emit(TransactionLoaded(
+      transactions: currentState.transactions,
+      year: currentState.year,
+      month: currentState.month,
+      totalElements: currentState.totalElements,
+      hasMore: currentState.hasMore,
+      currentPage: currentState.currentPage,
+      isLoadingMore: true,
+    ));
+
+    final result = await transactionRepository.getTransactions(
+      year: _currentYear,
+      month: _currentMonth,
+      keyword: _currentKeyword,
+      paymentMethodId: _currentPaymentMethodId,
+      pocketId: _currentPocketId,
+      amountMin: _currentAmountMin,
+      amountMax: _currentAmountMax,
+      page: nextPage,
+      size: _pageSize,
+    );
+
+    result.fold(
+      (failure) {
+        // Revert to non-loading state on error
+        emit(TransactionLoaded(
+          transactions: currentState.transactions,
+          year: currentState.year,
+          month: currentState.month,
+          totalElements: currentState.totalElements,
+          hasMore: currentState.hasMore,
+          currentPage: currentState.currentPage,
+          isLoadingMore: false,
+          operationError: failure.message,
+        ));
+      },
+      (page) {
+        final allTransactions = [
+          ...currentState.transactions,
+          ...page.content,
+        ];
+        emit(TransactionLoaded(
+          transactions: allTransactions,
+          year: currentState.year,
+          month: currentState.month,
+          totalElements: page.totalElements,
+          hasMore: !page.last,
+          currentPage: nextPage,
+        ));
+      },
     );
   }
 
