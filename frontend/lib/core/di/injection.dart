@@ -64,6 +64,12 @@ import 'package:budget_book/core/services/cache_service.dart';
 
 final getIt = GetIt.instance;
 
+/// Disposes all singleton BLoCs and services registered in GetIt.
+/// Call this on app shutdown to prevent resource leaks.
+Future<void> disposeAllSingletons() async {
+  await getIt.reset();
+}
+
 Future<void> configureDependencies() async {
   // Core
   getIt.registerLazySingleton<SecureStorageService>(
