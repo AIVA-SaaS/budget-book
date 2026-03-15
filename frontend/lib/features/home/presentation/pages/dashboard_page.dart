@@ -8,6 +8,7 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/skeleton_loader.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -28,7 +29,7 @@ class DashboardPage extends StatelessWidget {
       body: BlocBuilder<DashboardBloc, DashboardState>(
         builder: (context, state) {
           if (state is DashboardLoading || state is DashboardInitial) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonLoader(itemCount: 5);
           }
 
           if (state is DashboardError) {
