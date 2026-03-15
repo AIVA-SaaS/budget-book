@@ -8,7 +8,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.transaction.domain.Transaction
@@ -31,8 +31,8 @@ class TransactionExportServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
-    val service = TransactionExportService(transactionRepository, coupleRepository)
+    val coupleResolver = mockk<CoupleResolver>()
+    val service = TransactionExportService(transactionRepository, coupleResolver)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -53,7 +53,7 @@ class TransactionExportServiceTest : BehaviorSpec({
     )
 
     Given("a couple with transactions") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val tx1 = Transaction(
             couple = couple,
@@ -99,7 +99,7 @@ class TransactionExportServiceTest : BehaviorSpec({
     }
 
     Given("a couple with no transactions") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { transactionRepository.findAll(any<Specification<Transaction>>(), any<Sort>()) } returns emptyList()
 
         When("exportCsv is called") {
@@ -114,7 +114,7 @@ class TransactionExportServiceTest : BehaviorSpec({
     }
 
     Given("a transaction with CSV-special characters in description") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val tx = Transaction(
             couple = couple,
@@ -139,7 +139,7 @@ class TransactionExportServiceTest : BehaviorSpec({
     }
 
     Given("an invalid transaction type for export") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("exportCsv is called with invalid type") {
             Then("throws BusinessException") {
@@ -152,7 +152,7 @@ class TransactionExportServiceTest : BehaviorSpec({
     }
 
     Given("a user not in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("exportCsv is called") {
             Then("throws NotFoundException") {

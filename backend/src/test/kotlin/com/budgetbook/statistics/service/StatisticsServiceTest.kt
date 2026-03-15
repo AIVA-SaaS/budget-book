@@ -6,7 +6,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -25,8 +25,8 @@ class StatisticsServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
-    val service = StatisticsService(transactionRepository, coupleRepository)
+    val coupleResolver = mockk<CoupleResolver>()
+    val service = StatisticsService(transactionRepository, coupleResolver)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -35,7 +35,7 @@ class StatisticsServiceTest : BehaviorSpec({
     // --- getMonthlySummary ---
 
     Given("a user in an active couple for monthly summary") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("there are income and expense transactions") {
             every {
@@ -82,7 +82,7 @@ class StatisticsServiceTest : BehaviorSpec({
     }
 
     Given("a user NOT in a couple for monthly summary") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("requesting summary") {
             Then("throws NotFoundException") {
@@ -96,7 +96,7 @@ class StatisticsServiceTest : BehaviorSpec({
     // --- getCategoryBreakdown ---
 
     Given("a user in an active couple for category breakdown") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val catId1 = UUID.randomUUID()
         val catId2 = UUID.randomUUID()
@@ -157,7 +157,7 @@ class StatisticsServiceTest : BehaviorSpec({
     // --- getMonthlyTrend ---
 
     Given("a user in an active couple for monthly trend") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("requesting 3 months of trend data") {
             val now = YearMonth.now()

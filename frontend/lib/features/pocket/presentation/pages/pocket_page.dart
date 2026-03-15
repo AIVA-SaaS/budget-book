@@ -7,6 +7,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class PocketPage extends StatelessWidget {
   const PocketPage({super.key});
@@ -128,22 +129,12 @@ class PocketPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('포켓을 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context.read<PocketBloc>().add(const LoadPockets());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '포켓을 불러오지 못했습니다',
+      onRetry: () {
+        context.read<PocketBloc>().add(const LoadPockets());
+      },
+      showHomeButton: true,
     );
   }
 

@@ -11,7 +11,7 @@ import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
@@ -41,13 +41,13 @@ class TransactionServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val userRepository = mockk<UserRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = TransactionService(transactionRepository, coupleRepository, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher)
+    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -57,7 +57,7 @@ class TransactionServiceTest : BehaviorSpec({
     // --- createTransaction ---
 
     Given("a user in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
 
         When("creating a transaction without category") {
@@ -119,7 +119,7 @@ class TransactionServiceTest : BehaviorSpec({
     // --- getTransaction ---
 
     Given("an existing transaction in the user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 15000, description = "점심", transactionDate = LocalDate.of(2024, 1, 15)
@@ -137,7 +137,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("a transaction from a different couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
         val tx = Transaction(
             couple = otherCouple, author = user2, type = TransactionType.INCOME,
@@ -153,7 +153,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent transaction") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = UUID.randomUUID()
         every { transactionRepository.findById(fakeId) } returns Optional.empty()
 
@@ -168,7 +168,7 @@ class TransactionServiceTest : BehaviorSpec({
     // --- updateTransaction ---
 
     Given("an existing transaction to update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 15000, description = "점심", transactionDate = LocalDate.of(2024, 1, 15)
@@ -188,7 +188,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("an existing transaction with memo to clear") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 15000, description = "점심", memo = "기존 메모",
@@ -217,7 +217,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("an existing transaction with a category to clear") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 15000, description = "점심", category = category,
@@ -248,7 +248,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("an existing transaction with a payment method to clear") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pm = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 25)
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -271,7 +271,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("a transaction with a credit card where transactionDate changes") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pm = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 25)
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -295,7 +295,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("a transaction with a DEBIT card where transactionDate changes") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pm = PaymentMethod(couple = couple, name = "체크카드", type = PaymentMethodType.DEBIT)
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -317,7 +317,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("a transaction with CASH (no payment method) where transactionDate changes") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 5000, description = "편의점", paymentMethod = null,
@@ -340,7 +340,7 @@ class TransactionServiceTest : BehaviorSpec({
     // --- deleteTransaction ---
 
     Given("a transaction to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val tx = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
             amount = 15000, description = "삭제", transactionDate = LocalDate.of(2024, 1, 15)
@@ -360,7 +360,7 @@ class TransactionServiceTest : BehaviorSpec({
     // --- listTransactions ---
 
     Given("transactions exist for the user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val tx1 = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -389,7 +389,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("transactions exist and keyword filter is used") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val tx1 = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -409,7 +409,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("transactions exist and amount range filter is used") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val tx1 = Transaction(
             couple = couple, author = user1, type = TransactionType.EXPENSE,
@@ -428,7 +428,7 @@ class TransactionServiceTest : BehaviorSpec({
     }
 
     Given("transactions exist and paymentMethodId filter is used") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pmId = UUID.randomUUID()
 
         val tx1 = Transaction(

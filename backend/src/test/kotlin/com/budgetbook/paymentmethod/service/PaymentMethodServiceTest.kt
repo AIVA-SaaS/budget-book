@@ -6,7 +6,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
@@ -31,10 +31,10 @@ class PaymentMethodServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val transactionRepository = mockk<TransactionRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = PaymentMethodService(paymentMethodRepository, coupleRepository, transactionRepository, syncEventPublisher)
+    val service = PaymentMethodService(paymentMethodRepository, coupleResolver, transactionRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -43,7 +43,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- listPaymentMethods ---
 
     Given("a user in an active couple with payment methods") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val cash = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH, isDefault = true, displayOrder = 0)
         val debit = PaymentMethod(couple = couple, name = "체크카드", type = PaymentMethodType.DEBIT, isDefault = true, displayOrder = 1)
@@ -63,7 +63,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- createPaymentMethod ---
 
     Given("a user in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("creating a CASH payment method") {
             val request = CreatePaymentMethodRequest(name = "현금", type = "CASH")
@@ -123,7 +123,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- updatePaymentMethod ---
 
     Given("an existing payment method to update") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val method = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH, displayOrder = 0)
         every { paymentMethodRepository.findByIdAndCoupleId(method.id, couple.id) } returns method
         every { paymentMethodRepository.save(method) } returns method
@@ -157,7 +157,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent payment method") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = UUID.randomUUID()
         every { paymentMethodRepository.findByIdAndCoupleId(fakeId, couple.id) } returns null
 
@@ -174,7 +174,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- deletePaymentMethod ---
 
     Given("a non-default payment method to delete") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val method = PaymentMethod(couple = couple, name = "삭제할 카드", type = PaymentMethodType.CREDIT)
         every { paymentMethodRepository.findByIdAndCoupleId(method.id, couple.id) } returns method
         every { paymentMethodRepository.delete(method) } returns Unit
@@ -189,7 +189,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     }
 
     Given("a default payment method") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val method = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH, isDefault = true)
         every { paymentMethodRepository.findByIdAndCoupleId(method.id, couple.id) } returns method
 
@@ -228,7 +228,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- getCardPendingSummary ---
 
     Given("a couple with credit cards and transactions") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val creditCard = PaymentMethod(
             couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
@@ -274,7 +274,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
     // --- user not in couple ---
 
     Given("a user not in any couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("listPaymentMethods is called") {
             Then("throws NotFoundException") {

@@ -17,7 +17,7 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -36,12 +36,12 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
 
     val snapshotRepository = mockk<WeeklyBudgetSnapshotRepository>()
     val budgetRepository = mockk<MonthlyBudgetRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val transactionRepository = mockk<TransactionRepository>()
     val service = WeeklyBudgetService(
-        snapshotRepository, budgetRepository, coupleRepository,
+        snapshotRepository, budgetRepository, coupleResolver,
         categoryGroupRepository, categoryRepository, transactionRepository
     )
 
@@ -81,7 +81,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
     // --- getWeeklyOverview ---
 
     Given("budgets exist for a user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val budget = MonthlyBudget(
             couple = couple, yearMonth = "2026-03", amount = 500000,
@@ -114,7 +114,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
     }
 
     Given("snapshots already exist") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val snapshot = WeeklyBudgetSnapshot(
             couple = couple, yearMonth = "2026-03", weekNumber = 1,
@@ -147,7 +147,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
     // --- getCurrentWeekSummary ---
 
     Given("weekly groups exist for the couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val weeklyGroup = CategoryGroup(
             couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY
@@ -161,7 +161,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             couple = couple, name = "식비", type = CategoryType.EXPENSE,
             group = weeklyGroup
         )
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, weeklyGroup.id) } returns listOf(category1)
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category1)
 
         val today = LocalDate.now()
         val yearMonth = "%04d-%02d".format(today.year, today.monthValue)
@@ -204,7 +204,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
     // --- user not in couple ---
 
     Given("a user not in any couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("getWeeklyOverview is called") {
             Then("throws NotFoundException") {
