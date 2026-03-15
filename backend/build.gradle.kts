@@ -47,6 +47,9 @@ dependencies {
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlin.reflect)
 
+    // Metrics (Prometheus)
+    implementation(libs.micrometer.registry.prometheus)
+
     // Task #18: Sentry error monitoring (no-op when SENTRY_DSN env var is absent)
     implementation(libs.sentry.spring.boot.starter)
 

@@ -9,6 +9,7 @@ caffeine = "3.1.8"
 flyway = "10.15.0"
 jjwt = "0.12.6"
 sentry = "7.14.0"
+micrometer-prometheus = "1.12.5"
 
 [libraries]
 # Spring Boot
@@ -41,6 +42,9 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 
 # Sentry (error monitoring)
 sentry-spring-boot-starter = { module = "io.sentry:sentry-spring-boot-starter-jakarta", version.ref = "sentry" }
+
+# Metrics (Prometheus)
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 
 # Test
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
