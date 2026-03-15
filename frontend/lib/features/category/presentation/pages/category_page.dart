@@ -7,6 +7,7 @@ import 'package:budget_book/features/category/presentation/bloc/category_state.d
 import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
 import 'package:budget_book/features/category/presentation/widgets/category_list_tile.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
 
 class CategoryPage extends StatelessWidget {
   const CategoryPage({super.key});
@@ -86,30 +87,12 @@ class CategoryPage extends StatelessWidget {
     String type,
   ) {
     if (categories.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.category_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              type == 'EXPENSE' ? '지출 카테고리가 없습니다' : '수입 카테고리가 없습니다',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-            ),
-          ],
-        ),
+      return EmptyStateWidget(
+        icon: Icons.category,
+        title: '카테고리가 없습니다',
+        subtitle: type == 'EXPENSE' ? '지출 카테고리가 없습니다' : '수입 카테고리가 없습니다',
+        actionLabel: '카테고리 추가',
+        onAction: () => _showAddCategory(context),
       );
     }
 

@@ -6,6 +6,7 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_event
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_state.dart';
 import 'package:budget_book/features/recurring/presentation/widgets/recurring_list_tile.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/empty_state_widget.dart';
 
 class RecurringListPage extends StatelessWidget {
   const RecurringListPage({super.key});
@@ -58,24 +59,12 @@ class RecurringListPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     if (state.transactions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.repeat_outlined,
-              size: 64,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '등록된 반복 거래가 없습니다',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-          ],
-        ),
+      return EmptyStateWidget(
+        icon: Icons.repeat,
+        title: '반복 거래가 없습니다',
+        subtitle: '등록된 반복 거래가 없습니다',
+        actionLabel: '반복 거래 추가',
+        onAction: () => context.push('/recurring/create'),
       );
     }
 

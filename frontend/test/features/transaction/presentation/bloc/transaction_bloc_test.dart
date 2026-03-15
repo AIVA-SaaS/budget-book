@@ -191,7 +191,7 @@ void main() {
   final tPageResponse = PageResponse<Transaction>(
     content: tTransactions,
     page: 0,
-    size: 100,
+    size: 30,
     totalElements: 2,
     totalPages: 1,
     first: true,
@@ -220,7 +220,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 100,
+            size: 30,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -247,7 +247,7 @@ void main() {
             keyword: 'lunch',
             amountMin: 5000,
             amountMax: 20000,
-            size: 100,
+            size: 30,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -276,7 +276,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 100,
+            size: 30,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to load transactions')));
           return transactionBloc;
@@ -331,7 +331,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 100,
+            size: 30,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -352,7 +352,7 @@ void main() {
           verify(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 100,
+            size: 30,
           )).called(1);
         },
       );
@@ -412,6 +412,105 @@ void main() {
             operationError: 'Failed to delete transaction',
           ),
         ],
+      );
+    });
+
+    group('LoadMoreTransactions', () {
+      final tPage1Response = PageResponse<Transaction>(
+        content: [tTransaction1],
+        page: 0,
+        size: 30,
+        totalElements: 2,
+        totalPages: 2,
+        first: true,
+        last: false,
+      );
+
+      final tPage2Response = PageResponse<Transaction>(
+        content: [tTransaction2],
+        page: 1,
+        size: 30,
+        totalElements: 2,
+        totalPages: 2,
+        first: false,
+        last: true,
+      );
+
+      blocTest<TransactionBloc, TransactionState>(
+        'appends more transactions when LoadMoreTransactions is dispatched',
+        build: () {
+          when(mockRepository.getTransactions(
+            year: 2024,
+            month: 1,
+            page: 0,
+            size: 30,
+          )).thenAnswer((_) async => Right(tPage1Response));
+          when(mockRepository.getTransactions(
+            year: 2024,
+            month: 1,
+            page: 1,
+            size: 30,
+          )).thenAnswer((_) async => Right(tPage2Response));
+          return transactionBloc;
+        },
+        act: (bloc) async {
+          bloc.add(const LoadTransactions(year: 2024, month: 1));
+          await Future.delayed(const Duration(milliseconds: 100));
+          bloc.add(const LoadMoreTransactions());
+        },
+        skip: 2, // skip TransactionLoading and first TransactionLoaded
+        expect: () => [
+          // isLoadingMore = true
+          TransactionLoaded(
+            transactions: [tTransaction1],
+            year: 2024,
+            month: 1,
+            totalElements: 2,
+            hasMore: true,
+            currentPage: 0,
+            isLoadingMore: true,
+          ),
+          // Loaded page 2, appended
+          TransactionLoaded(
+            transactions: [tTransaction1, tTransaction2],
+            year: 2024,
+            month: 1,
+            totalElements: 2,
+            hasMore: false,
+            currentPage: 1,
+          ),
+        ],
+      );
+
+      blocTest<TransactionBloc, TransactionState>(
+        'does nothing when hasMore is false',
+        build: () => transactionBloc,
+        seed: () => TransactionLoaded(
+          transactions: tTransactions,
+          year: 2024,
+          month: 1,
+          totalElements: 2,
+          hasMore: false,
+          currentPage: 0,
+        ),
+        act: (bloc) => bloc.add(const LoadMoreTransactions()),
+        expect: () => [], // no state change
+      );
+
+      blocTest<TransactionBloc, TransactionState>(
+        'does nothing when already loading more',
+        build: () => transactionBloc,
+        seed: () => TransactionLoaded(
+          transactions: [tTransaction1],
+          year: 2024,
+          month: 1,
+          totalElements: 2,
+          hasMore: true,
+          currentPage: 0,
+          isLoadingMore: true,
+        ),
+        act: (bloc) => bloc.add(const LoadMoreTransactions()),
+        expect: () => [], // no state change
       );
     });
 
