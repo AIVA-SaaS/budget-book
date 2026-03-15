@@ -15,7 +15,7 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.sync.SyncEventPublisher
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
@@ -34,12 +34,12 @@ class CategoryGroupServiceTest : BehaviorSpec({
 
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
-    val coupleRepository = mockk<CoupleRepository>()
+    val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleRepository, syncEventPublisher, redisCacheService)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
     val categoryGroupService = CategoryGroupService(
-        categoryGroupRepository, categoryRepository, categoryService, coupleRepository, syncEventPublisher
+        categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher
     )
 
     val user1 = User(
@@ -59,7 +59,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     // --- listCategoryGroups ---
 
     Given("a user in an active couple with category groups") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group1 = CategoryGroup(
             couple = couple, name = "생활비", icon = "wallet", color = "#4CAF50",
@@ -95,7 +95,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     }
 
     Given("a user with no uncategorized categories") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", displayOrder = 1, isDefault = true)
         every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group)
@@ -113,7 +113,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     }
 
     Given("a user not in a couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleResolver.getActiveCouple(user1.id) } throws NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
 
         When("listCategoryGroups is called") {
             Then("throws NotFoundException") {
@@ -128,7 +128,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     // --- createCategoryGroup ---
 
     Given("a user in a couple creating a category group") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val groupSlot = slot<CategoryGroup>()
         every { categoryGroupRepository.save(capture(groupSlot)) } answers { groupSlot.captured }
@@ -163,7 +163,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     // --- updateCategoryGroup ---
 
     Given("a category group owned by the user's couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(
             couple = couple, name = "생활비", icon = "wallet", color = "#4CAF50",
@@ -187,7 +187,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     }
 
     Given("a non-existent category group") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val fakeId = UUID.randomUUID()
         every { categoryGroupRepository.findByIdAndCoupleId(fakeId, couple.id) } returns null
 
@@ -204,7 +204,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     // --- deleteCategoryGroup ---
 
     Given("a custom (non-default) category group") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "Custom Group", isDefault = false)
         every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
@@ -222,7 +222,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     }
 
     Given("a custom group with categories assigned") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "Custom Group", isDefault = false)
         val category = Category(couple = couple, name = "Test Cat", type = CategoryType.EXPENSE, group = group)
@@ -243,7 +243,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
     }
 
     Given("a default category group") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", isDefault = true)
         every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group

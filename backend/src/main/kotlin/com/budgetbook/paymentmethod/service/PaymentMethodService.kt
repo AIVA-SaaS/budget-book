@@ -4,8 +4,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.domain.CoupleStatus
-import com.budgetbook.couple.repository.CoupleRepository
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
@@ -25,7 +24,7 @@ import java.util.UUID
 @Service
 class PaymentMethodService(
     private val paymentMethodRepository: PaymentMethodRepository,
-    private val coupleRepository: CoupleRepository,
+    private val coupleResolver: CoupleResolver,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher
 ) {
@@ -166,8 +165,7 @@ class PaymentMethodService(
     }
 
     private fun getActiveCouple(userId: UUID): Couple {
-        return coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-            ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not in an active couple.")
+        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun PaymentMethod.toResponse() = PaymentMethodResponse(

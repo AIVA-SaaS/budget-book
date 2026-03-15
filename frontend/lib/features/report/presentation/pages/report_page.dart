@@ -9,6 +9,7 @@ import 'package:budget_book/features/report/presentation/bloc/report_state.dart'
 import 'package:budget_book/features/report/presentation/widgets/overspend_category_tile.dart';
 import 'package:budget_book/features/report/presentation/widgets/daily_spending_chart.dart';
 import 'package:budget_book/features/report/presentation/widgets/month_comparison_card.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -582,26 +583,16 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Widget _buildError(BuildContext context, String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(message),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              final now = DateTime.now();
-              context.read<ReportBloc>()
-                ..add(LoadMonthlyReport(year: now.year, month: now.month))
-                ..add(LoadWeeklyReport(
-                    year: now.year, month: now.month, week: 1));
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: message,
+      onRetry: () {
+        final now = DateTime.now();
+        context.read<ReportBloc>()
+          ..add(LoadMonthlyReport(year: now.year, month: now.month))
+          ..add(LoadWeeklyReport(
+              year: now.year, month: now.month, week: 1));
+      },
+      showHomeButton: true,
     );
   }
 

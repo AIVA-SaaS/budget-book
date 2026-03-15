@@ -6,6 +6,7 @@ import 'package:budget_book/features/category/presentation/bloc/category_event.d
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
 import 'package:budget_book/features/category/presentation/widgets/category_list_tile.dart';
+import 'package:budget_book/core/widgets/error_widget.dart';
 
 class CategoryPage extends StatelessWidget {
   const CategoryPage({super.key});
@@ -129,22 +130,12 @@ class CategoryPage extends StatelessWidget {
   }
 
   Widget _buildError(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text('카테고리를 불러오지 못했습니다'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              context.read<CategoryBloc>().add(const LoadCategories());
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
+    return AppErrorWidget(
+      message: '카테고리를 불러오지 못했습니다',
+      onRetry: () {
+        context.read<CategoryBloc>().add(const LoadCategories());
+      },
+      showHomeButton: true,
     );
   }
 
