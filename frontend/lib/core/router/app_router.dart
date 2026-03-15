@@ -19,6 +19,8 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_form_page.dart';
+import 'package:budget_book/features/transaction/presentation/pages/transaction_import_page.dart';
+import 'package:budget_book/features/transaction/presentation/pages/transaction_detail_page.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
@@ -244,7 +246,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 final now = DateTime.now();
                 return BlocProvider<StatisticsBloc>(
                   create: (_) => getIt<StatisticsBloc>()
-                    ..add(LoadAllStatistics(year: now.year, month: now.month)),
+                    ..add(LoadAllStatistics(year: now.year, month: now.month))
+                    ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
                   child: const StatisticsPage(),
                 );
               },
@@ -329,6 +332,22 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           child: TransactionFormPage(
             transactionId: transactionId,
           ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/transactions/import',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const TransactionImportPage(),
+    ),
+    GoRoute(
+      path: '/transactions/detail/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final transactionId = state.pathParameters['id']!;
+        return BlocProvider<TransactionBloc>.value(
+          value: getIt<TransactionBloc>(),
+          child: TransactionDetailPage(transactionId: transactionId),
         );
       },
     ),

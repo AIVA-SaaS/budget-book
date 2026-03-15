@@ -3,6 +3,7 @@ package com.budgetbook.statistics.controller
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
+import com.budgetbook.statistics.service.PaymentMethodStatisticsService
 import com.budgetbook.statistics.service.StatisticsService
 import com.budgetbook.transaction.dto.CategorySummary
 import io.kotest.core.spec.style.FunSpec
@@ -16,7 +17,8 @@ import java.util.UUID
 class StatisticsControllerTest : FunSpec({
 
     val statisticsService = mockk<StatisticsService>()
-    val controller = StatisticsController(statisticsService)
+    val paymentMethodStatisticsService = mockk<PaymentMethodStatisticsService>()
+    val controller = StatisticsController(statisticsService, paymentMethodStatisticsService)
     val testUserId = UUID.randomUUID()
 
     fun createAuth(userId: UUID): Authentication =

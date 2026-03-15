@@ -60,3 +60,13 @@ class LoadYearComparison extends StatisticsEvent {
   @override
   List<Object?> get props => [year, month];
 }
+
+class LoadPaymentMethodStats extends StatisticsEvent {
+  final int year;
+  final int month;
+
+  const LoadPaymentMethodStats({required this.year, required this.month});
+
+  @override
+  List<Object?> get props => [year, month];
+}
