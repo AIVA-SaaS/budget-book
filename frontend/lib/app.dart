@@ -30,6 +30,14 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
   }
 
   @override
+  void dispose() {
+    _router.dispose();
+    // Singleton BLoCs are disposed via GetIt's dispose callbacks
+    // when disposeAllSingletons() is called (e.g., in tests or app shutdown).
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [

@@ -18,7 +18,7 @@ data class BudgetRequest(
     val yearMonth: String,
 
     @field:NotNull
-    @field:Min(1)
+    @field:Min(0)
     @field:Max(999_999_999)
     val amount: Long,
 
@@ -27,7 +27,7 @@ data class BudgetRequest(
 
 data class BudgetUpdateRequest(
     @field:NotNull
-    @field:Min(1)
+    @field:Min(0)
     @field:Max(999_999_999)
     val amount: Long,
 
