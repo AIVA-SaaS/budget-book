@@ -21,6 +21,8 @@ jobs:
   verify:
     needs: deploy
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Wait for Render build (8 min)
         run: sleep 480
@@ -71,8 +73,21 @@ jobs:
             echo "This may be due to Render cold start. Skipping as non-critical."
           fi
 
-      - name: Create Issue on Verification Failure
+      - name: Check for existing deploy failure issue
         if: failure()
+        id: check_issue
+        run: |
+          EXISTING=$(gh issue list \
+            --label ci-failure --label deploy \
+            --state open \
+            --json number \
+            --jq 'length')
+          echo "existing_issues=$EXISTING" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Issue on Verification Failure
+        if: failure() && steps.check_issue.outputs.existing_issues == '0'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

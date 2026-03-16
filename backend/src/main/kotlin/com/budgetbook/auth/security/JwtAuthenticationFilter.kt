@@ -21,6 +21,14 @@ class JwtAuthenticationFilter(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        val path = request.servletPath
+        return path.startsWith("/actuator/") ||
+               path.startsWith("/oauth2/") ||
+               path.startsWith("/login/oauth2/") ||
+               path == "/api/v1/health"
+    }
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -28,23 +36,26 @@ class JwtAuthenticationFilter(
     ) {
         val token = extractBearerToken(request)
 
-        if (token != null && jwtTokenProvider.validateToken(token)) {
-            try {
-                val userId = jwtTokenProvider.getUserIdFromToken(token)
-                val user = userCacheService.findById(userId)
+        if (token != null) {
+            val claims = jwtTokenProvider.parseAndValidateToken(token)
+            if (claims != null) {
+                try {
+                    val userId = jwtTokenProvider.getUserIdFromClaims(claims)
+                    val user = userCacheService.findById(userId)
 
-                if (user != null) {
-                    val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
-                    val authentication = UsernamePasswordAuthenticationToken(
-                        user.id,
-                        null,
-                        authorities
-                    )
-                    authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
-                    SecurityContextHolder.getContext().authentication = authentication
+                    if (user != null) {
+                        val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}"))
+                        val authentication = UsernamePasswordAuthenticationToken(
+                            user.id,
+                            null,
+                            authorities
+                        )
+                        authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                        SecurityContextHolder.getContext().authentication = authentication
+                    }
+                } catch (e: Exception) {
+                    log.warn("Failed to set user authentication: {}", e.message)
                 }
-            } catch (e: Exception) {
-                log.warn("Failed to set user authentication: {}", e.message)
             }
         }
 
