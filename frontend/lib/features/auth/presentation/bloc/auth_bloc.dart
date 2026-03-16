@@ -82,7 +82,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final result = await authRepository.getCurrentUser();
     result.fold(
-      (failure) => null, // keep current state
+      (failure) {
+        // Re-emit current state so BlocListeners waiting for refresh still fire
+        if (state is AuthAuthenticated) {
+          emit(AuthAuthenticated((state as AuthAuthenticated).user));
+        }
+      },
       (user) => emit(AuthAuthenticated(user)),
     );
   }
