@@ -80,6 +80,9 @@ class _BlocListenable extends ChangeNotifier {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Key used to store onboarding completion flag in SharedPreferences.
+const String kOnboardingCompleted = 'onboarding_completed';
+
 /// Cached onboarding completion flag.
 /// Set by [initOnboardingFlag] at app startup.
 bool _onboardingCompleted = false;
@@ -91,10 +94,12 @@ Future<void> initOnboardingFlag() async {
 }
 
 /// Marks onboarding as completed and updates the cached flag.
+/// CRITICAL: The in-memory flag MUST be set synchronously BEFORE async ops,
+/// because GoRouter redirect reads it synchronously.
 Future<void> markOnboardingCompleted() async {
+  _onboardingCompleted = true; // Synchronous — redirect sees this immediately
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(kOnboardingCompleted, true);
-  _onboardingCompleted = true;
 }
 
 GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
