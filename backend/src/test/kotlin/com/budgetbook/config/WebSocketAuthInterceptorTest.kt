@@ -1,6 +1,7 @@
 package com.budgetbook.config
 
 import com.budgetbook.auth.service.JwtTokenProvider
+import io.jsonwebtoken.Claims
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -21,9 +22,10 @@ class WebSocketAuthInterceptorTest : BehaviorSpec({
     Given("a STOMP CONNECT frame with a valid JWT token") {
         val userId = UUID.randomUUID()
         val token = "valid-jwt-token"
+        val claims = mockk<Claims>()
 
-        every { jwtTokenProvider.validateToken(token) } returns true
-        every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns claims
+        every { jwtTokenProvider.getUserIdFromClaims(claims) } returns userId
 
         When("preSend is called") {
             val accessor = StompHeaderAccessor.create(StompCommand.CONNECT)
@@ -56,7 +58,7 @@ class WebSocketAuthInterceptorTest : BehaviorSpec({
     }
 
     Given("a STOMP CONNECT frame with an invalid JWT token") {
-        every { jwtTokenProvider.validateToken("bad-token") } returns false
+        every { jwtTokenProvider.parseAndValidateToken("bad-token") } returns null
 
         When("preSend is called") {
             val accessor = StompHeaderAccessor.create(StompCommand.CONNECT)

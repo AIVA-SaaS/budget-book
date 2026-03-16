@@ -1,6 +1,7 @@
 package com.budgetbook.config
 
 import com.budgetbook.auth.config.AppProperties
+import com.budgetbook.auth.security.CookieOAuth2AuthorizationRequestRepository
 import com.budgetbook.auth.security.JwtAuthenticationFilter
 import com.budgetbook.auth.security.OAuth2AuthenticationFailureHandler
 import com.budgetbook.auth.security.OAuth2AuthenticationSuccessHandler
@@ -25,6 +26,7 @@ class SecurityConfig(
     private val customOidcUserService: CustomOidcUserService,
     private val oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler,
     private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler,
+    private val cookieOAuth2AuthorizationRequestRepository: CookieOAuth2AuthorizationRequestRepository,
     private val appProperties: AppProperties
 ) {
 
@@ -48,6 +50,9 @@ class SecurityConfig(
             }
             .oauth2Login { oauth2 ->
                 oauth2
+                    .authorizationEndpoint { endpoint ->
+                        endpoint.authorizationRequestRepository(cookieOAuth2AuthorizationRequestRepository)
+                    }
                     .userInfoEndpoint {
                         it.userService(customOAuth2UserService)
                         it.oidcUserService(customOidcUserService)

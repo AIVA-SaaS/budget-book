@@ -2,6 +2,8 @@ package com.budgetbook.auth.service
 
 import com.budgetbook.auth.config.JwtProperties
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
@@ -82,6 +84,49 @@ class JwtTokenProviderTest : FunSpec({
 
         val token = jwtTokenProvider.generateAccessToken(userId, email)
         val extractedId = jwtTokenProvider.getUserIdFromToken(token)
+
+        extractedId shouldBe userId
+    }
+
+    test("parseAndValidateToken returns Claims for a valid token") {
+        val userId = UUID.randomUUID()
+        val email = "test@example.com"
+
+        val token = jwtTokenProvider.generateAccessToken(userId, email)
+        val claims = jwtTokenProvider.parseAndValidateToken(token)
+
+        claims.shouldNotBeNull()
+        claims.subject shouldBe userId.toString()
+    }
+
+    test("parseAndValidateToken returns null for an invalid token") {
+        val claims = jwtTokenProvider.parseAndValidateToken("invalid.token.here")
+
+        claims.shouldBeNull()
+    }
+
+    test("parseAndValidateToken returns null for an expired token") {
+        val shortExpiryProperties = JwtProperties(
+            secret = "test-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm",
+            accessTokenExpiry = 1,
+            refreshTokenExpiry = 1
+        )
+        val shortExpiryProvider = JwtTokenProvider(shortExpiryProperties)
+
+        val token = shortExpiryProvider.generateAccessToken(UUID.randomUUID(), "test@example.com")
+        Thread.sleep(50)
+
+        val claims = shortExpiryProvider.parseAndValidateToken(token)
+
+        claims.shouldBeNull()
+    }
+
+    test("getUserIdFromClaims extracts UUID from claims") {
+        val userId = UUID.randomUUID()
+        val token = jwtTokenProvider.generateAccessToken(userId, "test@example.com")
+        val claims = jwtTokenProvider.parseAndValidateToken(token)!!
+
+        val extractedId = jwtTokenProvider.getUserIdFromClaims(claims)
 
         extractedId shouldBe userId
     }
