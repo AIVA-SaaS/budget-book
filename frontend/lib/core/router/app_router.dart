@@ -114,12 +114,22 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     if (isOnCallbackPage) return null;
 
     if (authState is AuthAuthenticated && isOnLoginPage) {
-      // Check onboarding first
+      // Server state is source of truth: if user already has a couple,
+      // auto-complete onboarding (handles new-device / cleared-cache case).
+      if (!_onboardingCompleted && authState.user.coupleId != null) {
+        markOnboardingCompleted();
+      }
       if (!_onboardingCompleted) return '/onboarding';
       return authState.user.coupleId != null ? '/home' : '/couple';
     }
 
     if (authState is AuthAuthenticated) {
+      // Server state is source of truth: auto-complete onboarding
+      // when the user already has a couple.
+      if (!_onboardingCompleted && authState.user.coupleId != null) {
+        markOnboardingCompleted();
+      }
+
       // Admin guard: redirect non-admin users away from admin pages
       if (isOnAdminPage && authState.user.role != 'ADMIN') {
         return '/home';

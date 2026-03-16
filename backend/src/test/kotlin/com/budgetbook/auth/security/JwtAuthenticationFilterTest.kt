@@ -5,6 +5,7 @@ import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.domain.UserRole
 import com.budgetbook.auth.service.JwtTokenProvider
 import com.budgetbook.auth.service.UserCacheService
+import io.jsonwebtoken.Claims
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -32,9 +33,16 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
         SecurityContextHolder.clearContext()
     }
 
+    fun mockClaims(userId: UUID): Claims {
+        val claims = mockk<Claims>()
+        every { claims.subject } returns userId.toString()
+        return claims
+    }
+
     Given("a request with a valid Bearer token") {
         val userId = UUID.randomUUID()
         val token = "valid-jwt-token"
+        val claims = mockClaims(userId)
         val user = User(
             id = userId,
             email = "test@example.com",
@@ -43,8 +51,8 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
             providerId = "google-123"
         )
 
-        every { jwtTokenProvider.validateToken(token) } returns true
-        every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns claims
+        every { jwtTokenProvider.getUserIdFromClaims(claims) } returns userId
         every { userCacheService.findById(userId) } returns user
 
         When("the filter processes the request") {
@@ -71,6 +79,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     Given("a request with a valid token for an ADMIN user") {
         val userId = UUID.randomUUID()
         val token = "admin-jwt-token"
+        val claims = mockClaims(userId)
         val adminUser = User(
             id = userId,
             email = "admin@example.com",
@@ -80,8 +89,8 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
             role = UserRole.ADMIN
         )
 
-        every { jwtTokenProvider.validateToken(token) } returns true
-        every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns claims
+        every { jwtTokenProvider.getUserIdFromClaims(claims) } returns userId
         every { userCacheService.findById(userId) } returns adminUser
 
         When("the filter processes the request") {
@@ -139,7 +148,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     Given("a request with an invalid JWT token") {
         val token = "invalid-token"
 
-        every { jwtTokenProvider.validateToken(token) } returns false
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns null
 
         When("the filter processes the request") {
             val request = MockHttpServletRequest().apply {
@@ -162,9 +171,10 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     Given("a valid token but user not found in DB") {
         val userId = UUID.randomUUID()
         val token = "valid-but-no-user"
+        val claims = mockClaims(userId)
 
-        every { jwtTokenProvider.validateToken(token) } returns true
-        every { jwtTokenProvider.getUserIdFromToken(token) } returns userId
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns claims
+        every { jwtTokenProvider.getUserIdFromClaims(claims) } returns userId
         every { userCacheService.findById(userId) } returns null
 
         When("the filter processes the request") {
@@ -185,11 +195,12 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
         }
     }
 
-    Given("a valid token but getUserIdFromToken throws an exception") {
+    Given("a valid token but getUserIdFromClaims throws an exception") {
         val token = "causes-exception"
+        val claims = mockk<Claims>()
 
-        every { jwtTokenProvider.validateToken(token) } returns true
-        every { jwtTokenProvider.getUserIdFromToken(token) } throws RuntimeException("parse error")
+        every { jwtTokenProvider.parseAndValidateToken(token) } returns claims
+        every { jwtTokenProvider.getUserIdFromClaims(claims) } throws RuntimeException("parse error")
 
         When("the filter processes the request") {
             val request = MockHttpServletRequest().apply {
@@ -205,6 +216,50 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
 
             Then("still continues the filter chain") {
                 verify(exactly = 1) { filterChain.doFilter(request, response) }
+            }
+        }
+    }
+
+    Given("public endpoints that should skip JWT filtering") {
+        val publicPaths = listOf(
+            "/actuator/health",
+            "/oauth2/authorization/google",
+            "/login/oauth2/code/google",
+            "/api/v1/health"
+        )
+
+        publicPaths.forEach { path ->
+            When("the request is for $path with a Bearer token") {
+                val request = MockHttpServletRequest().apply {
+                    servletPath = path
+                    addHeader("Authorization", "Bearer some-token")
+                }
+                val response = MockHttpServletResponse()
+
+                filter.doFilter(request, response, filterChain)
+
+                Then("skips JWT validation and continues the filter chain") {
+                    verify(exactly = 0) { jwtTokenProvider.parseAndValidateToken(any()) }
+                    verify(exactly = 1) { filterChain.doFilter(request, response) }
+                    SecurityContextHolder.getContext().authentication.shouldBeNull()
+                }
+            }
+        }
+
+        When("the request is for a regular API endpoint /api/v1/transactions") {
+            val token = "test-token"
+            every { jwtTokenProvider.parseAndValidateToken(token) } returns null
+
+            val request = MockHttpServletRequest().apply {
+                servletPath = "/api/v1/transactions"
+                addHeader("Authorization", "Bearer $token")
+            }
+            val response = MockHttpServletResponse()
+
+            filter.doFilter(request, response, filterChain)
+
+            Then("does apply JWT filtering") {
+                verify(exactly = 1) { jwtTokenProvider.parseAndValidateToken(token) }
             }
         }
     }
