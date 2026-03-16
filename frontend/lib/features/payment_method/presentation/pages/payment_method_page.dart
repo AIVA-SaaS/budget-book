@@ -94,20 +94,6 @@ class PaymentMethodPage extends StatelessWidget {
               return const SizedBox.shrink();
             },
           ),
-        // Swipe-to-delete hint
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Text(
-            '좌로 밀어 삭제하세요',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.5),
-            ),
-          ),
-        ),
         // Payment method list
         ...methods.map((pm) => _buildPaymentMethodTile(context, pm)),
       ],
@@ -202,10 +188,40 @@ class PaymentMethodPage extends StatelessWidget {
                     );
               },
             ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () => _showEditPaymentMethod(context, method),
-              tooltip: '수정',
+            PopupMenuButton<String>(
+              onSelected: (action) {
+                if (action == 'edit') {
+                  _showEditPaymentMethod(context, method);
+                } else if (action == 'delete') {
+                  _showDeleteDialog(context, method);
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('수정'),
+                    ],
+                  ),
+                ),
+                if (!method.isDefault)
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20,
+                            color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 8),
+                        Text('삭제',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error)),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
