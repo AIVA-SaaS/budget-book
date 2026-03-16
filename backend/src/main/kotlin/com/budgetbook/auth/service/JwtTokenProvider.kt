@@ -1,6 +1,7 @@
 package com.budgetbook.auth.service
 
 import com.budgetbook.auth.config.JwtProperties
+import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.MalformedJwtException
@@ -41,38 +42,47 @@ class JwtTokenProvider(
 
     fun generateRefreshToken(): String = UUID.randomUUID().toString()
 
-    fun validateToken(token: String): Boolean {
+    /**
+     * Parses and validates the JWT token in a single pass.
+     * Returns the Claims payload if valid, or null if the token is invalid/expired.
+     * This avoids the overhead of double HMAC-SHA256 verification.
+     */
+    fun parseAndValidateToken(token: String): Claims? {
         return try {
             Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
-            true
+                .payload
         } catch (e: SecurityException) {
             log.warn("Invalid JWT signature: {}", e.message)
-            false
+            null
         } catch (e: MalformedJwtException) {
             log.warn("Malformed JWT token: {}", e.message)
-            false
+            null
         } catch (e: ExpiredJwtException) {
             log.warn("Expired JWT token: {}", e.message)
-            false
+            null
         } catch (e: UnsupportedJwtException) {
             log.warn("Unsupported JWT token: {}", e.message)
-            false
+            null
         } catch (e: IllegalArgumentException) {
             log.warn("JWT claims string is empty: {}", e.message)
-            false
+            null
         }
     }
 
-    fun getUserIdFromToken(token: String): UUID {
-        val claims = Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .payload
+    fun validateToken(token: String): Boolean {
+        return parseAndValidateToken(token) != null
+    }
 
+    fun getUserIdFromToken(token: String): UUID {
+        val claims = parseAndValidateToken(token)
+            ?: throw IllegalArgumentException("Invalid or expired JWT token")
+        return UUID.fromString(claims.subject)
+    }
+
+    fun getUserIdFromClaims(claims: Claims): UUID {
         return UUID.fromString(claims.subject)
     }
 
