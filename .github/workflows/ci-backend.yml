@@ -65,6 +65,26 @@ jobs:
           SPRING_DATASOURCE_USERNAME: budgetbook
           SPRING_DATASOURCE_PASSWORD: budgetbook
 
+      # Validates that prod profile can assemble a bootable JAR.
+      # Note: This does NOT validate runtime @Value/@ConfigurationProperties bindings
+      # (those resolve at Spring container startup, not at build time).
+      # It does catch: missing classes, resource filtering issues, manifest errors.
+      - name: Validate prod profile JAR assembly
+        run: ./gradlew bootJar
+        env:
+          SPRING_PROFILES_ACTIVE: prod
+          JWT_SECRET: ci-test-secret-key-that-is-at-least-256-bits-long-for-validation
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: budgetbook_test
+          DB_USERNAME: budgetbook
+          DB_PASSWORD: budgetbook
+          FRONTEND_URL: http://localhost:5000
+          GOOGLE_CLIENT_ID: fake-google-id
+          GOOGLE_CLIENT_SECRET: fake-google-secret
+          KAKAO_CLIENT_ID: fake-kakao-id
+          KAKAO_CLIENT_SECRET: fake-kakao-secret
+
       - name: Create Issue on Failure
         if: failure()
         uses: actions/github-script@v7

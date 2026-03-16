@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 
 class PaymentMethodFormSheet extends StatefulWidget {
   final PaymentMethod? paymentMethod;
@@ -56,17 +59,33 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
+    return BlocListener<PaymentMethodBloc, PaymentMethodState>(
+      listener: (context, state) {
+        if (!_isSubmitting) return;
+        if (state is PaymentMethodLoaded && state.operationError == null) {
+          Navigator.of(context).pop();
+        } else if (state is PaymentMethodLoaded &&
+            state.operationError != null) {
+          setState(() => _isSubmitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.operationError!),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      },
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -209,6 +228,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -228,7 +248,6 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
         settlementDay,
         closingDay,
       );
-      Navigator.of(context).pop();
     }
   }
 }
