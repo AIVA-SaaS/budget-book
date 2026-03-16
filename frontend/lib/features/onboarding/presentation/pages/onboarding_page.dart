@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// Key used to store onboarding completion flag in SharedPreferences.
-const String kOnboardingCompleted = 'onboarding_completed';
+import 'package:budget_book/core/router/app_router.dart' show markOnboardingCompleted;
 
 /// A 3-step onboarding flow shown once after first login.
 class OnboardingPage extends StatefulWidget {
@@ -34,19 +31,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(kOnboardingCompleted, true);
-    if (mounted) {
-      context.go('/home');
-    }
+    await markOnboardingCompleted();
+    if (mounted) context.go('/home');
   }
 
   Future<void> _goToCouplePage() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(kOnboardingCompleted, true);
-    if (mounted) {
-      context.go('/couple');
-    }
+    await markOnboardingCompleted();
+    if (mounted) context.go('/couple');
   }
 
   @override

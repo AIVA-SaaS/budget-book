@@ -44,6 +44,14 @@ class _CouplePageState extends State<CouplePage> {
               // Refresh auth state to update coupleId, then navigate
               setState(() => _waitingForAuthRefresh = true);
               context.read<AuthBloc>().add(const AuthRefreshUser());
+              // Timeout fallback: if auth refresh doesn't complete in 5s, navigate anyway
+              final nav = GoRouter.of(context);
+              Future.delayed(const Duration(seconds: 5), () {
+                if (mounted && _waitingForAuthRefresh) {
+                  _waitingForAuthRefresh = false;
+                  nav.go('/home');
+                }
+              });
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('커플이 연결되었습니다!')),
               );
@@ -53,9 +61,7 @@ class _CouplePageState extends State<CouplePage> {
         // Wait for auth refresh to complete before navigating to home
         BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
-            if (_waitingForAuthRefresh &&
-                state is AuthAuthenticated &&
-                state.user.coupleId != null) {
+            if (_waitingForAuthRefresh && state is AuthAuthenticated) {
               _waitingForAuthRefresh = false;
               context.go('/home');
             }

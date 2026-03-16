@@ -33,6 +33,11 @@ class TransactionDetailPage extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/transactions/create'),
+        tooltip: '거래 추가',
+        child: const Icon(Icons.add),
+      ),
       body: BlocBuilder<TransactionBloc, TransactionState>(
         builder: (context, state) {
           if (state is! TransactionLoaded) {
