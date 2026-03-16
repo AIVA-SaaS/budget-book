@@ -41,8 +41,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
   }
 
-  void _goToCouplePage() {
-    context.push('/couple');
+  Future<void> _goToCouplePage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kOnboardingCompleted, true);
+    if (mounted) {
+      context.go('/couple');
+    }
   }
 
   @override
@@ -202,10 +206,10 @@ class _StartStep extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle,
             size: 80,
-            color: Colors.green,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(height: 32),
           Text(

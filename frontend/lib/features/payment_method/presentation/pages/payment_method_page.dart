@@ -24,7 +24,7 @@ class PaymentMethodPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (state is PaymentMethodLoaded &&
@@ -32,7 +32,7 @@ class PaymentMethodPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -94,6 +94,20 @@ class PaymentMethodPage extends StatelessWidget {
               return const SizedBox.shrink();
             },
           ),
+        // Swipe-to-delete hint
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Text(
+            '좌로 밀어 삭제하세요',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
+            ),
+          ),
+        ),
         // Payment method list
         ...methods.map((pm) => _buildPaymentMethodTile(context, pm)),
       ],
@@ -109,7 +123,7 @@ class PaymentMethodPage extends StatelessWidget {
           : DismissDirection.endToStart,
       confirmDismiss: (_) => _showDeleteDialog(context, method),
       background: Container(
-        color: Colors.red,
+        color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
         child: const Icon(Icons.delete, color: Colors.white),
@@ -125,7 +139,7 @@ class PaymentMethodPage extends StatelessWidget {
         ),
         title: Row(
           children: [
-            Text(method.name),
+            Flexible(child: Text(method.name, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 8),
             _buildTypeBadge(context, method.type),
             if (!method.isActive) ...[
@@ -258,15 +272,18 @@ class PaymentMethodPage extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => PaymentMethodFormSheet(
-        onSubmit: (name, type, settlementDay, closingDay) {
-          bloc.add(CreatePaymentMethod(
-            name: name,
-            type: type,
-            settlementDay: settlementDay,
-            closingDay: closingDay,
-          ));
-        },
+      builder: (_) => BlocProvider.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          onSubmit: (name, type, settlementDay, closingDay) {
+            bloc.add(CreatePaymentMethod(
+              name: name,
+              type: type,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+            ));
+          },
+        ),
       ),
     );
   }
@@ -277,16 +294,19 @@ class PaymentMethodPage extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => PaymentMethodFormSheet(
-        paymentMethod: method,
-        onSubmit: (name, type, settlementDay, closingDay) {
-          bloc.add(UpdatePaymentMethod(
-            id: method.id,
-            name: name,
-            settlementDay: settlementDay,
-            closingDay: closingDay,
-          ));
-        },
+      builder: (_) => BlocProvider.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          paymentMethod: method,
+          onSubmit: (name, type, settlementDay, closingDay) {
+            bloc.add(UpdatePaymentMethod(
+              id: method.id,
+              name: name,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+            ));
+          },
+        ),
       ),
     );
   }
@@ -306,7 +326,8 @@ class PaymentMethodPage extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error),
             child: const Text('삭제'),
           ),
         ],

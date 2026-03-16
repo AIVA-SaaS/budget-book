@@ -30,11 +30,10 @@ class WebSocketAuthInterceptor(
             }
 
             val token = authHeader.substring(7)
-            if (!jwtTokenProvider.validateToken(token)) {
-                throw MessageDeliveryException("Invalid or expired JWT token")
-            }
+            val claims = jwtTokenProvider.parseAndValidateToken(token)
+                ?: throw MessageDeliveryException("Invalid or expired JWT token")
 
-            val userId = jwtTokenProvider.getUserIdFromToken(token)
+            val userId = jwtTokenProvider.getUserIdFromClaims(claims)
             accessor.user = StompPrincipal(userId)
             log.debug("WebSocket CONNECT authenticated for userId={}", userId)
         }
