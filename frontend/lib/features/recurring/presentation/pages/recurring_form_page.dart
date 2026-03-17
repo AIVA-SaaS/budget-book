@@ -10,10 +10,10 @@ import 'package:budget_book/features/category/presentation/bloc/category_state.d
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
-import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 
 class RecurringFormPage extends StatefulWidget {
   /// If editing, pass the recurring transaction ID (from URL path parameter).
@@ -373,43 +373,23 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
-    final catBloc = context.read<CategoryBloc>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => BlocProvider<CategoryBloc>.value(
-        value: catBloc,
-        child: BlocBuilder<CategoryBloc, CategoryState>(
-          builder: (sheetContext, catState) {
-            final liveCategories = catState is CategoryLoaded
-                ? (_type == 'INCOME'
-                    ? catState.incomeCategories
-                    : catState.expenseCategories)
-                : categories;
-            return ItemSelectorSheet(
-              title: '카테고리 선택',
-              items: liveCategories
-                  .map((c) => SelectorItem(
-                        id: c.id,
-                        label: c.name,
-                        leadingIcon: Icons.category,
-                        isDeletable: !c.isDefault,
-                      ))
-                  .toList(),
-              selectedId: _categoryId,
-              nullLabel: '선택 안 함',
-              onSelected: (item) {
-                setState(() => _categoryId = item?.id);
-              },
-              onDelete: (id) {
-                catBloc.add(DeleteCategory(id));
-                if (_categoryId == id) {
-                  setState(() => _categoryId = null);
-                }
-              },
-            );
-          },
-        ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      builder: (_) => CategoryGroupSelectorSheet(
+        selectedCategoryId: _categoryId,
+        categoryType: _type,
+        onSelected: (category) {
+          setState(() => _categoryId = category?.id);
+        },
+        onDelete: (id) {
+          if (_categoryId == id) {
+            setState(() => _categoryId = null);
+          }
+        },
       ),
     );
   }
