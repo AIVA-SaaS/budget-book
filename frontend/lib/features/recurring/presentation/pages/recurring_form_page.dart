@@ -9,6 +9,11 @@ import 'package:budget_book/features/category/presentation/bloc/category_bloc.da
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
+import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 
 class RecurringFormPage extends StatefulWidget {
   /// If editing, pass the recurring transaction ID (from URL path parameter).
@@ -279,25 +284,22 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               if (state is! CategoryLoaded) {
                 return const LinearProgressIndicator();
               }
-              return DropdownButtonFormField<String>(
-                initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: '카테고리 (선택)',
-                  prefixIcon: Icon(Icons.category_outlined),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('선택 안 함'),
-                  ),
-                  ...state.categories.map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.name),
-                      )),
-                ],
-                onChanged: (value) {
-                  setState(() => _categoryId = value);
-                },
+              final categories = _type == 'INCOME'
+                  ? state.incomeCategories
+                  : state.expenseCategories;
+              final selectedName = _categoryId != null
+                  ? categories
+                      .where((c) => c.id == _categoryId)
+                      .map((c) => c.name)
+                      .firstOrNull
+                  : null;
+
+              return ItemSelectorField(
+                label: '카테고리 (선택)',
+                selectedLabel: selectedName,
+                prefixIcon: Icons.category_outlined,
+                placeholder: '선택 안 함',
+                onTap: () => _showCategorySelectorSheet(context, categories),
               );
             },
           ),
@@ -308,26 +310,20 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               if (state is! PaymentMethodLoaded) {
                 return const LinearProgressIndicator();
               }
-              return DropdownButtonFormField<String>(
-                initialValue: _paymentMethodId,
-                decoration: const InputDecoration(
-                  labelText: '결제수단 (선택)',
-                  prefixIcon: Icon(Icons.payment_outlined),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('선택 안 함'),
-                  ),
-                  ...state.activePaymentMethods.map((pm) =>
-                      DropdownMenuItem(
-                        value: pm.id,
-                        child: Text(pm.name),
-                      )),
-                ],
-                onChanged: (value) {
-                  setState(() => _paymentMethodId = value);
-                },
+              final methods = state.activePaymentMethods;
+              final selectedName = _paymentMethodId != null
+                  ? methods
+                      .where((pm) => pm.id == _paymentMethodId)
+                      .map((pm) => pm.name)
+                      .firstOrNull
+                  : null;
+
+              return ItemSelectorField(
+                label: '결제수단 (선택)',
+                selectedLabel: selectedName,
+                prefixIcon: Icons.payment_outlined,
+                placeholder: '선택 안 함',
+                onTap: () => _showPaymentMethodSelectorSheet(context, methods),
               );
             },
           ),
@@ -372,6 +368,88 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
             child: const Text('삭제'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
+    final catBloc = context.read<CategoryBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<CategoryBloc>.value(
+        value: catBloc,
+        child: BlocBuilder<CategoryBloc, CategoryState>(
+          builder: (sheetContext, catState) {
+            final liveCategories = catState is CategoryLoaded
+                ? (_type == 'INCOME'
+                    ? catState.incomeCategories
+                    : catState.expenseCategories)
+                : categories;
+            return ItemSelectorSheet(
+              title: '카테고리 선택',
+              items: liveCategories
+                  .map((c) => SelectorItem(
+                        id: c.id,
+                        label: c.name,
+                        leadingIcon: Icons.category,
+                        isDeletable: !c.isDefault,
+                      ))
+                  .toList(),
+              selectedId: _categoryId,
+              nullLabel: '선택 안 함',
+              onSelected: (item) {
+                setState(() => _categoryId = item?.id);
+              },
+              onDelete: (id) {
+                catBloc.add(DeleteCategory(id));
+                if (_categoryId == id) {
+                  setState(() => _categoryId = null);
+                }
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
+    final pmBloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: pmBloc,
+        child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (sheetContext, pmState) {
+            final liveMethods = pmState is PaymentMethodLoaded
+                ? pmState.activePaymentMethods
+                : methods;
+            return ItemSelectorSheet(
+              title: '결제수단 선택',
+              items: liveMethods
+                  .map((pm) => SelectorItem(
+                        id: pm.id,
+                        label: pm.name,
+                        leadingIcon: Icons.payment,
+                        isDeletable: !pm.isDefault,
+                      ))
+                  .toList(),
+              selectedId: _paymentMethodId,
+              nullLabel: '선택 안 함',
+              onSelected: (item) {
+                setState(() => _paymentMethodId = item?.id);
+              },
+              onDelete: (id) {
+                pmBloc.add(DeletePaymentMethod(id));
+                if (_paymentMethodId == id) {
+                  setState(() => _paymentMethodId = null);
+                }
+              },
+            );
+          },
+        ),
       ),
     );
   }

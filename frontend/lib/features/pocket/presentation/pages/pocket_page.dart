@@ -95,6 +95,7 @@ class PocketPage extends StatelessWidget {
                 pocket: pocket,
                 onTap: () => _showEditPocket(context, pocket),
                 onLongPress: () => _showDeleteDialog(context, pocket),
+                onDelete: () => _showDeleteDialog(context, pocket),
               ),
             )),
       ],
@@ -226,11 +227,13 @@ class _PocketCard extends StatelessWidget {
   final MoneyPocket pocket;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onDelete;
 
   const _PocketCard({
     required this.pocket,
     this.onTap,
     this.onLongPress,
+    this.onDelete,
   });
 
   @override
@@ -323,6 +326,43 @@ class _PocketCard extends StatelessWidget {
                           color: isPositive ? Colors.green : Colors.red,
                           fontWeight: FontWeight.bold,
                         ),
+                  ),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    iconSize: 20,
+                    onSelected: (action) {
+                      if (action == 'edit') {
+                        onTap?.call();
+                      } else if (action == 'delete') {
+                        onDelete?.call();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 20),
+                            SizedBox(width: 8),
+                            Text('수정'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 20,
+                                color: Theme.of(context).colorScheme.error),
+                            const SizedBox(width: 8),
+                            Text('삭제',
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

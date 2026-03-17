@@ -93,12 +93,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => context.push('/couple'),
             ),
             const Divider(),
-            // Categories
+            // Asset Management (categories + payment methods + pockets)
             ListTile(
-              leading: const Icon(Icons.category),
-              title: const Text('카테고리 관리'),
+              leading: const Icon(Icons.account_balance),
+              title: const Text('자산 관리'),
+              subtitle: const Text('카테고리, 결제수단, 포켓'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/categories'),
+              onTap: () => context.push('/asset-management'),
             ),
             // Category Groups
             ListTile(
@@ -106,20 +107,6 @@ class _SettingsPageState extends State<SettingsPage> {
               title: const Text('카테고리 그룹'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/category-groups'),
-            ),
-            // Payment Methods
-            ListTile(
-              leading: const Icon(Icons.payment),
-              title: const Text('결제수단 관리'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/payment-methods'),
-            ),
-            // Money Pockets
-            ListTile(
-              leading: const Icon(Icons.account_balance_wallet),
-              title: const Text('머니 포켓'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/pockets'),
             ),
             // Recurring Transactions
             ListTile(

@@ -50,6 +50,7 @@ import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
+import 'package:budget_book/features/settings/presentation/pages/asset_management_page.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
@@ -160,8 +161,12 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       return null;
     }
 
+    // While auth check is in progress, stay on current page (don't flash login)
+    if (authState is AuthLoading || authState is AuthInitial) {
+      return null;
+    }
+
     // If not authenticated and not on login page, redirect to login
-    // This includes AuthInitial, AuthLoading, AuthUnauthenticated, AuthError
     if (!isAuthenticated && !isOnLoginPage) {
       return '/login';
     }
@@ -539,6 +544,30 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/settings/app-info',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AppInfoPage(),
+    ),
+    // Asset Management (unified category + payment method + pocket management)
+    GoRoute(
+      path: '/asset-management',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        getIt<PocketBloc>().add(const LoadPockets());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
+            ),
+          ],
+          child: const AssetManagementPage(),
+        );
+      },
     ),
     // Money Pockets
     GoRoute(
