@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -16,8 +17,6 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
-import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
-import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
@@ -419,48 +418,25 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
-    final catBloc = context.read<CategoryBloc>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => BlocProvider<CategoryBloc>.value(
-        value: catBloc,
-        child: BlocBuilder<CategoryBloc, CategoryState>(
-          builder: (sheetContext, catState) {
-            final liveCategories = catState is CategoryLoaded
-                ? (_selectedType == 'INCOME'
-                    ? catState.incomeCategories
-                    : catState.expenseCategories)
-                : categories;
-            return ItemSelectorSheet(
-              title: '카테고리 선택',
-              items: liveCategories
-                  .map((c) => SelectorItem(
-                        id: c.id,
-                        label: c.name,
-                        leadingIcon: Icons.category,
-                        leadingColor: _parseColor(c.color),
-                        isDeletable: !c.isDefault,
-                      ))
-                  .toList(),
-              selectedId: _selectedCategoryId,
-              nullLabel: '미분류',
-              onSelected: (item) {
-                setState(() {
-                  _selectedCategoryId = item?.id;
-                });
-              },
-              onDelete: (id) {
-                catBloc.add(DeleteCategory(id));
-                if (_selectedCategoryId == id) {
-                  setState(() => _selectedCategoryId = null);
-                }
-              },
-              onCreate: () => _showCreateCategorySheet(context),
-              createLabel: '+ 새 카테고리',
-            );
-          },
-        ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      builder: (_) => CategoryGroupSelectorSheet(
+        selectedCategoryId: _selectedCategoryId,
+        categoryType: _selectedType,
+        onSelected: (category) {
+          setState(() {
+            _selectedCategoryId = category?.id;
+          });
+        },
+        onDelete: (id) {
+          if (_selectedCategoryId == id) {
+            setState(() => _selectedCategoryId = null);
+          }
+        },
       ),
     );
   }
@@ -586,41 +562,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         ),
         child: Text(formattedDate),
       ),
-    );
-  }
-
-  Future<void> _showCreateCategorySheet(BuildContext context) async {
-    final bloc = context.read<CategoryBloc>();
-    final oldIds = (bloc.state is CategoryLoaded)
-        ? (bloc.state as CategoryLoaded).categories.map((c) => c.id).toSet()
-        : <String>{};
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => CategoryFormSheet(
-        onSubmit: (name, type, icon, color, groupId) {
-          bloc.add(CreateCategory(
-            name: name,
-            type: type,
-            icon: icon,
-            color: color,
-            groupId: groupId,
-          ));
-        },
-      ),
-    );
-
-    if (!mounted) return;
-    await _autoSelectNewItem<CategoryBloc, CategoryState>(
-      bloc: bloc,
-      getIds: (s) => s is CategoryLoaded
-          ? s.categories.map((c) => c.id).toSet()
-          : <String>{},
-      oldIds: oldIds,
-      onSelect: (newId) => setState(() {
-        _selectedCategoryId = newId;
-      }),
     );
   }
 
