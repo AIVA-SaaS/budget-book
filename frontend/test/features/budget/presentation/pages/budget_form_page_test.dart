@@ -125,18 +125,15 @@ void main() {
       expect(find.text('예산 금액'), findsOneWidget);
     });
 
-    testWidgets('shows overall budget switch in create mode', (tester) async {
+    testWidgets('shows optional category picker in create mode', (tester) async {
       await tester.pumpWidget(buildTestWidget());
-      expect(find.text('전체 예산'), findsOneWidget);
-      expect(find.byType(SwitchListTile), findsOneWidget);
+      expect(find.text('카테고리 (선택)'), findsOneWidget);
+      // "전체 예산 (카테고리 없음)" is a dropdown item, visible when opened
     });
 
     testWidgets('validates empty amount', (tester) async {
       await tester.pumpWidget(buildTestWidget());
-      // Toggle overall budget to bypass category validation
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pumpAndSettle();
-      // Tap submit
+      // Tap submit without entering amount
       await tester.tap(find.text('추가'));
       await tester.pumpAndSettle();
       expect(find.text('금액을 입력하세요'), findsOneWidget);
@@ -144,9 +141,9 @@ void main() {
 
     testWidgets('validates zero amount', (tester) async {
       await tester.pumpWidget(buildTestWidget());
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).first, '0');
+      // Find the amount TextFormField (first one after month selector)
+      final amountFields = find.byType(TextFormField);
+      await tester.enterText(amountFields.first, '0');
       await tester.tap(find.text('추가'));
       await tester.pumpAndSettle();
       expect(find.text('0보다 큰 금액을 입력하세요'), findsOneWidget);
