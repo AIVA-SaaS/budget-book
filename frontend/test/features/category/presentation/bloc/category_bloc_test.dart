@@ -25,10 +25,11 @@ class MockCategoryRepository extends Mock implements CategoryRepository {
     required String type,
     String? icon,
     String? color,
+    String? groupId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createCategory, [],
-            {#name: name, #type: type, #icon: icon, #color: color}),
+            {#name: name, #type: type, #icon: icon, #color: color, #groupId: groupId}),
         returnValue: Future.value(
           Right<Failure, Category>(Category(
             id: '',
@@ -48,6 +49,7 @@ class MockCategoryRepository extends Mock implements CategoryRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    String? groupId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateCategory, [], {
@@ -56,6 +58,7 @@ class MockCategoryRepository extends Mock implements CategoryRepository {
           #icon: icon,
           #color: color,
           #displayOrder: displayOrder,
+          #groupId: groupId,
         }),
         returnValue: Future.value(
           Right<Failure, Category>(Category(

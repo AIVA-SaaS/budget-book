@@ -9,6 +9,7 @@ abstract class CategoryRepository {
     required String type,
     String? icon,
     String? color,
+    String? groupId,
   });
   Future<Either<Failure, Category>> updateCategory({
     required String id,
@@ -16,6 +17,7 @@ abstract class CategoryRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    String? groupId,
   });
   Future<Either<Failure, void>> deleteCategory(String id);
 }

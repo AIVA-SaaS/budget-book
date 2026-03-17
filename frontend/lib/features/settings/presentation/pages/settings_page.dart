@@ -115,13 +115,6 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/recurring'),
             ),
-            // Weekly Budgets
-            ListTile(
-              leading: const Icon(Icons.date_range),
-              title: const Text('주간 예산'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/weekly-budgets'),
-            ),
             const Divider(),
             // Theme setting
             BlocBuilder<ThemeCubit, ThemeMode>(

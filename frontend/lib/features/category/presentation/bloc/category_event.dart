@@ -21,16 +21,18 @@ class CreateCategory extends CategoryEvent {
   final String type;
   final String? icon;
   final String? color;
+  final String? groupId;
 
   const CreateCategory({
     required this.name,
     required this.type,
     this.icon,
     this.color,
+    this.groupId,
   });
 
   @override
-  List<Object?> get props => [name, type, icon, color];
+  List<Object?> get props => [name, type, icon, color, groupId];
 }
 
 class UpdateCategory extends CategoryEvent {
@@ -39,6 +41,7 @@ class UpdateCategory extends CategoryEvent {
   final String? icon;
   final String? color;
   final int? displayOrder;
+  final String? groupId;
 
   const UpdateCategory({
     required this.id,
@@ -46,10 +49,11 @@ class UpdateCategory extends CategoryEvent {
     this.icon,
     this.color,
     this.displayOrder,
+    this.groupId,
   });
 
   @override
-  List<Object?> get props => [id, name, icon, color, displayOrder];
+  List<Object?> get props => [id, name, icon, color, displayOrder, groupId];
 }
 
 class DeleteCategory extends CategoryEvent {

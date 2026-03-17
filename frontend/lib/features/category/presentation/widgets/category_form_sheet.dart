@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
+import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 
 class CategoryFormSheet extends StatefulWidget {
   final Category? category;
-  final void Function(String name, String type, String? icon, String? color)
+  final void Function(String name, String type, String? icon, String? color, String? groupId)
       onSubmit;
 
   const CategoryFormSheet({
@@ -24,6 +29,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   late String _selectedType;
   String? _selectedIcon;
   String? _selectedColor;
+  String? _selectedGroupId;
   bool _isSubmitting = false;
 
   bool get isEditing => widget.category != null;
@@ -35,6 +41,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
     _selectedType = widget.category?.type ?? 'EXPENSE';
     _selectedIcon = widget.category?.icon;
     _selectedColor = widget.category?.color;
+    _selectedGroupId = widget.category?.groupId;
   }
 
   @override
@@ -142,6 +149,14 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
+              // Group selector
+              Text(
+                '카테고리 그룹',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              _buildGroupSelector(context),
+              const SizedBox(height: 16),
               // Icon picker button
               Text(
                 '아이콘',
@@ -228,6 +243,42 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
     );
   }
 
+  Widget _buildGroupSelector(BuildContext context) {
+    return BlocProvider<CategoryGroupBloc>.value(
+      value: getIt<CategoryGroupBloc>()..add(const LoadCategoryGroups()),
+      child: BlocBuilder<CategoryGroupBloc, CategoryGroupState>(
+        builder: (context, state) {
+          if (state is! CategoryGroupLoaded) {
+            return const LinearProgressIndicator();
+          }
+          final groups = state.groups
+              .where((g) => !g.isDefault || g.categories.isNotEmpty)
+              .toList();
+          return DropdownButtonFormField<String?>(
+            initialValue: _selectedGroupId,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.folder_outlined),
+              hintText: '그룹 없음',
+            ),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('그룹 없음'),
+              ),
+              ...groups.map((g) => DropdownMenuItem<String?>(
+                    value: g.id,
+                    child: Text(g.name),
+                  )),
+            ],
+            onChanged: (value) {
+              setState(() => _selectedGroupId = value);
+            },
+          );
+        },
+      ),
+    );
+  }
+
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isSubmitting = true);
@@ -236,6 +287,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
         _selectedType,
         _selectedIcon,
         _selectedColor,
+        _selectedGroupId,
       );
       Navigator.of(context).pop();
     }

@@ -53,6 +53,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
+  String? _categoryError;
+  String? _paymentMethodError;
 
   bool get isEditing => widget.transactionId != null;
 
@@ -317,12 +319,31 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 .firstOrNull
             : null;
 
-        return ItemSelectorField(
-          label: '카테고리',
-          selectedLabel: selectedName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
-          prefixIcon: Icons.category,
-          placeholder: '미분류',
-          onTap: () => _showCategorySelectorSheet(context, categories),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ItemSelectorField(
+              label: '카테고리 *',
+              selectedLabel: selectedName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
+              prefixIcon: Icons.category,
+              placeholder: '카테고리를 선택하세요',
+              onTap: () {
+                setState(() => _categoryError = null);
+                _showCategorySelectorSheet(context, categories);
+              },
+            ),
+            if (_categoryError != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 8),
+                child: Text(
+                  _categoryError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -342,12 +363,31 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 .firstOrNull
             : null;
 
-        return ItemSelectorField(
-          label: '결제수단',
-          selectedLabel: selectedName,
-          prefixIcon: Icons.account_balance_wallet,
-          placeholder: '선택 안 함',
-          onTap: () => _showPaymentMethodSelectorSheet(context, methods),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ItemSelectorField(
+              label: '결제수단 *',
+              selectedLabel: selectedName,
+              prefixIcon: Icons.account_balance_wallet,
+              placeholder: '결제수단을 선택하세요',
+              onTap: () {
+                setState(() => _paymentMethodError = null);
+                _showPaymentMethodSelectorSheet(context, methods);
+              },
+            ),
+            if (_paymentMethodError != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 8),
+                child: Text(
+                  _paymentMethodError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -559,12 +599,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
-        onSubmit: (name, type, icon, color) {
+        onSubmit: (name, type, icon, color, groupId) {
           bloc.add(CreateCategory(
             name: name,
             type: type,
             icon: icon,
             color: color,
+            groupId: groupId,
           ));
         },
       ),
@@ -719,39 +760,56 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   }
 
   void _onSubmit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _isSubmitting = true);
-      final amount = int.parse(_amountController.text.trim());
-      final description = _descriptionController.text.trim();
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final memo =
-          _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
-      final bloc = context.read<TransactionBloc>();
+    // Validate custom pickers (not part of Form)
+    bool hasPickerError = false;
+    if (_selectedCategoryId == null) {
+      setState(() => _categoryError = '카테고리를 선택하세요');
+      hasPickerError = true;
+    } else {
+      setState(() => _categoryError = null);
+    }
+    if (_selectedPaymentMethodId == null) {
+      setState(() => _paymentMethodError = '결제수단을 선택하세요');
+      hasPickerError = true;
+    } else {
+      setState(() => _paymentMethodError = null);
+    }
 
-      if (isEditing) {
-        bloc.add(UpdateTransaction(
-          id: widget.transactionId!,
-          amount: amount,
-          description: description,
-          categoryId: _selectedCategoryId,
-          transactionDate: dateStr,
-          memo: memo,
-          clearMemo: memo == null,
-          paymentMethodId: _selectedPaymentMethodId,
-          pocketId: _selectedPocketId,
-        ));
-      } else {
-        bloc.add(CreateTransaction(
-          type: _selectedType,
-          amount: amount,
-          description: description,
-          categoryId: _selectedCategoryId,
-          transactionDate: dateStr,
-          memo: memo,
-          paymentMethodId: _selectedPaymentMethodId,
-          pocketId: _selectedPocketId,
-        ));
-      }
+    if (hasPickerError || !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final amount = int.parse(_amountController.text.trim());
+    final description = _descriptionController.text.trim();
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final memo =
+        _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
+    final bloc = context.read<TransactionBloc>();
+
+    if (isEditing) {
+      bloc.add(UpdateTransaction(
+        id: widget.transactionId!,
+        amount: amount,
+        description: description,
+        categoryId: _selectedCategoryId,
+        transactionDate: dateStr,
+        memo: memo,
+        clearMemo: memo == null,
+        paymentMethodId: _selectedPaymentMethodId,
+        pocketId: _selectedPocketId,
+      ));
+    } else {
+      bloc.add(CreateTransaction(
+        type: _selectedType,
+        amount: amount,
+        description: description,
+        categoryId: _selectedCategoryId,
+        transactionDate: dateStr,
+        memo: memo,
+        paymentMethodId: _selectedPaymentMethodId,
+        pocketId: _selectedPocketId,
+      ));
     }
   }
 }

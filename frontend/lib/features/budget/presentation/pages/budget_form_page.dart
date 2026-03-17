@@ -368,12 +368,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
-        onSubmit: (name, type, icon, color) {
+        onSubmit: (name, type, icon, color, groupId) {
           bloc.add(CreateCategory(
             name: name,
             type: type,
             icon: icon,
             color: color,
+            groupId: groupId,
           ));
         },
       ),
