@@ -80,6 +80,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required String type,
     String? icon,
     String? color,
+    String? groupId,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -87,6 +88,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         'type': type,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
+        if (groupId != null) 'groupId': groupId,
       };
       final result = await remoteDataSource.createCategory(data);
       // Invalidate cache after mutation
@@ -104,6 +106,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     String? icon,
     String? color,
     int? displayOrder,
+    String? groupId,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -111,6 +114,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
         if (displayOrder != null) 'displayOrder': displayOrder,
+        if (groupId != null) 'groupId': groupId,
       };
       final result = await remoteDataSource.updateCategory(id, data);
       await cacheService?.removeCachedData(_cacheKey);

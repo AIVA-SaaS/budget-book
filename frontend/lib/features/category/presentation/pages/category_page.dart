@@ -128,12 +128,13 @@ class CategoryPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
-        onSubmit: (name, type, icon, color) {
+        onSubmit: (name, type, icon, color, groupId) {
           bloc.add(CreateCategory(
             name: name,
             type: type,
             icon: icon,
             color: color,
+            groupId: groupId,
           ));
         },
       ),
@@ -147,12 +148,13 @@ class CategoryPage extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
         category: category,
-        onSubmit: (name, type, icon, color) {
+        onSubmit: (name, type, icon, color, groupId) {
           bloc.add(UpdateCategory(
             id: category.id,
             name: name,
             icon: icon,
             color: color,
+            groupId: groupId,
           ));
         },
       ),
