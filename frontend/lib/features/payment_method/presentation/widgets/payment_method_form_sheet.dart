@@ -160,44 +160,19 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              // Settlement day and closing day (only for CREDIT type)
+              // Closing day and settlement day (only for CREDIT type)
               if (_selectedType == 'CREDIT') ...[
-                TextFormField(
-                  controller: _settlementDayController,
-                  decoration: const InputDecoration(
-                    labelText: '결제일',
-                    hintText: '1~31',
-                    suffixText: '일',
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (value) {
-                    if (_selectedType == 'CREDIT') {
-                      if (value == null || value.trim().isEmpty) {
-                        return '신용카드는 결제일을 입력해야 합니다';
-                      }
-                    }
-                    if (value != null && value.isNotEmpty) {
-                      final day = int.tryParse(value);
-                      if (day == null || day < 1 || day > 31) {
-                        return '1~31 사이의 숫자를 입력하세요';
-                      }
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
                 TextFormField(
                   controller: _closingDayController,
                   decoration: const InputDecoration(
                     labelText: '마감일 (결제 기준일)',
-                    hintText: '1~31',
+                    hintText: '1~31 (31 = 매월 말일)',
                     suffixText: '일',
                     prefixIcon: Icon(Icons.event),
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() {}),
                   validator: (value) {
                     if (_selectedType == 'CREDIT') {
                       if (value == null || value.trim().isEmpty) {
@@ -213,6 +188,36 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _settlementDayController,
+                  decoration: const InputDecoration(
+                    labelText: '결제일',
+                    hintText: '1~31',
+                    suffixText: '일',
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() {}),
+                  validator: (value) {
+                    if (_selectedType == 'CREDIT') {
+                      if (value == null || value.trim().isEmpty) {
+                        return '신용카드는 결제일을 입력해야 합니다';
+                      }
+                    }
+                    if (value != null && value.isNotEmpty) {
+                      final day = int.tryParse(value);
+                      if (day == null || day < 1 || day > 31) {
+                        return '1~31 사이의 숫자를 입력하세요';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                // Billing cycle info
+                _buildBillingCycleInfo(context),
                 const SizedBox(height: 16),
               ],
               const SizedBox(height: 8),
@@ -233,6 +238,83 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
           ),
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildBillingCycleInfo(BuildContext context) {
+    final closingDay = int.tryParse(_closingDayController.text);
+    final settlementDay = int.tryParse(_settlementDayController.text);
+
+    if (closingDay == null || closingDay < 1 || closingDay > 31) {
+      return const SizedBox.shrink();
+    }
+
+    final isEndOfMonth = closingDay == 31;
+    final closingLabel = isEndOfMonth ? '말일' : '$closingDay일';
+
+    // Billing period: from (closingDay + 1) of previous month to closingDay of current month
+    String periodText;
+    if (isEndOfMonth) {
+      periodText = '이용 기간: 매월 1일 ~ 말일';
+    } else {
+      final startDay = closingDay + 1;
+      periodText = '이용 기간: 전월 $startDay일 ~ 당월 $closingLabel';
+    }
+
+    String? settlementText;
+    if (settlementDay != null && settlementDay >= 1 && settlementDay <= 31) {
+      settlementText = '결제일: 매월 $settlementDay일에 대금 청구';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '결제 주기 안내',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            periodText,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (isEndOfMonth)
+            Text(
+              '* 2월은 28일(윤년 29일), 각 월 마지막 날 자동 적용',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
+            ),
+          if (settlementText != null)
+            Text(
+              settlementText,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
       ),
     );
   }
