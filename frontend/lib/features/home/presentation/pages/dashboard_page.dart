@@ -18,6 +18,11 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/transactions/create'),
+        tooltip: '거래 추가',
+        child: const Icon(Icons.add),
+      ),
       appBar: AppBar(
         title: const Text('Budget Book'),
         actions: [

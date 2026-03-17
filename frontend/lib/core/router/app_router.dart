@@ -553,6 +553,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         getIt<PocketBloc>().add(const LoadPockets());
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
         return MultiBlocProvider(
           providers: [
             BlocProvider<CategoryBloc>.value(
@@ -563,6 +564,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
             BlocProvider<PocketBloc>.value(
               value: getIt<PocketBloc>(),
+            ),
+            BlocProvider<CategoryGroupBloc>.value(
+              value: getIt<CategoryGroupBloc>(),
             ),
           ],
           child: const AssetManagementPage(),
