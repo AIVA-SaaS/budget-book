@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -52,7 +53,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
-  int _dropdownResetKey = 0;
 
   bool get isEditing => widget.transactionId != null;
 
@@ -310,37 +310,19 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 : catState.expenseCategories)
             : <Category>[];
 
-        return DropdownButtonFormField<String>(
-          key: ValueKey('cat_$_dropdownResetKey'),
-          initialValue: _selectedCategoryId,
-          decoration: const InputDecoration(
-            labelText: '카테고리',
-            prefixIcon: Icon(Icons.category),
-          ),
-          items: [
-            const DropdownMenuItem<String>(
-              value: null,
-              child: Text('미분류'),
-            ),
-            ...categories.map((c) => DropdownMenuItem<String>(
-                  value: c.id,
-                  child: Text(c.name),
-                )),
-            const DropdownMenuItem<String>(
-              value: '__create__',
-              child: Text('+ 새 카테고리'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == '__create__') {
-              setState(() => _dropdownResetKey++);
-              _showCreateCategorySheet(context);
-              return;
-            }
-            setState(() {
-              _selectedCategoryId = value;
-            });
-          },
+        final selectedName = _selectedCategoryId != null
+            ? categories
+                .where((c) => c.id == _selectedCategoryId)
+                .map((c) => c.name)
+                .firstOrNull
+            : null;
+
+        return ItemSelectorField(
+          label: '카테고리',
+          selectedLabel: selectedName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
+          prefixIcon: Icons.category,
+          placeholder: '미분류',
+          onTap: () => _showCategorySelectorSheet(context, categories),
         );
       },
     );
@@ -353,37 +335,19 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             ? pmState.activePaymentMethods
             : <PaymentMethod>[];
 
-        return DropdownButtonFormField<String>(
-          key: ValueKey('pm_$_dropdownResetKey'),
-          initialValue: _selectedPaymentMethodId,
-          decoration: const InputDecoration(
-            labelText: '결제수단',
-            prefixIcon: Icon(Icons.account_balance_wallet),
-          ),
-          items: [
-            const DropdownMenuItem<String>(
-              value: null,
-              child: Text('선택 안 함'),
-            ),
-            ...methods.map((pm) => DropdownMenuItem<String>(
-                  value: pm.id,
-                  child: Text(pm.name),
-                )),
-            const DropdownMenuItem<String>(
-              value: '__create__',
-              child: Text('+ 새 결제수단'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == '__create__') {
-              setState(() => _dropdownResetKey++);
-              _showCreatePaymentMethodSheet(context);
-              return;
-            }
-            setState(() {
-              _selectedPaymentMethodId = value;
-            });
-          },
+        final selectedName = _selectedPaymentMethodId != null
+            ? methods
+                .where((pm) => pm.id == _selectedPaymentMethodId)
+                .map((pm) => pm.name)
+                .firstOrNull
+            : null;
+
+        return ItemSelectorField(
+          label: '결제수단',
+          selectedLabel: selectedName,
+          prefixIcon: Icons.account_balance_wallet,
+          placeholder: '선택 안 함',
+          onTap: () => _showPaymentMethodSelectorSheet(context, methods),
         );
       },
     );
@@ -396,40 +360,167 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             ? pocketState.pockets
             : <MoneyPocket>[];
 
-        return DropdownButtonFormField<String>(
-          key: ValueKey('pocket_$_dropdownResetKey'),
-          initialValue: _selectedPocketId,
-          decoration: const InputDecoration(
-            labelText: '포켓 (선택)',
-            prefixIcon: Icon(Icons.account_balance_wallet),
-          ),
-          items: [
-            const DropdownMenuItem<String>(
-              value: null,
-              child: Text('포켓 미지정'),
-            ),
-            ...pockets.map((p) => DropdownMenuItem<String>(
-                  value: p.id,
-                  child: Text(p.name),
-                )),
-            const DropdownMenuItem<String>(
-              value: '__create__',
-              child: Text('+ 새 포켓'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == '__create__') {
-              setState(() => _dropdownResetKey++);
-              _showCreatePocketSheet(context);
-              return;
-            }
-            setState(() {
-              _selectedPocketId = value;
-            });
-          },
+        final selectedName = _selectedPocketId != null
+            ? pockets
+                .where((p) => p.id == _selectedPocketId)
+                .map((p) => p.name)
+                .firstOrNull
+            : null;
+
+        return ItemSelectorField(
+          label: '포켓 (선택)',
+          selectedLabel: selectedName,
+          prefixIcon: Icons.account_balance_wallet,
+          placeholder: '포켓 미지정',
+          onTap: () => _showPocketSelectorSheet(context, pockets),
         );
       },
     );
+  }
+
+  void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
+    final catBloc = context.read<CategoryBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<CategoryBloc>.value(
+        value: catBloc,
+        child: BlocBuilder<CategoryBloc, CategoryState>(
+          builder: (sheetContext, catState) {
+            final liveCategories = catState is CategoryLoaded
+                ? (_selectedType == 'INCOME'
+                    ? catState.incomeCategories
+                    : catState.expenseCategories)
+                : categories;
+            return ItemSelectorSheet(
+              title: '카테고리 선택',
+              items: liveCategories
+                  .map((c) => SelectorItem(
+                        id: c.id,
+                        label: c.name,
+                        leadingIcon: Icons.category,
+                        leadingColor: _parseColor(c.color),
+                        isDeletable: !c.isDefault,
+                      ))
+                  .toList(),
+              selectedId: _selectedCategoryId,
+              nullLabel: '미분류',
+              onSelected: (item) {
+                setState(() {
+                  _selectedCategoryId = item?.id;
+                });
+              },
+              onDelete: (id) {
+                catBloc.add(DeleteCategory(id));
+                if (_selectedCategoryId == id) {
+                  setState(() => _selectedCategoryId = null);
+                }
+              },
+              onCreate: () => _showCreateCategorySheet(context),
+              createLabel: '+ 새 카테고리',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
+    final pmBloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: pmBloc,
+        child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (sheetContext, pmState) {
+            final liveMethods = pmState is PaymentMethodLoaded
+                ? pmState.activePaymentMethods
+                : methods;
+            return ItemSelectorSheet(
+              title: '결제수단 선택',
+              items: liveMethods
+                  .map((pm) => SelectorItem(
+                        id: pm.id,
+                        label: pm.name,
+                        leadingIcon: Icons.payment,
+                        isDeletable: !pm.isDefault,
+                      ))
+                  .toList(),
+              selectedId: _selectedPaymentMethodId,
+              nullLabel: '선택 안 함',
+              onSelected: (item) {
+                setState(() {
+                  _selectedPaymentMethodId = item?.id;
+                });
+              },
+              onDelete: (id) {
+                pmBloc.add(DeletePaymentMethod(id));
+                if (_selectedPaymentMethodId == id) {
+                  setState(() => _selectedPaymentMethodId = null);
+                }
+              },
+              onCreate: () => _showCreatePaymentMethodSheet(context),
+              createLabel: '+ 새 결제수단',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
+    final pocketBloc = context.read<PocketBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PocketBloc>.value(
+        value: pocketBloc,
+        child: BlocBuilder<PocketBloc, PocketState>(
+          builder: (sheetContext, pocketState) {
+            final livePockets = pocketState is PocketLoaded
+                ? pocketState.pockets
+                : pockets;
+            return ItemSelectorSheet(
+              title: '포켓 선택',
+              items: livePockets
+                  .map((p) => SelectorItem(
+                        id: p.id,
+                        label: p.name,
+                        leadingIcon: Icons.account_balance_wallet,
+                        leadingColor: _parseColor(p.color),
+                      ))
+                  .toList(),
+              selectedId: _selectedPocketId,
+              nullLabel: '포켓 미지정',
+              onSelected: (item) {
+                setState(() {
+                  _selectedPocketId = item?.id;
+                });
+              },
+              onDelete: (id) {
+                pocketBloc.add(DeletePocket(id));
+                if (_selectedPocketId == id) {
+                  setState(() => _selectedPocketId = null);
+                }
+              },
+              onCreate: () => _showCreatePocketSheet(context),
+              createLabel: '+ 새 포켓',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Color _parseColor(String? hex) {
+    if (hex == null || hex.isEmpty) return Colors.grey;
+    try {
+      final colorStr = hex.replaceFirst('#', '');
+      return Color(int.parse('FF$colorStr', radix: 16));
+    } catch (_) {
+      return Colors.grey;
+    }
   }
 
   Widget _buildDatePicker(BuildContext context) {
@@ -488,7 +579,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       oldIds: oldIds,
       onSelect: (newId) => setState(() {
         _selectedCategoryId = newId;
-        _dropdownResetKey++;
       }),
     );
   }
@@ -505,15 +595,18 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => PaymentMethodFormSheet(
-        onSubmit: (name, type, settlementDay, closingDay) {
-          bloc.add(CreatePaymentMethod(
-            name: name,
-            type: type,
-            settlementDay: settlementDay,
-            closingDay: closingDay,
-          ));
-        },
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          onSubmit: (name, type, settlementDay, closingDay) {
+            bloc.add(CreatePaymentMethod(
+              name: name,
+              type: type,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+            ));
+          },
+        ),
       ),
     );
 
@@ -526,7 +619,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       oldIds: oldIds,
       onSelect: (newId) => setState(() {
         _selectedPaymentMethodId = newId;
-        _dropdownResetKey++;
       }),
     );
   }
@@ -565,7 +657,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       oldIds: oldIds,
       onSelect: (newId) => setState(() {
         _selectedPocketId = newId;
-        _dropdownResetKey++;
       }),
     );
   }
