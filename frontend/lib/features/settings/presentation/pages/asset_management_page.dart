@@ -398,7 +398,7 @@ class _PaymentMethodTab extends StatelessWidget {
       ),
       subtitle: method.isCredit
           ? Text(
-              '결제일: ${method.settlementDay ?? '-'}일, 마감일: ${method.closingDay ?? '-'}일',
+              '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context)
