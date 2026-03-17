@@ -38,7 +38,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late final TextEditingController _amountController;
   late final TextEditingController _weeklyAmountController;
   String? _selectedCategoryId;
-  bool _isOverallBudget = false;
   late int _selectedYear;
   late int _selectedMonth;
   late String _budgetPeriod;
@@ -67,7 +66,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _weeklyAmountController.text =
         budget.weeklyAmount != null ? budget.weeklyAmount.toString() : '';
     _selectedCategoryId = budget.category?.id;
-    _isOverallBudget = budget.category == null;
     _budgetPeriod = budget.budgetPeriod;
   }
 
@@ -143,24 +141,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             // Year/Month display
             _buildMonthSelector(context),
             const SizedBox(height: 24),
-            // Category selector
+            // Category selector (optional)
             if (!isEditing) ...[
-              SwitchListTile(
-                title: const Text('전체 예산'),
-                subtitle: const Text('카테고리 구분 없이 월 전체 예산을 설정합니다'),
-                value: _isOverallBudget,
-                onChanged: (value) {
-                  setState(() {
-                    _isOverallBudget = value;
-                    if (value) _selectedCategoryId = null;
-                  });
-                },
-              ),
+              _buildCategoryPicker(context),
               const SizedBox(height: 16),
-              if (!_isOverallBudget) ...[
-                _buildCategoryPicker(context),
-                const SizedBox(height: 16),
-              ],
             ],
             if (isEditing) ...[
               ListTile(
@@ -200,30 +184,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     },
             ),
             const SizedBox(height: 16),
-            // Amount input
-            TextFormField(
-              controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: '예산 금액',
-                suffixText: '원',
-                prefixIcon: Icon(Icons.payments),
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '금액을 입력하세요';
-                }
-                final amount = int.tryParse(value);
-                if (amount == null || amount <= 0) {
-                  return '0보다 큰 금액을 입력하세요';
-                }
-                return null;
-              },
-            ),
-            // Weekly amount input (only shown for WEEKLY period)
-            if (_budgetPeriod == 'WEEKLY') ...[
-              const SizedBox(height: 16),
+            // Amount input - show different field based on period
+            if (_budgetPeriod == 'WEEKLY')
               TextFormField(
                 controller: _weeklyAmountController,
                 decoration: const InputDecoration(
@@ -234,7 +196,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) {
-                  if (_budgetPeriod != 'WEEKLY') return null;
                   if (value == null || value.trim().isEmpty) {
                     return '주간 예산 금액을 입력하세요';
                   }
@@ -244,8 +205,28 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   }
                   return null;
                 },
+              )
+            else
+              TextFormField(
+                controller: _amountController,
+                decoration: const InputDecoration(
+                  labelText: '예산 금액',
+                  suffixText: '원',
+                  prefixIcon: Icon(Icons.payments),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '금액을 입력하세요';
+                  }
+                  final amount = int.tryParse(value);
+                  if (amount == null || amount <= 0) {
+                    return '0보다 큰 금액을 입력하세요';
+                  }
+                  return null;
+                },
               ),
-            ],
             const SizedBox(height: 32),
             // Submit button
             FilledButton(
@@ -318,21 +299,25 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             ? catState.expenseCategories
             : <Category>[];
 
-        return DropdownButtonFormField<String>(
+        return DropdownButtonFormField<String?>(
           key: ValueKey('budget_cat_$_dropdownResetKey'),
           initialValue: _selectedCategoryId,
           decoration: const InputDecoration(
-            labelText: '카테고리',
+            labelText: '카테고리 (선택)',
             prefixIcon: Icon(Icons.category),
           ),
           items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('전체 예산 (카테고리 없음)'),
+            ),
             ...categories.map((c) {
-              return DropdownMenuItem<String>(
+              return DropdownMenuItem<String?>(
                 value: c.id,
                 child: Text(c.name),
               );
             }),
-            const DropdownMenuItem<String>(
+            const DropdownMenuItem<String?>(
               value: '__create__',
               child: Text('+ 새 카테고리'),
             ),
@@ -346,12 +331,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             setState(() {
               _selectedCategoryId = value;
             });
-          },
-          validator: (value) {
-            if (!_isOverallBudget && (value == null || value == '__create__')) {
-              return '카테고리를 선택하세요';
-            }
-            return null;
           },
         );
       },
@@ -421,11 +400,19 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isSubmitting = true);
-      final amount = int.parse(_amountController.text.trim());
-      final weeklyAmount = _budgetPeriod == 'WEEKLY' &&
-              _weeklyAmountController.text.trim().isNotEmpty
-          ? int.parse(_weeklyAmountController.text.trim())
-          : null;
+      final int amount;
+      final int? weeklyAmount;
+      if (_budgetPeriod == 'WEEKLY') {
+        final weekly = int.parse(_weeklyAmountController.text.trim());
+        weeklyAmount = weekly;
+        // Monthly amount = weekly * 4 (approximate)
+        amount = _amountController.text.trim().isNotEmpty
+            ? int.parse(_amountController.text.trim())
+            : weekly * 4;
+      } else {
+        amount = int.parse(_amountController.text.trim());
+        weeklyAmount = null;
+      }
       final yearMonth =
           '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
       final bloc = context.read<BudgetBloc>();
@@ -439,7 +426,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         ));
       } else {
         bloc.add(CreateBudget(
-          categoryId: _isOverallBudget ? null : _selectedCategoryId,
+          categoryId: _selectedCategoryId,
           yearMonth: yearMonth,
           amount: amount,
           budgetPeriod: _budgetPeriod,

@@ -172,9 +172,18 @@ class _BudgetListPageState extends State<BudgetListPage> {
       value: getIt<WeeklyBudgetBloc>(),
       child: BlocBuilder<WeeklyBudgetBloc, WeeklyBudgetState>(
         builder: (context, state) {
+          if (state is WeeklyBudgetInitial) {
+            // Ensure events are dispatched
+            final now = DateTime.now();
+            getIt<WeeklyBudgetBloc>()
+              ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+              ..add(const LoadCurrentWeek());
+          }
           return switch (state) {
             WeeklyBudgetInitial() || WeeklyBudgetLoading() =>
               const Center(child: CircularProgressIndicator()),
+            WeeklyBudgetLoaded() when state.overview == null && state.currentWeek == null =>
+              _buildWeeklyEmpty(context),
             WeeklyBudgetLoaded() => _buildWeeklyLoaded(context, state),
             WeeklyBudgetError(message: final message) => AppErrorWidget(
                 message: message,
@@ -189,6 +198,39 @@ class _BudgetListPageState extends State<BudgetListPage> {
               ),
           };
         },
+      ),
+    );
+  }
+
+  Widget _buildWeeklyEmpty(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '주간 예산이 설정되지 않았습니다',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '월간 예산 추가 시 "주간" 기간을 선택하면\n주간 예산이 자동으로 생성됩니다',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
