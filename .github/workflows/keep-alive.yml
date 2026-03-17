@@ -2,9 +2,10 @@ name: Keep Alive - Render Cold Start Prevention
 
 on:
   schedule:
-    # Every 10 minutes to prevent Render free tier 15-min sleep
-    # (GitHub Actions cron can delay up to 5min, so 10min provides safety margin)
-    - cron: '*/10 * * * *'
+    # Every 5 minutes to prevent Render free tier 15-min sleep
+    # GitHub Actions cron can delay 5-15min, so 5min interval ensures
+    # at least one successful ping within any 15-min window
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,7 +15,7 @@ jobs:
       - name: Ping backend health endpoint
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            --connect-timeout 10 --max-time 30 \
+            --connect-timeout 30 --max-time 90 \
             https://budget-book-api.onrender.com/actuator/health 2>/dev/null || echo "000")
 
           echo "Health endpoint returned: $STATUS"
