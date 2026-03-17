@@ -3,6 +3,7 @@ package com.budgetbook.budget.domain
 import com.budgetbook.category.domain.Category
 import com.budgetbook.common.entity.BaseTimeEntity
 import com.budgetbook.couple.domain.Couple
+import com.budgetbook.pocket.domain.MoneyPocket
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -39,7 +40,11 @@ class MonthlyBudget(
     var budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
 
     @Column(name = "weekly_amount")
-    var weeklyAmount: Long? = null
+    var weeklyAmount: Long? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pocket_id")
+    var pocket: MoneyPocket? = null
 ) : BaseTimeEntity()
 
 enum class BudgetPeriod { WEEKLY, MONTHLY }

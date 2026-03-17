@@ -49,6 +49,8 @@ class BudgetControllerTest : FunSpec({
         amount = 150000,
         budgetPeriod = "MONTHLY",
         weeklyAmount = null,
+        pocketId = null,
+        pocketName = null,
         createdAt = Instant.now(),
         updatedAt = Instant.now()
     )

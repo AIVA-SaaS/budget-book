@@ -17,6 +17,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     required int amount,
     String budgetPeriod = 'MONTHLY',
     int? weeklyAmount,
+    String? pocketId,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -25,6 +26,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         'budgetPeriod': budgetPeriod,
         if (categoryId != null) 'categoryId': categoryId,
         if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
+        if (pocketId != null) 'pocketId': pocketId,
       };
       final result = await remoteDataSource.createBudget(data);
       return Right(result);
@@ -53,12 +55,14 @@ class BudgetRepositoryImpl implements BudgetRepository {
     required int amount,
     String? budgetPeriod,
     int? weeklyAmount,
+    String? pocketId,
   }) async {
     try {
       final data = <String, dynamic>{
         'amount': amount,
         if (budgetPeriod != null) 'budgetPeriod': budgetPeriod,
         if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
+        if (pocketId != null) 'pocketId': pocketId,
       };
       final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);

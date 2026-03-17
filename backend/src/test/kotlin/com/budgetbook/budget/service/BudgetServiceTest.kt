@@ -17,6 +17,9 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.pocket.domain.MoneyPocket
+import com.budgetbook.pocket.domain.PocketType
+import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -41,7 +44,8 @@ class BudgetServiceTest : BehaviorSpec({
     val categoryRepository = mockk<CategoryRepository>()
     val transactionRepository = mockk<TransactionRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, transactionRepository, syncEventPublisher)
+    val moneyPocketRepository = mockk<MoneyPocketRepository>()
+    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, transactionRepository, syncEventPublisher, moneyPocketRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")

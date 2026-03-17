@@ -11,6 +11,7 @@ import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.toResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -33,7 +34,8 @@ class BudgetService(
     private val coupleResolver: CoupleResolver,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
-    private val syncEventPublisher: SyncEventPublisher
+    private val syncEventPublisher: SyncEventPublisher,
+    private val moneyPocketRepository: MoneyPocketRepository
 ) {
 
     @Transactional
@@ -48,6 +50,17 @@ class BudgetService(
             }
             cat
         }
+
+        // Validate pocket ownership
+        val pocket = if (request.pocketId != null) {
+            moneyPocketRepository.findById(request.pocketId).orElseThrow {
+                NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
+            }.also {
+                if (it.couple.id != couple.id) {
+                    throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
+                }
+            }
+        } else null
 
         if (budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, request.categoryId, request.yearMonth)) {
             throw ConflictException("DUPLICATE_BUDGET", "Budget for this category and month already exists.")
@@ -74,7 +87,8 @@ class BudgetService(
             yearMonth = request.yearMonth,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
-            weeklyAmount = weeklyAmount
+            weeklyAmount = weeklyAmount,
+            pocket = pocket
         )
 
         val saved = budgetRepository.save(budget)
@@ -130,6 +144,17 @@ class BudgetService(
                 budget.weeklyAmount = request.weeklyAmount
                     ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
             }
+        }
+
+        // Update pocket if provided
+        if (request.pocketId != null) {
+            val pocket = moneyPocketRepository.findById(request.pocketId).orElseThrow {
+                NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
+            }
+            if (pocket.couple.id != couple.id) {
+                throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
+            }
+            budget.pocket = pocket
         }
 
         val saved = budgetRepository.save(budget)
@@ -273,7 +298,8 @@ class BudgetService(
                     yearMonth = targetYearMonth,
                     amount = source.amount,
                     budgetPeriod = source.budgetPeriod,
-                    weeklyAmount = weeklyAmount
+                    weeklyAmount = weeklyAmount,
+                    pocket = source.pocket
                 )
             }
 

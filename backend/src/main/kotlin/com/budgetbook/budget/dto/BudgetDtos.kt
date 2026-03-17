@@ -22,7 +22,9 @@ data class BudgetRequest(
     @field:Max(999_999_999)
     val amount: Long,
 
-    val budgetPeriod: String? = "MONTHLY"
+    val budgetPeriod: String? = "MONTHLY",
+
+    val pocketId: UUID? = null
 )
 
 data class BudgetUpdateRequest(
@@ -33,7 +35,9 @@ data class BudgetUpdateRequest(
 
     val budgetPeriod: String? = null,
 
-    val weeklyAmount: Long? = null
+    val weeklyAmount: Long? = null,
+
+    val pocketId: UUID? = null
 )
 
 data class BudgetResponse(
@@ -44,6 +48,8 @@ data class BudgetResponse(
     val amount: Long,
     val budgetPeriod: String,
     val weeklyAmount: Long?,
+    val pocketId: UUID? = null,
+    val pocketName: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -110,6 +116,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     amount = amount,
     budgetPeriod = budgetPeriod.name,
     weeklyAmount = weeklyAmount,
+    pocketId = pocket?.id,
+    pocketName = pocket?.name,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
