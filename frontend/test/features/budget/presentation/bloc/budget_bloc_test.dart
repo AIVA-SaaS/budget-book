@@ -50,6 +50,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     required int amount,
     String budgetPeriod = 'MONTHLY',
     int? weeklyAmount,
+    String? pocketId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createBudget, [], {
@@ -58,6 +59,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #amount: amount,
           #budgetPeriod: budgetPeriod,
           #weeklyAmount: weeklyAmount,
+          #pocketId: pocketId,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -70,6 +72,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     required int amount,
     String? budgetPeriod,
     int? weeklyAmount,
+    String? pocketId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateBudget, [], {
@@ -77,6 +80,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #amount: amount,
           #budgetPeriod: budgetPeriod,
           #weeklyAmount: weeklyAmount,
+          #pocketId: pocketId,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -254,6 +258,7 @@ void main() {
             amount: 150000,
             budgetPeriod: 'MONTHLY',
             weeklyAmount: null,
+            pocketId: null,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Duplicate budget')));
           return budgetBloc;
@@ -289,6 +294,7 @@ void main() {
             amount: 3000000,
             budgetPeriod: 'MONTHLY',
             weeklyAmount: null,
+            pocketId: null,
           )).thenAnswer((_) async => Right(tBudget2));
           when(mockRepository.getBudgets(year: 2026, month: 3))
               .thenAnswer((_) async => Right(tBudgets));
@@ -321,6 +327,7 @@ void main() {
             amount: 200000,
             budgetPeriod: null,
             weeklyAmount: null,
+            pocketId: null,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to update budget')));
           return budgetBloc;

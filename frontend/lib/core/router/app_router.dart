@@ -376,6 +376,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             DateTime.now().month;
         getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
         getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PocketBloc>().add(const LoadPockets());
         return MultiBlocProvider(
           providers: [
             BlocProvider<BudgetBloc>.value(
@@ -383,6 +384,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
             BlocProvider<CategoryBloc>.value(
               value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
             ),
           ],
           child: BudgetFormPage(year: year, month: month),
@@ -401,6 +405,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             DateTime.now().month;
         getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
         getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PocketBloc>().add(const LoadPockets());
         return MultiBlocProvider(
           providers: [
             BlocProvider<BudgetBloc>.value(
@@ -408,6 +413,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
             BlocProvider<CategoryBloc>.value(
               value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
             ),
           ],
           child: BudgetFormPage(

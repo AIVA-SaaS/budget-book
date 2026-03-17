@@ -9,6 +9,7 @@ abstract class BudgetRepository {
     required int amount,
     String budgetPeriod = 'MONTHLY',
     int? weeklyAmount,
+    String? pocketId,
   });
 
   Future<Either<Failure, List<Budget>>> getBudgets({
@@ -21,6 +22,7 @@ abstract class BudgetRepository {
     required int amount,
     String? budgetPeriod,
     int? weeklyAmount,
+    String? pocketId,
   });
 
   Future<Either<Failure, void>> deleteBudget(String id);

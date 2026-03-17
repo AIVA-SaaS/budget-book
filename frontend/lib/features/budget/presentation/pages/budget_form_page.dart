@@ -14,6 +14,10 @@ import 'package:budget_book/features/category/presentation/bloc/category_bloc.da
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
+import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 
 class BudgetFormPage extends StatefulWidget {
   /// If editing, pass the budget ID (from URL path parameter).
@@ -38,6 +42,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late final TextEditingController _amountController;
   late final TextEditingController _weeklyAmountController;
   String? _selectedCategoryId;
+  String? _selectedPocketId;
   late int _selectedYear;
   late int _selectedMonth;
   late String _budgetPeriod;
@@ -66,6 +71,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _weeklyAmountController.text =
         budget.weeklyAmount != null ? budget.weeklyAmount.toString() : '';
     _selectedCategoryId = budget.category?.id;
+    _selectedPocketId = budget.pocketId;
     _budgetPeriod = budget.budgetPeriod;
   }
 
@@ -162,6 +168,30 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
               ),
               const SizedBox(height: 16),
             ],
+            // Pocket selector (optional)
+            BlocBuilder<PocketBloc, PocketState>(
+              builder: (context, pocketState) {
+                final pockets = pocketState is PocketLoaded
+                    ? pocketState.pockets
+                    : <MoneyPocket>[];
+
+                final selectedName = _selectedPocketId != null
+                    ? pockets
+                        .where((p) => p.id == _selectedPocketId)
+                        .map((p) => p.name)
+                        .firstOrNull
+                    : null;
+
+                return ItemSelectorField(
+                  label: '포켓 (선택)',
+                  selectedLabel: selectedName,
+                  prefixIcon: Icons.account_balance_wallet,
+                  placeholder: '포켓 미지정',
+                  onTap: () => _showPocketSelectorSheet(context, pockets),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
             // Budget period selector
             DropdownButtonFormField<String>(
               initialValue: _budgetPeriod,
@@ -397,6 +427,28 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     }
   }
 
+  void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ItemSelectorSheet(
+        title: '포켓 선택',
+        items: pockets
+            .map((p) => SelectorItem(
+                  id: p.id,
+                  label: p.name,
+                  leadingIcon: Icons.account_balance_wallet,
+                ))
+            .toList(),
+        selectedId: _selectedPocketId,
+        nullLabel: '포켓 미지정',
+        onSelected: (item) {
+          setState(() => _selectedPocketId = item?.id);
+        },
+      ),
+    );
+  }
+
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isSubmitting = true);
@@ -423,6 +475,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           amount: amount,
           budgetPeriod: _budgetPeriod,
           weeklyAmount: weeklyAmount,
+          pocketId: _selectedPocketId,
         ));
       } else {
         bloc.add(CreateBudget(
@@ -431,6 +484,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           amount: amount,
           budgetPeriod: _budgetPeriod,
           weeklyAmount: weeklyAmount,
+          pocketId: _selectedPocketId,
         ));
       }
     }

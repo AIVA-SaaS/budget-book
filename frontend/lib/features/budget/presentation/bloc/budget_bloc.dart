@@ -99,6 +99,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
       amount: event.amount,
       budgetPeriod: event.budgetPeriod,
       weeklyAmount: event.weeklyAmount,
+      pocketId: event.pocketId,
     );
     result.fold(
       (failure) {
@@ -128,6 +129,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
       amount: event.amount,
       budgetPeriod: event.budgetPeriod,
       weeklyAmount: event.weeklyAmount,
+      pocketId: event.pocketId,
     );
     result.fold(
       (failure) {

@@ -13,6 +13,9 @@ import 'package:budget_book/features/category/presentation/bloc/category_event.d
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
@@ -20,9 +23,13 @@ class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
 class MockCategoryBloc extends MockBloc<CategoryEvent, CategoryState>
     implements CategoryBloc {}
 
+class MockPocketBloc extends MockBloc<PocketEvent, PocketState>
+    implements PocketBloc {}
+
 void main() {
   late MockBudgetBloc mockBudgetBloc;
   late MockCategoryBloc mockCategoryBloc;
+  late MockPocketBloc mockPocketBloc;
 
   final tCategories = [
     Category(
@@ -74,6 +81,7 @@ void main() {
   setUp(() {
     mockBudgetBloc = MockBudgetBloc();
     mockCategoryBloc = MockCategoryBloc();
+    mockPocketBloc = MockPocketBloc();
   });
 
   Widget buildTestWidget({
@@ -89,11 +97,14 @@ void main() {
     ));
     when(() => mockCategoryBloc.state)
         .thenReturn(CategoryLoaded(tCategories));
+    when(() => mockPocketBloc.state)
+        .thenReturn(const PocketLoaded([]));
     return MaterialApp(
       home: MultiBlocProvider(
         providers: [
           BlocProvider<BudgetBloc>.value(value: mockBudgetBloc),
           BlocProvider<CategoryBloc>.value(value: mockCategoryBloc),
+          BlocProvider<PocketBloc>.value(value: mockPocketBloc),
         ],
         child: BudgetFormPage(
           budgetId: budgetId,
