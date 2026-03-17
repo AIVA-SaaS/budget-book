@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
-import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
@@ -19,7 +18,6 @@ class CouplePage extends StatefulWidget {
 
 class _CouplePageState extends State<CouplePage> {
   final _codeController = TextEditingController();
-  bool _waitingForAuthRefresh = false;
 
   @override
   void dispose() {
@@ -29,45 +27,20 @@ class _CouplePageState extends State<CouplePage> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<CoupleBloc, CoupleState>(
-          listener: (context, state) {
-            if (state is CoupleError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            } else if (state is CoupleLinked) {
-              // Refresh auth state to update coupleId, then navigate
-              setState(() => _waitingForAuthRefresh = true);
-              context.read<AuthBloc>().add(const AuthRefreshUser());
-              // Timeout fallback: if auth refresh doesn't complete in 5s, navigate anyway
-              final nav = GoRouter.of(context);
-              Future.delayed(const Duration(seconds: 5), () {
-                if (mounted && _waitingForAuthRefresh) {
-                  _waitingForAuthRefresh = false;
-                  nav.go('/home');
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('커플이 연결되었습니다!')),
-              );
-            }
-          },
-        ),
-        // Wait for auth refresh to complete before navigating to home
-        BlocListener<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (_waitingForAuthRefresh && state is AuthAuthenticated) {
-              _waitingForAuthRefresh = false;
-              context.go('/home');
-            }
-          },
-        ),
-      ],
+    return BlocListener<CoupleBloc, CoupleState>(
+      listener: (context, state) {
+        if (state is CoupleError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else if (state is CoupleLinked) {
+          // Refresh auth state to update coupleId so router guard is aware
+          context.read<AuthBloc>().add(const AuthRefreshUser());
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('커플 연결'),
@@ -75,19 +48,6 @@ class _CouplePageState extends State<CouplePage> {
         ),
         body: BlocBuilder<CoupleBloc, CoupleState>(
           builder: (context, state) {
-            if (_waitingForAuthRefresh) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('홈으로 이동 중...'),
-                  ],
-                ),
-              );
-            }
-
             return switch (state) {
               CoupleInitial() || CoupleLoading() => const Center(
                   child: CircularProgressIndicator(),

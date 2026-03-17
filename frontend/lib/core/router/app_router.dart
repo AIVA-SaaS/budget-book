@@ -14,7 +14,6 @@ import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart'
 import 'package:budget_book/features/couple/presentation/pages/couple_page.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
-import 'package:budget_book/features/category/presentation/pages/category_page.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
@@ -291,13 +290,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     GoRoute(
       path: '/categories',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        getIt<CategoryBloc>().add(const LoadCategories());
-        return BlocProvider<CategoryBloc>.value(
-          value: getIt<CategoryBloc>(),
-          child: const CategoryPage(),
-        );
-      },
+      redirect: (context, state) => '/asset-management',
     ),
     GoRoute(
       path: '/transactions/create',

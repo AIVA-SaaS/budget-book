@@ -79,9 +79,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   tooltip: '전월 예산 복사',
                 ),
                 IconButton(
-                  onPressed: () => context.push('/categories'),
+                  onPressed: () => context.push('/asset-management'),
                   icon: const Icon(Icons.category),
-                  tooltip: '카테고리 관리',
+                  tooltip: '자산 관리',
                 ),
               ],
       ),
