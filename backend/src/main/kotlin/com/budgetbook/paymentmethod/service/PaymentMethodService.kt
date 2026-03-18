@@ -5,6 +5,7 @@ import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
@@ -24,10 +25,10 @@ import java.util.UUID
 @Service
 class PaymentMethodService(
     private val paymentMethodRepository: PaymentMethodRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun listPaymentMethods(userId: UUID): List<PaymentMethodResponse> {
@@ -162,10 +163,6 @@ class PaymentMethodService(
                 transactionCount = count
             )
         }
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun PaymentMethod.toResponse() = PaymentMethodResponse(

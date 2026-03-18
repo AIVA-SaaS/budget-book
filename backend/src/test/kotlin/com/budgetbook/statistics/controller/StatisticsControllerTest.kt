@@ -10,8 +10,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.util.UUID
 
 class StatisticsControllerTest : FunSpec({
@@ -21,11 +19,8 @@ class StatisticsControllerTest : FunSpec({
     val controller = StatisticsController(statisticsService, paymentMethodStatisticsService)
     val testUserId = UUID.randomUUID()
 
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
-
     test("getMonthlySummary returns summary data") {
-        val auth = createAuth(testUserId)
+
         val summary = StatisticsSummaryResponse(
             yearMonth = "2026-03",
             totalIncome = 5000000,
@@ -35,7 +30,7 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3) } returns summary
 
-        val result = controller.getMonthlySummary(auth, 2026, 3)
+        val result = controller.getMonthlySummary(testUserId, 2026, 3)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -46,7 +41,7 @@ class StatisticsControllerTest : FunSpec({
     }
 
     test("getCategoryBreakdown returns category statistics") {
-        val auth = createAuth(testUserId)
+
         val catId = UUID.randomUUID()
         val breakdown = listOf(
             CategoryStatisticsResponse(
@@ -58,24 +53,24 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE") } returns breakdown
 
-        val result = controller.getCategoryBreakdown(auth, 2026, 3, "EXPENSE")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE")
 
         result.success shouldBe true
         result.data!! shouldBe breakdown
     }
 
     test("getCategoryBreakdown with null type passes null to service") {
-        val auth = createAuth(testUserId)
+
         every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, null) } returns emptyList()
 
-        val result = controller.getCategoryBreakdown(auth, 2026, 3, null)
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, null)
 
         result.success shouldBe true
         result.data!! shouldBe emptyList()
     }
 
     test("getMonthlyTrend returns trend data") {
-        val auth = createAuth(testUserId)
+
         val trend = listOf(
             MonthlyTrendResponse("2025-10", 4500000, 3100000, 1400000),
             MonthlyTrendResponse("2025-11", 4800000, 3400000, 1400000),
@@ -83,7 +78,7 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getMonthlyTrend(testUserId, 3) } returns trend
 
-        val result = controller.getMonthlyTrend(auth, 3)
+        val result = controller.getMonthlyTrend(testUserId, 3)
 
         result.success shouldBe true
         result.data!!.size shouldBe 3
@@ -91,13 +86,13 @@ class StatisticsControllerTest : FunSpec({
     }
 
     test("getMonthlyTrend uses default months value of 6") {
-        val auth = createAuth(testUserId)
+
         val trend = (1..6).map {
             MonthlyTrendResponse("2025-${it.toString().padStart(2, '0')}", 0, 0, 0)
         }
         every { statisticsService.getMonthlyTrend(testUserId, 6) } returns trend
 
-        val result = controller.getMonthlyTrend(auth, 6)
+        val result = controller.getMonthlyTrend(testUserId, 6)
 
         result.success shouldBe true
         result.data!!.size shouldBe 6

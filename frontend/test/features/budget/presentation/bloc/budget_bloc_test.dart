@@ -51,6 +51,9 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String budgetPeriod = 'MONTHLY',
     int? weeklyAmount,
     String? pocketId,
+    String periodType = 'MONTHLY',
+    DateTime? startDate,
+    DateTime? endDate,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createBudget, [], {
@@ -60,6 +63,9 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #budgetPeriod: budgetPeriod,
           #weeklyAmount: weeklyAmount,
           #pocketId: pocketId,
+          #periodType: periodType,
+          #startDate: startDate,
+          #endDate: endDate,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -73,6 +79,9 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String? budgetPeriod,
     int? weeklyAmount,
     String? pocketId,
+    String? periodType,
+    DateTime? startDate,
+    DateTime? endDate,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateBudget, [], {
@@ -81,6 +90,9 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #budgetPeriod: budgetPeriod,
           #weeklyAmount: weeklyAmount,
           #pocketId: pocketId,
+          #periodType: periodType,
+          #startDate: startDate,
+          #endDate: endDate,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -259,6 +271,9 @@ void main() {
             budgetPeriod: 'MONTHLY',
             weeklyAmount: null,
             pocketId: null,
+            periodType: 'MONTHLY',
+            startDate: null,
+            endDate: null,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Duplicate budget')));
           return budgetBloc;
@@ -295,6 +310,9 @@ void main() {
             budgetPeriod: 'MONTHLY',
             weeklyAmount: null,
             pocketId: null,
+            periodType: 'MONTHLY',
+            startDate: null,
+            endDate: null,
           )).thenAnswer((_) async => Right(tBudget2));
           when(mockRepository.getBudgets(year: 2026, month: 3))
               .thenAnswer((_) async => Right(tBudgets));
@@ -328,6 +346,9 @@ void main() {
             budgetPeriod: null,
             weeklyAmount: null,
             pocketId: null,
+            periodType: null,
+            startDate: null,
+            endDate: null,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to update budget')));
           return budgetBloc;

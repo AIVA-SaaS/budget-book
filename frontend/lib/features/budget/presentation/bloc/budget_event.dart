@@ -34,6 +34,9 @@ class CreateBudget extends BudgetEvent {
   final String budgetPeriod;
   final int? weeklyAmount;
   final String? pocketId;
+  final String periodType;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const CreateBudget({
     this.categoryId,
@@ -42,11 +45,23 @@ class CreateBudget extends BudgetEvent {
     this.budgetPeriod = 'MONTHLY',
     this.weeklyAmount,
     this.pocketId,
+    this.periodType = 'MONTHLY',
+    this.startDate,
+    this.endDate,
   });
 
   @override
-  List<Object?> get props =>
-      [categoryId, yearMonth, amount, budgetPeriod, weeklyAmount, pocketId];
+  List<Object?> get props => [
+        categoryId,
+        yearMonth,
+        amount,
+        budgetPeriod,
+        weeklyAmount,
+        pocketId,
+        periodType,
+        startDate,
+        endDate,
+      ];
 }
 
 class UpdateBudget extends BudgetEvent {
@@ -55,6 +70,9 @@ class UpdateBudget extends BudgetEvent {
   final String? budgetPeriod;
   final int? weeklyAmount;
   final String? pocketId;
+  final String? periodType;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const UpdateBudget({
     required this.id,
@@ -62,10 +80,22 @@ class UpdateBudget extends BudgetEvent {
     this.budgetPeriod,
     this.weeklyAmount,
     this.pocketId,
+    this.periodType,
+    this.startDate,
+    this.endDate,
   });
 
   @override
-  List<Object?> get props => [id, amount, budgetPeriod, weeklyAmount, pocketId];
+  List<Object?> get props => [
+        id,
+        amount,
+        budgetPeriod,
+        weeklyAmount,
+        pocketId,
+        periodType,
+        startDate,
+        endDate,
+      ];
 }
 
 class DeleteBudget extends BudgetEvent {

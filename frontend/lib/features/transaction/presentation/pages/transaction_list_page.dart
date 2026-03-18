@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/utils/web_download_stub.dart'
@@ -354,16 +355,25 @@ class _TransactionListPageState extends State<TransactionListPage> {
     return Column(
       children: [
         // Month navigator
-        _MonthNavigator(
+        MonthNavigator(
           year: state.year,
           month: state.month,
-          keyword: _searchController.text.trim().isEmpty
-              ? null
-              : _searchController.text.trim(),
-          paymentMethodId: _filterPaymentMethodId,
-          pocketId: _filterPocketId,
-          amountMin: _filterAmountMin,
-          amountMax: _filterAmountMax,
+          onMonthChanged: (m) {
+            final kw = _searchController.text.trim().isEmpty
+                ? null
+                : _searchController.text.trim();
+            context.read<TransactionBloc>().add(
+                  LoadTransactions(
+                    year: m.year,
+                    month: m.month,
+                    keyword: kw,
+                    paymentMethodId: _filterPaymentMethodId,
+                    pocketId: _filterPocketId,
+                    amountMin: _filterAmountMin,
+                    amountMax: _filterAmountMax,
+                  ),
+                );
+          },
         ),
         // Search bar and filter button
         Padding(
@@ -529,109 +539,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
             );
       },
       showHomeButton: true,
-    );
-  }
-}
-
-class _MonthNavigator extends StatelessWidget {
-  final int year;
-  final int month;
-  final String? keyword;
-  final String? paymentMethodId;
-  final String? pocketId;
-  final int? amountMin;
-  final int? amountMax;
-
-  const _MonthNavigator({
-    required this.year,
-    required this.month,
-    this.keyword,
-    this.paymentMethodId,
-    this.pocketId,
-    this.amountMin,
-    this.amountMax,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dateStr = DateFormat('yyyy년 M월').format(DateTime(year, month));
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              final prev = month == 1
-                  ? DateTime(year - 1, 12)
-                  : DateTime(year, month - 1);
-              context.read<TransactionBloc>().add(
-                    LoadTransactions(
-                      year: prev.year,
-                      month: prev.month,
-                      keyword: keyword,
-                      paymentMethodId: paymentMethodId,
-                      pocketId: pocketId,
-                      amountMin: amountMin,
-                      amountMax: amountMax,
-                    ),
-                  );
-            },
-            tooltip: '이전 달',
-          ),
-          TextButton(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: DateTime(year, month),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030, 12, 31),
-              );
-              if (picked != null && context.mounted) {
-                context.read<TransactionBloc>().add(
-                      LoadTransactions(
-                        year: picked.year,
-                        month: picked.month,
-                        keyword: keyword,
-                        paymentMethodId: paymentMethodId,
-                        pocketId: pocketId,
-                        amountMin: amountMin,
-                        amountMax: amountMax,
-                      ),
-                    );
-              }
-            },
-            child: Text(
-              dateStr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              final next = month == 12
-                  ? DateTime(year + 1, 1)
-                  : DateTime(year, month + 1);
-              context.read<TransactionBloc>().add(
-                    LoadTransactions(
-                      year: next.year,
-                      month: next.month,
-                      keyword: keyword,
-                      paymentMethodId: paymentMethodId,
-                      pocketId: pocketId,
-                      amountMin: amountMin,
-                      amountMax: amountMax,
-                    ),
-                  );
-            },
-            tooltip: '다음 달',
-          ),
-        ],
-      ),
     );
   }
 }

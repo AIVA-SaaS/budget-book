@@ -2,6 +2,7 @@ package com.budgetbook.budget.service
 
 import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.MonthlyBudget
+import com.budgetbook.budget.domain.PeriodType
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryItemResponse
@@ -15,8 +16,10 @@ import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
@@ -31,12 +34,12 @@ import java.util.UUID
 @Service
 class BudgetService(
     private val budgetRepository: MonthlyBudgetRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher,
     private val moneyPocketRepository: MoneyPocketRepository
-) {
+) : CoupleAwareService {
 
     @Transactional
     fun createBudget(userId: UUID, request: BudgetRequest): BudgetResponse {
@@ -45,9 +48,7 @@ class BudgetService(
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-            if (cat.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             cat
         }
 
@@ -56,9 +57,7 @@ class BudgetService(
             moneyPocketRepository.findById(request.pocketId).orElseThrow {
                 NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
             }.also {
-                if (it.couple.id != couple.id) {
-                    throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
-                }
+                OwnershipValidator.validateOwnership(it.couple.id, couple, "Pocket")
             }
         } else null
 
@@ -74,12 +73,32 @@ class BudgetService(
             )
         }
 
+        // Resolve periodType: use explicit value, fall back from budgetPeriod for backward compat
+        val periodType = if (request.periodType != null) {
+            try {
+                PeriodType.valueOf(request.periodType)
+            } catch (e: IllegalArgumentException) {
+                throw com.budgetbook.common.exception.BusinessException(
+                    "VALIDATION_ERROR", "Invalid period type: ${request.periodType}"
+                )
+            }
+        } else {
+            // Backward compat: derive from budgetPeriod
+            when (budgetPeriod) {
+                BudgetPeriod.WEEKLY -> PeriodType.WEEKLY
+                BudgetPeriod.MONTHLY -> PeriodType.MONTHLY
+            }
+        }
+
         val numberOfWeeks = calculateNumberOfWeeks(request.yearMonth)
         val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
             request.amount / numberOfWeeks
         } else {
             null
         }
+
+        // Calculate start/end dates
+        val (startDate, endDate) = resolveStartEndDates(periodType, request.yearMonth, request.startDate, request.endDate)
 
         val budget = MonthlyBudget(
             couple = couple,
@@ -88,6 +107,9 @@ class BudgetService(
             amount = request.amount,
             budgetPeriod = budgetPeriod,
             weeklyAmount = weeklyAmount,
+            periodType = periodType,
+            startDate = startDate,
+            endDate = endDate,
             pocket = pocket
         )
 
@@ -116,9 +138,7 @@ class BudgetService(
         val budget = budgetRepository.findById(budgetId)
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
 
-        if (budget.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Budget belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
 
         budget.amount = request.amount
 
@@ -146,14 +166,31 @@ class BudgetService(
             }
         }
 
+        // Update periodType and date range if provided
+        request.periodType?.let { ptStr ->
+            val newPeriodType = try {
+                PeriodType.valueOf(ptStr)
+            } catch (e: IllegalArgumentException) {
+                throw com.budgetbook.common.exception.BusinessException(
+                    "VALIDATION_ERROR", "Invalid period type: $ptStr"
+                )
+            }
+            budget.periodType = newPeriodType
+            val (sd, ed) = resolveStartEndDates(newPeriodType, budget.yearMonth, request.startDate, request.endDate)
+            budget.startDate = sd
+            budget.endDate = ed
+        } ?: run {
+            // periodType not changing, but update dates if explicitly provided
+            if (request.startDate != null) budget.startDate = request.startDate
+            if (request.endDate != null) budget.endDate = request.endDate
+        }
+
         // Update pocket if provided
         if (request.pocketId != null) {
             val pocket = moneyPocketRepository.findById(request.pocketId).orElseThrow {
                 NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
             }
-            if (pocket.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(pocket.couple.id, couple, "Pocket")
             budget.pocket = pocket
         }
 
@@ -174,9 +211,7 @@ class BudgetService(
         val budget = budgetRepository.findById(budgetId)
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
 
-        if (budget.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Budget belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
 
         budgetRepository.delete(budget)
         syncEventPublisher.publish(SyncEvent(
@@ -292,6 +327,7 @@ class BudgetService(
                 } else {
                     null
                 }
+                val (sd, ed) = resolveStartEndDates(source.periodType, targetYearMonth, null, null)
                 MonthlyBudget(
                     couple = couple,
                     category = source.category,
@@ -299,6 +335,9 @@ class BudgetService(
                     amount = source.amount,
                     budgetPeriod = source.budgetPeriod,
                     weeklyAmount = weeklyAmount,
+                    periodType = source.periodType,
+                    startDate = sd,
+                    endDate = ed,
                     pocket = source.pocket
                 )
             }
@@ -320,12 +359,30 @@ class BudgetService(
         return saved.map { it.toResponse() }
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
-
     private fun formatYearMonth(year: Int, month: Int): String =
         "%04d-%02d".format(year, month)
+
+    private fun resolveStartEndDates(
+        periodType: PeriodType,
+        yearMonth: String,
+        requestStartDate: LocalDate?,
+        requestEndDate: LocalDate?
+    ): Pair<LocalDate?, LocalDate?> {
+        return when (periodType) {
+            PeriodType.NONE -> Pair(null, null)
+            PeriodType.DAILY -> Pair(requestStartDate, requestEndDate)
+            PeriodType.WEEKLY, PeriodType.MONTHLY -> {
+                if (requestStartDate != null && requestEndDate != null) {
+                    Pair(requestStartDate, requestEndDate)
+                } else {
+                    // Auto-calculate from yearMonth
+                    val parts = yearMonth.split("-")
+                    val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
+                    Pair(ym.atDay(1), ym.atEndOfMonth())
+                }
+            }
+        }
+    }
 
     private fun calculateNumberOfWeeks(yearMonth: String): Int {
         val parts = yearMonth.split("-")

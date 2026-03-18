@@ -29,37 +29,41 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     LoadTransactions event,
     Emitter<TransactionState> emit,
   ) async {
-    _currentYear = event.year;
-    _currentMonth = event.month;
-    _currentKeyword = event.keyword;
-    _currentPaymentMethodId = event.paymentMethodId;
-    _currentPocketId = event.pocketId;
-    _currentAmountMin = event.amountMin;
-    _currentAmountMax = event.amountMax;
-    emit(const TransactionLoading());
+    try {
+      _currentYear = event.year;
+      _currentMonth = event.month;
+      _currentKeyword = event.keyword;
+      _currentPaymentMethodId = event.paymentMethodId;
+      _currentPocketId = event.pocketId;
+      _currentAmountMin = event.amountMin;
+      _currentAmountMax = event.amountMax;
+      emit(const TransactionLoading());
 
-    final result = await transactionRepository.getTransactions(
-      year: event.year,
-      month: event.month,
-      keyword: event.keyword,
-      paymentMethodId: event.paymentMethodId,
-      pocketId: event.pocketId,
-      amountMin: event.amountMin,
-      amountMax: event.amountMax,
-      page: 0,
-      size: _pageSize,
-    );
-    result.fold(
-      (failure) => emit(TransactionError(failure.message)),
-      (page) => emit(TransactionLoaded(
-        transactions: page.content,
+      final result = await transactionRepository.getTransactions(
         year: event.year,
         month: event.month,
-        totalElements: page.totalElements,
-        hasMore: !page.last,
-        currentPage: 0,
-      )),
-    );
+        keyword: event.keyword,
+        paymentMethodId: event.paymentMethodId,
+        pocketId: event.pocketId,
+        amountMin: event.amountMin,
+        amountMax: event.amountMax,
+        page: 0,
+        size: _pageSize,
+      );
+      result.fold(
+        (failure) => emit(TransactionError(failure.message)),
+        (page) => emit(TransactionLoaded(
+          transactions: page.content,
+          year: event.year,
+          month: event.month,
+          totalElements: page.totalElements,
+          hasMore: !page.last,
+          currentPage: 0,
+        )),
+      );
+    } catch (e) {
+      emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onLoadMoreTransactions(
@@ -73,34 +77,105 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       return;
     }
 
-    final nextPage = currentState.currentPage + 1;
+    try {
+      final nextPage = currentState.currentPage + 1;
 
-    // Emit loading-more state
-    emit(TransactionLoaded(
-      transactions: currentState.transactions,
-      year: currentState.year,
-      month: currentState.month,
-      totalElements: currentState.totalElements,
-      hasMore: currentState.hasMore,
-      currentPage: currentState.currentPage,
-      isLoadingMore: true,
-    ));
+      // Emit loading-more state
+      emit(TransactionLoaded(
+        transactions: currentState.transactions,
+        year: currentState.year,
+        month: currentState.month,
+        totalElements: currentState.totalElements,
+        hasMore: currentState.hasMore,
+        currentPage: currentState.currentPage,
+        isLoadingMore: true,
+      ));
 
-    final result = await transactionRepository.getTransactions(
-      year: _currentYear,
-      month: _currentMonth,
-      keyword: _currentKeyword,
-      paymentMethodId: _currentPaymentMethodId,
-      pocketId: _currentPocketId,
-      amountMin: _currentAmountMin,
-      amountMax: _currentAmountMax,
-      page: nextPage,
-      size: _pageSize,
-    );
+      final result = await transactionRepository.getTransactions(
+        year: _currentYear,
+        month: _currentMonth,
+        keyword: _currentKeyword,
+        paymentMethodId: _currentPaymentMethodId,
+        pocketId: _currentPocketId,
+        amountMin: _currentAmountMin,
+        amountMax: _currentAmountMax,
+        page: nextPage,
+        size: _pageSize,
+      );
 
-    result.fold(
-      (failure) {
-        // Revert to non-loading state on error
+      result.fold(
+        (failure) {
+          // Revert to non-loading state on error
+          emit(TransactionLoaded(
+            transactions: currentState.transactions,
+            year: currentState.year,
+            month: currentState.month,
+            totalElements: currentState.totalElements,
+            hasMore: currentState.hasMore,
+            currentPage: currentState.currentPage,
+            isLoadingMore: false,
+            operationError: failure.message,
+          ));
+        },
+        (page) {
+          final allTransactions = [
+            ...currentState.transactions,
+            ...page.content,
+          ];
+          emit(TransactionLoaded(
+            transactions: allTransactions,
+            year: currentState.year,
+            month: currentState.month,
+            totalElements: page.totalElements,
+            hasMore: !page.last,
+            currentPage: nextPage,
+          ));
+        },
+      );
+    } catch (e) {
+      emit(TransactionLoaded(
+        transactions: currentState.transactions,
+        year: currentState.year,
+        month: currentState.month,
+        totalElements: currentState.totalElements,
+        hasMore: currentState.hasMore,
+        currentPage: currentState.currentPage,
+        isLoadingMore: false,
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
+  }
+
+  Future<void> _onCreateTransaction(
+    CreateTransaction event,
+    Emitter<TransactionState> emit,
+  ) async {
+    try {
+      final result = await transactionRepository.createTransaction(
+        type: event.type,
+        amount: event.amount,
+        description: event.description,
+        categoryId: event.categoryId,
+        transactionDate: event.transactionDate,
+        memo: event.memo,
+        paymentMethodId: event.paymentMethodId,
+        pocketId: event.pocketId,
+      );
+      result.fold(
+        (failure) => emit(TransactionError(failure.message)),
+        (_) => add(LoadTransactions(
+              year: _currentYear,
+              month: _currentMonth,
+              keyword: _currentKeyword,
+              paymentMethodId: _currentPaymentMethodId,
+              pocketId: _currentPocketId,
+              amountMin: _currentAmountMin,
+              amountMax: _currentAmountMax,
+            )),
+      );
+    } catch (e) {
+      final currentState = state;
+      if (currentState is TransactionLoaded) {
         emit(TransactionLoaded(
           transactions: currentState.transactions,
           year: currentState.year,
@@ -108,120 +183,113 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           totalElements: currentState.totalElements,
           hasMore: currentState.hasMore,
           currentPage: currentState.currentPage,
-          isLoadingMore: false,
-          operationError: failure.message,
+          operationError: '예기치 않은 오류가 발생했습니다',
         ));
-      },
-      (page) {
-        final allTransactions = [
-          ...currentState.transactions,
-          ...page.content,
-        ];
-        emit(TransactionLoaded(
-          transactions: allTransactions,
-          year: currentState.year,
-          month: currentState.month,
-          totalElements: page.totalElements,
-          hasMore: !page.last,
-          currentPage: nextPage,
-        ));
-      },
-    );
-  }
-
-  Future<void> _onCreateTransaction(
-    CreateTransaction event,
-    Emitter<TransactionState> emit,
-  ) async {
-    final result = await transactionRepository.createTransaction(
-      type: event.type,
-      amount: event.amount,
-      description: event.description,
-      categoryId: event.categoryId,
-      transactionDate: event.transactionDate,
-      memo: event.memo,
-      paymentMethodId: event.paymentMethodId,
-      pocketId: event.pocketId,
-    );
-    result.fold(
-      (failure) => emit(TransactionError(failure.message)),
-      (_) => add(LoadTransactions(
-            year: _currentYear,
-            month: _currentMonth,
-            keyword: _currentKeyword,
-            paymentMethodId: _currentPaymentMethodId,
-            pocketId: _currentPocketId,
-            amountMin: _currentAmountMin,
-            amountMax: _currentAmountMax,
-          )),
-    );
+      } else {
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
+      }
+    }
   }
 
   Future<void> _onUpdateTransaction(
     UpdateTransaction event,
     Emitter<TransactionState> emit,
   ) async {
-    final result = await transactionRepository.updateTransaction(
-      id: event.id,
-      amount: event.amount,
-      description: event.description,
-      categoryId: event.categoryId,
-      transactionDate: event.transactionDate,
-      memo: event.memo,
-      clearMemo: event.clearMemo,
-      paymentMethodId: event.paymentMethodId,
-      pocketId: event.pocketId,
-    );
-    result.fold(
-      (failure) => emit(TransactionError(failure.message)),
-      (_) => add(LoadTransactions(
-            year: _currentYear,
-            month: _currentMonth,
-            keyword: _currentKeyword,
-            paymentMethodId: _currentPaymentMethodId,
-            pocketId: _currentPocketId,
-            amountMin: _currentAmountMin,
-            amountMax: _currentAmountMax,
-          )),
-    );
+    try {
+      final result = await transactionRepository.updateTransaction(
+        id: event.id,
+        amount: event.amount,
+        description: event.description,
+        categoryId: event.categoryId,
+        transactionDate: event.transactionDate,
+        memo: event.memo,
+        clearMemo: event.clearMemo,
+        paymentMethodId: event.paymentMethodId,
+        pocketId: event.pocketId,
+      );
+      result.fold(
+        (failure) => emit(TransactionError(failure.message)),
+        (_) => add(LoadTransactions(
+              year: _currentYear,
+              month: _currentMonth,
+              keyword: _currentKeyword,
+              paymentMethodId: _currentPaymentMethodId,
+              pocketId: _currentPocketId,
+              amountMin: _currentAmountMin,
+              amountMax: _currentAmountMax,
+            )),
+      );
+    } catch (e) {
+      final currentState = state;
+      if (currentState is TransactionLoaded) {
+        emit(TransactionLoaded(
+          transactions: currentState.transactions,
+          year: currentState.year,
+          month: currentState.month,
+          totalElements: currentState.totalElements,
+          hasMore: currentState.hasMore,
+          currentPage: currentState.currentPage,
+          operationError: '예기치 않은 오류가 발생했습니다',
+        ));
+      } else {
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
+      }
+    }
   }
 
   Future<void> _onDeleteTransaction(
     DeleteTransaction event,
     Emitter<TransactionState> emit,
   ) async {
-    final currentState = state;
-    final result = await transactionRepository.deleteTransaction(event.id);
-    result.fold(
-      (failure) {
-        if (currentState is TransactionLoaded) {
-          emit(TransactionLoaded(
-            transactions: currentState.transactions,
-            year: currentState.year,
-            month: currentState.month,
-            totalElements: currentState.totalElements,
-            hasMore: currentState.hasMore,
-            operationError: failure.message,
-          ));
-        } else {
-          emit(TransactionError(failure.message));
-        }
-      },
-      (_) {
-        if (currentState is TransactionLoaded) {
-          final updatedList = currentState.transactions
-              .where((t) => t.id != event.id)
-              .toList();
-          emit(TransactionLoaded(
-            transactions: updatedList,
-            year: currentState.year,
-            month: currentState.month,
-            totalElements: currentState.totalElements - 1,
-            hasMore: currentState.hasMore,
-            operationSuccess: '거래가 삭제되었습니다',
-          ));
-        }
-      },
-    );
+    try {
+      final currentState = state;
+      final result = await transactionRepository.deleteTransaction(event.id);
+      result.fold(
+        (failure) {
+          if (currentState is TransactionLoaded) {
+            emit(TransactionLoaded(
+              transactions: currentState.transactions,
+              year: currentState.year,
+              month: currentState.month,
+              totalElements: currentState.totalElements,
+              hasMore: currentState.hasMore,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(TransactionError(failure.message));
+          }
+        },
+        (_) {
+          if (currentState is TransactionLoaded) {
+            final updatedList = currentState.transactions
+                .where((t) => t.id != event.id)
+                .toList();
+            emit(TransactionLoaded(
+              transactions: updatedList,
+              year: currentState.year,
+              month: currentState.month,
+              totalElements: currentState.totalElements - 1,
+              hasMore: currentState.hasMore,
+              operationSuccess: '거래가 삭제되었습니다',
+            ));
+          }
+        },
+      );
+    } catch (e) {
+      final currentState = state;
+      if (currentState is TransactionLoaded) {
+        emit(TransactionLoaded(
+          transactions: currentState.transactions,
+          year: currentState.year,
+          month: currentState.month,
+          totalElements: currentState.totalElements,
+          hasMore: currentState.hasMore,
+          currentPage: currentState.currentPage,
+          operationError: '예기치 않은 오류가 발생했습니다',
+        ));
+      } else {
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
+      }
+    }
   }
 }

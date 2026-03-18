@@ -21,8 +21,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -33,9 +31,6 @@ class BudgetControllerTest : FunSpec({
     val budgetAlertService = mockk<BudgetAlertService>()
     val controller = BudgetController(budgetService, weeklyBudgetService, budgetAlertService)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     val sampleCategory = CategorySummary(
         id = UUID.randomUUID(), name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733"
@@ -49,6 +44,9 @@ class BudgetControllerTest : FunSpec({
         amount = 150000,
         budgetPeriod = "MONTHLY",
         weeklyAmount = null,
+        periodType = "MONTHLY",
+        startDate = "2026-03-01",
+        endDate = "2026-03-31",
         pocketId = null,
         pocketName = null,
         createdAt = Instant.now(),
@@ -56,11 +54,11 @@ class BudgetControllerTest : FunSpec({
     )
 
     test("createBudget returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = BudgetRequest(categoryId = sampleCategory.id, yearMonth = "2026-03", amount = 150000)
         every { budgetService.createBudget(testUserId, request) } returns sampleBudgetResponse()
 
-        val result = controller.createBudget(auth, request)
+        val result = controller.createBudget(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -68,42 +66,42 @@ class BudgetControllerTest : FunSpec({
     }
 
     test("listBudgets returns budgets for month") {
-        val auth = createAuth(testUserId)
+
         val budgets = listOf(sampleBudgetResponse(), sampleBudgetResponse(null))
         every { budgetService.getBudgetsByMonth(testUserId, 2026, 3) } returns budgets
 
-        val result = controller.listBudgets(auth, 2026, 3)
+        val result = controller.listBudgets(testUserId, 2026, 3)
 
         result.success shouldBe true
         result.data!!.size shouldBe 2
     }
 
     test("updateBudget returns updated budget") {
-        val auth = createAuth(testUserId)
+
         val budgetId = UUID.randomUUID()
         val request = BudgetUpdateRequest(amount = 200000)
         val response = sampleBudgetResponse().copy(amount = 200000)
         every { budgetService.updateBudget(testUserId, budgetId, request) } returns response
 
-        val result = controller.updateBudget(auth, budgetId, request)
+        val result = controller.updateBudget(testUserId, budgetId, request)
 
         result.success shouldBe true
         result.data!!.amount shouldBe 200000
     }
 
     test("deleteBudget returns 204") {
-        val auth = createAuth(testUserId)
+
         val budgetId = UUID.randomUUID()
         justRun { budgetService.deleteBudget(testUserId, budgetId) }
 
-        val result = controller.deleteBudget(auth, budgetId)
+        val result = controller.deleteBudget(testUserId, budgetId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { budgetService.deleteBudget(testUserId, budgetId) }
     }
 
     test("copyFromPreviousMonth returns 201 with copied budgets") {
-        val auth = createAuth(testUserId)
+
         val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
         val copiedBudgets = listOf(
             sampleBudgetResponse(),
@@ -111,7 +109,7 @@ class BudgetControllerTest : FunSpec({
         )
         every { budgetService.copyFromPreviousMonth(testUserId, request) } returns copiedBudgets
 
-        val result = controller.copyFromPreviousMonth(auth, request)
+        val result = controller.copyFromPreviousMonth(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -119,11 +117,11 @@ class BudgetControllerTest : FunSpec({
     }
 
     test("copyFromPreviousMonth returns 201 with empty list when all duplicates") {
-        val auth = createAuth(testUserId)
+
         val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
         every { budgetService.copyFromPreviousMonth(testUserId, request) } returns emptyList()
 
-        val result = controller.copyFromPreviousMonth(auth, request)
+        val result = controller.copyFromPreviousMonth(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -131,7 +129,7 @@ class BudgetControllerTest : FunSpec({
     }
 
     test("getBudgetSummary returns summary") {
-        val auth = createAuth(testUserId)
+
         val summary = BudgetSummaryResponse(
             yearMonth = "2026-03",
             totalBudget = 3150000,
@@ -155,7 +153,7 @@ class BudgetControllerTest : FunSpec({
         )
         every { budgetService.getBudgetSummary(testUserId, 2026, 3) } returns summary
 
-        val result = controller.getBudgetSummary(auth, 2026, 3)
+        val result = controller.getBudgetSummary(testUserId, 2026, 3)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -164,7 +162,7 @@ class BudgetControllerTest : FunSpec({
     }
 
     test("getWeeklyOverview returns weekly overview") {
-        val auth = createAuth(testUserId)
+
         val overview = WeeklyOverviewResponse(
             yearMonth = "2026-03",
             weeks = listOf(
@@ -177,7 +175,7 @@ class BudgetControllerTest : FunSpec({
         )
         every { weeklyBudgetService.getWeeklyOverview(testUserId, 2026, 3) } returns overview
 
-        val result = controller.getWeeklyOverview(auth, 2026, 3)
+        val result = controller.getWeeklyOverview(testUserId, 2026, 3)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -186,7 +184,7 @@ class BudgetControllerTest : FunSpec({
     }
 
     test("getCurrentWeekSummary returns current week summary") {
-        val auth = createAuth(testUserId)
+
         val summary = CurrentWeekSummaryResponse(
             yearMonth = "2026-03",
             weekNumber = 2,
@@ -205,7 +203,7 @@ class BudgetControllerTest : FunSpec({
         )
         every { weeklyBudgetService.getCurrentWeekSummary(testUserId) } returns summary
 
-        val result = controller.getCurrentWeekSummary(auth)
+        val result = controller.getCurrentWeekSummary(testUserId)
 
         result.success shouldBe true
         result.data!!.weekNumber shouldBe 2

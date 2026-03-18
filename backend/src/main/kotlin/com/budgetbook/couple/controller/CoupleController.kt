@@ -3,13 +3,13 @@ package com.budgetbook.couple.controller
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.exception.TooManyRequestsException
 import com.budgetbook.common.ratelimit.RateLimiter
+import com.budgetbook.common.security.AuthUser
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.service.CoupleService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -31,15 +31,14 @@ class CoupleController(
     }
 
     @PostMapping("/invitations")
-    fun createInvitation(authentication: Authentication): ResponseEntity<ApiResponse<InvitationResponse>> {
-        val userId = authentication.principal as UUID
+    fun createInvitation(@AuthUser userId: UUID): ResponseEntity<ApiResponse<InvitationResponse>> {
         val result = coupleService.createInvitation(userId)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @PostMapping("/invitations/{code}/accept")
     fun acceptInvitation(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable code: String,
         request: HttpServletRequest
     ): ApiResponse<CoupleResponse> {
@@ -54,19 +53,16 @@ class CoupleController(
             )
         }
 
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(coupleService.acceptInvitation(userId, code))
     }
 
     @GetMapping("/me")
-    fun getMyCouple(authentication: Authentication): ApiResponse<CoupleResponse> {
-        val userId = authentication.principal as UUID
+    fun getMyCouple(@AuthUser userId: UUID): ApiResponse<CoupleResponse> {
         return ApiResponse.ok(coupleService.getMyCouple(userId))
     }
 
     @DeleteMapping("/me")
-    fun dissolveCouple(authentication: Authentication): ResponseEntity<Void> {
-        val userId = authentication.principal as UUID
+    fun dissolveCouple(@AuthUser userId: UUID): ResponseEntity<Void> {
         coupleService.dissolveCouple(userId)
         return ResponseEntity.noContent().build()
     }

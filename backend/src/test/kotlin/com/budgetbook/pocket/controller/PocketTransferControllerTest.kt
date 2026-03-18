@@ -13,8 +13,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -24,9 +22,6 @@ class PocketTransferControllerTest : FunSpec({
     val pocketTransferService = mockk<PocketTransferService>()
     val controller = PocketTransferController(pocketTransferService)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     fun sampleTransferResponse() = PocketTransferResponse(
         id = UUID.randomUUID(),
@@ -41,18 +36,18 @@ class PocketTransferControllerTest : FunSpec({
     )
 
     test("listTransfers returns transfers") {
-        val auth = createAuth(testUserId)
+
         val transfers = listOf(sampleTransferResponse())
         every { pocketTransferService.getTransfers(testUserId) } returns transfers
 
-        val result = controller.listTransfers(auth)
+        val result = controller.listTransfers(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1
     }
 
     test("createTransfer returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = CreateTransferRequest(
             fromPocketId = UUID.randomUUID(),
             toPocketId = UUID.randomUUID(),
@@ -61,14 +56,14 @@ class PocketTransferControllerTest : FunSpec({
         )
         every { pocketTransferService.createTransfer(testUserId, request) } returns sampleTransferResponse()
 
-        val result = controller.createTransfer(auth, request)
+        val result = controller.createTransfer(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
     }
 
     test("distribute returns distribution results") {
-        val auth = createAuth(testUserId)
+
         val request = DistributeRequest(
             totalAmount = 3000000,
             distributions = listOf(
@@ -85,7 +80,7 @@ class PocketTransferControllerTest : FunSpec({
         )
         every { pocketTransferService.distribute(testUserId, request) } returns response
 
-        val result = controller.distribute(auth, request)
+        val result = controller.distribute(testUserId, request)
 
         result.success shouldBe true
         result.data!!.totalDistributed shouldBe 3000000
