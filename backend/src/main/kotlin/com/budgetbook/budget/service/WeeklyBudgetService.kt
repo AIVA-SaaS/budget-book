@@ -14,6 +14,7 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
@@ -26,11 +27,11 @@ import java.util.UUID
 class WeeklyBudgetService(
     private val snapshotRepository: WeeklyBudgetSnapshotRepository,
     private val budgetRepository: MonthlyBudgetRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val transactionRepository: TransactionRepository
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getWeeklyOverview(userId: UUID, year: Int, month: Int): WeeklyOverviewResponse {
@@ -42,6 +43,26 @@ class WeeklyBudgetService(
 
         val weekRanges = calculateWeekRanges(ym)
 
+        // Hoist budget query outside the loop (Problem 2)
+        val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size)
+
+        // Early return if no budget and no snapshots (Problem 3)
+        if (budgetAmount == 0L && snapshots.isEmpty()) {
+            val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
+                WeeklySnapshotResponse(
+                    weekNumber = index + 1,
+                    weekStart = weekStart.toString(),
+                    weekEnd = weekEnd.toString(),
+                    budgetAmount = 0,
+                    spentAmount = 0,
+                    remainingAmount = 0,
+                    usageRate = 0.0,
+                    status = if (weekEnd.isBefore(LocalDate.now())) "UNDER" else "IN_PROGRESS"
+                )
+            }
+            return WeeklyOverviewResponse(yearMonth = yearMonth, weeks = weeks)
+        }
+
         val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
             val snapshot = snapshots.find { it.weekNumber == weekNumber }
@@ -51,7 +72,6 @@ class WeeklyBudgetService(
             } else {
                 // Calculate in real-time using optimized SUM query
                 val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd)
-                val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size)
                 val remaining = budgetAmount - spent
                 val usageRate = if (budgetAmount > 0) {
                     Math.round(spent.toDouble() / budgetAmount * 1000.0) / 10.0
@@ -100,11 +120,44 @@ class WeeklyBudgetService(
         val allGroups = categoryGroupRepository.findByCoupleId(couple.id)
         val weeklyGroups = allGroups.filter { it.budgetType == BudgetType.WEEKLY }
 
+        // Early return if no WEEKLY groups (Problem 3)
+        if (weeklyGroups.isEmpty()) {
+            return CurrentWeekSummaryResponse(
+                yearMonth = yearMonth,
+                weekNumber = weekNumber,
+                weekStart = weekStart.toString(),
+                weekEnd = weekEnd.toString(),
+                groups = emptyList()
+            )
+        }
+
         val allCategories = categoryRepository.findByCoupleId(couple.id)
         val categoriesByGroupId = allCategories.groupBy { it.group?.id }
 
         val allBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
         val budgetByCategoryId = allBudgets.associateBy { it.category?.id }
+
+        // Collect ALL categoryIds across all weekly groups for batch query (Problem 1)
+        val allCategoryIds = weeklyGroups.flatMap { group ->
+            (categoriesByGroupId[group.id] ?: emptyList()).map { it.id }
+        }.toSet()
+
+        // Single batch query for all category spending
+        val spentByCategoryId: Map<UUID, Long> = if (allCategoryIds.isNotEmpty()) {
+            transactionRepository.sumAmountGroupedByCategoryId(
+                coupleId = couple.id,
+                startDate = weekStart,
+                endDate = weekEnd,
+                type = TransactionType.EXPENSE,
+                categoryIds = allCategoryIds
+            ).associate { row ->
+                val categoryId = row[0] as UUID
+                val amount = (row[1] as Number).toLong()
+                categoryId to amount
+            }
+        } else {
+            emptyMap()
+        }
 
         val groups = weeklyGroups.map { group ->
             val categoriesInGroup = categoriesByGroupId[group.id] ?: emptyList()
@@ -115,12 +168,8 @@ class WeeklyBudgetService(
                 budget?.weeklyAmount ?: (budget?.amount?.div(weekRanges.size) ?: 0L)
             }
 
-            // Single SUM query per group (unavoidable without DB-level grouping)
-            val spent = if (categoryIds.isNotEmpty()) {
-                calculateSpentForPeriodByCategories(couple.id, weekStart, weekEnd, categoryIds)
-            } else {
-                0L
-            }
+            // In-memory lookup from batch query result (no additional DB call)
+            val spent = categoryIds.sumOf { catId -> spentByCategoryId[catId] ?: 0L }
 
             val remaining = groupBudgetAmount - spent
             val usageRate = if (groupBudgetAmount > 0) {
@@ -154,10 +203,12 @@ class WeeklyBudgetService(
         val weekRanges = calculateWeekRanges(ym)
         val today = LocalDate.now()
 
+        // Hoist budget query outside the loop (Problem 2)
+        val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size)
+
         weekRanges.forEachIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
             val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd)
-            val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size)
 
             val status = when {
                 weekEnd.isBefore(today) && spent <= budgetAmount -> WeeklyStatus.UNDER
@@ -217,29 +268,10 @@ class WeeklyBudgetService(
         )
     }
 
-    private fun calculateSpentForPeriodByCategories(
-        coupleId: UUID,
-        start: LocalDate,
-        end: LocalDate,
-        categoryIds: Set<UUID>
-    ): Long {
-        return transactionRepository.sumAmountByCoupleIdAndDateRangeAndCategories(
-            coupleId = coupleId,
-            startDate = start,
-            endDate = end,
-            type = TransactionType.EXPENSE,
-            categoryIds = categoryIds
-        )
-    }
-
     private fun calculateWeeklyBudgetAmount(coupleId: UUID, yearMonth: String, numberOfWeeks: Int): Long {
         val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
         val totalMonthlyBudget = budgets.sumOf { it.amount }
         return if (numberOfWeeks > 0) totalMonthlyBudget / numberOfWeeks else 0L
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun formatYearMonth(year: Int, month: Int): String =
@@ -247,7 +279,6 @@ class WeeklyBudgetService(
 
     companion object {
         fun calculateWeekRanges(yearMonth: YearMonth): List<Pair<LocalDate, LocalDate>> {
-            val firstDay = yearMonth.atDay(1)
             val lastDay = yearMonth.atEndOfMonth()
             val ranges = mutableListOf<Pair<LocalDate, LocalDate>>()
 

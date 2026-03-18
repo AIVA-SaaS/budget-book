@@ -9,10 +9,10 @@ import com.budgetbook.admin.dto.SystemStatsResponse
 import com.budgetbook.admin.dto.UpdateAnnouncementRequest
 import com.budgetbook.admin.service.AdminService
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -96,10 +96,9 @@ class AdminController(
 
     @PostMapping("/announcements")
     fun createAnnouncement(
-        authentication: Authentication,
+        @AuthUser adminUserId: UUID,
         @Valid @RequestBody request: CreateAnnouncementRequest
     ): ResponseEntity<ApiResponse<AnnouncementResponse>> {
-        val adminUserId = authentication.principal as UUID
         val result = adminService.createAnnouncement(adminUserId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }

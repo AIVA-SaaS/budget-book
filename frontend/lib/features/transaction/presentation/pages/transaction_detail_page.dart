@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -156,8 +157,8 @@ class TransactionDetailPage extends StatelessWidget {
                 const Divider(height: 24),
                 // Category with icon and color
                 _DetailRow(
-                  icon: _resolveIcon(category?.icon),
-                  iconColor: _parseColor(category?.color),
+                  icon: UIHelpers.resolveIcon(category?.icon),
+                  iconColor: UIHelpers.parseColor(category?.color),
                   label: '카테고리',
                   value: category?.name ?? '미분류',
                 ),
@@ -237,42 +238,6 @@ class TransactionDetailPage extends StatelessWidget {
     );
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
-
-  IconData _resolveIcon(String? iconName) {
-    if (iconName == null) return Icons.receipt_long;
-    const iconMap = <String, IconData>{
-      'restaurant': Icons.restaurant,
-      'restaurant_menu': Icons.restaurant_menu,
-      'shopping_cart': Icons.shopping_cart,
-      'directions_bus': Icons.directions_bus,
-      'home': Icons.home,
-      'local_hospital': Icons.local_hospital,
-      'school': Icons.school,
-      'pets': Icons.pets,
-      'payments': Icons.payments,
-      'work': Icons.work,
-      'savings': Icons.savings,
-      'card_giftcard': Icons.card_giftcard,
-      'trending_up': Icons.trending_up,
-      'local_cafe': Icons.local_cafe,
-      'movie': Icons.movie,
-      'fitness_center': Icons.fitness_center,
-      'child_care': Icons.child_care,
-      'phone': Icons.phone,
-      'electric_bolt': Icons.electric_bolt,
-      'account_balance': Icons.account_balance,
-    };
-    return iconMap[iconName] ?? Icons.receipt_long;
-  }
 }
 
 class _DetailRow extends StatelessWidget {

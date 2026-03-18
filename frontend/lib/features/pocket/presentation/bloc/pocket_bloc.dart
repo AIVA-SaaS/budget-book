@@ -22,12 +22,16 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
     LoadPockets event,
     Emitter<PocketState> emit,
   ) async {
-    emit(const PocketLoading());
-    final result = await pocketRepository.getPockets();
-    result.fold(
-      (failure) => emit(PocketError(failure.message)),
-      (pockets) => emit(PocketLoaded(pockets)),
-    );
+    try {
+      emit(const PocketLoading());
+      final result = await pocketRepository.getPockets();
+      result.fold(
+        (failure) => emit(PocketError(failure.message)),
+        (pockets) => emit(PocketLoaded(pockets)),
+      );
+    } catch (e) {
+      emit(const PocketError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onCreatePocket(
@@ -38,22 +42,29 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result = await pocketRepository.createPocket(
-      name: event.name,
-      type: event.type,
-      allocatedAmount: event.allocatedAmount,
-      icon: event.icon,
-      color: event.color,
-      goalAmount: event.goalAmount,
-      targetDate: event.targetDate,
-    );
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result = await pocketRepository.createPocket(
+        name: event.name,
+        type: event.type,
+        allocatedAmount: event.allocatedAmount,
+        icon: event.icon,
+        color: event.color,
+        goalAmount: event.goalAmount,
+        targetDate: event.targetDate,
+      );
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (pocket) => emit(PocketLoaded([...currentPockets, pocket])),
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (pocket) => emit(PocketLoaded([...currentPockets, pocket])),
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onUpdatePocket(
@@ -64,29 +75,36 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result = await pocketRepository.updatePocket(
-      id: event.id,
-      name: event.name,
-      type: event.type,
-      allocatedAmount: event.allocatedAmount,
-      icon: event.icon,
-      color: event.color,
-      displayOrder: event.displayOrder,
-      goalAmount: event.goalAmount,
-      targetDate: event.targetDate,
-    );
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result = await pocketRepository.updatePocket(
+        id: event.id,
+        name: event.name,
+        type: event.type,
+        allocatedAmount: event.allocatedAmount,
+        icon: event.icon,
+        color: event.color,
+        displayOrder: event.displayOrder,
+        goalAmount: event.goalAmount,
+        targetDate: event.targetDate,
+      );
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (updated) {
+          final updatedList = currentPockets
+              .map((p) => p.id == updated.id ? updated : p)
+              .toList();
+          emit(PocketLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (updated) {
-        final updatedList = currentPockets
-            .map((p) => p.id == updated.id ? updated : p)
-            .toList();
-        emit(PocketLoaded(updatedList));
-      },
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onDeletePocket(
@@ -97,18 +115,25 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result = await pocketRepository.deletePocket(event.id);
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result = await pocketRepository.deletePocket(event.id);
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (_) {
+          final updatedList =
+              currentPockets.where((p) => p.id != event.id).toList();
+          emit(PocketLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (_) {
-        final updatedList =
-            currentPockets.where((p) => p.id != event.id).toList();
-        emit(PocketLoaded(updatedList));
-      },
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onDistributeIncome(
@@ -119,20 +144,27 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result = await pocketRepository.distributeIncome(
-      totalAmount: event.totalAmount,
-      distributions: event.distributions,
-    );
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result = await pocketRepository.distributeIncome(
+        totalAmount: event.totalAmount,
+        distributions: event.distributions,
+      );
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (_) {
+          // Reload pockets after distribution to get fresh balances
+          add(const LoadPockets());
+        },
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (_) {
-        // Reload pockets after distribution to get fresh balances
-        add(const LoadPockets());
-      },
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onLoadDistributionRatios(
@@ -143,17 +175,24 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result = await pocketRepository.getDistributionRatios();
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result = await pocketRepository.getDistributionRatios();
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (ratios) => emit(PocketLoaded(
+          currentPockets,
+          distributionRatios: ratios,
+        )),
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (ratios) => emit(PocketLoaded(
-        currentPockets,
-        distributionRatios: ratios,
-      )),
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onSaveDistributionRatios(
@@ -164,17 +203,24 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
         ? (state as PocketLoaded).pockets
         : <MoneyPocket>[];
 
-    final result =
-        await pocketRepository.saveDistributionRatios(event.ratios);
-    result.fold(
-      (failure) => emit(PocketLoaded(
+    try {
+      final result =
+          await pocketRepository.saveDistributionRatios(event.ratios);
+      result.fold(
+        (failure) => emit(PocketLoaded(
+          currentPockets,
+          operationError: failure.message,
+        )),
+        (_) => emit(PocketLoaded(
+          currentPockets,
+          ratiosSaved: true,
+        )),
+      );
+    } catch (e) {
+      emit(PocketLoaded(
         currentPockets,
-        operationError: failure.message,
-      )),
-      (_) => emit(PocketLoaded(
-        currentPockets,
-        ratiosSaved: true,
-      )),
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/recurring/data/datasources/recurring_remote_datasource.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 import 'package:budget_book/features/recurring/domain/repositories/recurring_repository.dart';
@@ -17,7 +18,9 @@ class RecurringRepositoryImpl implements RecurringRepository {
       final result = await remoteDataSource.getRecurringTransactions();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '반복 거래를 불러오지 못했습니다'));
+      return Left(mapDioError(e, '반복 거래를 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('반복 거래를 불러오지 못했습니다'));
     }
   }
 
@@ -48,7 +51,9 @@ class RecurringRepositoryImpl implements RecurringRepository {
       final result = await remoteDataSource.createRecurringTransaction(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '반복 거래를 생성하지 못했습니다'));
+      return Left(mapDioError(e, '반복 거래를 생성하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('반복 거래를 생성하지 못했습니다'));
     }
   }
 
@@ -79,7 +84,9 @@ class RecurringRepositoryImpl implements RecurringRepository {
           await remoteDataSource.updateRecurringTransaction(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '반복 거래를 수정하지 못했습니다'));
+      return Left(mapDioError(e, '반복 거래를 수정하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('반복 거래를 수정하지 못했습니다'));
     }
   }
 
@@ -89,16 +96,10 @@ class RecurringRepositoryImpl implements RecurringRepository {
       await remoteDataSource.deleteRecurringTransaction(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '반복 거래를 삭제하지 못했습니다'));
+      return Left(mapDioError(e, '반복 거래를 삭제하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('반복 거래를 삭제하지 못했습니다'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

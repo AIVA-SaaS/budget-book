@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/statistics/data/datasources/statistics_remote_datasource.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
@@ -25,7 +26,9 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '통계 요약을 불러오지 못했습니다'));
+      return Left(mapDioError(e, '통계 요약을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('통계 요약을 불러오지 못했습니다'));
     }
   }
 
@@ -43,7 +46,9 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '카테고리별 통계를 불러오지 못했습니다'));
+      return Left(mapDioError(e, '카테고리별 통계를 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('카테고리별 통계를 불러오지 못했습니다'));
     }
   }
 
@@ -55,7 +60,9 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       final result = await remoteDataSource.getMonthlyTrend(months: months);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '월별 추이를 불러오지 못했습니다'));
+      return Left(mapDioError(e, '월별 추이를 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('월별 추이를 불러오지 못했습니다'));
     }
   }
 
@@ -72,16 +79,10 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '결제수단별 통계를 불러오지 못했습니다'));
+      return Left(mapDioError(e, '결제수단별 통계를 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('결제수단별 통계를 불러오지 못했습니다'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

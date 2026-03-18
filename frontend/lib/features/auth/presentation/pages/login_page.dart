@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
+    return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           context.go('/home');
@@ -38,7 +38,36 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       },
-      child: Scaffold(
+      builder: (context, authState) {
+      // Show loading splash while checking existing auth token
+      if (authState is AuthInitial || authState is AuthLoading) {
+        return Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_rounded,
+                  size: 80,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Budget Book',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+                const SizedBox(height: 32),
+                const CircularProgressIndicator(),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return Scaffold(
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -127,7 +156,8 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ),
+      );
+      },
     );
   }
 

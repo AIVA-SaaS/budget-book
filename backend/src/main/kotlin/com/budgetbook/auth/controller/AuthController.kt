@@ -7,8 +7,8 @@ import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -35,47 +35,40 @@ class AuthController(
     }
 
     @GetMapping("/me")
-    fun getCurrentUser(authentication: Authentication): ApiResponse<UserResponse> {
-        val userId = authentication.principal as UUID
+    fun getCurrentUser(@AuthUser userId: UUID): ApiResponse<UserResponse> {
         val userResponse = authService.getCurrentUser(userId)
         return ApiResponse.ok(userResponse)
     }
 
     @PatchMapping("/me")
     fun updateProfile(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: UpdateProfileRequest
     ): ApiResponse<UserResponse> {
-        val userId = authentication.principal as UUID
         val userResponse = authService.updateProfile(userId, request)
         return ApiResponse.ok(userResponse)
     }
 
     @PostMapping("/me/profile-image")
     fun uploadProfileImage(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam("file") file: MultipartFile
     ): ApiResponse<UserResponse> {
-        val userId = authentication.principal as UUID
         val userResponse = authService.uploadProfileImage(userId, file)
         return ApiResponse.ok(userResponse)
     }
 
     @DeleteMapping("/me/profile-image")
-    fun removeProfileImage(
-        authentication: Authentication
-    ): ApiResponse<UserResponse> {
-        val userId = authentication.principal as UUID
+    fun removeProfileImage(@AuthUser userId: UUID): ApiResponse<UserResponse> {
         val userResponse = authService.removeProfileImage(userId)
         return ApiResponse.ok(userResponse)
     }
 
     @PostMapping("/logout")
     fun logout(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: LogoutRequest
     ): ApiResponse<Unit> {
-        val userId = authentication.principal as UUID
         authService.logout(userId, request)
         return ApiResponse.ok()
     }

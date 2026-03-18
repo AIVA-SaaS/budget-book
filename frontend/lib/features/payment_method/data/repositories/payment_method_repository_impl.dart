@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/payment_method/data/datasources/payment_method_remote_datasource.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
@@ -17,7 +18,9 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       final result = await remoteDataSource.getPaymentMethods();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load payment methods'));
+      return Left(mapDioError(e, 'Failed to load payment methods'));
+    } catch (e) {
+      return Left(const ServerFailure('Failed to load payment methods'));
     }
   }
 
@@ -38,7 +41,9 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       final result = await remoteDataSource.createPaymentMethod(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create payment method'));
+      return Left(mapDioError(e, 'Failed to create payment method'));
+    } catch (e) {
+      return Left(const ServerFailure('Failed to create payment method'));
     }
   }
 
@@ -62,7 +67,9 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       final result = await remoteDataSource.updatePaymentMethod(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to update payment method'));
+      return Left(mapDioError(e, 'Failed to update payment method'));
+    } catch (e) {
+      return Left(const ServerFailure('Failed to update payment method'));
     }
   }
 
@@ -72,7 +79,9 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       await remoteDataSource.deletePaymentMethod(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to delete payment method'));
+      return Left(mapDioError(e, 'Failed to delete payment method'));
+    } catch (e) {
+      return Left(const ServerFailure('Failed to delete payment method'));
     }
   }
 
@@ -83,16 +92,10 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       final result = await remoteDataSource.getCardPending(year, month);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load card pending info'));
+      return Left(mapDioError(e, 'Failed to load card pending info'));
+    } catch (e) {
+      return Left(const ServerFailure('Failed to load card pending info'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

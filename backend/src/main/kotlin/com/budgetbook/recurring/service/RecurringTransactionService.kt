@@ -5,8 +5,10 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.recurring.domain.Frequency
 import com.budgetbook.recurring.domain.RecurringTransaction
@@ -29,11 +31,11 @@ import java.util.UUID
 class RecurringTransactionService(
     private val recurringRepository: RecurringTransactionRepository,
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository
-) {
+) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -71,18 +73,14 @@ class RecurringTransactionService(
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-            if (cat.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             cat
         }
 
         val paymentMethod = request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
                 .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
-            if (pm.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
             pm
         }
 
@@ -116,9 +114,7 @@ class RecurringTransactionService(
         val recurring = recurringRepository.findById(id)
             .orElseThrow { NotFoundException("RECURRING_NOT_FOUND", "Recurring transaction does not exist.") }
 
-        if (recurring.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Recurring transaction belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(recurring.couple.id, couple, "Recurring transaction")
 
         request.amount?.let { recurring.amount = it }
         request.description?.let { recurring.description = it }
@@ -128,18 +124,14 @@ class RecurringTransactionService(
         request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-            if (cat.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             recurring.category = cat
         }
 
         request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
                 .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
-            if (pm.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
             recurring.paymentMethod = pm
         }
 
@@ -155,9 +147,7 @@ class RecurringTransactionService(
         val recurring = recurringRepository.findById(id)
             .orElseThrow { NotFoundException("RECURRING_NOT_FOUND", "Recurring transaction does not exist.") }
 
-        if (recurring.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Recurring transaction belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(recurring.couple.id, couple, "Recurring transaction")
 
         recurringRepository.delete(recurring)
     }
@@ -294,7 +284,4 @@ class RecurringTransactionService(
         }
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
 }

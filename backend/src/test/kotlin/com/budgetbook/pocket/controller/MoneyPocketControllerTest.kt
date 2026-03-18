@@ -16,8 +16,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -27,9 +25,6 @@ class MoneyPocketControllerTest : FunSpec({
     val distributionRatioService = mockk<DistributionRatioService>()
     val controller = MoneyPocketController(moneyPocketService, distributionRatioService)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     fun samplePocketResponse(name: String = "생활비") = PocketResponse(
         id = UUID.randomUUID(),
@@ -48,18 +43,18 @@ class MoneyPocketControllerTest : FunSpec({
     )
 
     test("listPockets returns all active pockets") {
-        val auth = createAuth(testUserId)
+
         val pockets = listOf(samplePocketResponse("생활비"), samplePocketResponse("저축"))
         every { moneyPocketService.getPockets(testUserId) } returns pockets
 
-        val result = controller.listPockets(auth)
+        val result = controller.listPockets(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 2
     }
 
     test("createPocket returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = CreatePocketRequest(
             name = "생활비",
             type = "LIVING",
@@ -69,7 +64,7 @@ class MoneyPocketControllerTest : FunSpec({
         )
         every { moneyPocketService.createPocket(testUserId, request) } returns samplePocketResponse()
 
-        val result = controller.createPocket(auth, request)
+        val result = controller.createPocket(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -77,43 +72,43 @@ class MoneyPocketControllerTest : FunSpec({
     }
 
     test("updatePocket returns updated pocket") {
-        val auth = createAuth(testUserId)
+
         val pocketId = UUID.randomUUID()
         val request = UpdatePocketRequest(name = "생활비(수정)", allocatedAmount = 600000)
         every { moneyPocketService.updatePocket(testUserId, pocketId, request) } returns samplePocketResponse("생활비(수정)")
 
-        val result = controller.updatePocket(auth, pocketId, request)
+        val result = controller.updatePocket(testUserId, pocketId, request)
 
         result.success shouldBe true
     }
 
     test("deletePocket returns 204") {
-        val auth = createAuth(testUserId)
+
         val pocketId = UUID.randomUUID()
         justRun { moneyPocketService.deletePocket(testUserId, pocketId) }
 
-        val result = controller.deletePocket(auth, pocketId)
+        val result = controller.deletePocket(testUserId, pocketId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { moneyPocketService.deletePocket(testUserId, pocketId) }
     }
 
     test("getDistributionRatios returns saved ratios") {
-        val auth = createAuth(testUserId)
+
         val ratios = listOf(
             DistributionRatioResponse(UUID.randomUUID(), "생활비", BigDecimal("70.00")),
             DistributionRatioResponse(UUID.randomUUID(), "저축", BigDecimal("30.00"))
         )
         every { distributionRatioService.getRatios(testUserId) } returns ratios
 
-        val result = controller.getDistributionRatios(auth)
+        val result = controller.getDistributionRatios(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 2
     }
 
     test("saveDistributionRatios replaces ratios") {
-        val auth = createAuth(testUserId)
+
         val pocketId1 = UUID.randomUUID()
         val pocketId2 = UUID.randomUUID()
         val request = SaveDistributionRatiosRequest(
@@ -128,7 +123,7 @@ class MoneyPocketControllerTest : FunSpec({
         )
         every { distributionRatioService.saveRatios(testUserId, request) } returns response
 
-        val result = controller.saveDistributionRatios(auth, request)
+        val result = controller.saveDistributionRatios(testUserId, request)
 
         result.success shouldBe true
         result.data!!.size shouldBe 2

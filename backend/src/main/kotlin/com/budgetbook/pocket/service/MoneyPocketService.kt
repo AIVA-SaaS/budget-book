@@ -3,8 +3,10 @@ package com.budgetbook.pocket.service
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketType
 import com.budgetbook.pocket.dto.CreatePocketRequest
@@ -23,11 +25,11 @@ import java.util.UUID
 @Service
 class MoneyPocketService(
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
     private val pocketTransferRepository: PocketTransferRepository,
     private val transactionRepository: TransactionRepository
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getPockets(userId: UUID): List<PocketResponse> {
@@ -81,9 +83,7 @@ class MoneyPocketService(
             throw NotFoundException("POCKET_NOT_FOUND", "Pocket does not exist.")
         }
 
-        if (pocket.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(pocket.couple.id, couple, "Pocket")
 
         request.name?.let { pocket.name = it }
         request.allocatedAmount?.let { pocket.allocatedAmount = it }
@@ -152,10 +152,6 @@ class MoneyPocketService(
         val transfersOut = pocketTransferRepository.sumAmountByFromPocketId(pocket.id)
         val expenses = transactionRepository.sumExpenseByPocketId(pocket.id)
         return pocket.allocatedAmount + transfersIn - transfersOut - expenses
-    }
-
-    internal fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun MoneyPocket.toResponse(balance: Long) = PocketResponse(

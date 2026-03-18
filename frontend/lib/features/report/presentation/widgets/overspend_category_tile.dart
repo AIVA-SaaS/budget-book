@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 
@@ -15,11 +16,11 @@ class OverspendCategoryTile extends StatelessWidget {
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: _parseColor(category.categoryColor)
+        backgroundColor: UIHelpers.parseColor(category.categoryColor)
             .withValues(alpha: 0.15),
         child: Icon(
           Icons.category,
-          color: _parseColor(category.categoryColor),
+          color: UIHelpers.parseColor(category.categoryColor),
           size: 20,
         ),
       ),
@@ -64,12 +65,4 @@ class OverspendCategoryTile extends StatelessWidget {
     );
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
 }
