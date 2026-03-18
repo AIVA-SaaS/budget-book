@@ -23,6 +23,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Token refresh failed',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Token refresh failed'));
     }
   }
 
@@ -38,6 +40,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Failed to get user',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Failed to get user'));
     }
   }
 
@@ -61,6 +65,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Failed to update profile',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Failed to update profile'));
     }
   }
 
@@ -76,6 +82,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Logout failed',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Logout failed'));
     }
   }
 
@@ -93,6 +101,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Failed to upload profile image',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Failed to upload profile image'));
     }
   }
 
@@ -108,6 +118,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'Failed to delete profile image',
         ),
       );
+    } catch (e) {
+      return const Left(ServerFailure('Failed to delete profile image'));
     }
   }
 }

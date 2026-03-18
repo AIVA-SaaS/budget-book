@@ -10,9 +10,11 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import org.slf4j.LoggerFactory
@@ -24,10 +26,10 @@ import java.util.UUID
 class CategoryService(
     private val categoryRepository: CategoryRepository,
     private val categoryGroupRepository: CategoryGroupRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
     private val redisCacheService: RedisCacheService
-) {
+) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -84,9 +86,7 @@ class CategoryService(
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Category does not exist.") }
 
-        if (category.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(category.couple.id, couple, "Category")
 
         request.name?.let { category.name = it }
         request.icon?.let { category.icon = it }
@@ -116,9 +116,7 @@ class CategoryService(
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Category does not exist.") }
 
-        if (category.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(category.couple.id, couple, "Category")
 
         if (category.isDefault) {
             throw BusinessException("CANNOT_DELETE_DEFAULT_CATEGORY", "Default categories cannot be deleted.")
@@ -167,10 +165,6 @@ class CategoryService(
     private fun evictCategoryCache(coupleId: UUID) {
         redisCacheService.evict("categories:$coupleId")
         log.debug("Evicted category cache for coupleId={}", coupleId)
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     fun Category.toResponse() = CategoryResponse(

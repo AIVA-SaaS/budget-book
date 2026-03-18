@@ -14,8 +14,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.mock.web.MockMultipartFile
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -25,10 +23,6 @@ class AuthControllerTest : FunSpec({
     val authController = AuthController(authService)
 
     val testUserId = UUID.randomUUID()
-
-    fun createAuthentication(userId: UUID): Authentication {
-        return UsernamePasswordAuthenticationToken(userId, null, emptyList())
-    }
 
     beforeEach {
         clearAllMocks()
@@ -56,7 +50,6 @@ class AuthControllerTest : FunSpec({
     }
 
     test("getCurrentUser returns current user info wrapped in ApiResponse.ok") {
-        val authentication = createAuthentication(testUserId)
         val coupleId = UUID.randomUUID()
         val expectedUser = UserResponse(
             id = testUserId,
@@ -71,7 +64,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.getCurrentUser(testUserId) } returns expectedUser
 
-        val result = authController.getCurrentUser(authentication)
+        val result = authController.getCurrentUser(testUserId)
 
         result.success shouldBe true
         result.data shouldBe expectedUser
@@ -83,12 +76,11 @@ class AuthControllerTest : FunSpec({
     }
 
     test("logout calls authService.logout and returns ApiResponse.ok") {
-        val authentication = createAuthentication(testUserId)
         val request = LogoutRequest(refreshToken = "logout-refresh-token")
 
         justRun { authService.logout(testUserId, request) }
 
-        val result = authController.logout(authentication, request)
+        val result = authController.logout(testUserId, request)
 
         result.success shouldBe true
 
@@ -111,7 +103,6 @@ class AuthControllerTest : FunSpec({
     }
 
     test("getCurrentUser returns null coupleId when user has no couple") {
-        val authentication = createAuthentication(testUserId)
         val expectedUser = UserResponse(
             id = testUserId,
             email = "test@example.com",
@@ -125,7 +116,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.getCurrentUser(testUserId) } returns expectedUser
 
-        val result = authController.getCurrentUser(authentication)
+        val result = authController.getCurrentUser(testUserId)
 
         result.success shouldBe true
         result.data!!.coupleId shouldBe null
@@ -135,7 +126,6 @@ class AuthControllerTest : FunSpec({
 
     test("getCurrentUser extracts UUID from authentication principal") {
         val specificUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
-        val authentication = createAuthentication(specificUserId)
         val expectedUser = UserResponse(
             id = specificUserId,
             email = "specific@example.com",
@@ -149,7 +139,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.getCurrentUser(specificUserId) } returns expectedUser
 
-        val result = authController.getCurrentUser(authentication)
+        val result = authController.getCurrentUser(specificUserId)
 
         result.data!!.id shouldBe specificUserId
         verify { authService.getCurrentUser(specificUserId) }
@@ -157,18 +147,16 @@ class AuthControllerTest : FunSpec({
 
     test("logout extracts UUID from authentication principal and passes to service") {
         val specificUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
-        val authentication = createAuthentication(specificUserId)
         val request = LogoutRequest(refreshToken = "token-to-logout")
 
         justRun { authService.logout(specificUserId, request) }
 
-        authController.logout(authentication, request)
+        authController.logout(specificUserId, request)
 
         verify { authService.logout(specificUserId, request) }
     }
 
     test("updateProfile calls authService.updateProfile and returns ApiResponse.ok") {
-        val authentication = createAuthentication(testUserId)
         val request = UpdateProfileRequest(nickname = "NewNickname")
         val expectedUser = UserResponse(
             id = testUserId,
@@ -183,7 +171,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.updateProfile(testUserId, request) } returns expectedUser
 
-        val result = authController.updateProfile(authentication, request)
+        val result = authController.updateProfile(testUserId, request)
 
         result.success shouldBe true
         result.data shouldBe expectedUser
@@ -193,7 +181,6 @@ class AuthControllerTest : FunSpec({
     }
 
     test("updateProfile with clearProfileImage returns null profileImageUrl") {
-        val authentication = createAuthentication(testUserId)
         val request = UpdateProfileRequest(clearProfileImage = true)
         val expectedUser = UserResponse(
             id = testUserId,
@@ -208,7 +195,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.updateProfile(testUserId, request) } returns expectedUser
 
-        val result = authController.updateProfile(authentication, request)
+        val result = authController.updateProfile(testUserId, request)
 
         result.success shouldBe true
         result.data!!.profileImageUrl shouldBe null
@@ -218,7 +205,6 @@ class AuthControllerTest : FunSpec({
 
     test("updateProfile extracts UUID from authentication principal") {
         val specificUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
-        val authentication = createAuthentication(specificUserId)
         val request = UpdateProfileRequest(nickname = "Updated")
         val expectedUser = UserResponse(
             id = specificUserId,
@@ -233,14 +219,13 @@ class AuthControllerTest : FunSpec({
 
         every { authService.updateProfile(specificUserId, request) } returns expectedUser
 
-        val result = authController.updateProfile(authentication, request)
+        val result = authController.updateProfile(specificUserId, request)
 
         result.data!!.id shouldBe specificUserId
         verify { authService.updateProfile(specificUserId, request) }
     }
 
     test("uploadProfileImage calls authService.uploadProfileImage and returns ApiResponse.ok") {
-        val authentication = createAuthentication(testUserId)
         val file = MockMultipartFile("file", "photo.jpg", "image/jpeg", byteArrayOf(0x01, 0x02))
         val expectedUser = UserResponse(
             id = testUserId,
@@ -255,7 +240,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.uploadProfileImage(testUserId, any()) } returns expectedUser
 
-        val result = authController.uploadProfileImage(authentication, file)
+        val result = authController.uploadProfileImage(testUserId, file)
 
         result.success shouldBe true
         result.data!!.profileImageUrl shouldBe "data:image/jpeg;base64,AQI="
@@ -263,7 +248,6 @@ class AuthControllerTest : FunSpec({
     }
 
     test("removeProfileImage calls authService.removeProfileImage and returns ApiResponse.ok") {
-        val authentication = createAuthentication(testUserId)
         val expectedUser = UserResponse(
             id = testUserId,
             email = "test@example.com",
@@ -277,7 +261,7 @@ class AuthControllerTest : FunSpec({
 
         every { authService.removeProfileImage(testUserId) } returns expectedUser
 
-        val result = authController.removeProfileImage(authentication)
+        val result = authController.removeProfileImage(testUserId)
 
         result.success shouldBe true
         result.data!!.profileImageUrl shouldBe null

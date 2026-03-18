@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/transaction/data/datasources/transaction_remote_datasource.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
@@ -41,7 +42,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load transactions'));
+      return Left(mapDioError(e, 'Failed to load transactions'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load transactions'));
     }
   }
 
@@ -51,7 +54,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final result = await remoteDataSource.getTransaction(id);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load transaction'));
+      return Left(mapDioError(e, 'Failed to load transaction'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load transaction'));
     }
   }
 
@@ -80,7 +85,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final result = await remoteDataSource.createTransaction(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create transaction'));
+      return Left(mapDioError(e, 'Failed to create transaction'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create transaction'));
     }
   }
 
@@ -109,7 +116,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final result = await remoteDataSource.updateTransaction(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to update transaction'));
+      return Left(mapDioError(e, 'Failed to update transaction'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to update transaction'));
     }
   }
 
@@ -119,16 +128,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       await remoteDataSource.deleteTransaction(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to delete transaction'));
+      return Left(mapDioError(e, 'Failed to delete transaction'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to delete transaction'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

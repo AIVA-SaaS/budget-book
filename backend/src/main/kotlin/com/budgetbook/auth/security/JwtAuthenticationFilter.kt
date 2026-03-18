@@ -26,7 +26,8 @@ class JwtAuthenticationFilter(
         return path.startsWith("/actuator/") ||
                path.startsWith("/oauth2/") ||
                path.startsWith("/login/oauth2/") ||
-               path == "/api/v1/health"
+               path == "/api/v1/health" ||
+               path == "/api/v1/announcements/active"
     }
 
     override fun doFilterInternal(

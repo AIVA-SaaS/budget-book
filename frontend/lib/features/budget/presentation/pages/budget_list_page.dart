@@ -8,6 +8,7 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart'
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
 import 'package:budget_book/core/widgets/icon_picker.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
@@ -92,8 +93,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SegmentedButton<bool>(
               segments: const [
-                ButtonSegment(value: false, label: Text('월간')),
-                ButtonSegment(value: true, label: Text('주간')),
+                ButtonSegment(value: false, label: Text('월간', maxLines: 1, softWrap: false)),
+                ButtonSegment(value: true, label: Text('주간', maxLines: 1, softWrap: false)),
               ],
               selected: {_isWeeklyView},
               onSelectionChanged: (value) {
@@ -401,7 +402,13 @@ class _BudgetListPageState extends State<BudgetListPage> {
   Widget _buildLoaded(BuildContext context, BudgetLoaded state) {
     return Column(
       children: [
-        _MonthNavigator(year: state.year, month: state.month),
+        MonthNavigator(
+          year: state.year,
+          month: state.month,
+          onMonthChanged: (m) => context.read<BudgetBloc>().add(
+                LoadBudgets(year: m.year, month: m.month),
+              ),
+        ),
         if (state.summary != null)
           BudgetSummaryCard(summary: state.summary!),
         Expanded(
@@ -561,68 +568,3 @@ class _BudgetListPageState extends State<BudgetListPage> {
   }
 }
 
-class _MonthNavigator extends StatelessWidget {
-  final int year;
-  final int month;
-
-  const _MonthNavigator({required this.year, required this.month});
-
-  @override
-  Widget build(BuildContext context) {
-    final dateStr = DateFormat('yyyy년 M월').format(DateTime(year, month));
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              final prev = month == 1
-                  ? DateTime(year - 1, 12)
-                  : DateTime(year, month - 1);
-              context.read<BudgetBloc>().add(
-                    LoadBudgets(year: prev.year, month: prev.month),
-                  );
-            },
-            tooltip: '이전 달',
-          ),
-          TextButton(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: DateTime(year, month),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030, 12, 31),
-              );
-              if (picked != null && context.mounted) {
-                context.read<BudgetBloc>().add(
-                      LoadBudgets(year: picked.year, month: picked.month),
-                    );
-              }
-            },
-            child: Text(
-              dateStr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              final next = month == 12
-                  ? DateTime(year + 1, 1)
-                  : DateTime(year, month + 1);
-              context.read<BudgetBloc>().add(
-                    LoadBudgets(year: next.year, month: next.month),
-                  );
-            },
-            tooltip: '다음 달',
-          ),
-        ],
-      ),
-    );
-  }
-}

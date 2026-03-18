@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/core/services/cache_service.dart';
 import 'package:budget_book/features/category/data/datasources/category_remote_datasource.dart';
 import 'package:budget_book/features/category/data/models/category_model.dart';
@@ -39,7 +40,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
         final cached = await _getCachedCategories(type);
         if (cached != null) return Right(cached);
       }
-      return Left(_mapDioError(e, 'Failed to load categories'));
+      return Left(mapDioError(e, 'Failed to load categories'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load categories'));
     }
   }
 
@@ -95,7 +98,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
       await cacheService?.removeCachedData(_cacheKey);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create category'));
+      return Left(mapDioError(e, 'Failed to create category'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create category'));
     }
   }
 
@@ -120,7 +125,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
       await cacheService?.removeCachedData(_cacheKey);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to update category'));
+      return Left(mapDioError(e, 'Failed to update category'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to update category'));
     }
   }
 
@@ -131,16 +138,10 @@ class CategoryRepositoryImpl implements CategoryRepository {
       await cacheService?.removeCachedData(_cacheKey);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to delete category'));
+      return Left(mapDioError(e, 'Failed to delete category'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to delete category'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

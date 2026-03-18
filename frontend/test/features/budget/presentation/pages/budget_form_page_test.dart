@@ -16,6 +16,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction_cat
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/core/widgets/period_selector.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
@@ -139,7 +140,6 @@ void main() {
     testWidgets('shows optional category picker in create mode', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       expect(find.text('카테고리 (선택)'), findsOneWidget);
-      // "전체 예산 (카테고리 없음)" is a dropdown item, visible when opened
     });
 
     testWidgets('validates empty amount', (tester) async {
@@ -160,9 +160,14 @@ void main() {
       expect(find.text('0보다 큰 금액을 입력하세요'), findsOneWidget);
     });
 
-    testWidgets('shows month selector', (tester) async {
+    testWidgets('shows PeriodSelector widget', (tester) async {
       await tester.pumpWidget(buildTestWidget(year: 2026, month: 3));
-      expect(find.text('2026년 3월'), findsOneWidget);
+      expect(find.byType(PeriodSelector), findsOneWidget);
+    });
+
+    testWidgets('shows period type label', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
+      expect(find.text('예산 기간'), findsOneWidget);
     });
 
     testWidgets('shows submit button', (tester) async {
@@ -186,6 +191,11 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.text('150000'), findsOneWidget);
+    });
+
+    testWidgets('shows "기간 미지정" text for NONE period type by default', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
+      expect(find.text('기간 미지정'), findsOneWidget);
     });
   });
 }

@@ -37,55 +37,66 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearTrendError: true,
     ));
 
-    // Load all three API calls in parallel using Future.wait
-    final results = await Future.wait([
-      statisticsRepository.getSummary(
-        year: event.year,
-        month: event.month,
-      ),
-      statisticsRepository.getCategoryBreakdown(
-        year: event.year,
-        month: event.month,
-        type: state.categoryType,
-      ),
-      statisticsRepository.getMonthlyTrend(),
-    ]);
+    try {
+      // Load all three API calls in parallel using Future.wait
+      final results = await Future.wait([
+        statisticsRepository.getSummary(
+          year: event.year,
+          month: event.month,
+        ),
+        statisticsRepository.getCategoryBreakdown(
+          year: event.year,
+          month: event.month,
+          type: state.categoryType,
+        ),
+        statisticsRepository.getMonthlyTrend(),
+      ]);
 
-    // Process summary result
-    results[0].fold(
-      (failure) => emit(state.copyWith(
+      // Process summary result
+      results[0].fold(
+        (failure) => emit(state.copyWith(
+          summaryLoading: false,
+          summaryError: failure.message,
+        )),
+        (data) => emit(state.copyWith(
+          summaryLoading: false,
+          summary: data as StatisticsSummary,
+        )),
+      );
+
+      // Process category breakdown result
+      results[1].fold(
+        (failure) => emit(state.copyWith(
+          categoryLoading: false,
+          categoryError: failure.message,
+        )),
+        (data) => emit(state.copyWith(
+          categoryLoading: false,
+          categoryStats: data as List<CategoryStatistics>,
+        )),
+      );
+
+      // Process monthly trend result
+      results[2].fold(
+        (failure) => emit(state.copyWith(
+          trendLoading: false,
+          trendError: failure.message,
+        )),
+        (data) => emit(state.copyWith(
+          trendLoading: false,
+          trends: data as List<MonthlyTrend>,
+        )),
+      );
+    } catch (e) {
+      emit(state.copyWith(
         summaryLoading: false,
-        summaryError: failure.message,
-      )),
-      (data) => emit(state.copyWith(
-        summaryLoading: false,
-        summary: data as StatisticsSummary,
-      )),
-    );
-
-    // Process category breakdown result
-    results[1].fold(
-      (failure) => emit(state.copyWith(
         categoryLoading: false,
-        categoryError: failure.message,
-      )),
-      (data) => emit(state.copyWith(
-        categoryLoading: false,
-        categoryStats: data as List<CategoryStatistics>,
-      )),
-    );
-
-    // Process monthly trend result
-    results[2].fold(
-      (failure) => emit(state.copyWith(
         trendLoading: false,
-        trendError: failure.message,
-      )),
-      (data) => emit(state.copyWith(
-        trendLoading: false,
-        trends: data as List<MonthlyTrend>,
-      )),
-    );
+        summaryError: '예기치 않은 오류가 발생했습니다',
+        categoryError: '예기치 않은 오류가 발생했습니다',
+        trendError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onLoadSummary(
@@ -99,20 +110,27 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearSummaryError: true,
     ));
 
-    final result = await statisticsRepository.getSummary(
-      year: event.year,
-      month: event.month,
-    );
-    result.fold(
-      (failure) => emit(state.copyWith(
+    try {
+      final result = await statisticsRepository.getSummary(
+        year: event.year,
+        month: event.month,
+      );
+      result.fold(
+        (failure) => emit(state.copyWith(
+          summaryLoading: false,
+          summaryError: failure.message,
+        )),
+        (summary) => emit(state.copyWith(
+          summaryLoading: false,
+          summary: summary,
+        )),
+      );
+    } catch (e) {
+      emit(state.copyWith(
         summaryLoading: false,
-        summaryError: failure.message,
-      )),
-      (summary) => emit(state.copyWith(
-        summaryLoading: false,
-        summary: summary,
-      )),
-    );
+        summaryError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onLoadCategoryBreakdown(
@@ -125,21 +143,28 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearCategoryError: true,
     ));
 
-    final result = await statisticsRepository.getCategoryBreakdown(
-      year: event.year,
-      month: event.month,
-      type: event.type,
-    );
-    result.fold(
-      (failure) => emit(state.copyWith(
+    try {
+      final result = await statisticsRepository.getCategoryBreakdown(
+        year: event.year,
+        month: event.month,
+        type: event.type,
+      );
+      result.fold(
+        (failure) => emit(state.copyWith(
+          categoryLoading: false,
+          categoryError: failure.message,
+        )),
+        (stats) => emit(state.copyWith(
+          categoryLoading: false,
+          categoryStats: stats,
+        )),
+      );
+    } catch (e) {
+      emit(state.copyWith(
         categoryLoading: false,
-        categoryError: failure.message,
-      )),
-      (stats) => emit(state.copyWith(
-        categoryLoading: false,
-        categoryStats: stats,
-      )),
-    );
+        categoryError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onLoadMonthlyTrend(
@@ -151,18 +176,25 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearTrendError: true,
     ));
 
-    final result =
-        await statisticsRepository.getMonthlyTrend(months: event.months);
-    result.fold(
-      (failure) => emit(state.copyWith(
+    try {
+      final result =
+          await statisticsRepository.getMonthlyTrend(months: event.months);
+      result.fold(
+        (failure) => emit(state.copyWith(
+          trendLoading: false,
+          trendError: failure.message,
+        )),
+        (trends) => emit(state.copyWith(
+          trendLoading: false,
+          trends: trends,
+        )),
+      );
+    } catch (e) {
+      emit(state.copyWith(
         trendLoading: false,
-        trendError: failure.message,
-      )),
-      (trends) => emit(state.copyWith(
-        trendLoading: false,
-        trends: trends,
-      )),
-    );
+        trendError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onLoadYearComparison(
@@ -174,40 +206,47 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearComparisonError: true,
     ));
 
-    // Load current year and previous year summary in parallel
-    final results = await Future.wait([
-      statisticsRepository.getSummary(year: event.year, month: event.month),
-      statisticsRepository.getSummary(
-          year: event.year - 1, month: event.month),
-    ]);
+    try {
+      // Load current year and previous year summary in parallel
+      final results = await Future.wait([
+        statisticsRepository.getSummary(year: event.year, month: event.month),
+        statisticsRepository.getSummary(
+            year: event.year - 1, month: event.month),
+      ]);
 
-    StatisticsSummary? currentSummary;
-    StatisticsSummary? previousSummary;
-    String? error;
+      StatisticsSummary? currentSummary;
+      StatisticsSummary? previousSummary;
+      String? error;
 
-    results[0].fold(
-      (failure) => error = failure.message,
-      (data) => currentSummary = data,
-    );
+      results[0].fold(
+        (failure) => error = failure.message,
+        (data) => currentSummary = data,
+      );
 
-    results[1].fold(
-      (failure) {
-        // Previous year data may not exist - that's ok
-        previousSummary = null;
-      },
-      (data) => previousSummary = data,
-    );
+      results[1].fold(
+        (failure) {
+          // Previous year data may not exist - that's ok
+          previousSummary = null;
+        },
+        (data) => previousSummary = data,
+      );
 
-    if (error != null) {
+      if (error != null) {
+        emit(state.copyWith(
+          comparisonLoading: false,
+          comparisonError: error,
+        ));
+      } else {
+        emit(state.copyWith(
+          comparisonLoading: false,
+          currentYearSummary: currentSummary,
+          previousYearSummary: previousSummary,
+        ));
+      }
+    } catch (e) {
       emit(state.copyWith(
         comparisonLoading: false,
-        comparisonError: error,
-      ));
-    } else {
-      emit(state.copyWith(
-        comparisonLoading: false,
-        currentYearSummary: currentSummary,
-        previousYearSummary: previousSummary,
+        comparisonError: '예기치 않은 오류가 발생했습니다',
       ));
     }
   }
@@ -221,19 +260,26 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       clearPaymentMethodError: true,
     ));
 
-    final result = await statisticsRepository.getPaymentMethodStats(
-      year: event.year,
-      month: event.month,
-    );
-    result.fold(
-      (failure) => emit(state.copyWith(
+    try {
+      final result = await statisticsRepository.getPaymentMethodStats(
+        year: event.year,
+        month: event.month,
+      );
+      result.fold(
+        (failure) => emit(state.copyWith(
+          paymentMethodLoading: false,
+          paymentMethodError: failure.message,
+        )),
+        (stats) => emit(state.copyWith(
+          paymentMethodLoading: false,
+          paymentMethodStats: stats,
+        )),
+      );
+    } catch (e) {
+      emit(state.copyWith(
         paymentMethodLoading: false,
-        paymentMethodError: failure.message,
-      )),
-      (stats) => emit(state.copyWith(
-        paymentMethodLoading: false,
-        paymentMethodStats: stats,
-      )),
-    );
+        paymentMethodError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 }

@@ -19,12 +19,16 @@ class RecurringBloc extends Bloc<RecurringEvent, RecurringState> {
     LoadRecurringTransactions event,
     Emitter<RecurringState> emit,
   ) async {
-    emit(const RecurringLoading());
-    final result = await recurringRepository.getRecurringTransactions();
-    result.fold(
-      (failure) => emit(RecurringError(failure.message)),
-      (transactions) => emit(RecurringLoaded(transactions)),
-    );
+    try {
+      emit(const RecurringLoading());
+      final result = await recurringRepository.getRecurringTransactions();
+      result.fold(
+        (failure) => emit(RecurringError(failure.message)),
+        (transactions) => emit(RecurringLoaded(transactions)),
+      );
+    } catch (e) {
+      emit(const RecurringError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onCreateRecurringTransaction(
@@ -35,26 +39,33 @@ class RecurringBloc extends Bloc<RecurringEvent, RecurringState> {
         ? (state as RecurringLoaded).transactions
         : <RecurringTransaction>[];
 
-    final result = await recurringRepository.createRecurringTransaction(
-      type: event.type,
-      amount: event.amount,
-      description: event.description,
-      memo: event.memo,
-      frequency: event.frequency,
-      dayOfMonth: event.dayOfMonth,
-      dayOfWeek: event.dayOfWeek,
-      categoryId: event.categoryId,
-      paymentMethodId: event.paymentMethodId,
-    );
-    result.fold(
-      (failure) => emit(RecurringLoaded(
+    try {
+      final result = await recurringRepository.createRecurringTransaction(
+        type: event.type,
+        amount: event.amount,
+        description: event.description,
+        memo: event.memo,
+        frequency: event.frequency,
+        dayOfMonth: event.dayOfMonth,
+        dayOfWeek: event.dayOfWeek,
+        categoryId: event.categoryId,
+        paymentMethodId: event.paymentMethodId,
+      );
+      result.fold(
+        (failure) => emit(RecurringLoaded(
+          currentTransactions,
+          operationError: failure.message,
+        )),
+        (transaction) => emit(RecurringLoaded(
+          [...currentTransactions, transaction],
+        )),
+      );
+    } catch (e) {
+      emit(RecurringLoaded(
         currentTransactions,
-        operationError: failure.message,
-      )),
-      (transaction) => emit(RecurringLoaded(
-        [...currentTransactions, transaction],
-      )),
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onUpdateRecurringTransaction(
@@ -65,29 +76,36 @@ class RecurringBloc extends Bloc<RecurringEvent, RecurringState> {
         ? (state as RecurringLoaded).transactions
         : <RecurringTransaction>[];
 
-    final result = await recurringRepository.updateRecurringTransaction(
-      id: event.id,
-      amount: event.amount,
-      description: event.description,
-      memo: event.memo,
-      categoryId: event.categoryId,
-      paymentMethodId: event.paymentMethodId,
-      dayOfMonth: event.dayOfMonth,
-      dayOfWeek: event.dayOfWeek,
-      isActive: event.isActive,
-    );
-    result.fold(
-      (failure) => emit(RecurringLoaded(
+    try {
+      final result = await recurringRepository.updateRecurringTransaction(
+        id: event.id,
+        amount: event.amount,
+        description: event.description,
+        memo: event.memo,
+        categoryId: event.categoryId,
+        paymentMethodId: event.paymentMethodId,
+        dayOfMonth: event.dayOfMonth,
+        dayOfWeek: event.dayOfWeek,
+        isActive: event.isActive,
+      );
+      result.fold(
+        (failure) => emit(RecurringLoaded(
+          currentTransactions,
+          operationError: failure.message,
+        )),
+        (updated) {
+          final updatedList = currentTransactions
+              .map((t) => t.id == updated.id ? updated : t)
+              .toList();
+          emit(RecurringLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(RecurringLoaded(
         currentTransactions,
-        operationError: failure.message,
-      )),
-      (updated) {
-        final updatedList = currentTransactions
-            .map((t) => t.id == updated.id ? updated : t)
-            .toList();
-        emit(RecurringLoaded(updatedList));
-      },
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 
   Future<void> _onDeleteRecurringTransaction(
@@ -98,18 +116,25 @@ class RecurringBloc extends Bloc<RecurringEvent, RecurringState> {
         ? (state as RecurringLoaded).transactions
         : <RecurringTransaction>[];
 
-    final result =
-        await recurringRepository.deleteRecurringTransaction(event.id);
-    result.fold(
-      (failure) => emit(RecurringLoaded(
+    try {
+      final result =
+          await recurringRepository.deleteRecurringTransaction(event.id);
+      result.fold(
+        (failure) => emit(RecurringLoaded(
+          currentTransactions,
+          operationError: failure.message,
+        )),
+        (_) {
+          final updatedList =
+              currentTransactions.where((t) => t.id != event.id).toList();
+          emit(RecurringLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(RecurringLoaded(
         currentTransactions,
-        operationError: failure.message,
-      )),
-      (_) {
-        final updatedList =
-            currentTransactions.where((t) => t.id != event.id).toList();
-        emit(RecurringLoaded(updatedList));
-      },
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 }

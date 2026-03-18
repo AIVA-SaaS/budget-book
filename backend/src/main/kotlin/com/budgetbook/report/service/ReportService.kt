@@ -7,6 +7,7 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.report.dto.CardPendingReportSummary
 import com.budgetbook.report.dto.CategorySpendingItem
 import com.budgetbook.report.dto.DailySpendingItem
@@ -31,11 +32,11 @@ import java.util.UUID
 @Service
 class ReportService(
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val budgetRepository: MonthlyBudgetRepository
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getWeeklyReport(userId: UUID, year: Int, month: Int, weekNumber: Int): WeeklyReportResponse {
@@ -498,7 +499,4 @@ class ReportService(
         DayOfWeek.SUNDAY -> "SUN"
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
 }

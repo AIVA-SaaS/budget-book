@@ -28,63 +28,67 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     LoadDashboard event,
     Emitter<DashboardState> emit,
   ) async {
-    emit(const DashboardLoading());
+    try {
+      emit(const DashboardLoading());
 
-    // Load all data in parallel
-    final futureResults = await Future.wait<dynamic>([
-      statisticsRepository.getSummary(
+      // Load all data in parallel
+      final futureResults = await Future.wait<dynamic>([
+        statisticsRepository.getSummary(
+          year: event.year,
+          month: event.month,
+        ),
+        transactionRepository.getTransactions(
+          year: event.year,
+          month: event.month,
+          size: 5,
+        ),
+        budgetRepository.getBudgetSummary(
+          year: event.year,
+          month: event.month,
+        ),
+      ]);
+
+      final summaryResult =
+          futureResults[0] as Either<Failure, StatisticsSummary>;
+      final transactionResult =
+          futureResults[1] as Either<Failure, PageResponse<Transaction>>;
+      final budgetResult =
+          futureResults[2] as Either<Failure, BudgetSummary>;
+
+      StatisticsSummary? summary;
+      String? summaryError;
+      List<Transaction> recentTransactions = [];
+      String? transactionsError;
+      BudgetSummary? budgetSummary;
+      String? budgetError;
+
+      summaryResult.fold(
+        (failure) => summaryError = failure.message,
+        (data) => summary = data,
+      );
+
+      transactionResult.fold(
+        (failure) => transactionsError = failure.message,
+        (page) => recentTransactions = page.content,
+      );
+
+      budgetResult.fold(
+        (failure) => budgetError = failure.message,
+        (data) => budgetSummary = data,
+      );
+
+      emit(DashboardLoaded(
         year: event.year,
         month: event.month,
-      ),
-      transactionRepository.getTransactions(
-        year: event.year,
-        month: event.month,
-        size: 5,
-      ),
-      budgetRepository.getBudgetSummary(
-        year: event.year,
-        month: event.month,
-      ),
-    ]);
-
-    final summaryResult =
-        futureResults[0] as Either<Failure, StatisticsSummary>;
-    final transactionResult =
-        futureResults[1] as Either<Failure, PageResponse<Transaction>>;
-    final budgetResult =
-        futureResults[2] as Either<Failure, BudgetSummary>;
-
-    StatisticsSummary? summary;
-    String? summaryError;
-    List<Transaction> recentTransactions = [];
-    String? transactionsError;
-    BudgetSummary? budgetSummary;
-    String? budgetError;
-
-    summaryResult.fold(
-      (failure) => summaryError = failure.message,
-      (data) => summary = data,
-    );
-
-    transactionResult.fold(
-      (failure) => transactionsError = failure.message,
-      (page) => recentTransactions = page.content,
-    );
-
-    budgetResult.fold(
-      (failure) => budgetError = failure.message,
-      (data) => budgetSummary = data,
-    );
-
-    emit(DashboardLoaded(
-      year: event.year,
-      month: event.month,
-      summary: summary,
-      recentTransactions: recentTransactions,
-      budgetSummary: budgetSummary,
-      summaryError: summaryError,
-      transactionsError: transactionsError,
-      budgetError: budgetError,
-    ));
+        summary: summary,
+        recentTransactions: recentTransactions,
+        budgetSummary: budgetSummary,
+        summaryError: summaryError,
+        transactionsError: transactionsError,
+        budgetError: budgetError,
+      ));
+    } catch (_) {
+      emit(const DashboardError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 }

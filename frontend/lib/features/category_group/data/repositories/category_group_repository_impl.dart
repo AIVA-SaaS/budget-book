@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/category_group/data/datasources/category_group_remote_datasource.dart';
 import 'package:budget_book/features/category_group/domain/entities/category_group.dart';
 import 'package:budget_book/features/category_group/domain/repositories/category_group_repository.dart';
@@ -16,7 +17,9 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
       final result = await remoteDataSource.getCategoryGroups();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load category groups'));
+      return Left(mapDioError(e, 'Failed to load category groups'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load category groups'));
     }
   }
 
@@ -37,7 +40,9 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
       final result = await remoteDataSource.createCategoryGroup(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create category group'));
+      return Left(mapDioError(e, 'Failed to create category group'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create category group'));
     }
   }
 
@@ -61,7 +66,9 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
       final result = await remoteDataSource.updateCategoryGroup(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to update category group'));
+      return Left(mapDioError(e, 'Failed to update category group'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to update category group'));
     }
   }
 
@@ -71,16 +78,10 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
       await remoteDataSource.deleteCategoryGroup(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to delete category group'));
+      return Left(mapDioError(e, 'Failed to delete category group'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to delete category group'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

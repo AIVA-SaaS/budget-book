@@ -20,12 +20,16 @@ class CategoryGroupBloc
     LoadCategoryGroups event,
     Emitter<CategoryGroupState> emit,
   ) async {
-    emit(const CategoryGroupLoading());
-    final result = await categoryGroupRepository.getCategoryGroups();
-    result.fold(
-      (failure) => emit(CategoryGroupError(failure.message)),
-      (groups) => emit(CategoryGroupLoaded(groups)),
-    );
+    try {
+      emit(const CategoryGroupLoading());
+      final result = await categoryGroupRepository.getCategoryGroups();
+      result.fold(
+        (failure) => emit(CategoryGroupError(failure.message)),
+        (groups) => emit(CategoryGroupLoaded(groups)),
+      );
+    } catch (e) {
+      emit(const CategoryGroupError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onCreateCategoryGroup(
@@ -35,17 +39,23 @@ class CategoryGroupBloc
     final currentGroups = state is CategoryGroupLoaded
         ? (state as CategoryGroupLoaded).groups
         : <CategoryGroup>[];
-    final result = await categoryGroupRepository.createCategoryGroup(
-      name: event.name,
-      icon: event.icon,
-      color: event.color,
-      budgetType: event.budgetType,
-    );
-    result.fold(
-      (failure) => emit(CategoryGroupLoaded(currentGroups,
-          operationError: failure.message)),
-      (group) => emit(CategoryGroupLoaded([...currentGroups, group])),
-    );
+
+    try {
+      final result = await categoryGroupRepository.createCategoryGroup(
+        name: event.name,
+        icon: event.icon,
+        color: event.color,
+        budgetType: event.budgetType,
+      );
+      result.fold(
+        (failure) => emit(CategoryGroupLoaded(currentGroups,
+            operationError: failure.message)),
+        (group) => emit(CategoryGroupLoaded([...currentGroups, group])),
+      );
+    } catch (e) {
+      emit(CategoryGroupLoaded(currentGroups,
+          operationError: '예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onUpdateCategoryGroup(
@@ -55,24 +65,30 @@ class CategoryGroupBloc
     final currentGroups = state is CategoryGroupLoaded
         ? (state as CategoryGroupLoaded).groups
         : <CategoryGroup>[];
-    final result = await categoryGroupRepository.updateCategoryGroup(
-      id: event.id,
-      name: event.name,
-      icon: event.icon,
-      color: event.color,
-      budgetType: event.budgetType,
-      displayOrder: event.displayOrder,
-    );
-    result.fold(
-      (failure) => emit(CategoryGroupLoaded(currentGroups,
-          operationError: failure.message)),
-      (updated) {
-        final updatedList = currentGroups
-            .map((g) => g.id == updated.id ? updated : g)
-            .toList();
-        emit(CategoryGroupLoaded(updatedList));
-      },
-    );
+
+    try {
+      final result = await categoryGroupRepository.updateCategoryGroup(
+        id: event.id,
+        name: event.name,
+        icon: event.icon,
+        color: event.color,
+        budgetType: event.budgetType,
+        displayOrder: event.displayOrder,
+      );
+      result.fold(
+        (failure) => emit(CategoryGroupLoaded(currentGroups,
+            operationError: failure.message)),
+        (updated) {
+          final updatedList = currentGroups
+              .map((g) => g.id == updated.id ? updated : g)
+              .toList();
+          emit(CategoryGroupLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(CategoryGroupLoaded(currentGroups,
+          operationError: '예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onDeleteCategoryGroup(
@@ -82,16 +98,22 @@ class CategoryGroupBloc
     final currentGroups = state is CategoryGroupLoaded
         ? (state as CategoryGroupLoaded).groups
         : <CategoryGroup>[];
-    final result =
-        await categoryGroupRepository.deleteCategoryGroup(event.id);
-    result.fold(
-      (failure) => emit(CategoryGroupLoaded(currentGroups,
-          operationError: failure.message)),
-      (_) {
-        final updatedList =
-            currentGroups.where((g) => g.id != event.id).toList();
-        emit(CategoryGroupLoaded(updatedList));
-      },
-    );
+
+    try {
+      final result =
+          await categoryGroupRepository.deleteCategoryGroup(event.id);
+      result.fold(
+        (failure) => emit(CategoryGroupLoaded(currentGroups,
+            operationError: failure.message)),
+        (_) {
+          final updatedList =
+              currentGroups.where((g) => g.id != event.id).toList();
+          emit(CategoryGroupLoaded(updatedList));
+        },
+      );
+    } catch (e) {
+      emit(CategoryGroupLoaded(currentGroups,
+          operationError: '예기치 않은 오류가 발생했습니다'));
+    }
   }
 }
