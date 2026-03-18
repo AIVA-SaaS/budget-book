@@ -23,7 +23,36 @@ WHERE t.category_id = dup.id
         ON c3.couple_id = dups.couple_id AND c3.name = dups.name
   );
 
+-- 1b-pre. Delete monthly_budgets that would collide with keeper's existing budget
+-- (duplicate category has a budget for the same couple + year_month as the keeper category)
+-- The keeper's budget is preserved; the duplicate's budget is dropped to avoid unique violation.
+DELETE FROM monthly_budgets mb_dup
+WHERE mb_dup.id IN (
+    SELECT mb.id
+    FROM monthly_budgets mb
+    JOIN categories dup ON mb.category_id = dup.id
+    JOIN LATERAL (
+        SELECT id FROM categories c2
+        WHERE c2.couple_id = dup.couple_id AND c2.name = dup.name
+        ORDER BY c2.created_at, c2.id
+        LIMIT 1
+    ) keeper ON true
+    WHERE dup.id != keeper.id
+      AND dup.id IN (
+          SELECT c3.id FROM categories c3
+          JOIN (SELECT couple_id, name FROM categories GROUP BY couple_id, name HAVING COUNT(*) > 1) dg
+            ON c3.couple_id = dg.couple_id AND c3.name = dg.name
+      )
+      AND EXISTS (
+          SELECT 1 FROM monthly_budgets mb2
+          WHERE mb2.category_id = keeper.id
+            AND mb2.couple_id = mb.couple_id
+            AND mb2.year_month = mb.year_month
+      )
+);
+
 -- 1b. Reassign monthly_budgets.category_id from duplicate → keeper
+-- (only rows that won't collide remain after 1b-pre)
 UPDATE monthly_budgets mb
 SET category_id = keeper.id
 FROM categories dup
