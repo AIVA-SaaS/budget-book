@@ -178,18 +178,13 @@ class _CategoryGroupSelectorSheetState
         // Group header — expandable if has sub-categories, auto-expand if empty
         InkWell(
           onTap: () {
-            if (categories.isEmpty) {
-              // Empty group: auto-expand to show "add category" prompt
-              setState(() => _expandedGroupIds.add(group.id));
-            } else {
-              setState(() {
-                if (isExpanded) {
-                  _expandedGroupIds.remove(group.id);
-                } else {
-                  _expandedGroupIds.add(group.id);
-                }
-              });
-            }
+            setState(() {
+              if (isExpanded) {
+                _expandedGroupIds.remove(group.id);
+              } else {
+                _expandedGroupIds.add(group.id);
+              }
+            });
           },
           child: Padding(
             padding:
