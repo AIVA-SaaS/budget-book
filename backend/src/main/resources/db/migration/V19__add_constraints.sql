@@ -89,19 +89,19 @@ WHERE rt.category_id = dup.id
   );
 
 -- 1d. Delete duplicate categories (keep only the earliest per couple+name)
-DELETE FROM categories
-WHERE id IN (
-    SELECT c.id
-    FROM categories c
-    JOIN (
-        SELECT couple_id, name, MIN(created_at) AS min_created, MIN(id) AS min_id
-        FROM categories
-        GROUP BY couple_id, name
-        HAVING COUNT(*) > 1
-    ) dups ON c.couple_id = dups.couple_id AND c.name = dups.name
-    WHERE (c.created_at > dups.min_created)
-       OR (c.created_at = dups.min_created AND c.id > dups.min_id)
-);
+DELETE FROM categories c
+USING (
+    SELECT couple_id, name FROM categories
+    GROUP BY couple_id, name HAVING COUNT(*) > 1
+) dups
+JOIN LATERAL (
+    SELECT id FROM categories k
+    WHERE k.couple_id = dups.couple_id AND k.name = dups.name
+    ORDER BY k.created_at, k.id
+    LIMIT 1
+) keeper ON true
+WHERE c.couple_id = dups.couple_id AND c.name = dups.name
+  AND c.id != keeper.id;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_categories_couple_name
     ON categories (couple_id, name);
@@ -145,19 +145,19 @@ WHERE rt.payment_method_id = dup.id
   );
 
 -- 2c. Delete duplicate payment methods
-DELETE FROM payment_methods
-WHERE id IN (
-    SELECT pm.id
-    FROM payment_methods pm
-    JOIN (
-        SELECT couple_id, name, MIN(created_at) AS min_created, MIN(id) AS min_id
-        FROM payment_methods
-        GROUP BY couple_id, name
-        HAVING COUNT(*) > 1
-    ) dups ON pm.couple_id = dups.couple_id AND pm.name = dups.name
-    WHERE (pm.created_at > dups.min_created)
-       OR (pm.created_at = dups.min_created AND pm.id > dups.min_id)
-);
+DELETE FROM payment_methods pm
+USING (
+    SELECT couple_id, name FROM payment_methods
+    GROUP BY couple_id, name HAVING COUNT(*) > 1
+) dups
+JOIN LATERAL (
+    SELECT id FROM payment_methods k
+    WHERE k.couple_id = dups.couple_id AND k.name = dups.name
+    ORDER BY k.created_at, k.id
+    LIMIT 1
+) keeper ON true
+WHERE pm.couple_id = dups.couple_id AND pm.name = dups.name
+  AND pm.id != keeper.id;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_payment_methods_couple_name
     ON payment_methods (couple_id, name);
