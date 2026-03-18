@@ -5,9 +5,11 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
@@ -33,13 +35,13 @@ import java.util.UUID
 @Service
 class TransactionService(
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
     private val moneyPocketRepository: MoneyPocketRepository,
     private val syncEventPublisher: SyncEventPublisher
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun listTransactions(
@@ -129,18 +131,14 @@ class TransactionService(
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-            if (cat.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             cat
         }
 
         val paymentMethod = request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
                 .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
-            if (pm.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
             pm
         }
 
@@ -151,9 +149,7 @@ class TransactionService(
         val pocket = request.pocketId?.let { pocketId ->
             val p = moneyPocketRepository.findById(pocketId)
                 .orElseThrow { NotFoundException("POCKET_NOT_FOUND", "Specified pocket does not exist.") }
-            if (p.couple.id != couple.id) {
-                throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
-            }
+            OwnershipValidator.validateOwnership(p.couple.id, couple, "Pocket")
             if (!p.isActive) {
                 throw NotFoundException("POCKET_NOT_FOUND", "Specified pocket is not active.")
             }
@@ -191,9 +187,7 @@ class TransactionService(
         val transaction = transactionRepository.findById(transactionId)
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
-        if (transaction.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Transaction belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
 
         return transaction.toResponse()
     }
@@ -204,9 +198,7 @@ class TransactionService(
         val transaction = transactionRepository.findById(transactionId)
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
-        if (transaction.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Transaction belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
 
         request.amount?.let { transaction.amount = it }
         request.description?.let { transaction.description = it }
@@ -219,9 +211,7 @@ class TransactionService(
             if (catId != null) {
                 val cat = categoryRepository.findById(catId)
                     .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-                if (cat.couple.id != couple.id) {
-                    throw ForbiddenException("FORBIDDEN", "Category belongs to a different couple.")
-                }
+                OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
                 transaction.category = cat
             } else {
                 transaction.category = null
@@ -235,9 +225,7 @@ class TransactionService(
             if (pmId != null) {
                 val pm = paymentMethodRepository.findById(pmId)
                     .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
-                if (pm.couple.id != couple.id) {
-                    throw ForbiddenException("FORBIDDEN", "Payment method belongs to a different couple.")
-                }
+                OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
                 transaction.paymentMethod = pm
                 transaction.settlementDate = calculateSettlementDate(pm, transaction.transactionDate)
                 paymentMethodChanged = true
@@ -254,9 +242,7 @@ class TransactionService(
             if (pocketIdVal != null) {
                 val p = moneyPocketRepository.findById(pocketIdVal)
                     .orElseThrow { NotFoundException("POCKET_NOT_FOUND", "Specified pocket does not exist.") }
-                if (p.couple.id != couple.id) {
-                    throw ForbiddenException("FORBIDDEN", "Pocket belongs to a different couple.")
-                }
+                OwnershipValidator.validateOwnership(p.couple.id, couple, "Pocket")
                 if (!p.isActive) {
                     throw NotFoundException("POCKET_NOT_FOUND", "Specified pocket is not active.")
                 }
@@ -290,9 +276,7 @@ class TransactionService(
         val transaction = transactionRepository.findById(transactionId)
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
-        if (transaction.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Transaction belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
 
         transactionRepository.delete(transaction)
         syncEventPublisher.publish(SyncEvent(
@@ -302,10 +286,6 @@ class TransactionService(
             coupleId = couple.id,
             authorId = userId
         ))
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun calculateSettlementDate(

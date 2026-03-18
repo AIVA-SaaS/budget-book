@@ -16,48 +16,56 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
     LoadWeeklyOverview event,
     Emitter<WeeklyBudgetState> emit,
   ) async {
-    final previousCurrentWeek = state is WeeklyBudgetLoaded
-        ? (state as WeeklyBudgetLoaded).currentWeek
-        : null;
-    emit(const WeeklyBudgetLoading());
-    final result = await weeklyBudgetRepository.getWeeklyOverview(
-      event.year,
-      event.month,
-    );
-    result.fold(
-      (failure) => emit(WeeklyBudgetError(failure.message)),
-      (overview) {
-        emit(WeeklyBudgetLoaded(
-            overview: overview, currentWeek: previousCurrentWeek));
-      },
-    );
+    try {
+      final previousCurrentWeek = state is WeeklyBudgetLoaded
+          ? (state as WeeklyBudgetLoaded).currentWeek
+          : null;
+      emit(const WeeklyBudgetLoading());
+      final result = await weeklyBudgetRepository.getWeeklyOverview(
+        event.year,
+        event.month,
+      );
+      result.fold(
+        (failure) => emit(WeeklyBudgetError(failure.message)),
+        (overview) {
+          emit(WeeklyBudgetLoaded(
+              overview: overview, currentWeek: previousCurrentWeek));
+        },
+      );
+    } catch (e) {
+      emit(WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onLoadCurrentWeek(
     LoadCurrentWeek event,
     Emitter<WeeklyBudgetState> emit,
   ) async {
-    final currentOverview = state is WeeklyBudgetLoaded
-        ? (state as WeeklyBudgetLoaded).overview
-        : null;
+    try {
+      final currentOverview = state is WeeklyBudgetLoaded
+          ? (state as WeeklyBudgetLoaded).overview
+          : null;
 
-    if (currentOverview == null) {
-      emit(const WeeklyBudgetLoading());
+      if (currentOverview == null) {
+        emit(const WeeklyBudgetLoading());
+      }
+
+      final result = await weeklyBudgetRepository.getCurrentWeekSummary();
+      result.fold(
+        (failure) {
+          if (currentOverview != null) {
+            emit(WeeklyBudgetLoaded(overview: currentOverview));
+          } else {
+            emit(WeeklyBudgetError(failure.message));
+          }
+        },
+        (currentWeek) => emit(WeeklyBudgetLoaded(
+          overview: currentOverview,
+          currentWeek: currentWeek,
+        )),
+      );
+    } catch (e) {
+      emit(WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
     }
-
-    final result = await weeklyBudgetRepository.getCurrentWeekSummary();
-    result.fold(
-      (failure) {
-        if (currentOverview != null) {
-          emit(WeeklyBudgetLoaded(overview: currentOverview));
-        } else {
-          emit(WeeklyBudgetError(failure.message));
-        }
-      },
-      (currentWeek) => emit(WeeklyBudgetLoaded(
-        overview: currentOverview,
-        currentWeek: currentWeek,
-      )),
-    );
   }
 }

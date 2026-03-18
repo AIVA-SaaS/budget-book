@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
@@ -196,7 +197,7 @@ class _CategoryTab extends StatelessWidget {
   }
 
   Widget _buildGroupSection(BuildContext context, CategoryGroup group) {
-    final color = _parseColor(group.color);
+    final color = UIHelpers.parseColor(group.color);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,15 +309,6 @@ class _CategoryTab extends StatelessWidget {
     );
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
 }
 
 class _PaymentMethodTab extends StatelessWidget {
@@ -605,7 +597,7 @@ class _PocketTab extends StatelessWidget {
 
   Widget _buildPocketTile(BuildContext context, MoneyPocket pocket) {
     final formatter = NumberFormat('#,###');
-    final color = _parseColor(pocket.color);
+    final color = UIHelpers.parseColor(pocket.color);
     final typeLabel = switch (pocket.type) {
       'LIVING' => '생활비',
       'FIXED' => '고정지출',
@@ -621,7 +613,7 @@ class _PocketTab extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.15),
           child: Icon(
-            _resolveIcon(pocket.icon),
+            UIHelpers.resolveIcon(pocket.icon, fallback: Icons.account_balance_wallet),
             color: color,
             size: 20,
           ),
@@ -745,28 +737,4 @@ class _PocketTab extends StatelessWidget {
     );
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
-
-  IconData _resolveIcon(String? iconName) {
-    if (iconName == null) return Icons.account_balance_wallet;
-    const iconMap = <String, IconData>{
-      'home': Icons.home,
-      'restaurant': Icons.restaurant,
-      'shopping_cart': Icons.shopping_cart,
-      'directions_bus': Icons.directions_bus,
-      'savings': Icons.savings,
-      'payments': Icons.payments,
-      'account_balance': Icons.account_balance,
-      'card_giftcard': Icons.card_giftcard,
-    };
-    return iconMap[iconName] ?? Icons.account_balance_wallet;
-  }
 }

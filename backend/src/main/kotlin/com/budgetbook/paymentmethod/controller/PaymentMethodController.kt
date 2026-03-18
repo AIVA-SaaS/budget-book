@@ -1,6 +1,7 @@
 package com.budgetbook.paymentmethod.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.security.AuthUser
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
@@ -9,7 +10,6 @@ import com.budgetbook.paymentmethod.service.PaymentMethodService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -28,48 +28,43 @@ class PaymentMethodController(
 ) {
 
     @GetMapping
-    fun listPaymentMethods(authentication: Authentication): ApiResponse<List<PaymentMethodResponse>> {
-        val userId = authentication.principal as UUID
+    fun listPaymentMethods(@AuthUser userId: UUID): ApiResponse<List<PaymentMethodResponse>> {
         return ApiResponse.ok(paymentMethodService.listPaymentMethods(userId))
     }
 
     @PostMapping
     fun createPaymentMethod(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: CreatePaymentMethodRequest
     ): ResponseEntity<ApiResponse<PaymentMethodResponse>> {
-        val userId = authentication.principal as UUID
         val result = paymentMethodService.createPaymentMethod(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @PutMapping("/{id}")
     fun updatePaymentMethod(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdatePaymentMethodRequest
     ): ApiResponse<PaymentMethodResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(paymentMethodService.updatePaymentMethod(userId, id, request))
     }
 
     @DeleteMapping("/{id}")
     fun deletePaymentMethod(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID
     ): ResponseEntity<Void> {
-        val userId = authentication.principal as UUID
         paymentMethodService.deletePaymentMethod(userId, id)
         return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/card-pending")
     fun getCardPendingSummary(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam year: Int,
         @RequestParam month: Int
     ): ApiResponse<List<CardPendingResponse>> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(paymentMethodService.getCardPendingSummary(userId, year, month))
     }
 }

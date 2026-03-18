@@ -7,10 +7,10 @@ import com.budgetbook.category.dto.UpdateCategoryRequest
 import com.budgetbook.category.service.CategoryService
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.exception.BusinessException
+import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,10 +30,9 @@ class CategoryController(
 
     @GetMapping
     fun listCategories(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam(required = false) type: String?
     ): ApiResponse<List<CategoryResponse>> {
-        val userId = authentication.principal as UUID
         val categoryType = type?.let {
             try { CategoryType.valueOf(it) } catch (e: IllegalArgumentException) {
                 throw BusinessException("VALIDATION_ERROR", "Invalid category type: $it")
@@ -44,30 +43,27 @@ class CategoryController(
 
     @PostMapping
     fun createCategory(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: CreateCategoryRequest
     ): ResponseEntity<ApiResponse<CategoryResponse>> {
-        val userId = authentication.principal as UUID
         val result = categoryService.createCategory(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @PutMapping("/{id}")
     fun updateCategory(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdateCategoryRequest
     ): ApiResponse<CategoryResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(categoryService.updateCategory(userId, id, request))
     }
 
     @DeleteMapping("/{id}")
     fun deleteCategory(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID
     ): ResponseEntity<Void> {
-        val userId = authentication.principal as UUID
         categoryService.deleteCategory(userId, id)
         return ResponseEntity.noContent().build()
     }

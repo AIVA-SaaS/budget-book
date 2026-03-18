@@ -1,23 +1,20 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
-import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
-import 'package:budget_book/features/category/presentation/widgets/category_form_sheet.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
+import 'package:budget_book/core/widgets/period_selector.dart';
 
 class BudgetFormPage extends StatefulWidget {
   /// If editing, pass the budget ID (from URL path parameter).
@@ -46,10 +43,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late int _selectedYear;
   late int _selectedMonth;
   late String _budgetPeriod;
+  late PeriodSelection _periodSelection;
   Budget? _budget;
   bool _initialized = false;
   bool _isSubmitting = false;
-  int _dropdownResetKey = 0;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -61,6 +58,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _selectedYear = widget.year;
     _selectedMonth = widget.month;
     _budgetPeriod = 'MONTHLY';
+    _periodSelection = const PeriodSelection(type: PeriodType.none);
   }
 
   void _initializeFromBudget(Budget budget) {
@@ -73,6 +71,11 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _selectedCategoryId = budget.category?.id;
     _selectedPocketId = budget.pocketId;
     _budgetPeriod = budget.budgetPeriod;
+    _periodSelection = PeriodSelection.fromApiValues(
+      periodType: budget.periodType,
+      startDate: budget.startDate,
+      endDate: budget.endDate,
+    );
   }
 
   @override
@@ -144,8 +147,38 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Year/Month display
-            _buildMonthSelector(context),
+            // Period selector (replaces old month selector + budget period dropdown)
+            Text(
+              '예산 기간',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            PeriodSelector(
+              initialSelection: _periodSelection,
+              enabled: !isEditing,
+              onChanged: (selection) {
+                setState(() {
+                  _periodSelection = selection;
+                  // Sync budgetPeriod for backward compatibility
+                  _budgetPeriod = switch (selection.type) {
+                    PeriodType.weekly => 'WEEKLY',
+                    _ => 'MONTHLY',
+                  };
+                  // Update selected year/month based on period type
+                  if (selection.type == PeriodType.weekly &&
+                      selection.year != null &&
+                      selection.month != null) {
+                    _selectedYear = selection.year!;
+                    _selectedMonth = selection.month!;
+                  } else if (selection.startDate != null) {
+                    _selectedYear = selection.startDate!.year;
+                    _selectedMonth = selection.startDate!.month;
+                  }
+                });
+              },
+            ),
             const SizedBox(height: 24),
             // Category selector (optional)
             if (!isEditing) ...[
@@ -190,28 +223,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   onTap: () => _showPocketSelectorSheet(context, pockets),
                 );
               },
-            ),
-            const SizedBox(height: 16),
-            // Budget period selector
-            DropdownButtonFormField<String>(
-              initialValue: _budgetPeriod,
-              decoration: const InputDecoration(
-                labelText: '예산 기간',
-                prefixIcon: Icon(Icons.schedule),
-              ),
-              items: const [
-                DropdownMenuItem(
-                    value: 'MONTHLY', child: Text('월간')),
-                DropdownMenuItem(
-                    value: 'WEEKLY', child: Text('주간')),
-              ],
-              onChanged: isEditing
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _budgetPeriod = value ?? 'MONTHLY';
-                      });
-                    },
             ),
             const SizedBox(height: 16),
             // Amount input - show different field based on period
@@ -278,50 +289,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     );
   }
 
-  Widget _buildMonthSelector(BuildContext context) {
-    final dateStr =
-        DateFormat('yyyy년 M월').format(DateTime(_selectedYear, _selectedMonth));
-
-    if (isEditing) {
-      return ListTile(
-        leading: const Icon(Icons.calendar_month),
-        title: Text(dateStr),
-        subtitle: const Text('기간은 수정할 수 없습니다'),
-        tileColor: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      );
-    }
-
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: DateTime(_selectedYear, _selectedMonth),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030, 12, 31),
-        );
-        if (picked != null) {
-          setState(() {
-            _selectedYear = picked.year;
-            _selectedMonth = picked.month;
-          });
-        }
-      },
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: '기간',
-          prefixIcon: Icon(Icons.calendar_month),
-        ),
-        child: Text(dateStr),
-      ),
-    );
-  }
-
   Widget _buildCategoryPicker(BuildContext context) {
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, catState) {
@@ -329,102 +296,41 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             ? catState.expenseCategories
             : <Category>[];
 
-        return DropdownButtonFormField<String?>(
-          key: ValueKey('budget_cat_$_dropdownResetKey'),
-          initialValue: _selectedCategoryId,
-          decoration: const InputDecoration(
-            labelText: '카테고리 (선택)',
-            prefixIcon: Icon(Icons.category),
-          ),
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('전체 예산 (카테고리 없음)'),
-            ),
-            ...categories.map((c) {
-              return DropdownMenuItem<String?>(
-                value: c.id,
-                child: Text(c.name),
-              );
-            }),
-            const DropdownMenuItem<String?>(
-              value: '__create__',
-              child: Text('+ 새 카테고리'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == '__create__') {
-              setState(() => _dropdownResetKey++);
-              _showCreateCategorySheet(context);
-              return;
-            }
-            setState(() {
-              _selectedCategoryId = value;
-            });
-          },
+        final selectedName = _selectedCategoryId != null
+            ? categories
+                .where((c) => c.id == _selectedCategoryId)
+                .map((c) => c.name)
+                .firstOrNull
+            : null;
+
+        return ItemSelectorField(
+          label: '카테고리 (선택)',
+          selectedLabel: selectedName,
+          prefixIcon: Icons.category,
+          placeholder: '전체 예산 (카테고리 없음)',
+          onTap: () => _showCategorySelectorSheet(context),
         );
       },
     );
   }
 
-  Future<void> _showCreateCategorySheet(BuildContext context) async {
-    final bloc = context.read<CategoryBloc>();
-    final oldIds = (bloc.state is CategoryLoaded)
-        ? (bloc.state as CategoryLoaded).categories.map((c) => c.id).toSet()
-        : <String>{};
-
-    await showModalBottomSheet(
+  void _showCategorySelectorSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => CategoryFormSheet(
-        onSubmit: (name, type, icon, color, groupId) {
-          bloc.add(CreateCategory(
-            name: name,
-            type: type,
-            icon: icon,
-            color: color,
-            groupId: groupId,
-          ));
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      builder: (_) => CategoryGroupSelectorSheet(
+        selectedCategoryId: _selectedCategoryId,
+        categoryType: 'EXPENSE',
+        onSelected: (category) {
+          setState(() {
+            _selectedCategoryId = category?.id;
+          });
         },
       ),
     );
-
-    if (!mounted) return;
-    // Check if already updated
-    final currentState = bloc.state;
-    if (currentState is CategoryLoaded) {
-      final currentIds = currentState.categories.map((c) => c.id).toSet();
-      final diff = currentIds.difference(oldIds);
-      if (diff.isNotEmpty) {
-        setState(() {
-          _selectedCategoryId = diff.first;
-          _dropdownResetKey++;
-        });
-        return;
-      }
-    }
-
-    // Wait for next state with new item
-    try {
-      await for (final state
-          in bloc.stream.timeout(const Duration(seconds: 10))) {
-        if (state is CategoryLoaded) {
-          final newIds = state.categories.map((c) => c.id).toSet();
-          final diff = newIds.difference(oldIds);
-          if (diff.isNotEmpty) {
-            if (mounted) {
-              setState(() {
-                _selectedCategoryId = diff.first;
-                _dropdownResetKey++;
-              });
-            }
-            return;
-          }
-        }
-      }
-    } catch (_) {
-      // Timeout
-    }
   }
 
   void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
@@ -465,8 +371,29 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         amount = int.parse(_amountController.text.trim());
         weeklyAmount = null;
       }
-      final yearMonth =
-          '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+
+      // Derive yearMonth based on period type
+      final String yearMonth;
+      switch (_periodSelection.type) {
+        case PeriodType.weekly:
+          yearMonth =
+              '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+        case PeriodType.daily:
+        case PeriodType.monthly:
+          if (_periodSelection.startDate != null) {
+            final sd = _periodSelection.startDate!;
+            yearMonth =
+                '${sd.year}-${sd.month.toString().padLeft(2, '0')}';
+          } else {
+            yearMonth =
+                '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+          }
+        case PeriodType.none:
+          yearMonth =
+              '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
+      }
+
+      final periodType = _periodSelection.periodTypeString;
       final bloc = context.read<BudgetBloc>();
 
       if (isEditing) {
@@ -476,6 +403,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           budgetPeriod: _budgetPeriod,
           weeklyAmount: weeklyAmount,
           pocketId: _selectedPocketId,
+          periodType: periodType,
+          startDate: _periodSelection.startDate,
+          endDate: _periodSelection.endDate,
         ));
       } else {
         bloc.add(CreateBudget(
@@ -485,6 +415,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           budgetPeriod: _budgetPeriod,
           weeklyAmount: weeklyAmount,
           pocketId: _selectedPocketId,
+          periodType: periodType,
+          startDate: _periodSelection.startDate,
+          endDate: _periodSelection.endDate,
         ));
       }
     }

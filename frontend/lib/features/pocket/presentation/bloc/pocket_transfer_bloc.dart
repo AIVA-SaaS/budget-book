@@ -18,17 +18,21 @@ class PocketTransferBloc
     LoadPocketTransfers event,
     Emitter<PocketTransferState> emit,
   ) async {
-    emit(const PocketTransferLoading());
-    final result = await pocketTransferRepository.getPocketTransfers(
-      fromPocketId: event.fromPocketId,
-      toPocketId: event.toPocketId,
-      startDate: event.startDate,
-      endDate: event.endDate,
-    );
-    result.fold(
-      (failure) => emit(PocketTransferError(failure.message)),
-      (transfers) => emit(PocketTransferLoaded(transfers)),
-    );
+    try {
+      emit(const PocketTransferLoading());
+      final result = await pocketTransferRepository.getPocketTransfers(
+        fromPocketId: event.fromPocketId,
+        toPocketId: event.toPocketId,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      );
+      result.fold(
+        (failure) => emit(PocketTransferError(failure.message)),
+        (transfers) => emit(PocketTransferLoaded(transfers)),
+      );
+    } catch (e) {
+      emit(const PocketTransferError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onCreatePocketTransfer(
@@ -39,21 +43,28 @@ class PocketTransferBloc
         ? (state as PocketTransferLoaded).transfers
         : <PocketTransfer>[];
 
-    final result = await pocketTransferRepository.createPocketTransfer(
-      fromPocketId: event.fromPocketId,
-      toPocketId: event.toPocketId,
-      amount: event.amount,
-      description: event.description,
-      transferDate: event.transferDate,
-    );
-    result.fold(
-      (failure) => emit(PocketTransferLoaded(
+    try {
+      final result = await pocketTransferRepository.createPocketTransfer(
+        fromPocketId: event.fromPocketId,
+        toPocketId: event.toPocketId,
+        amount: event.amount,
+        description: event.description,
+        transferDate: event.transferDate,
+      );
+      result.fold(
+        (failure) => emit(PocketTransferLoaded(
+          currentTransfers,
+          operationError: failure.message,
+        )),
+        (transfer) => emit(PocketTransferLoaded(
+          [transfer, ...currentTransfers],
+        )),
+      );
+    } catch (e) {
+      emit(PocketTransferLoaded(
         currentTransfers,
-        operationError: failure.message,
-      )),
-      (transfer) => emit(PocketTransferLoaded(
-        [transfer, ...currentTransfers],
-      )),
-    );
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
+    }
   }
 }

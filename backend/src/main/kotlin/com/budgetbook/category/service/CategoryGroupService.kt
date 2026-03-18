@@ -11,8 +11,10 @@ import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
+import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import org.springframework.stereotype.Service
@@ -24,9 +26,9 @@ class CategoryGroupService(
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
     private val categoryService: CategoryService,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun listCategoryGroups(userId: UUID): List<CategoryGroupResponse> {
@@ -93,9 +95,7 @@ class CategoryGroupService(
         val group = categoryGroupRepository.findByIdAndCoupleId(groupId, couple.id)
             ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
 
-        if (group.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Category group belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(group.couple.id, couple, "Category group")
 
         request.name?.let { group.name = it }
         request.icon?.let { group.icon = it }
@@ -127,9 +127,7 @@ class CategoryGroupService(
         val group = categoryGroupRepository.findByIdAndCoupleId(groupId, couple.id)
             ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
 
-        if (group.couple.id != couple.id) {
-            throw ForbiddenException("FORBIDDEN", "Category group belongs to a different couple.")
-        }
+        OwnershipValidator.validateOwnership(group.couple.id, couple, "Category group")
 
         if (group.isDefault) {
             throw BusinessException("CANNOT_DELETE_DEFAULT_GROUP", "Default category groups cannot be deleted.")
@@ -191,10 +189,6 @@ class CategoryGroupService(
             etcCategories.forEach { it.group = etcGroup }
             categoryRepository.saveAll(etcCategories)
         }
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun CategoryGroup.toResponse(categories: List<CategoryResponse>) = CategoryGroupResponse(

@@ -5,6 +5,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.pocket.domain.PocketTransfer
 import com.budgetbook.pocket.dto.CreateTransferRequest
 import com.budgetbook.pocket.dto.DistributeRequest
@@ -24,10 +25,10 @@ import java.util.UUID
 class PocketTransferService(
     private val pocketTransferRepository: PocketTransferRepository,
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val coupleResolver: CoupleResolver,
+    override val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val syncEventPublisher: SyncEventPublisher
-) {
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getTransfers(userId: UUID): List<PocketTransferResponse> {
@@ -118,10 +119,6 @@ class PocketTransferService(
             distributions = results,
             totalDistributed = distributionSum
         )
-    }
-
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
     }
 
     private fun PocketTransfer.toResponse() = PocketTransferResponse(

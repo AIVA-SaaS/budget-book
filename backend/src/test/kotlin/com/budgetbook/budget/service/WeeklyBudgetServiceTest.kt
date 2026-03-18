@@ -175,13 +175,13 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
         )
         every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth) } returns listOf(budget)
 
-        every { transactionRepository.sumAmountByCoupleIdAndDateRangeAndCategories(
+        every { transactionRepository.sumAmountGroupedByCategoryId(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
             type = TransactionType.EXPENSE,
             categoryIds = setOf(category1.id)
-        ) } returns 15000L
+        ) } returns listOf(arrayOf(category1.id as Any, 15000L as Any))
 
         When("getCurrentWeekSummary is called") {
             val result = service.getCurrentWeekSummary(user1.id)

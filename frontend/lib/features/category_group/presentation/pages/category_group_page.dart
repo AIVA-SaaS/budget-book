@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category_group/domain/entities/category_group.dart';
@@ -78,7 +79,7 @@ class CategoryGroupPage extends StatelessWidget {
   }
 
   Widget _buildGroupTile(BuildContext context, CategoryGroup group) {
-    final color = _parseColor(group.color);
+    final color = UIHelpers.parseColor(group.color);
     final budgetTypeLabel = _budgetTypeLabel(group.budgetType);
 
     return Card(
@@ -87,7 +88,7 @@ class CategoryGroupPage extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.15),
           child: Icon(
-            _resolveIcon(group.icon),
+            UIHelpers.resolveIcon(group.icon, fallback: Icons.folder),
             color: color,
             size: 20,
           ),
@@ -186,7 +187,7 @@ class CategoryGroupPage extends StatelessWidget {
   }
 
   Widget _buildCategoryItem(BuildContext context, Category category) {
-    final color = _parseCategoryColor(category.color);
+    final color = UIHelpers.parseColor(category.color);
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.only(left: 72, right: 16),
@@ -194,7 +195,7 @@ class CategoryGroupPage extends StatelessWidget {
         radius: 14,
         backgroundColor: color.withValues(alpha: 0.15),
         child: Icon(
-          _resolveIcon(category.icon),
+          UIHelpers.resolveIcon(category.icon, fallback: Icons.folder),
           color: color,
           size: 14,
         ),
@@ -303,50 +304,4 @@ class CategoryGroupPage extends StatelessWidget {
     };
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
-
-  Color _parseCategoryColor(String? hex) {
-    return _parseColor(hex);
-  }
-
-  IconData _resolveIcon(String? iconName) {
-    if (iconName == null) return Icons.folder;
-    const iconMap = <String, IconData>{
-      'account_balance_wallet': Icons.account_balance_wallet,
-      'home': Icons.home,
-      'directions_car': Icons.directions_car,
-      'restaurant': Icons.restaurant,
-      'restaurant_menu': Icons.restaurant_menu,
-      'school': Icons.school,
-      'local_hospital': Icons.local_hospital,
-      'shopping_bag': Icons.shopping_bag,
-      'shopping_cart': Icons.shopping_cart,
-      'savings': Icons.savings,
-      'work': Icons.work,
-      'card_giftcard': Icons.card_giftcard,
-      'sports_esports': Icons.sports_esports,
-      'flight': Icons.flight,
-      'child_care': Icons.child_care,
-      'pets': Icons.pets,
-      'fitness_center': Icons.fitness_center,
-      'category': Icons.category,
-      'directions_bus': Icons.directions_bus,
-      'payments': Icons.payments,
-      'trending_up': Icons.trending_up,
-      'local_cafe': Icons.local_cafe,
-      'movie': Icons.movie,
-      'phone': Icons.phone,
-      'electric_bolt': Icons.electric_bolt,
-      'account_balance': Icons.account_balance,
-    };
-    return iconMap[iconName] ?? Icons.folder;
-  }
 }

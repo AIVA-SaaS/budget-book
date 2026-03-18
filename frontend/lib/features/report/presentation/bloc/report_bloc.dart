@@ -15,48 +15,56 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
     LoadWeeklyReport event,
     Emitter<ReportState> emit,
   ) async {
-    final currentMonthly = state is ReportLoaded
-        ? (state as ReportLoaded).monthlyReport
-        : null;
+    try {
+      final currentMonthly = state is ReportLoaded
+          ? (state as ReportLoaded).monthlyReport
+          : null;
 
-    // Only emit ReportLoading if we have no partial data yet;
-    // otherwise preserve existing data to avoid a UI flash.
-    if (state is! ReportLoaded) {
-      emit(const ReportLoading());
+      // Only emit ReportLoading if we have no partial data yet;
+      // otherwise preserve existing data to avoid a UI flash.
+      if (state is! ReportLoaded) {
+        emit(const ReportLoading());
+      }
+      final result = await reportRepository.getWeeklyReport(
+        event.year,
+        event.month,
+        event.week,
+      );
+      result.fold(
+        (failure) => emit(ReportError(failure.message)),
+        (report) =>
+            emit(ReportLoaded(weeklyReport: report, monthlyReport: currentMonthly)),
+      );
+    } catch (e) {
+      emit(const ReportError('예기치 않은 오류가 발생했습니다'));
     }
-    final result = await reportRepository.getWeeklyReport(
-      event.year,
-      event.month,
-      event.week,
-    );
-    result.fold(
-      (failure) => emit(ReportError(failure.message)),
-      (report) =>
-          emit(ReportLoaded(weeklyReport: report, monthlyReport: currentMonthly)),
-    );
   }
 
   Future<void> _onLoadMonthlyReport(
     LoadMonthlyReport event,
     Emitter<ReportState> emit,
   ) async {
-    final currentWeekly = state is ReportLoaded
-        ? (state as ReportLoaded).weeklyReport
-        : null;
+    try {
+      final currentWeekly = state is ReportLoaded
+          ? (state as ReportLoaded).weeklyReport
+          : null;
 
-    // Only emit ReportLoading if we have no partial data yet;
-    // otherwise preserve existing data to avoid a UI flash.
-    if (state is! ReportLoaded) {
-      emit(const ReportLoading());
+      // Only emit ReportLoading if we have no partial data yet;
+      // otherwise preserve existing data to avoid a UI flash.
+      if (state is! ReportLoaded) {
+        emit(const ReportLoading());
+      }
+      final result = await reportRepository.getMonthlyReport(
+        event.year,
+        event.month,
+      );
+      result.fold(
+        (failure) => emit(ReportError(failure.message)),
+        (report) =>
+            emit(ReportLoaded(weeklyReport: currentWeekly, monthlyReport: report)),
+      );
+    } catch (e) {
+      emit(const ReportError('예기치 않은 오류가 발생했습니다'));
     }
-    final result = await reportRepository.getMonthlyReport(
-      event.year,
-      event.month,
-    );
-    result.fold(
-      (failure) => emit(ReportError(failure.message)),
-      (report) =>
-          emit(ReportLoaded(weeklyReport: currentWeekly, monthlyReport: report)),
-    );
   }
 }

@@ -1,6 +1,7 @@
 package com.budgetbook.transaction.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.CsvImportResponse
 import com.budgetbook.transaction.dto.PageResponse
@@ -12,7 +13,6 @@ import com.budgetbook.transaction.service.TransactionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -37,7 +37,7 @@ class TransactionController(
 
     @GetMapping
     fun listTransactions(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) month: Int?,
         @RequestParam(required = false) type: String?,
@@ -50,7 +50,6 @@ class TransactionController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ApiResponse<PageResponse<TransactionResponse>> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(transactionService.listTransactions(
             userId, year, month, type, categoryId,
             keyword, paymentMethodId, pocketId, amountMin, amountMax,
@@ -60,61 +59,55 @@ class TransactionController(
 
     @PostMapping
     fun createTransaction(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: CreateTransactionRequest
     ): ResponseEntity<ApiResponse<TransactionResponse>> {
-        val userId = authentication.principal as UUID
         val result = transactionService.createTransaction(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @GetMapping("/{id}")
     fun getTransaction(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID
     ): ApiResponse<TransactionResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(transactionService.getTransaction(userId, id))
     }
 
     @PutMapping("/{id}")
     fun updateTransaction(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdateTransactionRequest
     ): ApiResponse<TransactionResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(transactionService.updateTransaction(userId, id, request))
     }
 
     @DeleteMapping("/{id}")
     fun deleteTransaction(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID
     ): ResponseEntity<Void> {
-        val userId = authentication.principal as UUID
         transactionService.deleteTransaction(userId, id)
         return ResponseEntity.noContent().build()
     }
 
     @PostMapping("/import/csv")
     fun importCsv(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam("file") file: MultipartFile
     ): ApiResponse<CsvImportResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(transactionImportService.importCsv(userId, file))
     }
 
     @GetMapping("/export/csv")
     fun exportCsv(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @RequestParam year: Int,
         @RequestParam month: Int,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) categoryId: UUID?
     ): ResponseEntity<ByteArray> {
-        val userId = authentication.principal as UUID
         val csv = transactionExportService.exportCsv(userId, year, month, type, categoryId)
         val bytes = csv.toByteArray(Charsets.UTF_8)
         val filename = "transactions_${year}_${String.format("%02d", month)}.csv"

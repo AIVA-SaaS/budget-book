@@ -12,8 +12,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -23,9 +21,6 @@ class PaymentMethodControllerTest : FunSpec({
     val paymentMethodService = mockk<PaymentMethodService>()
     val controller = PaymentMethodController(paymentMethodService)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     fun sampleResponse() = PaymentMethodResponse(
         id = UUID.randomUUID(),
@@ -40,11 +35,11 @@ class PaymentMethodControllerTest : FunSpec({
     )
 
     test("listPaymentMethods returns list") {
-        val auth = createAuth(testUserId)
+
         val methods = listOf(sampleResponse())
         every { paymentMethodService.listPaymentMethods(testUserId) } returns methods
 
-        val result = controller.listPaymentMethods(auth)
+        val result = controller.listPaymentMethods(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1
@@ -52,7 +47,7 @@ class PaymentMethodControllerTest : FunSpec({
     }
 
     test("createPaymentMethod returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = CreatePaymentMethodRequest(name = "신한카드", type = "CREDIT", settlementDay = 15, closingDay = 25)
         val response = PaymentMethodResponse(
             id = UUID.randomUUID(),
@@ -67,7 +62,7 @@ class PaymentMethodControllerTest : FunSpec({
         )
         every { paymentMethodService.createPaymentMethod(testUserId, request) } returns response
 
-        val result = controller.createPaymentMethod(auth, request)
+        val result = controller.createPaymentMethod(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -75,31 +70,31 @@ class PaymentMethodControllerTest : FunSpec({
     }
 
     test("updatePaymentMethod returns updated method") {
-        val auth = createAuth(testUserId)
+
         val methodId = UUID.randomUUID()
         val request = UpdatePaymentMethodRequest(name = "생활비 현금")
         val response = sampleResponse().copy(name = "생활비 현금")
         every { paymentMethodService.updatePaymentMethod(testUserId, methodId, request) } returns response
 
-        val result = controller.updatePaymentMethod(auth, methodId, request)
+        val result = controller.updatePaymentMethod(testUserId, methodId, request)
 
         result.success shouldBe true
         result.data!!.name shouldBe "생활비 현금"
     }
 
     test("deletePaymentMethod returns 204") {
-        val auth = createAuth(testUserId)
+
         val methodId = UUID.randomUUID()
         justRun { paymentMethodService.deletePaymentMethod(testUserId, methodId) }
 
-        val result = controller.deletePaymentMethod(auth, methodId)
+        val result = controller.deletePaymentMethod(testUserId, methodId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { paymentMethodService.deletePaymentMethod(testUserId, methodId) }
     }
 
     test("getCardPendingSummary returns card pending data") {
-        val auth = createAuth(testUserId)
+
         val cardResponse = PaymentMethodResponse(
             id = UUID.randomUUID(),
             name = "신한카드",
@@ -119,7 +114,7 @@ class PaymentMethodControllerTest : FunSpec({
         )
         every { paymentMethodService.getCardPendingSummary(testUserId, 2024, 4) } returns listOf(pendingResponse)
 
-        val result = controller.getCardPendingSummary(auth, 2024, 4)
+        val result = controller.getCardPendingSummary(testUserId, 2024, 4)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1

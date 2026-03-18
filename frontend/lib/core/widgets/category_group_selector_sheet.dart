@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
@@ -169,7 +170,7 @@ class _CategoryGroupSelectorSheetState
     List<Category> categories,
     bool isExpanded,
   ) {
-    final color = _parseColor(group.color);
+    final color = UIHelpers.parseColor(group.color);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +286,7 @@ class _CategoryGroupSelectorSheetState
 
   Widget _buildCategoryTile(BuildContext context, Category category) {
     final isSelected = category.id == widget.selectedCategoryId;
-    final color = _parseColor(category.color);
+    final color = UIHelpers.parseColor(category.color);
 
     return Padding(
       padding: const EdgeInsets.only(left: 24),
@@ -440,13 +441,4 @@ class _CategoryGroupSelectorSheetState
     }
   }
 
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
 }

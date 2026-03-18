@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/pocket/data/datasources/pocket_transfer_remote_datasource.dart';
 import 'package:budget_book/features/pocket/domain/entities/pocket_transfer.dart';
 import 'package:budget_book/features/pocket/domain/repositories/pocket_transfer_repository.dart';
@@ -26,7 +27,9 @@ class PocketTransferRepositoryImpl implements PocketTransferRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load pocket transfers'));
+      return Left(mapDioError(e, 'Failed to load pocket transfers'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load pocket transfers'));
     }
   }
 
@@ -49,16 +52,10 @@ class PocketTransferRepositoryImpl implements PocketTransferRepository {
       final result = await remoteDataSource.createPocketTransfer(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create pocket transfer'));
+      return Left(mapDioError(e, 'Failed to create pocket transfer'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create pocket transfer'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

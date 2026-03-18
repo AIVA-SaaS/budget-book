@@ -11,8 +11,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -21,9 +19,6 @@ class RecurringTransactionControllerTest : FunSpec({
     val service = mockk<RecurringTransactionService>()
     val controller = RecurringTransactionController(service)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     fun sampleResponse() = RecurringTransactionResponse(
         id = UUID.randomUUID(),
@@ -47,10 +42,10 @@ class RecurringTransactionControllerTest : FunSpec({
     )
 
     test("listRecurringTransactions returns list") {
-        val auth = createAuth(testUserId)
+
         every { service.listRecurringTransactions(testUserId) } returns listOf(sampleResponse())
 
-        val result = controller.listRecurringTransactions(auth)
+        val result = controller.listRecurringTransactions(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1
@@ -58,7 +53,7 @@ class RecurringTransactionControllerTest : FunSpec({
     }
 
     test("createRecurringTransaction returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = CreateRecurringTransactionRequest(
             type = "EXPENSE",
             amount = 50000,
@@ -68,7 +63,7 @@ class RecurringTransactionControllerTest : FunSpec({
         )
         every { service.createRecurringTransaction(testUserId, request) } returns sampleResponse()
 
-        val result = controller.createRecurringTransaction(auth, request)
+        val result = controller.createRecurringTransaction(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -76,24 +71,24 @@ class RecurringTransactionControllerTest : FunSpec({
     }
 
     test("updateRecurringTransaction returns updated result") {
-        val auth = createAuth(testUserId)
+
         val id = UUID.randomUUID()
         val request = UpdateRecurringTransactionRequest(amount = 55000)
         val response = sampleResponse().copy(amount = 55000)
         every { service.updateRecurringTransaction(testUserId, id, request) } returns response
 
-        val result = controller.updateRecurringTransaction(auth, id, request)
+        val result = controller.updateRecurringTransaction(testUserId, id, request)
 
         result.success shouldBe true
         result.data!!.amount shouldBe 55000
     }
 
     test("deleteRecurringTransaction returns 204") {
-        val auth = createAuth(testUserId)
+
         val id = UUID.randomUUID()
         justRun { service.deleteRecurringTransaction(testUserId, id) }
 
-        val result = controller.deleteRecurringTransaction(auth, id)
+        val result = controller.deleteRecurringTransaction(testUserId, id)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { service.deleteRecurringTransaction(testUserId, id) }
