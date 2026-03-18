@@ -84,7 +84,7 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsPaymentMethods,
-      queryParameters: {'yearMonth': '$year-${month.toString().padLeft(2, '0')}'},
+      queryParameters: {'year': year, 'month': month},
     );
     final data = response.data['data'] as List<dynamic>;
     return data
