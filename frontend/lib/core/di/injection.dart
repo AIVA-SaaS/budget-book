@@ -206,7 +206,7 @@ Future<void> configureDependencies() async {
     () => WeeklyBudgetRepositoryImpl(
         remoteDataSource: getIt<WeeklyBudgetRemoteDataSource>()),
   );
-  getIt.registerFactory<WeeklyBudgetBloc>(
+  getIt.registerLazySingleton<WeeklyBudgetBloc>(
     () => WeeklyBudgetBloc(
         weeklyBudgetRepository: getIt<WeeklyBudgetRepository>()),
   );
