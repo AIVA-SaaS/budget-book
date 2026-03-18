@@ -82,6 +82,8 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String? periodType,
     DateTime? startDate,
     DateTime? endDate,
+    String? categoryId,
+    String? yearMonth,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateBudget, [], {
@@ -93,6 +95,8 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #periodType: periodType,
           #startDate: startDate,
           #endDate: endDate,
+          #categoryId: categoryId,
+          #yearMonth: yearMonth,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),

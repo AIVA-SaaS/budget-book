@@ -44,7 +44,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late int _selectedMonth;
   late String _budgetPeriod;
   late PeriodSelection _periodSelection;
-  Budget? _budget;
   bool _initialized = false;
   bool _isSubmitting = false;
 
@@ -64,7 +63,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void _initializeFromBudget(Budget budget) {
     if (_initialized) return;
     _initialized = true;
-    _budget = budget;
     _amountController.text = budget.amount.toString();
     _weeklyAmountController.text =
         budget.weeklyAmount != null ? budget.weeklyAmount.toString() : '';
@@ -157,7 +155,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             const SizedBox(height: 8),
             PeriodSelector(
               initialSelection: _periodSelection,
-              enabled: !isEditing,
+              enabled: true,
               onChanged: (selection) {
                 setState(() {
                   _periodSelection = selection;
@@ -181,26 +179,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             ),
             const SizedBox(height: 24),
             // Category selector (optional)
-            if (!isEditing) ...[
-              _buildCategoryPicker(context),
-              const SizedBox(height: 16),
-            ],
-            if (isEditing) ...[
-              ListTile(
-                leading: const Icon(Icons.category),
-                title: Text(
-                    _budget?.category?.name ?? '전체 예산'),
-                subtitle: const Text('카테고리는 수정할 수 없습니다'),
-                tileColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
-                    .withValues(alpha: 0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            _buildCategoryPicker(context),
+            const SizedBox(height: 16),
             // Pocket selector (optional)
             BlocBuilder<PocketBloc, PocketState>(
               builder: (context, pocketState) {
@@ -406,6 +386,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           periodType: periodType,
           startDate: _periodSelection.startDate,
           endDate: _periodSelection.endDate,
+          categoryId: _selectedCategoryId,
+          yearMonth: yearMonth,
         ));
       } else {
         bloc.add(CreateBudget(

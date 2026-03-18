@@ -29,6 +29,8 @@ abstract class BudgetRepository {
     String? periodType,
     DateTime? startDate,
     DateTime? endDate,
+    String? categoryId,
+    String? yearMonth,
   });
 
   Future<Either<Failure, void>> deleteBudget(String id);

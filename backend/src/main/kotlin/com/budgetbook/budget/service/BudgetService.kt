@@ -140,6 +140,14 @@ class BudgetService(
 
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
 
+        // Update category if provided
+        request.categoryId?.let { catId ->
+            val cat = categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+            budget.category = cat
+        }
+
         budget.amount = request.amount
 
         request.budgetPeriod?.let { periodStr ->

@@ -175,13 +175,15 @@ void main() {
       expect(find.text('추가'), findsOneWidget);
     });
 
-    testWidgets('shows category non-editable in edit mode', (tester) async {
+    testWidgets('shows category picker editable in edit mode', (tester) async {
       await tester.pumpWidget(buildTestWidget(
         budgetId: 'budget-1',
         budgets: [tBudget],
       ));
       await tester.pumpAndSettle();
-      expect(find.text('카테고리는 수정할 수 없습니다'), findsOneWidget);
+      // Category picker should be shown (editable), not read-only text
+      expect(find.text('카테고리는 수정할 수 없습니다'), findsNothing);
+      expect(find.text('카테고리 (선택)'), findsOneWidget);
     });
 
     testWidgets('pre-fills amount in edit mode', (tester) async {

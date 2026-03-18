@@ -171,6 +171,8 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         periodType: event.periodType,
         startDate: event.startDate,
         endDate: event.endDate,
+        categoryId: event.categoryId,
+        yearMonth: event.yearMonth,
       );
       result.fold(
         (failure) {

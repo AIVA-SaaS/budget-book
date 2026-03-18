@@ -70,6 +70,8 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String? periodType,
     DateTime? startDate,
     DateTime? endDate,
+    String? categoryId,
+    String? yearMonth,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -80,6 +82,8 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (periodType != null) 'periodType': periodType,
         if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
         if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+        if (categoryId != null) 'categoryId': categoryId,
+        if (yearMonth != null) 'yearMonth': yearMonth,
       };
       final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);
