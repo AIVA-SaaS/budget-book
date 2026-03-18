@@ -55,7 +55,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         },
       );
     } catch (e) {
-      emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+      emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
     }
   }
 
@@ -103,7 +103,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -152,7 +152,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -200,7 +200,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -253,7 +253,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -307,7 +307,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(BudgetError('예기치 않은 오류가 발생했습니다'));
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }

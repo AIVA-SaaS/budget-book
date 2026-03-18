@@ -42,7 +42,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
       }
       return Left(mapDioError(e, 'Failed to load categories'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to load categories'));
+      return const Left(ServerFailure('Failed to load categories'));
     }
   }
 
@@ -100,7 +100,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to create category'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to create category'));
+      return const Left(ServerFailure('Failed to create category'));
     }
   }
 
@@ -127,7 +127,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to update category'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to update category'));
+      return const Left(ServerFailure('Failed to update category'));
     }
   }
 
@@ -140,7 +140,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to delete category'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to delete category'));
+      return const Left(ServerFailure('Failed to delete category'));
     }
   }
 

@@ -20,7 +20,7 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to load payment methods'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to load payment methods'));
+      return const Left(ServerFailure('Failed to load payment methods'));
     }
   }
 
@@ -43,7 +43,7 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to create payment method'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to create payment method'));
+      return const Left(ServerFailure('Failed to create payment method'));
     }
   }
 
@@ -69,7 +69,7 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to update payment method'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to update payment method'));
+      return const Left(ServerFailure('Failed to update payment method'));
     }
   }
 
@@ -81,7 +81,7 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to delete payment method'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to delete payment method'));
+      return const Left(ServerFailure('Failed to delete payment method'));
     }
   }
 
@@ -94,7 +94,7 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to load card pending info'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to load card pending info'));
+      return const Left(ServerFailure('Failed to load card pending info'));
     }
   }
 
