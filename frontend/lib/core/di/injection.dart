@@ -113,7 +113,7 @@ Future<void> configureDependencies() async {
     () => CoupleRepositoryImpl(
         remoteDataSource: getIt<CoupleRemoteDataSource>()),
   );
-  getIt.registerFactory<CoupleBloc>(
+  getIt.registerLazySingleton<CoupleBloc>(
     () => CoupleBloc(coupleRepository: getIt<CoupleRepository>()),
   );
 
@@ -165,7 +165,7 @@ Future<void> configureDependencies() async {
     () => StatisticsRepositoryImpl(
         remoteDataSource: getIt<StatisticsRemoteDataSource>()),
   );
-  getIt.registerFactory<StatisticsBloc>(
+  getIt.registerLazySingleton<StatisticsBloc>(
     () => StatisticsBloc(
         statisticsRepository: getIt<StatisticsRepository>()),
   );
@@ -219,7 +219,7 @@ Future<void> configureDependencies() async {
     () => ReportRepositoryImpl(
         remoteDataSource: getIt<ReportRemoteDataSource>()),
   );
-  getIt.registerFactory<ReportBloc>(
+  getIt.registerLazySingleton<ReportBloc>(
     () => ReportBloc(reportRepository: getIt<ReportRepository>()),
   );
 
@@ -231,7 +231,7 @@ Future<void> configureDependencies() async {
     () => RecurringRepositoryImpl(
         remoteDataSource: getIt<RecurringRemoteDataSource>()),
   );
-  getIt.registerFactory<RecurringBloc>(
+  getIt.registerLazySingleton<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
   );
 
