@@ -28,7 +28,7 @@ class MonthlyBudget(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
-    val category: Category? = null,
+    var category: Category? = null,
 
     @Column(name = "year_month", nullable = false, length = 7)
     val yearMonth: String,

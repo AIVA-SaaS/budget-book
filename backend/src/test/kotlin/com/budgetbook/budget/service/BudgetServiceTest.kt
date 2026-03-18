@@ -173,6 +173,63 @@ class BudgetServiceTest : BehaviorSpec({
         }
     }
 
+    Given("an existing budget to update with a new category") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val oldCategory = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, icon = "restaurant", color = "#FF5733", isDefault = true)
+        val newCategory = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, icon = "directions_bus", color = "#3366FF", isDefault = true)
+        val budget = MonthlyBudget(couple = couple, category = oldCategory, yearMonth = "2026-03", amount = 150000)
+        every { budgetRepository.findById(budget.id) } returns Optional.of(budget)
+        every { budgetRepository.save(budget) } returns budget
+
+        When("updateBudget is called with a valid categoryId") {
+            every { categoryRepository.findById(newCategory.id) } returns Optional.of(newCategory)
+            val request = BudgetUpdateRequest(amount = 200000, categoryId = newCategory.id)
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("updates both the amount and category") {
+                result.amount shouldBe 200000
+                result.category!!.id shouldBe newCategory.id
+                result.category!!.name shouldBe "교통비"
+            }
+        }
+
+        When("updateBudget is called with a non-existent categoryId") {
+            val fakeId = UUID.randomUUID()
+            every { categoryRepository.findById(fakeId) } returns Optional.empty()
+
+            Then("throws NotFoundException") {
+                val ex = shouldThrow<NotFoundException> {
+                    service.updateBudget(user1.id, budget.id, BudgetUpdateRequest(amount = 200000, categoryId = fakeId))
+                }
+                ex.code shouldBe "CATEGORY_NOT_FOUND"
+            }
+        }
+
+        When("updateBudget is called with a category from a different couple") {
+            val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
+            val otherCat = Category(couple = otherCouple, name = "Other", type = CategoryType.EXPENSE)
+            every { categoryRepository.findById(otherCat.id) } returns Optional.of(otherCat)
+
+            Then("throws ForbiddenException") {
+                val ex = shouldThrow<ForbiddenException> {
+                    service.updateBudget(user1.id, budget.id, BudgetUpdateRequest(amount = 200000, categoryId = otherCat.id))
+                }
+                ex.code shouldBe "FORBIDDEN"
+            }
+        }
+
+        When("updateBudget is called without categoryId") {
+            val request = BudgetUpdateRequest(amount = 200000)
+            val result = service.updateBudget(user1.id, budget.id, request)
+
+            Then("keeps the original category") {
+                result.amount shouldBe 200000
+                result.category!!.id shouldBe oldCategory.id
+                result.category!!.name shouldBe "식비"
+            }
+        }
+    }
+
     Given("a budget from a different couple") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)

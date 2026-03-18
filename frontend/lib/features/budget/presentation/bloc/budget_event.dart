@@ -73,6 +73,8 @@ class UpdateBudget extends BudgetEvent {
   final String? periodType;
   final DateTime? startDate;
   final DateTime? endDate;
+  final String? categoryId;
+  final String? yearMonth;
 
   const UpdateBudget({
     required this.id,
@@ -83,6 +85,8 @@ class UpdateBudget extends BudgetEvent {
     this.periodType,
     this.startDate,
     this.endDate,
+    this.categoryId,
+    this.yearMonth,
   });
 
   @override
@@ -95,6 +99,8 @@ class UpdateBudget extends BudgetEvent {
         periodType,
         startDate,
         endDate,
+        categoryId,
+        yearMonth,
       ];
 }
 

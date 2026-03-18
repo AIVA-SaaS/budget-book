@@ -38,6 +38,8 @@ data class BudgetUpdateRequest(
     @field:Max(999_999_999)
     val amount: Long,
 
+    val categoryId: UUID? = null,
+
     val budgetPeriod: String? = null,
 
     val weeklyAmount: Long? = null,
