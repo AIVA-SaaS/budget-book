@@ -1,6 +1,7 @@
 package com.budgetbook.pocket.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.security.AuthUser
 import com.budgetbook.pocket.dto.CreatePocketRequest
 import com.budgetbook.pocket.dto.DistributionRatioResponse
 import com.budgetbook.pocket.dto.PocketResponse
@@ -11,7 +12,6 @@ import com.budgetbook.pocket.service.MoneyPocketService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,55 +30,47 @@ class MoneyPocketController(
 ) {
 
     @GetMapping
-    fun listPockets(authentication: Authentication): ApiResponse<List<PocketResponse>> {
-        val userId = authentication.principal as UUID
+    fun listPockets(@AuthUser userId: UUID): ApiResponse<List<PocketResponse>> {
         return ApiResponse.ok(moneyPocketService.getPockets(userId))
     }
 
     @PostMapping
     fun createPocket(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: CreatePocketRequest
     ): ResponseEntity<ApiResponse<PocketResponse>> {
-        val userId = authentication.principal as UUID
         val result = moneyPocketService.createPocket(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
     @PutMapping("/{id}")
     fun updatePocket(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdatePocketRequest
     ): ApiResponse<PocketResponse> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(moneyPocketService.updatePocket(userId, id, request))
     }
 
     @DeleteMapping("/{id}")
     fun deletePocket(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @PathVariable id: UUID
     ): ResponseEntity<Void> {
-        val userId = authentication.principal as UUID
         moneyPocketService.deletePocket(userId, id)
         return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/distribution-ratios")
-    fun getDistributionRatios(
-        authentication: Authentication
-    ): ApiResponse<List<DistributionRatioResponse>> {
-        val userId = authentication.principal as UUID
+    fun getDistributionRatios(@AuthUser userId: UUID): ApiResponse<List<DistributionRatioResponse>> {
         return ApiResponse.ok(distributionRatioService.getRatios(userId))
     }
 
     @PutMapping("/distribution-ratios")
     fun saveDistributionRatios(
-        authentication: Authentication,
+        @AuthUser userId: UUID,
         @Valid @RequestBody request: SaveDistributionRatiosRequest
     ): ApiResponse<List<DistributionRatioResponse>> {
-        val userId = authentication.principal as UUID
         return ApiResponse.ok(distributionRatioService.saveRatios(userId, request))
     }
 }

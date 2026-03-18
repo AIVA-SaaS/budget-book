@@ -11,6 +11,9 @@ class Budget extends Equatable {
   final int? weeklyAmount;
   final String? pocketId;
   final String? pocketName;
+  final String periodType;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -24,13 +27,30 @@ class Budget extends Equatable {
     this.weeklyAmount,
     this.pocketId,
     this.pocketName,
+    this.periodType = 'MONTHLY',
+    this.startDate,
+    this.endDate,
     required this.createdAt,
     required this.updatedAt,
   });
 
   @override
-  List<Object?> get props =>
-      [id, coupleId, category, yearMonth, amount, budgetPeriod, weeklyAmount, pocketId, pocketName, createdAt, updatedAt];
+  List<Object?> get props => [
+        id,
+        coupleId,
+        category,
+        yearMonth,
+        amount,
+        budgetPeriod,
+        weeklyAmount,
+        pocketId,
+        pocketName,
+        periodType,
+        startDate,
+        endDate,
+        createdAt,
+        updatedAt,
+      ];
 }
 
 class BudgetSummary extends Equatable {

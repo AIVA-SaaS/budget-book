@@ -13,6 +13,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import java.time.LocalDate
 import java.util.UUID
 
 @Entity
@@ -42,9 +43,21 @@ class MonthlyBudget(
     @Column(name = "weekly_amount")
     var weeklyAmount: Long? = null,
 
+    @Column(name = "period_type", nullable = false, length = 10)
+    @Enumerated(EnumType.STRING)
+    var periodType: PeriodType = PeriodType.MONTHLY,
+
+    @Column(name = "start_date")
+    var startDate: LocalDate? = null,
+
+    @Column(name = "end_date")
+    var endDate: LocalDate? = null,
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pocket_id")
     var pocket: MoneyPocket? = null
 ) : BaseTimeEntity()
 
 enum class BudgetPeriod { WEEKLY, MONTHLY }
+
+enum class PeriodType { NONE, DAILY, WEEKLY, MONTHLY }

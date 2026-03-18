@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 data class BudgetRequest(
@@ -24,6 +25,10 @@ data class BudgetRequest(
 
     val budgetPeriod: String? = "MONTHLY",
 
+    val periodType: String? = null,  // NONE, DAILY, WEEKLY, MONTHLY
+    val startDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
+
     val pocketId: UUID? = null
 )
 
@@ -37,6 +42,10 @@ data class BudgetUpdateRequest(
 
     val weeklyAmount: Long? = null,
 
+    val periodType: String? = null,
+    val startDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
+
     val pocketId: UUID? = null
 )
 
@@ -48,6 +57,9 @@ data class BudgetResponse(
     val amount: Long,
     val budgetPeriod: String,
     val weeklyAmount: Long?,
+    val periodType: String,
+    val startDate: String?,  // ISO date format (YYYY-MM-DD)
+    val endDate: String?,    // ISO date format (YYYY-MM-DD)
     val pocketId: UUID? = null,
     val pocketName: String? = null,
     val createdAt: Instant,
@@ -116,6 +128,9 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     amount = amount,
     budgetPeriod = budgetPeriod.name,
     weeklyAmount = weeklyAmount,
+    periodType = periodType.name,
+    startDate = startDate?.toString(),
+    endDate = endDate?.toString(),
     pocketId = pocket?.id,
     pocketName = pocket?.name,
     createdAt = createdAt,

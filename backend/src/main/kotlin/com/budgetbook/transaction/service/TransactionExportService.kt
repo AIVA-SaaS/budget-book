@@ -4,6 +4,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -18,8 +19,8 @@ import java.util.UUID
 @Service
 class TransactionExportService(
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver
-) {
+    override val coupleResolver: CoupleResolver
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun exportCsv(
@@ -98,7 +99,4 @@ class TransactionExportService(
         }
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
 }

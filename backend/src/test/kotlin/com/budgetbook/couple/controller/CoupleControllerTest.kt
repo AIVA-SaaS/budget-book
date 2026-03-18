@@ -15,8 +15,6 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -28,19 +26,15 @@ class CoupleControllerTest : FunSpec({
 
     val testUserId = UUID.randomUUID()
 
-    fun createAuthentication(userId: UUID): Authentication {
-        return UsernamePasswordAuthenticationToken(userId, null, emptyList())
-    }
-
     test("createInvitation returns 201 with invitation code") {
-        val auth = createAuthentication(testUserId)
+
         val expectedResponse = InvitationResponse(
             code = "ABCD1234",
             expiresAt = Instant.now().plusSeconds(86400)
         )
         every { coupleService.createInvitation(testUserId) } returns expectedResponse
 
-        val result = controller.createInvitation(auth)
+        val result = controller.createInvitation(testUserId)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
@@ -49,7 +43,7 @@ class CoupleControllerTest : FunSpec({
     }
 
     test("acceptInvitation returns couple info when rate limit not exceeded") {
-        val auth = createAuthentication(testUserId)
+
         val request = MockHttpServletRequest().apply {
             remoteAddr = "127.0.0.1"
         }
@@ -63,7 +57,7 @@ class CoupleControllerTest : FunSpec({
         every { rateLimiter.tryAcquire(any(), any(), any()) } returns true
         every { coupleService.acceptInvitation(testUserId, "ABCD1234") } returns expectedResponse
 
-        val result = controller.acceptInvitation(auth, "ABCD1234", request)
+        val result = controller.acceptInvitation(testUserId, "ABCD1234", request)
 
         result.success shouldBe true
         result.data!!.status shouldBe "ACTIVE"
@@ -72,19 +66,19 @@ class CoupleControllerTest : FunSpec({
     }
 
     test("acceptInvitation throws TooManyRequestsException when rate limit exceeded") {
-        val auth = createAuthentication(testUserId)
+
         val request = MockHttpServletRequest().apply {
             remoteAddr = "127.0.0.1"
         }
         every { rateLimiter.tryAcquire(any(), any(), any()) } returns false
 
         shouldThrow<TooManyRequestsException> {
-            controller.acceptInvitation(auth, "ABCD1234", request)
+            controller.acceptInvitation(testUserId, "ABCD1234", request)
         }
     }
 
     test("acceptInvitation uses X-Forwarded-For header for IP extraction") {
-        val auth = createAuthentication(testUserId)
+
         val request = MockHttpServletRequest().apply {
             remoteAddr = "10.0.0.1"
             addHeader("X-Forwarded-For", "203.0.113.50, 70.41.3.18")
@@ -98,12 +92,12 @@ class CoupleControllerTest : FunSpec({
         every { rateLimiter.tryAcquire("invite-accept:203.0.113.50", 5, 3_600_000L) } returns true
         every { coupleService.acceptInvitation(testUserId, "CODE1234") } returns expectedResponse
 
-        val result = controller.acceptInvitation(auth, "CODE1234", request)
+        val result = controller.acceptInvitation(testUserId, "CODE1234", request)
         result.success shouldBe true
     }
 
     test("getMyCouple returns couple info") {
-        val auth = createAuthentication(testUserId)
+
         val partnerId = UUID.randomUUID()
         val expectedResponse = CoupleResponse(
             id = UUID.randomUUID(),
@@ -113,7 +107,7 @@ class CoupleControllerTest : FunSpec({
         )
         every { coupleService.getMyCouple(testUserId) } returns expectedResponse
 
-        val result = controller.getMyCouple(auth)
+        val result = controller.getMyCouple(testUserId)
 
         result.success shouldBe true
         result.data!!.partner.nickname shouldBe "Partner"
@@ -121,10 +115,10 @@ class CoupleControllerTest : FunSpec({
     }
 
     test("dissolveCouple returns 204 No Content") {
-        val auth = createAuthentication(testUserId)
+
         justRun { coupleService.dissolveCouple(testUserId) }
 
-        val result = controller.dissolveCouple(auth)
+        val result = controller.dissolveCouple(testUserId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { coupleService.dissolveCouple(testUserId) }

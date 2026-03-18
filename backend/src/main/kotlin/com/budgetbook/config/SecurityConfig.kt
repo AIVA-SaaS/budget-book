@@ -7,11 +7,17 @@ import com.budgetbook.auth.security.OAuth2AuthenticationFailureHandler
 import com.budgetbook.auth.security.OAuth2AuthenticationSuccessHandler
 import com.budgetbook.auth.service.CustomOAuth2UserService
 import com.budgetbook.auth.service.CustomOidcUserService
+import com.fasterxml.jackson.databind.ObjectMapper
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.AuthenticationException
+import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
@@ -48,6 +54,10 @@ class SecurityConfig(
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             }
+            .exceptionHandling { exceptions ->
+                // Return 401 JSON for API requests instead of 302 redirect to OAuth login page
+                exceptions.authenticationEntryPoint(ApiAwareAuthenticationEntryPoint())
+            }
             .oauth2Login { oauth2 ->
                 oauth2
                     .authorizationEndpoint { endpoint ->
@@ -63,6 +73,30 @@ class SecurityConfig(
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
+    }
+
+    /**
+     * Custom entry point that returns 401 JSON for API requests
+     * instead of redirecting to the OAuth2 login page.
+     */
+    class ApiAwareAuthenticationEntryPoint : AuthenticationEntryPoint {
+        override fun commence(
+            request: HttpServletRequest,
+            response: HttpServletResponse,
+            authException: AuthenticationException
+        ) {
+            response.status = HttpServletResponse.SC_UNAUTHORIZED
+            response.contentType = MediaType.APPLICATION_JSON_VALUE
+            val body = mapOf(
+                "success" to false,
+                "data" to null,
+                "error" to mapOf(
+                    "code" to "UNAUTHORIZED",
+                    "message" to "Authentication required"
+                )
+            )
+            ObjectMapper().writeValue(response.outputStream, body)
+        }
     }
 
     @Bean
