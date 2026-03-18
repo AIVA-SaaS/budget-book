@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/budget/data/datasources/budget_remote_datasource.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/budget/domain/repositories/budget_repository.dart';
@@ -18,20 +19,28 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String budgetPeriod = 'MONTHLY',
     int? weeklyAmount,
     String? pocketId,
+    String periodType = 'MONTHLY',
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     try {
       final data = <String, dynamic>{
         'yearMonth': yearMonth,
         'amount': amount,
         'budgetPeriod': budgetPeriod,
+        'periodType': periodType,
         if (categoryId != null) 'categoryId': categoryId,
         if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
         if (pocketId != null) 'pocketId': pocketId,
+        if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
+        if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
       };
       final result = await remoteDataSource.createBudget(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '예산을 생성하지 못했습니다'));
+      return Left(mapDioError(e, '예산을 생성하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('예산을 생성하지 못했습니다'));
     }
   }
 
@@ -45,7 +54,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
           await remoteDataSource.getBudgets(year: year, month: month);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '예산을 불러오지 못했습니다'));
+      return Left(mapDioError(e, '예산을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('예산을 불러오지 못했습니다'));
     }
   }
 
@@ -56,6 +67,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String? budgetPeriod,
     int? weeklyAmount,
     String? pocketId,
+    String? periodType,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -63,11 +77,16 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (budgetPeriod != null) 'budgetPeriod': budgetPeriod,
         if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
         if (pocketId != null) 'pocketId': pocketId,
+        if (periodType != null) 'periodType': periodType,
+        if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
+        if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
       };
       final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '예산을 수정하지 못했습니다'));
+      return Left(mapDioError(e, '예산을 수정하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('예산을 수정하지 못했습니다'));
     }
   }
 
@@ -77,7 +96,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
       await remoteDataSource.deleteBudget(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '예산을 삭제하지 못했습니다'));
+      return Left(mapDioError(e, '예산을 삭제하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('예산을 삭제하지 못했습니다'));
     }
   }
 
@@ -91,7 +112,9 @@ class BudgetRepositoryImpl implements BudgetRepository {
           await remoteDataSource.getBudgetSummary(year: year, month: month);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '예산 요약을 불러오지 못했습니다'));
+      return Left(mapDioError(e, '예산 요약을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('예산 요약을 불러오지 못했습니다'));
     }
   }
 
@@ -107,16 +130,10 @@ class BudgetRepositoryImpl implements BudgetRepository {
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, '전월 예산 복사에 실패했습니다'));
+      return Left(mapDioError(e, '전월 예산 복사에 실패했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('전월 예산 복사에 실패했습니다'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

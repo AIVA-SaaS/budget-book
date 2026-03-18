@@ -4,6 +4,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
@@ -19,8 +20,8 @@ import java.util.UUID
 @Service
 class StatisticsService(
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver
-) {
+    override val coupleResolver: CoupleResolver
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getMonthlySummary(userId: UUID, year: Int, month: Int): StatisticsSummaryResponse {
@@ -143,7 +144,4 @@ class StatisticsService(
         }
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
 }

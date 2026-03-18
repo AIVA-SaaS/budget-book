@@ -163,4 +163,21 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.couple.id = :coupleId")
     fun countByCoupleId(@Param("coupleId") coupleId: UUID): Long
+
+    @Query("""
+        SELECT t.category.id, COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = :type
+        AND t.category.id IN :categoryIds
+        GROUP BY t.category.id
+    """)
+    fun sumAmountGroupedByCategoryId(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("type") type: TransactionType,
+        @Param("categoryIds") categoryIds: Set<UUID>
+    ): List<Array<Any>>
 }

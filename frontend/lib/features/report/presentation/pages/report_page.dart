@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 import 'package:budget_book/features/report/domain/entities/monthly_report.dart';
 import 'package:budget_book/features/report/presentation/bloc/report_bloc.dart';
@@ -56,7 +57,11 @@ class _ReportPageState extends State<ReportPage> {
         ),
         body: Column(
           children: [
-            _buildMonthNavigator(context),
+            MonthNavigator(
+              year: _year,
+              month: _month,
+              onMonthChanged: (m) => _changeMonth(m.year, m.month),
+            ),
             Expanded(
               child: BlocBuilder<ReportBloc, ReportState>(
                 builder: (context, state) {
@@ -86,59 +91,6 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMonthNavigator(BuildContext context) {
-    final dateStr =
-        DateFormat('yyyy년 M월').format(DateTime(_year, _month));
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              final prev = _month == 1
-                  ? DateTime(_year - 1, 12)
-                  : DateTime(_year, _month - 1);
-              _changeMonth(prev.year, prev.month);
-            },
-            tooltip: '이전 달',
-          ),
-          TextButton(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: DateTime(_year, _month),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030, 12, 31),
-              );
-              if (picked != null && context.mounted) {
-                _changeMonth(picked.year, picked.month);
-              }
-            },
-            child: Text(
-              dateStr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              final next = _month == 12
-                  ? DateTime(_year + 1, 1)
-                  : DateTime(_year, _month + 1);
-              _changeMonth(next.year, next.month);
-            },
-            tooltip: '다음 달',
-          ),
-        ],
       ),
     );
   }

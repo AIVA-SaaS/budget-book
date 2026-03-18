@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -504,7 +505,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                         id: p.id,
                         label: p.name,
                         leadingIcon: Icons.account_balance_wallet,
-                        leadingColor: _parseColor(p.color),
+                        leadingColor: UIHelpers.parseColor(p.color),
                       ))
                   .toList(),
               selectedId: _selectedPocketId,
@@ -527,16 +528,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         ),
       ),
     );
-  }
-
-  Color _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return Colors.grey;
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
   }
 
   Widget _buildDatePicker(BuildContext context) {

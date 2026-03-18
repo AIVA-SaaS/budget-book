@@ -11,8 +11,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.util.UUID
 
@@ -23,12 +21,8 @@ class CategoryGroupControllerTest : FunSpec({
 
     val testUserId = UUID.randomUUID()
 
-    fun createAuthentication(userId: UUID): Authentication {
-        return UsernamePasswordAuthenticationToken(userId, null, emptyList())
-    }
-
     test("listCategoryGroups returns all groups with categories") {
-        val auth = createAuthentication(testUserId)
+
         val groups = listOf(
             CategoryGroupResponse(
                 UUID.randomUUID(), "생활비", "wallet", "#4CAF50", "WEEKLY",
@@ -41,7 +35,7 @@ class CategoryGroupControllerTest : FunSpec({
         )
         every { categoryGroupService.listCategoryGroups(testUserId) } returns groups
 
-        val result = controller.listCategoryGroups(auth)
+        val result = controller.listCategoryGroups(testUserId)
 
         result.success shouldBe true
         result.data!!.size shouldBe 2
@@ -49,7 +43,7 @@ class CategoryGroupControllerTest : FunSpec({
     }
 
     test("createCategoryGroup returns 201 with created group") {
-        val auth = createAuthentication(testUserId)
+
         val request = CreateCategoryGroupRequest(name = "투자", icon = "trending_up", color = "#FF9800", budgetType = "MONTHLY")
         val response = CategoryGroupResponse(
             UUID.randomUUID(), "투자", "trending_up", "#FF9800", "MONTHLY",
@@ -57,14 +51,14 @@ class CategoryGroupControllerTest : FunSpec({
         )
         every { categoryGroupService.createCategoryGroup(testUserId, request) } returns response
 
-        val result = controller.createCategoryGroup(auth, request)
+        val result = controller.createCategoryGroup(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.data!!.name shouldBe "투자"
     }
 
     test("updateCategoryGroup returns updated group") {
-        val auth = createAuthentication(testUserId)
+
         val groupId = UUID.randomUUID()
         val request = UpdateCategoryGroupRequest(name = "생활비/변동비")
         val response = CategoryGroupResponse(
@@ -73,18 +67,18 @@ class CategoryGroupControllerTest : FunSpec({
         )
         every { categoryGroupService.updateCategoryGroup(testUserId, groupId, request) } returns response
 
-        val result = controller.updateCategoryGroup(auth, groupId, request)
+        val result = controller.updateCategoryGroup(testUserId, groupId, request)
 
         result.success shouldBe true
         result.data!!.name shouldBe "생활비/변동비"
     }
 
     test("deleteCategoryGroup returns 204 No Content") {
-        val auth = createAuthentication(testUserId)
+
         val groupId = UUID.randomUUID()
         justRun { categoryGroupService.deleteCategoryGroup(testUserId, groupId) }
 
-        val result = controller.deleteCategoryGroup(auth, groupId)
+        val result = controller.deleteCategoryGroup(testUserId, groupId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { categoryGroupService.deleteCategoryGroup(testUserId, groupId) }

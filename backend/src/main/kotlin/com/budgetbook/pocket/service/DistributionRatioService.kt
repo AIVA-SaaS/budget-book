@@ -4,6 +4,7 @@ import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.pocket.domain.DistributionRatio
 import com.budgetbook.pocket.dto.DistributionRatioResponse
 import com.budgetbook.pocket.dto.SaveDistributionRatiosRequest
@@ -18,8 +19,8 @@ import java.util.UUID
 class DistributionRatioService(
     private val distributionRatioRepository: DistributionRatioRepository,
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val coupleResolver: CoupleResolver
-) {
+    override val coupleResolver: CoupleResolver
+) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getRatios(userId: UUID): List<DistributionRatioResponse> {
@@ -93,7 +94,4 @@ class DistributionRatioService(
         }
     }
 
-    private fun getActiveCouple(userId: UUID): Couple {
-        return coupleResolver.getActiveCouple(userId)
-    }
 }

@@ -16,9 +16,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
-import org.springframework.security.core.authority.SimpleGrantedAuthority
 import java.time.Instant
 import java.util.UUID
 
@@ -28,12 +25,6 @@ class AdminControllerTest : FunSpec({
     val controller = AdminController(adminService)
 
     val adminUserId = UUID.randomUUID()
-
-    fun createAdminAuth(): Authentication {
-        return UsernamePasswordAuthenticationToken(
-            adminUserId, null, listOf(SimpleGrantedAuthority("ROLE_ADMIN"))
-        )
-    }
 
     // --- User Management ---
 
@@ -155,12 +146,11 @@ class AdminControllerTest : FunSpec({
     }
 
     test("createAnnouncement returns 201 with created announcement") {
-        val auth = createAdminAuth()
         val request = CreateAnnouncementRequest(title = "New", content = "Body")
         val response = AnnouncementResponse(UUID.randomUUID(), "New", "Body", true, adminUserId, Instant.now(), Instant.now())
         every { adminService.createAnnouncement(adminUserId, request) } returns response
 
-        val result = controller.createAnnouncement(auth, request)
+        val result = controller.createAnnouncement(adminUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.data!!.title shouldBe "New"

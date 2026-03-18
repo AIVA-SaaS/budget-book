@@ -18,55 +18,71 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
     LoadCouple event,
     Emitter<CoupleState> emit,
   ) async {
-    emit(const CoupleLoading());
-    final result = await coupleRepository.getMyCouple();
-    result.fold(
-      (failure) {
-        final isNotInCouple = failure is ServerFailure &&
-            (failure.code == 'COUPLE_NOT_FOUND' || failure.statusCode == 404);
-        if (isNotInCouple) {
-          emit(const CoupleNotLinked());
-        } else {
-          emit(CoupleError(failure.message));
-        }
-      },
-      (couple) => emit(CoupleLinked(couple)),
-    );
+    try {
+      emit(const CoupleLoading());
+      final result = await coupleRepository.getMyCouple();
+      result.fold(
+        (failure) {
+          final isNotInCouple = failure is ServerFailure &&
+              (failure.code == 'COUPLE_NOT_FOUND' || failure.statusCode == 404);
+          if (isNotInCouple) {
+            emit(const CoupleNotLinked());
+          } else {
+            emit(CoupleError(failure.message));
+          }
+        },
+        (couple) => emit(CoupleLinked(couple)),
+      );
+    } catch (_) {
+      emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onGenerateInvitation(
     GenerateInvitation event,
     Emitter<CoupleState> emit,
   ) async {
-    emit(const CoupleLoading());
-    final result = await coupleRepository.createInvitation();
-    result.fold(
-      (failure) => emit(CoupleError(failure.message)),
-      (invitation) => emit(CoupleInvitationPending(invitation)),
-    );
+    try {
+      emit(const CoupleLoading());
+      final result = await coupleRepository.createInvitation();
+      result.fold(
+        (failure) => emit(CoupleError(failure.message)),
+        (invitation) => emit(CoupleInvitationPending(invitation)),
+      );
+    } catch (_) {
+      emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onAcceptInvitation(
     AcceptInvitation event,
     Emitter<CoupleState> emit,
   ) async {
-    emit(const CoupleLoading());
-    final result = await coupleRepository.acceptInvitation(event.code);
-    result.fold(
-      (failure) => emit(CoupleError(failure.message)),
-      (couple) => emit(CoupleLinked(couple)),
-    );
+    try {
+      emit(const CoupleLoading());
+      final result = await coupleRepository.acceptInvitation(event.code);
+      result.fold(
+        (failure) => emit(CoupleError(failure.message)),
+        (couple) => emit(CoupleLinked(couple)),
+      );
+    } catch (_) {
+      emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 
   Future<void> _onDissolveCouple(
     DissolveCouple event,
     Emitter<CoupleState> emit,
   ) async {
-    emit(const CoupleLoading());
-    final result = await coupleRepository.dissolveCouple();
-    result.fold(
-      (failure) => emit(CoupleError(failure.message)),
-      (_) => emit(const CoupleNotLinked()),
-    );
+    try {
+      emit(const CoupleLoading());
+      final result = await coupleRepository.dissolveCouple();
+      result.fold(
+        (failure) => emit(CoupleError(failure.message)),
+        (_) => emit(const CoupleNotLinked()),
+      );
+    } catch (_) {
+      emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
+    }
   }
 }

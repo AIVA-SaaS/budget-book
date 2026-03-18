@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/couple/data/datasources/couple_remote_datasource.dart';
 import 'package:budget_book/features/couple/domain/entities/couple.dart';
 import 'package:budget_book/features/couple/domain/entities/invitation.dart';
@@ -17,7 +18,9 @@ class CoupleRepositoryImpl implements CoupleRepository {
       final result = await remoteDataSource.getMyCouple();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to get couple info'));
+      return Left(mapDioError(e, 'Failed to get couple info'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to get couple info'));
     }
   }
 
@@ -27,7 +30,9 @@ class CoupleRepositoryImpl implements CoupleRepository {
       final result = await remoteDataSource.createInvitation();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create invitation'));
+      return Left(mapDioError(e, 'Failed to create invitation'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create invitation'));
     }
   }
 
@@ -37,7 +42,9 @@ class CoupleRepositoryImpl implements CoupleRepository {
       final result = await remoteDataSource.acceptInvitation(code);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to accept invitation'));
+      return Left(mapDioError(e, 'Failed to accept invitation'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to accept invitation'));
     }
   }
 
@@ -47,16 +54,10 @@ class CoupleRepositoryImpl implements CoupleRepository {
       await remoteDataSource.dissolveCouple();
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to dissolve couple'));
+      return Left(mapDioError(e, 'Failed to dissolve couple'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to dissolve couple'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

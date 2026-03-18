@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/pocket/data/datasources/pocket_remote_datasource.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/domain/entities/distribute_result.dart';
@@ -17,7 +18,9 @@ class PocketRepositoryImpl implements PocketRepository {
       final result = await remoteDataSource.getPockets();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load pockets'));
+      return Left(mapDioError(e, 'Failed to load pockets'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load pockets'));
     }
   }
 
@@ -44,7 +47,9 @@ class PocketRepositoryImpl implements PocketRepository {
       final result = await remoteDataSource.createPocket(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to create pocket'));
+      return Left(mapDioError(e, 'Failed to create pocket'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to create pocket'));
     }
   }
 
@@ -74,7 +79,9 @@ class PocketRepositoryImpl implements PocketRepository {
       final result = await remoteDataSource.updatePocket(id, data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to update pocket'));
+      return Left(mapDioError(e, 'Failed to update pocket'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to update pocket'));
     }
   }
 
@@ -84,7 +91,9 @@ class PocketRepositoryImpl implements PocketRepository {
       await remoteDataSource.deletePocket(id);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to delete pocket'));
+      return Left(mapDioError(e, 'Failed to delete pocket'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to delete pocket'));
     }
   }
 
@@ -101,7 +110,9 @@ class PocketRepositoryImpl implements PocketRepository {
       final result = await remoteDataSource.distributeIncome(data);
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to distribute income'));
+      return Left(mapDioError(e, 'Failed to distribute income'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to distribute income'));
     }
   }
 
@@ -112,7 +123,9 @@ class PocketRepositoryImpl implements PocketRepository {
       final result = await remoteDataSource.getDistributionRatios();
       return Right(result);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to load distribution ratios'));
+      return Left(mapDioError(e, 'Failed to load distribution ratios'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load distribution ratios'));
     }
   }
 
@@ -123,16 +136,10 @@ class PocketRepositoryImpl implements PocketRepository {
       await remoteDataSource.saveDistributionRatios(ratios);
       return const Right(null);
     } on DioException catch (e) {
-      return Left(_mapDioError(e, 'Failed to save distribution ratios'));
+      return Left(mapDioError(e, 'Failed to save distribution ratios'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to save distribution ratios'));
     }
   }
 
-  Failure _mapDioError(DioException e, String defaultMessage) {
-    final errorData = e.response?.data?['error'];
-    return ServerFailure(
-      errorData?['message'] as String? ?? defaultMessage,
-      errorData?['code'] as String?,
-      e.response?.statusCode,
-    );
-  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/category_group/domain/entities/category_group.dart';
 
 class CategoryGroupFormSheet extends StatefulWidget {
@@ -224,7 +225,7 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                 runSpacing: 8,
                 children: _availableColors.map((hex) {
                   final isSelected = _selectedColor == hex;
-                  final color = _parseColor(hex);
+                  final color = UIHelpers.parseColor(hex);
                   return InkWell(
                     onTap: () {
                       setState(() {
@@ -284,12 +285,4 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
     }
   }
 
-  Color _parseColor(String hex) {
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
 }

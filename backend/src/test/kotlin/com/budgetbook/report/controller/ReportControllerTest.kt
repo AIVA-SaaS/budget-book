@@ -14,8 +14,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.util.UUID
 
 class ReportControllerTest : FunSpec({
@@ -24,11 +22,8 @@ class ReportControllerTest : FunSpec({
     val controller = ReportController(reportService)
     val testUserId = UUID.randomUUID()
 
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
-
     test("getWeeklyReport returns weekly report data") {
-        val auth = createAuth(testUserId)
+
         val catId = UUID.randomUUID()
         val weeklyReport = WeeklyReportResponse(
             yearMonth = "2026-03",
@@ -58,7 +53,7 @@ class ReportControllerTest : FunSpec({
 
         every { reportService.getWeeklyReport(testUserId, 2026, 3, 1) } returns weeklyReport
 
-        val result = controller.getWeeklyReport(auth, 2026, 3, 1)
+        val result = controller.getWeeklyReport(testUserId, 2026, 3, 1)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -73,7 +68,7 @@ class ReportControllerTest : FunSpec({
     }
 
     test("getMonthlyReport returns monthly report data") {
-        val auth = createAuth(testUserId)
+
         val groupId = UUID.randomUUID()
         val catId = UUID.randomUUID()
         val monthlyReport = MonthlyReportResponse(
@@ -119,7 +114,7 @@ class ReportControllerTest : FunSpec({
 
         every { reportService.getMonthlyReport(testUserId, 2026, 3) } returns monthlyReport
 
-        val result = controller.getMonthlyReport(auth, 2026, 3)
+        val result = controller.getMonthlyReport(testUserId, 2026, 3)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -136,7 +131,7 @@ class ReportControllerTest : FunSpec({
     }
 
     test("getMonthlyReport returns null optional fields correctly") {
-        val auth = createAuth(testUserId)
+
         val monthlyReport = MonthlyReportResponse(
             yearMonth = "2026-01",
             totalIncome = 3000000,
@@ -151,7 +146,7 @@ class ReportControllerTest : FunSpec({
 
         every { reportService.getMonthlyReport(testUserId, 2026, 1) } returns monthlyReport
 
-        val result = controller.getMonthlyReport(auth, 2026, 1)
+        val result = controller.getMonthlyReport(testUserId, 2026, 1)
 
         result.success shouldBe true
         result.data!!.previousMonthComparison shouldBe null

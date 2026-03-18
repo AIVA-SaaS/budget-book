@@ -15,8 +15,6 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -28,9 +26,6 @@ class TransactionControllerTest : FunSpec({
     val transactionImportService = mockk<TransactionImportService>()
     val controller = TransactionController(transactionService, transactionExportService, transactionImportService)
     val testUserId = UUID.randomUUID()
-
-    fun createAuth(userId: UUID): Authentication =
-        UsernamePasswordAuthenticationToken(userId, null, emptyList())
 
     fun sampleTransactionResponse() = TransactionResponse(
         id = UUID.randomUUID(),
@@ -51,100 +46,100 @@ class TransactionControllerTest : FunSpec({
     )
 
     test("listTransactions returns paginated results") {
-        val auth = createAuth(testUserId)
+
         val pageResponse = PageResponse(
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(auth, 2024, 1, null, null, null, null, null, null, null, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
     }
 
     test("listTransactions with keyword filter") {
-        val auth = createAuth(testUserId)
+
         val pageResponse = PageResponse(
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(auth, 2024, 1, null, null, "점심", null, null, null, null, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
     }
 
     test("listTransactions with amount range filter") {
-        val auth = createAuth(testUserId)
+
         val pageResponse = PageResponse(
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(auth, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
     }
 
     test("createTransaction returns 201") {
-        val auth = createAuth(testUserId)
+
         val request = CreateTransactionRequest(
             type = "EXPENSE", amount = 15000, description = "점심",
             transactionDate = LocalDate.of(2024, 1, 15)
         )
         every { transactionService.createTransaction(testUserId, request) } returns sampleTransactionResponse()
 
-        val result = controller.createTransaction(auth, request)
+        val result = controller.createTransaction(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
     }
 
     test("getTransaction returns transaction") {
-        val auth = createAuth(testUserId)
+
         val txId = UUID.randomUUID()
         every { transactionService.getTransaction(testUserId, txId) } returns sampleTransactionResponse()
 
-        val result = controller.getTransaction(auth, txId)
+        val result = controller.getTransaction(testUserId, txId)
 
         result.success shouldBe true
         result.data!!.type shouldBe "EXPENSE"
     }
 
     test("updateTransaction returns updated transaction") {
-        val auth = createAuth(testUserId)
+
         val txId = UUID.randomUUID()
         val request = UpdateTransactionRequest(amount = 18000)
         every { transactionService.updateTransaction(testUserId, txId, request) } returns sampleTransactionResponse()
 
-        val result = controller.updateTransaction(auth, txId, request)
+        val result = controller.updateTransaction(testUserId, txId, request)
 
         result.success shouldBe true
     }
 
     test("deleteTransaction returns 204") {
-        val auth = createAuth(testUserId)
+
         val txId = UUID.randomUUID()
         justRun { transactionService.deleteTransaction(testUserId, txId) }
 
-        val result = controller.deleteTransaction(auth, txId)
+        val result = controller.deleteTransaction(testUserId, txId)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { transactionService.deleteTransaction(testUserId, txId) }
     }
 
     test("exportCsv returns CSV with correct headers") {
-        val auth = createAuth(testUserId)
+
         val csvContent = "\uFEFF날짜,유형,카테고리,설명,금액,메모,결제수단\n2026-03-01,수입,,월급,3000000,,\n"
         every { transactionExportService.exportCsv(testUserId, 2026, 3, null, null) } returns csvContent
 
-        val result = controller.exportCsv(auth, 2026, 3, null, null)
+        val result = controller.exportCsv(testUserId, 2026, 3, null, null)
 
         result.statusCode shouldBe HttpStatus.OK
         result.headers["Content-Disposition"]!![0] shouldBe "attachment; filename=\"transactions_2026_03.csv\""

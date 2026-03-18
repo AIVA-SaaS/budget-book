@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
@@ -263,7 +264,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   return ChoiceChip(
                     selected: isSelected,
                     label: Icon(
-                      _resolveIcon(iconName),
+                      UIHelpers.resolveIcon(iconName, fallback: Icons.account_balance_wallet),
                       size: 20,
                       color: isSelected
                           ? Theme.of(context).colorScheme.onPrimary
@@ -288,7 +289,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                 spacing: 8,
                 children: _colorOptions.map((hex) {
                   final isSelected = _selectedColor == hex;
-                  final color = _parseColor(hex);
+                  final color = UIHelpers.parseColor(hex);
                   return GestureDetector(
                     onTap: () {
                       setState(() {
@@ -357,26 +358,4 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
     }
   }
 
-  Color _parseColor(String hex) {
-    try {
-      final colorStr = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$colorStr', radix: 16));
-    } catch (_) {
-      return Colors.grey;
-    }
-  }
-
-  IconData _resolveIcon(String iconName) {
-    const iconMap = <String, IconData>{
-      'home': Icons.home,
-      'restaurant': Icons.restaurant,
-      'shopping_cart': Icons.shopping_cart,
-      'directions_bus': Icons.directions_bus,
-      'savings': Icons.savings,
-      'payments': Icons.payments,
-      'account_balance': Icons.account_balance,
-      'card_giftcard': Icons.card_giftcard,
-    };
-    return iconMap[iconName] ?? Icons.account_balance_wallet;
-  }
 }
