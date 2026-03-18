@@ -20,7 +20,7 @@ class CoupleRepositoryImpl implements CoupleRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to get couple info'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to get couple info'));
+      return const Left(ServerFailure('Failed to get couple info'));
     }
   }
 
@@ -32,7 +32,7 @@ class CoupleRepositoryImpl implements CoupleRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to create invitation'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to create invitation'));
+      return const Left(ServerFailure('Failed to create invitation'));
     }
   }
 
@@ -44,7 +44,7 @@ class CoupleRepositoryImpl implements CoupleRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to accept invitation'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to accept invitation'));
+      return const Left(ServerFailure('Failed to accept invitation'));
     }
   }
 
@@ -56,7 +56,7 @@ class CoupleRepositoryImpl implements CoupleRepository {
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to dissolve couple'));
     } catch (e) {
-      return Left(const ServerFailure('Failed to dissolve couple'));
+      return const Left(ServerFailure('Failed to dissolve couple'));
     }
   }
 

@@ -33,7 +33,7 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
         },
       );
     } catch (e) {
-      emit(WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
+      emit(const WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
     }
   }
 
@@ -65,7 +65,7 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
         )),
       );
     } catch (e) {
-      emit(WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
+      emit(const WeeklyBudgetError('예기치 않은 오류가 발생했습니다'));
     }
   }
 }

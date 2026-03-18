@@ -62,7 +62,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         )),
       );
     } catch (e) {
-      emit(TransactionError('예기치 않은 오류가 발생했습니다'));
+      emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
     }
   }
 
@@ -186,7 +186,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(TransactionError('예기치 않은 오류가 발생했습니다'));
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -232,7 +232,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(TransactionError('예기치 않은 오류가 발생했습니다'));
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
@@ -288,7 +288,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
-        emit(TransactionError('예기치 않은 오류가 발생했습니다'));
+        emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
       }
     }
   }
