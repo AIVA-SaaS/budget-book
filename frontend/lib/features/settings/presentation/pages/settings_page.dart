@@ -101,13 +101,7 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/asset-management'),
             ),
-            // Category Groups
-            ListTile(
-              leading: const Icon(Icons.folder),
-              title: const Text('카테고리 그룹'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/category-groups'),
-            ),
+            // Category Groups - removed: merged into 자산 관리 카테고리 탭
             // Recurring Transactions
             ListTile(
               leading: const Icon(Icons.repeat),
