@@ -144,27 +144,65 @@ class _CategoryGroupSelectorSheetState
       ));
     }
 
-    // Private section header
-    if (privateGroups.isNotEmpty) {
+    // Add shared group button
+    children.add(
+      ListTile(
+        dense: true,
+        leading: Icon(
+          Icons.add,
+          size: 18,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: Text(
+          '공유 그룹 추가',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        onTap: () => _showAddGroupDialog(context),
+      ),
+    );
+
+    // Private section
+    if (privateGroups.isNotEmpty || true) {
+      // Always show private section for discoverability
+      children.add(const SizedBox(height: 8));
       children.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.lock, size: 16),
-              const SizedBox(width: 6),
+              Icon(
+                Icons.visibility_off_outlined,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
               Text(
-                '내 개인 카테고리',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                '나만 보임',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const Spacer(),
+              Text(
+                '상대방에게 보이지 않습니다',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
               ),
             ],
           ),
         ),
       );
-      children.add(const Divider(height: 1));
+      children.add(const SizedBox(height: 4));
     }
 
     // Private groups
@@ -183,46 +221,20 @@ class _CategoryGroupSelectorSheetState
       ));
     }
 
-    // Add group button
+    // Add private group button
     children.add(
       ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          child: Icon(
-            Icons.create_new_folder,
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
-          ),
+        dense: true,
+        leading: Icon(
+          Icons.add,
+          size: 18,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         title: Text(
-          '+ 그룹 추가',
+          '개인 그룹 추가',
           style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        onTap: () => _showAddGroupDialog(context),
-      ),
-    );
-
-    // Add private category group button
-    children.add(
-      ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
-          child: Icon(
-            Icons.lock_outline,
-            color: Theme.of(context).colorScheme.secondary,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          '+ 개인 그룹 추가',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.secondary,
-            fontWeight: FontWeight.w500,
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
@@ -266,7 +278,7 @@ class _CategoryGroupSelectorSheetState
                   radius: 16,
                   backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(
-                    group.isPrivate ? Icons.lock : Icons.folder,
+                    group.isPrivate ? Icons.visibility_off : Icons.folder,
                     color: color,
                     size: 18,
                   ),
@@ -276,23 +288,11 @@ class _CategoryGroupSelectorSheetState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            group.name,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          if (group.isPrivate) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.lock,
-                              size: 14,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                      Text(
+                        group.name,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
-                        ],
                       ),
                       if (categories.isEmpty)
                         Text(

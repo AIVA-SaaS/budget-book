@@ -54,9 +54,9 @@ class TransactionListTile extends StatelessWidget {
           children: [
             if (transaction.isPrivate) ...[
               Icon(
-                Icons.lock,
+                Icons.visibility_off,
                 size: 14,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
             ],

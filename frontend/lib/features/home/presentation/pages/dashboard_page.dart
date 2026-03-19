@@ -469,10 +469,10 @@ class _PrivateSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.lock, size: 18),
+                const Icon(Icons.visibility_off, size: 18),
                 const SizedBox(width: 6),
                 Text(
-                  '내 개인',
+                  '나만 보임',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -618,9 +618,9 @@ class _RecentTransactionsCard extends StatelessWidget {
                               children: [
                                 if (txn.isPrivate) ...[
                                   Icon(
-                                    Icons.lock,
+                                    Icons.visibility_off,
                                     size: 12,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                                   ),
                                   const SizedBox(width: 3),
                                 ],
