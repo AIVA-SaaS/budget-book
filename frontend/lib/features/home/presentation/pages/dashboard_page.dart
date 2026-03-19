@@ -598,7 +598,10 @@ class _RecentTransactionsCard extends StatelessWidget {
               ),
             if (error == null)
               ...transactions.map(
-                (txn) => Padding(
+                (txn) => InkWell(
+                  onTap: () => context.go('/transactions'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
                     children: [
@@ -661,6 +664,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
                 ),
               ),
           ],

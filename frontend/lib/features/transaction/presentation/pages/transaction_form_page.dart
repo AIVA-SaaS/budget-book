@@ -244,6 +244,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                     },
                   ),
                 const SizedBox(height: 24),
+                // Date picker (최상단 배치)
+                _buildDatePicker(context),
+                const SizedBox(height: 16),
                 // Amount
                 TextFormField(
                   controller: _amountController,
@@ -292,9 +295,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 const SizedBox(height: 16),
                 // Pocket picker
                 _buildPocketPicker(context),
-                const SizedBox(height: 16),
-                // Date picker
-                _buildDatePicker(context),
                 const SizedBox(height: 16),
                 // Memo
                 TextFormField(
