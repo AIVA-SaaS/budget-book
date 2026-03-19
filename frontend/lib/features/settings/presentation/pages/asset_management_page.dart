@@ -145,6 +145,8 @@ class AssetManagementPage extends StatelessWidget {
   }
 }
 
+const _virtualGroupId = '00000000-0000-0000-0000-000000000000';
+
 class _CategoryTab extends StatelessWidget {
   const _CategoryTab();
 
@@ -167,9 +169,10 @@ class _CategoryTab extends StatelessWidget {
           if (state is! CategoryGroupLoaded) {
             return const Center(child: CircularProgressIndicator());
           }
-          final groups = state.groups;
+          final sharedGroups = state.groups.where((g) => g.isShared).toList();
+          final privateGroups = state.groups.where((g) => g.isPrivate).toList();
 
-          if (groups.isEmpty) {
+          if (state.groups.isEmpty) {
             return const EmptyStateWidget(
               icon: Icons.category,
               title: '카테고리가 없습니다',
@@ -179,7 +182,6 @@ class _CategoryTab extends StatelessWidget {
 
           return BlocListener<CategoryBloc, CategoryState>(
             listener: (context, catState) {
-              // Reload groups when categories change
               if (catState is CategoryLoaded) {
                 getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
               }
@@ -187,7 +189,27 @@ class _CategoryTab extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                ...groups.map((group) => _buildGroupSection(context, group)),
+                // Shared groups
+                ...sharedGroups.map((g) => _buildGroupSection(context, g)),
+                // Add shared group button
+                _buildAddButton(
+                  context,
+                  icon: Icons.create_new_folder,
+                  label: '공유 그룹 추가',
+                  onTap: () => _showAddGroupDialog(context),
+                ),
+                // Private section
+                const SizedBox(height: 8),
+                _buildPrivateSectionHeader(context),
+                ...privateGroups.map((g) => _buildGroupSection(context, g)),
+                // Add private group button
+                _buildAddButton(
+                  context,
+                  icon: Icons.add,
+                  label: '개인 그룹 추가',
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
+                ),
               ],
             ),
           );
@@ -196,21 +218,76 @@ class _CategoryTab extends StatelessWidget {
     );
   }
 
+  Widget _buildPrivateSectionHeader(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.visibility_off_outlined,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '나만 보임',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const Spacer(),
+          Text(
+            '상대방에게 보이지 않습니다',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddButton(BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    final c = color ?? Theme.of(context).colorScheme.primary;
+    return ListTile(
+      dense: true,
+      leading: Icon(icon, size: 18, color: c),
+      title: Text(label, style: TextStyle(fontSize: 13, color: c)),
+      onTap: onTap,
+    );
+  }
+
   Widget _buildGroupSection(BuildContext context, CategoryGroup group) {
     final color = UIHelpers.parseColor(group.color);
+    final isVirtual = group.id == _virtualGroupId;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group header
+        // Group header with edit/delete
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(Icons.folder, color: color, size: 16),
+                child: Icon(
+                  group.isPrivate ? Icons.visibility_off : Icons.folder,
+                  color: color,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -231,6 +308,52 @@ class _CategoryTab extends StatelessWidget {
                           .withValues(alpha: 0.5),
                     ),
               ),
+              if (!isVirtual)
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  iconSize: 20,
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditGroupDialog(context, group);
+                    } else if (value == 'delete') {
+                      _showDeleteGroupDialog(context, group);
+                    } else if (value == 'add_category') {
+                      _showAddCategoryToGroup(context, group);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'add_category',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add, size: 18),
+                          SizedBox(width: 8),
+                          Text('카테고리 추가'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('그룹 수정'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('그룹 삭제', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -254,13 +377,139 @@ class _CategoryTab extends StatelessWidget {
                 child: CategoryListTile(
                   category: c,
                   onEdit: () => _showEditCategory(context, c),
-                  onDelete: c.isDefault
-                      ? null
-                      : () => _showDeleteDialog(context, c),
+                  onDelete: () => _showDeleteCategoryDialog(context, c),
                 ),
               )),
         const Divider(height: 1, indent: 16, endIndent: 16),
       ],
+    );
+  }
+
+  void _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(visibility == 'PRIVATE' ? '개인 그룹 추가' : '그룹 추가'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '그룹 이름'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.of(dialogContext).pop();
+                getIt<CategoryGroupBloc>().add(
+                  CreateCategoryGroup(name: name, visibility: visibility),
+                );
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditGroupDialog(BuildContext context, CategoryGroup group) {
+    final controller = TextEditingController(text: group.name);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('그룹 수정'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '그룹 이름'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.of(dialogContext).pop();
+                getIt<CategoryGroupBloc>().add(
+                  UpdateCategoryGroup(id: group.id, name: name),
+                );
+              }
+            },
+            child: const Text('수정'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteGroupDialog(BuildContext context, CategoryGroup group) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('그룹 삭제'),
+        content: Text(
+          "'${group.name}' 그룹을 삭제하시겠습니까?\n그룹에 속한 카테고리는 미분류로 이동합니다.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              getIt<CategoryGroupBloc>().add(DeleteCategoryGroup(group.id));
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddCategoryToGroup(BuildContext context, CategoryGroup group) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${group.name} - 카테고리 추가'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '카테고리 이름'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.of(dialogContext).pop();
+                getIt<CategoryBloc>().add(CreateCategory(
+                  name: name,
+                  type: 'EXPENSE',
+                  groupId: group.id,
+                  visibility: group.visibility,
+                ));
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -284,7 +533,7 @@ class _CategoryTab extends StatelessWidget {
     );
   }
 
-  void _showDeleteDialog(BuildContext context, Category category) {
+  void _showDeleteCategoryDialog(BuildContext context, Category category) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
