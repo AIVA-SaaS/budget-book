@@ -8,6 +8,7 @@ abstract class CategoryGroupRemoteDataSource {
   Future<CategoryGroupModel> updateCategoryGroup(
       String id, Map<String, dynamic> data);
   Future<void> deleteCategoryGroup(String id);
+  Future<void> reorderGroups(List<String> orderedIds);
 }
 
 class CategoryGroupRemoteDataSourceImpl
@@ -52,5 +53,13 @@ class CategoryGroupRemoteDataSourceImpl
   @override
   Future<void> deleteCategoryGroup(String id) async {
     await apiClient.dio.delete('${ApiEndpoints.categoryGroups}/$id');
+  }
+
+  @override
+  Future<void> reorderGroups(List<String> orderedIds) async {
+    await apiClient.dio.put(
+      ApiEndpoints.categoryGroupReorder,
+      data: {'orderedIds': orderedIds},
+    );
   }
 }

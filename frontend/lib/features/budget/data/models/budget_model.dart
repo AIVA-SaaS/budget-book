@@ -6,6 +6,8 @@ class BudgetModel extends Budget {
     required super.id,
     required super.coupleId,
     super.category,
+    super.groupId,
+    super.groupName,
     required super.yearMonth,
     required super.amount,
     super.budgetPeriod,
@@ -27,6 +29,8 @@ class BudgetModel extends Budget {
           ? TransactionCategoryModel.fromJson(
               json['category'] as Map<String, dynamic>)
           : null,
+      groupId: json['groupId'] as String?,
+      groupName: json['groupName'] as String?,
       yearMonth: json['yearMonth'] as String,
       amount: json['amount'] as int,
       budgetPeriod: json['budgetPeriod'] as String? ?? 'MONTHLY',

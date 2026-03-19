@@ -84,4 +84,15 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> reorderGroups(List<String> orderedIds) async {
+    try {
+      await remoteDataSource.reorderGroups(orderedIds);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to reorder category groups'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to reorder category groups'));
+    }
+  }
 }

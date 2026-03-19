@@ -11,6 +11,7 @@ import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.toResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.common.exception.ConflictException
@@ -36,6 +37,7 @@ class BudgetService(
     private val budgetRepository: MonthlyBudgetRepository,
     override val coupleResolver: CoupleResolver,
     private val categoryRepository: CategoryRepository,
+    private val categoryGroupRepository: CategoryGroupRepository,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher,
     private val moneyPocketRepository: MoneyPocketRepository
@@ -45,11 +47,24 @@ class BudgetService(
     fun createBudget(userId: UUID, request: BudgetRequest): BudgetResponse {
         val couple = getActiveCouple(userId)
 
+        // Validate mutual exclusivity of categoryId and groupId
+        if (request.categoryId != null && request.groupId != null) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "categoryId and groupId are mutually exclusive. Provide only one."
+            )
+        }
+
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
             OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             cat
+        }
+
+        val group = request.groupId?.let { gId ->
+            val g = categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+            g
         }
 
         // Validate pocket ownership
@@ -61,8 +76,8 @@ class BudgetService(
             }
         } else null
 
-        if (budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, request.categoryId, request.yearMonth)) {
-            throw ConflictException("DUPLICATE_BUDGET", "Budget for this category and month already exists.")
+        if (budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, request.categoryId, request.groupId, request.yearMonth)) {
+            throw ConflictException("DUPLICATE_BUDGET", "Budget for this category/group and month already exists.")
         }
 
         val budgetPeriod = try {
@@ -103,6 +118,7 @@ class BudgetService(
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
+            group = group,
             yearMonth = request.yearMonth,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
@@ -146,6 +162,15 @@ class BudgetService(
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
             OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             budget.category = cat
+            budget.group = null  // Mutual exclusivity
+        }
+
+        // Update group if provided
+        request.groupId?.let { gId ->
+            val g = categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+            budget.group = g
+            budget.category = null  // Mutual exclusivity
         }
 
         budget.amount = request.amount
@@ -259,11 +284,17 @@ class BudgetService(
 
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
-            val spentAmount = if (categoryId != null) {
-                spendingByCategory[categoryId] ?: 0L
-            } else {
-                // Total budget: sum all expenses
-                totalSpent
+            val groupId = budget.group?.id
+            val spentAmount = when {
+                categoryId != null -> spendingByCategory[categoryId] ?: 0L
+                groupId != null -> transactionRepository.sumAmountByGroupAndDateRange(
+                    coupleId = couple.id,
+                    groupId = groupId,
+                    startDate = startDate,
+                    endDate = endDate,
+                    type = TransactionType.EXPENSE
+                )
+                else -> totalSpent  // Total budget: sum all expenses
             }
             val remainingAmount = budget.amount - spentAmount
             val usageRate = if (budget.amount > 0) {
@@ -282,6 +313,8 @@ class BudgetService(
                         color = it.color
                     )
                 },
+                groupId = budget.group?.id,
+                groupName = budget.group?.name,
                 budgetAmount = budget.amount,
                 spentAmount = spentAmount,
                 remainingAmount = remainingAmount,
@@ -323,12 +356,12 @@ class BudgetService(
 
         // Find existing budgets in target month to skip duplicates
         val existingTargetBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, targetYearMonth)
-        val existingCategoryIds = existingTargetBudgets.map { it.category?.id }.toSet()
+        val existingKeys = existingTargetBudgets.map { Pair(it.category?.id, it.group?.id) }.toSet()
 
         val numberOfWeeks = calculateNumberOfWeeks(targetYearMonth)
 
         val newBudgets = sourceBudgets
-            .filter { it.category?.id !in existingCategoryIds }
+            .filter { Pair(it.category?.id, it.group?.id) !in existingKeys }
             .map { source ->
                 val weeklyAmount = if (source.budgetPeriod == BudgetPeriod.WEEKLY) {
                     source.amount / numberOfWeeks
@@ -339,6 +372,7 @@ class BudgetService(
                 MonthlyBudget(
                     couple = couple,
                     category = source.category,
+                    group = source.group,
                     yearMonth = targetYearMonth,
                     amount = source.amount,
                     budgetPeriod = source.budgetPeriod,

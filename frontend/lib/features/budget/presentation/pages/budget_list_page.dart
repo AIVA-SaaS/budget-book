@@ -441,7 +441,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
               builder: (context) => AlertDialog(
                 title: const Text('예산 삭제'),
                 content: Text(
-                  '${budget.category?.name ?? "전체 예산"}을(를) 삭제하시겠습니까?',
+                  '${budget.targetLabel}을(를) 삭제하시겠습니까?',
                 ),
                 actions: [
                   TextButton(
@@ -474,7 +474,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 size: 20,
               ),
             ),
-            title: Text(budget.category?.name ?? '전체 예산'),
+            title: Text(budget.targetLabel),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

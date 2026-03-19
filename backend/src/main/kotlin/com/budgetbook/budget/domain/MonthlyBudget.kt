@@ -1,6 +1,7 @@
 package com.budgetbook.budget.domain
 
 import com.budgetbook.category.domain.Category
+import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.common.entity.BaseTimeEntity
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.pocket.domain.MoneyPocket
@@ -29,6 +30,10 @@ class MonthlyBudget(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     var category: Category? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    var group: CategoryGroup? = null,
 
     @Column(name = "year_month", nullable = false, length = 7)
     val yearMonth: String,

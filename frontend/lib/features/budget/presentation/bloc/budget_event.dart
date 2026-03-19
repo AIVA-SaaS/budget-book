@@ -29,6 +29,7 @@ class LoadBudgetSummary extends BudgetEvent {
 
 class CreateBudget extends BudgetEvent {
   final String? categoryId;
+  final String? groupId;
   final String yearMonth;
   final int amount;
   final String budgetPeriod;
@@ -40,6 +41,7 @@ class CreateBudget extends BudgetEvent {
 
   const CreateBudget({
     this.categoryId,
+    this.groupId,
     required this.yearMonth,
     required this.amount,
     this.budgetPeriod = 'MONTHLY',
@@ -53,6 +55,7 @@ class CreateBudget extends BudgetEvent {
   @override
   List<Object?> get props => [
         categoryId,
+        groupId,
         yearMonth,
         amount,
         budgetPeriod,
@@ -74,6 +77,7 @@ class UpdateBudget extends BudgetEvent {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? categoryId;
+  final String? groupId;
   final String? yearMonth;
 
   const UpdateBudget({
@@ -86,6 +90,7 @@ class UpdateBudget extends BudgetEvent {
     this.startDate,
     this.endDate,
     this.categoryId,
+    this.groupId,
     this.yearMonth,
   });
 
@@ -100,6 +105,7 @@ class UpdateBudget extends BudgetEvent {
         startDate,
         endDate,
         categoryId,
+        groupId,
         yearMonth,
       ];
 }

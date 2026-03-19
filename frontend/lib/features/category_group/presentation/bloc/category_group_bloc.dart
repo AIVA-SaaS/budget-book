@@ -14,6 +14,7 @@ class CategoryGroupBloc
     on<CreateCategoryGroup>(_onCreateCategoryGroup);
     on<UpdateCategoryGroup>(_onUpdateCategoryGroup);
     on<DeleteCategoryGroup>(_onDeleteCategoryGroup);
+    on<ReorderCategoryGroups>(_onReorderCategoryGroups);
   }
 
   Future<void> _onLoadCategoryGroups(
@@ -112,6 +113,45 @@ class CategoryGroupBloc
         },
       );
     } catch (e) {
+      emit(CategoryGroupLoaded(currentGroups,
+          operationError: '예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onReorderCategoryGroups(
+    ReorderCategoryGroups event,
+    Emitter<CategoryGroupState> emit,
+  ) async {
+    final currentGroups = state is CategoryGroupLoaded
+        ? (state as CategoryGroupLoaded).groups
+        : <CategoryGroup>[];
+
+    // Optimistic update: reorder locally first
+    final reordered = <CategoryGroup>[];
+    for (final id in event.orderedIds) {
+      final group = currentGroups.firstWhere(
+        (g) => g.id == id,
+        orElse: () => currentGroups.first,
+      );
+      reordered.add(group);
+    }
+    emit(CategoryGroupLoaded(reordered));
+
+    try {
+      final result =
+          await categoryGroupRepository.reorderGroups(event.orderedIds);
+      result.fold(
+        (failure) {
+          // Rollback on failure
+          emit(CategoryGroupLoaded(currentGroups,
+              operationError: failure.message));
+        },
+        (_) {
+          // Already showing reordered state
+        },
+      );
+    } catch (e) {
+      // Rollback on unexpected error
       emit(CategoryGroupLoaded(currentGroups,
           operationError: '예기치 않은 오류가 발생했습니다'));
     }

@@ -13,6 +13,7 @@ import java.util.UUID
 
 data class BudgetRequest(
     val categoryId: UUID? = null,
+    val groupId: UUID? = null,
 
     @field:NotBlank
     @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "yearMonth must be in YYYY-MM format")
@@ -39,6 +40,7 @@ data class BudgetUpdateRequest(
     val amount: Long,
 
     val categoryId: UUID? = null,
+    val groupId: UUID? = null,
 
     val budgetPeriod: String? = null,
 
@@ -55,6 +57,8 @@ data class BudgetResponse(
     val id: UUID,
     val coupleId: UUID,
     val category: CategorySummary?,
+    val groupId: UUID? = null,
+    val groupName: String? = null,
     val yearMonth: String,
     val amount: Long,
     val budgetPeriod: String,
@@ -99,6 +103,8 @@ data class CopyBudgetRequest(
 
 data class BudgetSummaryItemResponse(
     val category: CategorySummary?,
+    val groupId: UUID? = null,
+    val groupName: String? = null,
     val budgetAmount: Long,
     val spentAmount: Long,
     val remainingAmount: Long,
@@ -126,6 +132,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
             color = it.color
         )
     },
+    groupId = group?.id,
+    groupName = group?.name,
     yearMonth = yearMonth,
     amount = amount,
     budgetPeriod = budgetPeriod.name,

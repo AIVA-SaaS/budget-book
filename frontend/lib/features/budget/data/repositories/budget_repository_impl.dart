@@ -14,6 +14,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
   @override
   Future<Either<Failure, Budget>> createBudget({
     String? categoryId,
+    String? groupId,
     required String yearMonth,
     required int amount,
     String budgetPeriod = 'MONTHLY',
@@ -30,6 +31,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         'budgetPeriod': budgetPeriod,
         'periodType': periodType,
         if (categoryId != null) 'categoryId': categoryId,
+        if (groupId != null) 'groupId': groupId,
         if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
         if (pocketId != null) 'pocketId': pocketId,
         if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
@@ -71,6 +73,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? categoryId,
+    String? groupId,
     String? yearMonth,
   }) async {
     try {
@@ -83,6 +86,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
         if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
         if (categoryId != null) 'categoryId': categoryId,
+        if (groupId != null) 'groupId': groupId,
         if (yearMonth != null) 'yearMonth': yearMonth,
       };
       final result = await remoteDataSource.updateBudget(id, data);

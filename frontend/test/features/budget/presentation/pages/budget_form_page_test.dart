@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:get_it/get_it.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
@@ -16,6 +17,9 @@ import 'package:budget_book/features/transaction/domain/entities/transaction_cat
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
 import 'package:budget_book/core/widgets/period_selector.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
@@ -26,6 +30,10 @@ class MockCategoryBloc extends MockBloc<CategoryEvent, CategoryState>
 
 class MockPocketBloc extends MockBloc<PocketEvent, PocketState>
     implements PocketBloc {}
+
+class MockCategoryGroupBloc
+    extends MockBloc<CategoryGroupEvent, CategoryGroupState>
+    implements CategoryGroupBloc {}
 
 void main() {
   late MockBudgetBloc mockBudgetBloc;
@@ -79,10 +87,36 @@ void main() {
     updatedAt: DateTime(2026),
   );
 
+  late MockCategoryGroupBloc mockCategoryGroupBloc;
+
   setUp(() {
     mockBudgetBloc = MockBudgetBloc();
     mockCategoryBloc = MockCategoryBloc();
     mockPocketBloc = MockPocketBloc();
+    mockCategoryGroupBloc = MockCategoryGroupBloc();
+    when(() => mockCategoryGroupBloc.state)
+        .thenReturn(const CategoryGroupLoaded([]));
+
+    // Register mocks in GetIt for budget_form_page initState
+    final getIt = GetIt.instance;
+    if (getIt.isRegistered<CategoryGroupBloc>()) {
+      getIt.unregister<CategoryGroupBloc>();
+    }
+    if (getIt.isRegistered<CategoryBloc>()) {
+      getIt.unregister<CategoryBloc>();
+    }
+    getIt.registerSingleton<CategoryGroupBloc>(mockCategoryGroupBloc);
+    getIt.registerSingleton<CategoryBloc>(mockCategoryBloc);
+  });
+
+  tearDown(() {
+    final getIt = GetIt.instance;
+    if (getIt.isRegistered<CategoryGroupBloc>()) {
+      getIt.unregister<CategoryGroupBloc>();
+    }
+    if (getIt.isRegistered<CategoryBloc>()) {
+      getIt.unregister<CategoryBloc>();
+    }
   });
 
   Widget buildTestWidget({

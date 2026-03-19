@@ -316,7 +316,7 @@ class _CategoryGroupSelectorSheetState
                 size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
-            if (!category.isDefault && widget.onDelete != null)
+            if (widget.onDelete != null)
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,

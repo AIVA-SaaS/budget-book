@@ -5,6 +5,8 @@ class Budget extends Equatable {
   final String id;
   final String coupleId;
   final TransactionCategory? category;
+  final String? groupId;
+  final String? groupName;
   final String yearMonth;
   final int amount;
   final String budgetPeriod;
@@ -21,6 +23,8 @@ class Budget extends Equatable {
     required this.id,
     required this.coupleId,
     this.category,
+    this.groupId,
+    this.groupName,
     required this.yearMonth,
     required this.amount,
     this.budgetPeriod = 'MONTHLY',
@@ -34,11 +38,20 @@ class Budget extends Equatable {
     required this.updatedAt,
   });
 
+  /// Display label for this budget target (category, group, or total).
+  String get targetLabel {
+    if (category != null) return category!.name;
+    if (groupName != null) return '$groupName (그룹)';
+    return '전체 예산';
+  }
+
   @override
   List<Object?> get props => [
         id,
         coupleId,
         category,
+        groupId,
+        groupName,
         yearMonth,
         amount,
         budgetPeriod,

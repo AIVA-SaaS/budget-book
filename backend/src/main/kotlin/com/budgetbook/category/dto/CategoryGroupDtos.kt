@@ -34,3 +34,7 @@ data class UpdateCategoryGroupRequest(
     val budgetType: String? = null,
     val displayOrder: Int? = null
 )
+
+data class ReorderCategoryGroupRequest(
+    val orderedIds: List<UUID>
+)
