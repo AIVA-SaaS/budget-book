@@ -35,9 +35,10 @@ class CategoryGroupService(
     private val userRepository: UserRepository
 ) : CoupleAwareService {
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun listCategoryGroups(userId: UUID): List<CategoryGroupResponse> {
         val couple = getActiveCouple(userId)
+        ensurePrivateGroupExists(couple, userId)
         val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
         val uncategorized = categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, userId)
 
@@ -249,6 +250,22 @@ class CategoryGroupService(
             val etcCategories = categoryRepository.findByCoupleIdAndNameIn(couple.id, etcCategoryNames)
             etcCategories.forEach { it.group = etcGroup }
             categoryRepository.saveAll(etcCategories)
+        }
+    }
+
+    /**
+     * Ensure a PRIVATE "개인 항목" group exists for the user.
+     * Auto-seeds for existing couples that were created before the visibility feature.
+     */
+    private fun ensurePrivateGroupExists(couple: Couple, userId: UUID) {
+        val hasPrivateGroup = categoryGroupRepository
+            .findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
+            .any { it.visibility == Visibility.PRIVATE && it.owner?.id == userId }
+
+        if (!hasPrivateGroup) {
+            val user = userRepository.findById(userId).orElse(null) ?: return
+            val group = seedPrivateCategoryGroup(couple, user)
+            categoryService.seedPrivateCategories(couple, user, group)
         }
     }
 

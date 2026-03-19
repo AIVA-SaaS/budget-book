@@ -3,6 +3,7 @@ package com.budgetbook.category.service
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.category.domain.BudgetType
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.domain.CategoryType
@@ -75,22 +76,31 @@ class CategoryGroupServiceTest : BehaviorSpec({
         val category2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group1)
         val uncategorizedCategory = Category(couple = couple, name = "Custom", type = CategoryType.EXPENSE)
 
-        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group1, group2)
+        val privateGroup = CategoryGroup(
+            couple = couple, name = "개인 항목", icon = "person", color = "#607D8B",
+            budgetType = BudgetType.NONE, displayOrder = 100, isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group1, group2, privateGroup)
         every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group1.id, any()) } returns listOf(category1, category2)
         every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group2.id, any()) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, privateGroup.id, any()) } returns emptyList()
         every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns listOf(uncategorizedCategory)
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
 
             Then("returns groups with their categories plus uncategorized") {
-                result shouldHaveSize 3
+                result shouldHaveSize 4
                 result[0].name shouldBe "생활비"
                 result[0].categories shouldHaveSize 2
                 result[1].name shouldBe "고정지출"
                 result[1].categories shouldHaveSize 0
-                result[2].name shouldBe "미분류"
-                result[2].categories shouldHaveSize 1
+                result[2].name shouldBe "개인 항목"
+                result[2].categories shouldHaveSize 0
+                result[3].name shouldBe "미분류"
+                result[3].categories shouldHaveSize 1
             }
         }
     }
@@ -99,16 +109,23 @@ class CategoryGroupServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", displayOrder = 1, isDefault = true)
-        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group)
+        val privateGroup = CategoryGroup(
+            couple = couple, name = "개인 항목", icon = "person", color = "#607D8B",
+            budgetType = BudgetType.NONE, displayOrder = 100, isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group, privateGroup)
         every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, any()) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, privateGroup.id, any()) } returns emptyList()
         every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns emptyList()
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
 
             Then("does not include uncategorized group") {
-                result shouldHaveSize 1
+                result shouldHaveSize 2
                 result[0].name shouldBe "생활비"
+                result[1].name shouldBe "개인 항목"
             }
         }
     }
