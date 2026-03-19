@@ -440,10 +440,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              const Icon(Icons.lock, size: 16),
+              const Icon(Icons.visibility_off, size: 16),
               const SizedBox(width: 6),
               Text(
-                '내 개인 예산',
+                '나만 보임',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -517,9 +517,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
           children: [
             if (budget.isPrivate) ...[
               Icon(
-                Icons.lock,
+                Icons.visibility_off,
                 size: 14,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
             ],
