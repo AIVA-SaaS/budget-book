@@ -30,7 +30,7 @@ class StatisticsService(
         val startDate = yearMonth.atDay(1)
         val endDate = yearMonth.atEndOfMonth()
 
-        val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate)
+        val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId)
 
         var totalIncome = 0L
         var totalExpense = 0L
@@ -74,8 +74,7 @@ class StatisticsService(
             throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: $type")
         }
 
-        // Query result: [SUM(amount), COUNT, category.id, category.name, category.type, category.icon, category.color]
-        val results = transactionRepository.sumByCategoryForCouple(couple.id, startDate, endDate, transactionType)
+        val results = transactionRepository.sumByCategoryForCouple(couple.id, startDate, endDate, transactionType, userId)
 
         val totalAmount = results.sumOf { it[0] as Long }
 
@@ -114,8 +113,7 @@ class StatisticsService(
         val startDate = startMonth.atDay(1)
         val endDate = now.atEndOfMonth()
 
-        // Native query result: [yearMonth string, type string, sum long]
-        val results = transactionRepository.monthlyTrendForCouple(couple.id, startDate, endDate)
+        val results = transactionRepository.monthlyTrendForCouple(couple.id, startDate, endDate, userId)
 
         val trendMap = mutableMapOf<String, Pair<Long, Long>>()
 

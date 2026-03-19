@@ -8,6 +8,8 @@ class StatisticsState extends Equatable {
   final int year;
   final int month;
   final String categoryType;
+  /// Visibility filter: 'ALL', 'SHARED', or 'PRIVATE'
+  final String visibilityFilter;
 
   // Summary
   final bool summaryLoading;
@@ -39,6 +41,7 @@ class StatisticsState extends Equatable {
     required this.year,
     required this.month,
     this.categoryType = 'EXPENSE',
+    this.visibilityFilter = 'ALL',
     this.summaryLoading = false,
     this.summary,
     this.summaryError,
@@ -63,6 +66,7 @@ class StatisticsState extends Equatable {
     int? year,
     int? month,
     String? categoryType,
+    String? visibilityFilter,
     bool? summaryLoading,
     StatisticsSummary? summary,
     String? summaryError,
@@ -89,6 +93,7 @@ class StatisticsState extends Equatable {
       year: year ?? this.year,
       month: month ?? this.month,
       categoryType: categoryType ?? this.categoryType,
+      visibilityFilter: visibilityFilter ?? this.visibilityFilter,
       summaryLoading: summaryLoading ?? this.summaryLoading,
       summary: summary ?? this.summary,
       summaryError:
@@ -119,6 +124,7 @@ class StatisticsState extends Equatable {
         year,
         month,
         categoryType,
+        visibilityFilter,
         summaryLoading,
         summary,
         summaryError,

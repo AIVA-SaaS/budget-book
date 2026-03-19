@@ -10,6 +10,7 @@ abstract class CategoryRepository {
     String? icon,
     String? color,
     String? groupId,
+    String visibility = 'SHARED',
   });
   Future<Either<Failure, Category>> updateCategory({
     required String id,

@@ -208,7 +208,7 @@ class RecurringTransactionServiceTest : BehaviorSpec({
             amount = 10000, description = "주간 장보기", frequency = Frequency.WEEKLY,
             dayOfWeek = 6, nextRunDate = LocalDate.of(2026, 3, 14)
         )
-        every { recurringRepository.findByCoupleId(couple.id) } returns listOf(recurring1, recurring2)
+        every { recurringRepository.findByCoupleIdAndUserId(couple.id, user1.id) } returns listOf(recurring1, recurring2)
 
         When("listRecurringTransactions is called") {
             val result = service.listRecurringTransactions(user1.id)

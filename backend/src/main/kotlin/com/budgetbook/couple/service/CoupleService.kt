@@ -127,6 +127,12 @@ class CoupleService(
         categoryGroupService.seedDefaultCategoryGroups(couple)
         paymentMethodService.seedDefaultPaymentMethods(couple)
 
+        // Seed PRIVATE category groups and categories for each user
+        listOf(invitation.inviter, acceptingUser).forEach { user ->
+            val privateGroup = categoryGroupService.seedPrivateCategoryGroup(couple, user)
+            categoryService.seedPrivateCategories(couple, user, privateGroup)
+        }
+
         val partner = invitation.inviter
         return CoupleResponse(
             id = couple.id,

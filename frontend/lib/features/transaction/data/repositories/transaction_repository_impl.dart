@@ -70,6 +70,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? memo,
     String? paymentMethodId,
     String? pocketId,
+    String visibility = 'SHARED',
   }) async {
     try {
       final data = <String, dynamic>{
@@ -77,6 +78,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         'amount': amount,
         'description': description,
         'transactionDate': transactionDate,
+        'visibility': visibility,
         if (categoryId != null) 'categoryId': categoryId,
         if (memo != null) 'memo': memo,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,

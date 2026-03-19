@@ -40,7 +40,8 @@ class MoneyPocketServiceTest : BehaviorSpec({
     val transactionRepository = mockk<TransactionRepository> {
         every { sumExpenseByPocketId(any()) } returns 0L
     }
-    val service = MoneyPocketService(moneyPocketRepository, coupleResolver, syncEventPublisher, pocketTransferRepository, transactionRepository)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val service = MoneyPocketService(moneyPocketRepository, coupleResolver, syncEventPublisher, pocketTransferRepository, transactionRepository, userRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -53,7 +54,7 @@ class MoneyPocketServiceTest : BehaviorSpec({
 
         val pocket1 = MoneyPocket(couple = couple, name = "생활비", type = PocketType.LIVING, allocatedAmount = 500000, displayOrder = 1)
         val pocket2 = MoneyPocket(couple = couple, name = "저축", type = PocketType.SAVINGS, allocatedAmount = 1000000, displayOrder = 2)
-        every { moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns listOf(pocket1, pocket2)
+        every { moneyPocketRepository.findByCoupleIdAndIsActiveTrueAndUserId(couple.id, user1.id) } returns listOf(pocket1, pocket2)
 
         When("getPockets is called") {
             val result = service.getPockets(user1.id)

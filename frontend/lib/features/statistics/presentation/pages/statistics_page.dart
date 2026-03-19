@@ -46,6 +46,23 @@ class StatisticsPage extends StatelessWidget {
                     bloc.add(LoadPaymentMethodStats(year: m.year, month: m.month));
                   },
                 ),
+                // Visibility filter
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'ALL', label: Text('전체')),
+                      ButtonSegment(value: 'SHARED', label: Text('공유')),
+                      ButtonSegment(value: 'PRIVATE', label: Text('개인')),
+                    ],
+                    selected: {state.visibilityFilter},
+                    onSelectionChanged: (value) {
+                      context.read<StatisticsBloc>().add(
+                            ChangeVisibilityFilter(value.first),
+                          );
+                    },
+                  ),
+                ),
                 // Tab views
                 Expanded(
                   child: TabBarView(

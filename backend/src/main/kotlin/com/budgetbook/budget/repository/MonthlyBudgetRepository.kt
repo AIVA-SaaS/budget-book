@@ -10,6 +10,18 @@ interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
 
     fun findByCoupleIdAndYearMonth(coupleId: UUID, yearMonth: String): List<MonthlyBudget>
 
+    @Query("""
+        SELECT b FROM MonthlyBudget b
+        WHERE b.couple.id = :coupleId
+        AND b.yearMonth = :yearMonth
+        AND (b.visibility = com.budgetbook.common.entity.Visibility.SHARED OR b.owner.id = :userId)
+    """)
+    fun findByCoupleIdAndYearMonthAndUserId(
+        @Param("coupleId") coupleId: UUID,
+        @Param("yearMonth") yearMonth: String,
+        @Param("userId") userId: UUID
+    ): List<MonthlyBudget>
+
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): MonthlyBudget?
 
     @Query("""

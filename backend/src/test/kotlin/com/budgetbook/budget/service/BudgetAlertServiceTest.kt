@@ -46,7 +46,7 @@ class BudgetAlertServiceTest : BehaviorSpec({
         val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-03", amount = 200000)
         val entertainmentBudget = MonthlyBudget(couple = couple, category = entertainmentCategory, yearMonth = "2026-03", amount = 100000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns
             listOf(foodBudget, transportBudget, entertainmentBudget)
 
         // Food: 450000/500000 = 90% -> WARNING
@@ -57,7 +57,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns listOf(
             arrayOf(450000L, 15L, foodCategory.id, "Food", CategoryType.EXPENSE, "restaurant", "#FF0000"),
@@ -70,7 +71,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 710000L
 
@@ -104,14 +106,15 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val budget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget)
 
         every {
             transactionRepository.sumByCategoryForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns listOf(
             arrayOf(200000L, 5L, foodCategory.id, "Food", CategoryType.EXPENSE, "restaurant", "#FF0000")
@@ -122,7 +125,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 200000L
 
@@ -137,7 +141,7 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
     Given("no budgets for the month") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
 
         When("getBudgetAlerts is called") {
             val result = service.getBudgetAlerts(user1.id, "2026-03")
@@ -153,14 +157,15 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val totalBudget = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 1000000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(totalBudget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(totalBudget)
 
         every {
             transactionRepository.sumByCategoryForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns emptyList()
 
@@ -169,7 +174,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 1100000L
 
@@ -191,14 +197,15 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val budget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 100000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget)
 
         every {
             transactionRepository.sumByCategoryForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns listOf(
             arrayOf(80000L, 5L, foodCategory.id, "Food", CategoryType.EXPENSE, "restaurant", "#FF0000")
@@ -209,7 +216,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 80000L
 
@@ -229,14 +237,15 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val budget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 100000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget)
 
         every {
             transactionRepository.sumByCategoryForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns listOf(
             arrayOf(100000L, 10L, foodCategory.id, "Food", CategoryType.EXPENSE, "restaurant", "#FF0000")
@@ -247,7 +256,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 100000L
 
@@ -267,14 +277,15 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val budget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 0)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget)
 
         every {
             transactionRepository.sumByCategoryForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns emptyList()
 
@@ -283,7 +294,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 0L
 
@@ -314,7 +326,7 @@ class BudgetAlertServiceTest : BehaviorSpec({
 
         val budget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
 
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget)
 
         // No spending for food category
         every {
@@ -322,7 +334,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns emptyList()
 
@@ -331,7 +344,8 @@ class BudgetAlertServiceTest : BehaviorSpec({
                 couple.id,
                 LocalDate.of(2026, 3, 1),
                 LocalDate.of(2026, 3, 31),
-                TransactionType.EXPENSE
+                TransactionType.EXPENSE,
+                any()
             )
         } returns 0L
 

@@ -10,6 +10,8 @@ class CategoryModel extends Category {
     required super.isDefault,
     required super.displayOrder,
     super.groupId,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
   });
 
@@ -23,6 +25,8 @@ class CategoryModel extends Category {
       isDefault: json['isDefault'] as bool,
       displayOrder: json['displayOrder'] as int,
       groupId: json['groupId'] as String?,
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

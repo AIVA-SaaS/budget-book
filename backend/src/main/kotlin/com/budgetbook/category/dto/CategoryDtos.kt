@@ -14,6 +14,8 @@ data class CategoryResponse(
     val groupId: UUID? = null,
     val isDefault: Boolean,
     val displayOrder: Int,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant
 )
 
@@ -27,7 +29,8 @@ data class CreateCategoryRequest(
 
     val icon: String? = null,
     val color: String? = null,
-    val groupId: UUID? = null
+    val groupId: UUID? = null,
+    val visibility: String? = "SHARED"
 )
 
 data class UpdateCategoryRequest(
@@ -36,5 +39,6 @@ data class UpdateCategoryRequest(
     val icon: String? = null,
     val color: String? = null,
     val displayOrder: Int? = null,
-    val groupId: UUID? = null
+    val groupId: UUID? = null,
+    val visibility: String? = null
 )

@@ -70,3 +70,12 @@ class LoadPaymentMethodStats extends StatisticsEvent {
   @override
   List<Object?> get props => [year, month];
 }
+
+class ChangeVisibilityFilter extends StatisticsEvent {
+  final String visibility; // 'ALL', 'SHARED', 'PRIVATE'
+
+  const ChangeVisibilityFilter(this.visibility);
+
+  @override
+  List<Object?> get props => [visibility];
+}

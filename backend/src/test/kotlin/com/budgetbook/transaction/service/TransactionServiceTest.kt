@@ -372,7 +372,7 @@ class TransactionServiceTest : BehaviorSpec({
         )
         val page = PageImpl(listOf(tx2, tx1), PageRequest.of(0, 20), 2)
         every { transactionRepository.findByCoupleIdAndFilters(
-            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, any()
+            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
         ) } returns page
 
         When("listTransactions is called for January 2024 without extended filters") {

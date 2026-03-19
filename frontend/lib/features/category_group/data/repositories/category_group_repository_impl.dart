@@ -29,10 +29,12 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
     String? icon,
     String? color,
     String? budgetType,
+    String visibility = 'SHARED',
   }) async {
     try {
       final data = <String, dynamic>{
         'name': name,
+        'visibility': visibility,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
         if (budgetType != null) 'budgetType': budgetType,

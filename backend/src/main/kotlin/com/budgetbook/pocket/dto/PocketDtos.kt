@@ -35,7 +35,9 @@ data class CreatePocketRequest(
     @field:Max(999_999_999)
     val goalAmount: Long? = null,
 
-    val targetDate: LocalDate? = null
+    val targetDate: LocalDate? = null,
+
+    val visibility: String? = "SHARED"
 )
 
 data class UpdatePocketRequest(
@@ -56,7 +58,9 @@ data class UpdatePocketRequest(
     @field:Max(999_999_999)
     val goalAmount: Long? = null,
 
-    val targetDate: LocalDate? = null
+    val targetDate: LocalDate? = null,
+
+    val visibility: String? = null
 )
 
 data class PocketResponse(
@@ -71,6 +75,8 @@ data class PocketResponse(
     val isActive: Boolean,
     val goalAmount: Long?,
     val targetDate: LocalDate?,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )

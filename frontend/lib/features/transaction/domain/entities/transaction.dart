@@ -18,6 +18,8 @@ class Transaction extends Equatable {
   final String? settlementDate;
   final String? pocketId;
   final String? pocketName;
+  final String visibility;
+  final String? ownerId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -37,12 +39,16 @@ class Transaction extends Equatable {
     this.settlementDate,
     this.pocketId,
     this.pocketName,
+    this.visibility = 'SHARED',
+    this.ownerId,
     required this.createdAt,
     required this.updatedAt,
   });
 
   bool get isIncome => type == 'INCOME';
   bool get isExpense => type == 'EXPENSE';
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   @override
   List<Object?> get props => [
@@ -61,6 +67,8 @@ class Transaction extends Equatable {
         settlementDate,
         pocketId,
         pocketName,
+        visibility,
+        ownerId,
         createdAt,
         updatedAt,
       ];

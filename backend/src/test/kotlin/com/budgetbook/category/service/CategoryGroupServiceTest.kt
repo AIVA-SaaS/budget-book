@@ -37,9 +37,10 @@ class CategoryGroupServiceTest : BehaviorSpec({
     val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository)
     val categoryGroupService = CategoryGroupService(
-        categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher
+        categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher, userRepository
     )
 
     val user1 = User(
@@ -74,10 +75,10 @@ class CategoryGroupServiceTest : BehaviorSpec({
         val category2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group1)
         val uncategorizedCategory = Category(couple = couple, name = "Custom", type = CategoryType.EXPENSE)
 
-        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group1, group2)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group1.id) } returns listOf(category1, category2)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group2.id) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNull(couple.id) } returns listOf(uncategorizedCategory)
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group1, group2)
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group1.id, any()) } returns listOf(category1, category2)
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group2.id, any()) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns listOf(uncategorizedCategory)
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
@@ -98,9 +99,9 @@ class CategoryGroupServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", displayOrder = 1, isDefault = true)
-        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNull(couple.id) } returns emptyList()
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group)
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, any()) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns emptyList()
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
@@ -171,7 +172,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
         )
         every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
         every { categoryGroupRepository.save(group) } returns group
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, any()) } returns emptyList()
 
         When("updateCategoryGroup is called") {
             val request = UpdateCategoryGroupRequest(name = "생활비/변동비", budgetType = "MONTHLY", displayOrder = 5)
@@ -271,7 +272,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
 
         every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group1, group2, group3)
         every { categoryGroupRepository.saveAll(any<List<CategoryGroup>>()) } answers { firstArg() }
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, any()) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, any(), any()) } returns emptyList()
 
         When("reorderGroups is called with reversed order") {
             val orderedIds = listOf(group3.id, group2.id, group1.id)

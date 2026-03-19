@@ -1,5 +1,6 @@
 package com.budgetbook.transaction.repository
 
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import jakarta.persistence.criteria.CriteriaBuilder
@@ -22,7 +23,8 @@ object TransactionSpecifications {
         paymentMethodId: UUID?,
         pocketId: UUID?,
         amountMin: Long?,
-        amountMax: Long?
+        amountMax: Long?,
+        userId: UUID? = null
     ): Specification<Transaction> {
         return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
@@ -56,6 +58,16 @@ object TransactionSpecifications {
 
             amountMax?.let {
                 predicates.add(cb.lessThanOrEqualTo(root.get("amount"), it))
+            }
+
+            // Visibility filter: SHARED or owned by current user
+            userId?.let { uid ->
+                predicates.add(
+                    cb.or(
+                        cb.equal(root.get<Visibility>("visibility"), Visibility.SHARED),
+                        cb.equal(root.get<Any>("owner").get<UUID>("id"), uid)
+                    )
+                )
             }
 
             cb.and(*predicates.toTypedArray())

@@ -47,6 +47,7 @@ class CategoryGroupBloc
         icon: event.icon,
         color: event.color,
         budgetType: event.budgetType,
+        visibility: event.visibility,
       );
       result.fold(
         (failure) => emit(CategoryGroupLoaded(currentGroups,

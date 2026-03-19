@@ -16,16 +16,18 @@ class CreateCategoryGroup extends CategoryGroupEvent {
   final String? icon;
   final String? color;
   final String? budgetType;
+  final String visibility;
 
   const CreateCategoryGroup({
     required this.name,
     this.icon,
     this.color,
     this.budgetType,
+    this.visibility = 'SHARED',
   });
 
   @override
-  List<Object?> get props => [name, icon, color, budgetType];
+  List<Object?> get props => [name, icon, color, budgetType, visibility];
 }
 
 class UpdateCategoryGroup extends CategoryGroupEvent {

@@ -30,7 +30,9 @@ data class BudgetRequest(
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
 
-    val pocketId: UUID? = null
+    val pocketId: UUID? = null,
+
+    val visibility: String? = "SHARED"
 )
 
 data class BudgetUpdateRequest(
@@ -50,7 +52,9 @@ data class BudgetUpdateRequest(
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
 
-    val pocketId: UUID? = null
+    val pocketId: UUID? = null,
+
+    val visibility: String? = null
 )
 
 data class BudgetResponse(
@@ -68,6 +72,8 @@ data class BudgetResponse(
     val endDate: String?,    // ISO date format (YYYY-MM-DD)
     val pocketId: UUID? = null,
     val pocketName: String? = null,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -143,6 +149,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     endDate = endDate?.toString(),
     pocketId = pocket?.id,
     pocketName = pocket?.name,
+    visibility = visibility.name,
+    ownerId = owner?.id,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

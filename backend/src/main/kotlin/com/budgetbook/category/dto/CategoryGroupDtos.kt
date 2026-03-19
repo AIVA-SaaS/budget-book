@@ -14,6 +14,8 @@ data class CategoryGroupResponse(
     val displayOrder: Int,
     val isDefault: Boolean,
     val categories: List<CategoryResponse>,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant
 )
 
@@ -23,7 +25,8 @@ data class CreateCategoryGroupRequest(
     val name: String,
     val icon: String? = null,
     val color: String? = null,
-    val budgetType: String = "MONTHLY"
+    val budgetType: String = "MONTHLY",
+    val visibility: String? = "SHARED"
 )
 
 data class UpdateCategoryGroupRequest(
@@ -32,7 +35,8 @@ data class UpdateCategoryGroupRequest(
     val icon: String? = null,
     val color: String? = null,
     val budgetType: String? = null,
-    val displayOrder: Int? = null
+    val displayOrder: Int? = null,
+    val visibility: String? = null
 )
 
 data class ReorderCategoryGroupRequest(

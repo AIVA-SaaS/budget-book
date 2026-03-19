@@ -87,7 +87,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             couple = couple, yearMonth = "2026-03", amount = 500000,
             budgetPeriod = BudgetPeriod.MONTHLY
         )
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(budget)
         every { snapshotRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
 
         // Mock SUM queries for each week (returns 0 for all)
@@ -95,7 +95,8 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
-            type = TransactionType.EXPENSE
+            type = TransactionType.EXPENSE,
+            userId = any()
         ) } returns 0L
 
         When("getWeeklyOverview is called") {
@@ -122,7 +123,7 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             budgetAmount = 100000, spentAmount = 80000, status = WeeklyStatus.UNDER
         )
         every { snapshotRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(snapshot)
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(
             MonthlyBudget(couple = couple, yearMonth = "2026-03", amount = 500000)
         )
 
@@ -130,7 +131,8 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
-            type = TransactionType.EXPENSE
+            type = TransactionType.EXPENSE,
+            userId = any()
         ) } returns 0L
 
         When("getWeeklyOverview is called") {
@@ -173,14 +175,15 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
             amount = 400000, budgetPeriod = BudgetPeriod.WEEKLY,
             weeklyAmount = 400000L / weekRanges.size
         )
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth) } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, any()) } returns listOf(budget)
 
         every { transactionRepository.sumAmountGroupedByCategoryId(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
             type = TransactionType.EXPENSE,
-            categoryIds = setOf(category1.id)
+            categoryIds = setOf(category1.id),
+            userId = any()
         ) } returns listOf(arrayOf(category1.id as Any, 15000L as Any))
 
         When("getCurrentWeekSummary is called") {

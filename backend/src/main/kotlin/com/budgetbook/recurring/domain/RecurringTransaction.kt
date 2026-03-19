@@ -3,6 +3,7 @@ package com.budgetbook.recurring.domain
 import com.budgetbook.auth.domain.User
 import com.budgetbook.category.domain.Category
 import com.budgetbook.common.entity.BaseTimeEntity
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.transaction.domain.TransactionType
@@ -69,7 +70,11 @@ class RecurringTransaction(
     var lastRunDate: LocalDate? = null,
 
     @Column(name = "is_active", nullable = false)
-    var isActive: Boolean = true
+    var isActive: Boolean = true,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false, length = 10)
+    var visibility: Visibility = Visibility.SHARED
 ) : BaseTimeEntity()
 
 enum class Frequency { DAILY, WEEKLY, MONTHLY, YEARLY }

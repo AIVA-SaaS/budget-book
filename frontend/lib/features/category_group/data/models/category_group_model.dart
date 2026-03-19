@@ -11,6 +11,8 @@ class CategoryGroupModel extends CategoryGroup {
     required super.displayOrder,
     required super.isDefault,
     required super.categories,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
   });
 
@@ -27,6 +29,8 @@ class CategoryGroupModel extends CategoryGroup {
       categories: categoriesJson
           .map((e) => CategoryModel.fromJson(e as Map<String, dynamic>))
           .toList(),
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

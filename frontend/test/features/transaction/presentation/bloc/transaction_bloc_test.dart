@@ -76,6 +76,7 @@ class MockTransactionRepository extends Mock
     String? memo,
     String? paymentMethodId,
     String? pocketId,
+    String visibility = 'SHARED',
   }) =>
       super.noSuchMethod(
         Invocation.method(#createTransaction, [], {
@@ -87,6 +88,7 @@ class MockTransactionRepository extends Mock
           #memo: memo,
           #paymentMethodId: paymentMethodId,
           #pocketId: pocketId,
+          #visibility: visibility,
         }),
         returnValue: Future.value(
           Right<Failure, Transaction>(_dummyTransaction),

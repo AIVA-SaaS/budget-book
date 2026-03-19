@@ -95,6 +95,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 7),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(listOf(tx1, tx2, tx3))
@@ -114,7 +115,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 7),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(80000L, 2L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -127,7 +129,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 2, 1),
                     LocalDate.of(2026, 2, 28),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(200000L, 8L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -189,6 +192,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 14),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(emptyList())
@@ -201,7 +205,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 8),
                     LocalDate.of(2026, 3, 14),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -210,7 +215,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 2, 8),
                     LocalDate.of(2026, 3, 7),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -222,6 +228,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 1, 14),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(emptyList())
@@ -233,7 +240,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 1, 8),
                     LocalDate.of(2026, 1, 14),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -242,7 +250,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2025, 12, 11),
                     LocalDate.of(2026, 1, 7),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -281,7 +290,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 5000000L, 10L),
@@ -303,7 +313,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(800000L, 12L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -315,7 +326,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 2, 1),
-                    LocalDate.of(2026, 2, 28)
+                    LocalDate.of(2026, 2, 28),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 4000000L, 8L),
@@ -328,7 +340,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 2, 1),
                     LocalDate.of(2026, 2, 28),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(600000L, 10L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -358,6 +371,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(listOf(expenseTx))
@@ -421,7 +435,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 3000000L, 5L),
@@ -436,7 +451,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 1, 1),
                     LocalDate.of(2026, 1, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -445,7 +461,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2025, 12, 1),
-                    LocalDate.of(2025, 12, 31)
+                    LocalDate.of(2025, 12, 31),
+                    any()
                 )
             } returns emptyList()
 
@@ -454,7 +471,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2025, 12, 1),
                     LocalDate.of(2025, 12, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -473,6 +491,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 1, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(emptyList())

@@ -23,7 +23,7 @@ class PaymentMethodStatisticsService(
 
         // Single aggregation query with GROUP BY payment_method_id
         val results = transactionRepository.sumByPaymentMethodForCouple(
-            couple.id, startDate, endDate
+            couple.id, startDate, endDate, userId
         )
 
         if (results.isEmpty()) return emptyList()
