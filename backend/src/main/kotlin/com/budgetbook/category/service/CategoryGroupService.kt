@@ -35,6 +35,8 @@ class CategoryGroupService(
     private val userRepository: UserRepository
 ) : CoupleAwareService {
 
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
+
     @Transactional
     fun listCategoryGroups(userId: UUID): List<CategoryGroupResponse> {
         val couple = getActiveCouple(userId)
@@ -258,14 +260,19 @@ class CategoryGroupService(
      * Auto-seeds for existing couples that were created before the visibility feature.
      */
     private fun ensurePrivateGroupExists(couple: Couple, userId: UUID) {
-        val hasPrivateGroup = categoryGroupRepository
-            .findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
-            .any { it.visibility == Visibility.PRIVATE && it.owner?.id == userId }
+        try {
+            val hasPrivateGroup = categoryGroupRepository
+                .findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
+                .any { it.visibility == Visibility.PRIVATE && it.owner?.id == userId }
 
-        if (!hasPrivateGroup) {
-            val user = userRepository.findById(userId).orElse(null) ?: return
-            val group = seedPrivateCategoryGroup(couple, user)
-            categoryService.seedPrivateCategories(couple, user, group)
+            if (!hasPrivateGroup) {
+                val user = userRepository.findById(userId).orElse(null) ?: return
+                val group = seedPrivateCategoryGroup(couple, user)
+                categoryService.seedPrivateCategories(couple, user, group)
+            }
+        } catch (e: Exception) {
+            // Silently ignore seeding failures (e.g. constraint violations during concurrent access)
+            log.warn("Failed to auto-seed private categories for userId={}: {}", userId, e.message)
         }
     }
 
