@@ -6,6 +6,7 @@ import com.budgetbook.common.ratelimit.RateLimiter
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
+import com.budgetbook.couple.dto.InvitationStatusResponse
 import com.budgetbook.couple.service.CoupleService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
@@ -34,6 +35,11 @@ class CoupleController(
     fun createInvitation(@AuthUser userId: UUID): ResponseEntity<ApiResponse<InvitationResponse>> {
         val result = coupleService.createInvitation(userId)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    @GetMapping("/invitations/me")
+    fun getMyInvitation(@AuthUser userId: UUID): ApiResponse<InvitationStatusResponse> {
+        return ApiResponse.ok(coupleService.getMyInvitation(userId))
     }
 
     @PostMapping("/invitations/{code}/accept")

@@ -12,6 +12,7 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
     on<GenerateInvitation>(_onGenerateInvitation);
     on<AcceptInvitation>(_onAcceptInvitation);
     on<DissolveCouple>(_onDissolveCouple);
+    on<CheckInvitationStatus>(_onCheckInvitationStatus);
   }
 
   Future<void> _onLoadCouple(
@@ -64,6 +65,49 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
       result.fold(
         (failure) => emit(CoupleError(failure.message)),
         (couple) => emit(CoupleLinked(couple)),
+      );
+    } catch (_) {
+      emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onCheckInvitationStatus(
+    CheckInvitationStatus event,
+    Emitter<CoupleState> emit,
+  ) async {
+    try {
+      emit(const CoupleLoading());
+
+      // First try to get couple — if already linked, go directly to CoupleLinked
+      final coupleResult = await coupleRepository.getMyCouple();
+      final coupleHandled = coupleResult.fold(
+        (failure) => false,
+        (couple) {
+          emit(CoupleLinked(couple));
+          return true;
+        },
+      );
+      if (coupleHandled) return;
+
+      // Couple not found — check invitation status
+      final invResult = await coupleRepository.getMyInvitation();
+      invResult.fold(
+        (failure) {
+          // No invitation found (404) — user has no pending invitation
+          emit(const CoupleNotLinked());
+        },
+        (invitation) {
+          final status = invitation.status;
+          if (status == 'ACCEPTED') {
+            // Just linked — reload couple
+            add(const LoadCouple());
+          } else if (status == 'EXPIRED') {
+            emit(CoupleInvitationExpired(invitation));
+          } else {
+            // PENDING or other
+            emit(CoupleInvitationPending(invitation));
+          }
+        },
       );
     } catch (_) {
       emit(const CoupleError('예기치 않은 오류가 발생했습니다'));
