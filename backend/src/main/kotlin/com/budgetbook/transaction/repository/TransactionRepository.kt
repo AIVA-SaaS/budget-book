@@ -19,6 +19,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND (:type IS NULL OR t.type = :type)
         AND (:categoryId IS NULL OR t.category.id = :categoryId)
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         ORDER BY t.transactionDate DESC, t.createdAt DESC
     """)
     fun findByCoupleIdAndFilters(
@@ -27,6 +28,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("endDate") endDate: LocalDate,
         @Param("type") type: TransactionType?,
         @Param("categoryId") categoryId: UUID?,
+        @Param("userId") userId: UUID,
         pageable: Pageable
     ): Page<Transaction>
 
@@ -35,12 +37,14 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.couple.id = :coupleId
         AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         GROUP BY t.type
     """)
     fun sumByTypeForCouple(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
-        @Param("endDate") endDate: LocalDate
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 
     @Query("""
@@ -51,6 +55,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
         AND t.category IS NOT NULL
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         GROUP BY t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color
         ORDER BY SUM(t.amount) DESC
     """)
@@ -58,7 +63,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("type") type: TransactionType
+        @Param("type") type: TransactionType,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 
     @Query(
@@ -67,6 +73,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
             FROM transactions t
             WHERE t.couple_id = :coupleId
             AND t.transaction_date BETWEEN :startDate AND :endDate
+            AND (t.visibility = 'SHARED' OR t.owner_id = CAST(:userId AS UUID))
             GROUP BY ym, t.type
             ORDER BY ym
         """,
@@ -75,7 +82,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     fun monthlyTrendForCouple(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
-        @Param("endDate") endDate: LocalDate
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 
     @Query("""
@@ -84,12 +92,14 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         WHERE t.couple.id = :coupleId
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
     fun sumAmountByCoupleIdAndDateRange(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("type") type: TransactionType
+        @Param("type") type: TransactionType,
+        @Param("userId") userId: UUID
     ): Long
 
     @Query("""
@@ -99,13 +109,15 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
         AND t.category.id IN :categoryIds
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
     fun sumAmountByCoupleIdAndDateRangeAndCategories(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
         @Param("type") type: TransactionType,
-        @Param("categoryIds") categoryIds: Set<UUID>
+        @Param("categoryIds") categoryIds: Set<UUID>,
+        @Param("userId") userId: UUID
     ): Long
 
     @Query("""
@@ -149,13 +161,15 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND t.paymentMethod IS NOT NULL
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         GROUP BY t.paymentMethod.id, t.paymentMethod.name
         ORDER BY SUM(t.amount) DESC
     """)
     fun sumByPaymentMethodForCouple(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
-        @Param("endDate") endDate: LocalDate
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 
     @Query("""
@@ -165,13 +179,15 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
         AND t.category.group.id = :groupId
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
     fun sumAmountByGroupAndDateRange(
         @Param("coupleId") coupleId: UUID,
         @Param("groupId") groupId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("type") type: TransactionType
+        @Param("type") type: TransactionType,
+        @Param("userId") userId: UUID
     ): Long
 
     @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
@@ -187,6 +203,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
         AND t.category.id IN :categoryIds
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         GROUP BY t.category.id
     """)
     fun sumAmountGroupedByCategoryId(
@@ -194,6 +211,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
         @Param("type") type: TransactionType,
-        @Param("categoryIds") categoryIds: Set<UUID>
+        @Param("categoryIds") categoryIds: Set<UUID>,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 }

@@ -423,98 +423,147 @@ class _BudgetListPageState extends State<BudgetListPage> {
   Widget _buildBudgetList(BuildContext context, BudgetLoaded state) {
     final numberFormat = NumberFormat('#,###');
     final summaryItems = state.summary?.items ?? [];
+    final sharedBudgets = state.budgets.where((b) => b.isShared).toList();
+    final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
 
-    return ListView.builder(
-      itemCount: state.budgets.length,
-      itemBuilder: (context, index) {
-        final budget = state.budgets[index];
-        final summaryItem = _findSummaryItem(summaryItems, budget);
-        final usageRate = summaryItem?.usageRate ?? 0.0;
-        final spentAmount = summaryItem?.spentAmount ?? 0;
+    final allItems = <Widget>[];
 
-        return Dismissible(
-          key: Key(budget.id),
-          direction: DismissDirection.endToStart,
-          confirmDismiss: (direction) async {
-            return await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('예산 삭제'),
-                content: Text(
-                  '${budget.targetLabel}을(를) 삭제하시겠습니까?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('취소'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('삭제'),
-                  ),
-                ],
+    // Shared budgets
+    for (final budget in sharedBudgets) {
+      allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+    }
+
+    // Private budgets section
+    if (privateBudgets.isNotEmpty) {
+      allItems.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.lock, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                '내 개인 예산',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
               ),
-            );
-          },
-          onDismissed: (_) {
-            context.read<BudgetBloc>().add(DeleteBudget(budget.id));
-          },
-          background: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 16),
-            child: const Icon(Icons.delete, color: Colors.white),
+            ],
           ),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: _getCategoryColor(budget.category?.color),
-              child: Icon(
-                _getCategoryIcon(budget.category?.icon),
-                color: Colors.white,
-                size: 20,
+        ),
+      );
+      for (final budget in privateBudgets) {
+        allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+      }
+    }
+
+    return ListView(children: allItems);
+  }
+
+  Widget _buildBudgetTile(
+    BuildContext context,
+    Budget budget,
+    List<BudgetSummaryItem> summaryItems,
+    NumberFormat numberFormat,
+  ) {
+    final summaryItem = _findSummaryItem(summaryItems, budget);
+    final usageRate = summaryItem?.usageRate ?? 0.0;
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+
+    return Dismissible(
+      key: Key(budget.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('예산 삭제'),
+            content: Text(
+              '${budget.targetLabel}을(를) 삭제하시겠습니까?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('취소'),
               ),
-            ),
-            title: Text(budget.targetLabel),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (usageRate.clamp(0.0, 100.0)) / 100.0,
-                    minHeight: 6,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    color: _getProgressColor(usageRate),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.amount)}원 (${usageRate.toStringAsFixed(1)}%)',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            trailing: Text(
-              '${numberFormat.format(budget.amount)}원',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            onTap: () {
-              final state = context.read<BudgetBloc>().state;
-              final year =
-                  state is BudgetLoaded ? state.year : DateTime.now().year;
-              final month =
-                  state is BudgetLoaded ? state.month : DateTime.now().month;
-              context
-                  .push('/budgets/edit/${budget.id}?year=$year&month=$month');
-            },
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('삭제'),
+              ),
+            ],
           ),
         );
       },
+      onDismissed: (_) {
+        context.read<BudgetBloc>().add(DeleteBudget(budget.id));
+      },
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _getCategoryColor(budget.category?.color),
+          child: Icon(
+            _getCategoryIcon(budget.category?.icon),
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Row(
+          children: [
+            if (budget.isPrivate) ...[
+              Icon(
+                Icons.lock,
+                size: 14,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Expanded(child: Text(budget.targetLabel)),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (usageRate.clamp(0.0, 100.0)) / 100.0,
+                minHeight: 6,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                color: _getProgressColor(usageRate),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.amount)}원 (${usageRate.toStringAsFixed(1)}%)',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        trailing: Text(
+          '${numberFormat.format(budget.amount)}원',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        onTap: () {
+          final state = context.read<BudgetBloc>().state;
+          final year =
+              state is BudgetLoaded ? state.year : DateTime.now().year;
+          final month =
+              state is BudgetLoaded ? state.month : DateTime.now().month;
+          context
+              .push('/budgets/edit/${budget.id}?year=$year&month=$month');
+        },
+      ),
     );
   }
 

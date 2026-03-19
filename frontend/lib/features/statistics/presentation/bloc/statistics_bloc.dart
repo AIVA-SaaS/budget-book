@@ -20,6 +20,14 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     on<LoadMonthlyTrend>(_onLoadMonthlyTrend);
     on<LoadYearComparison>(_onLoadYearComparison);
     on<LoadPaymentMethodStats>(_onLoadPaymentMethodStats);
+    on<ChangeVisibilityFilter>(_onChangeVisibilityFilter);
+  }
+
+  void _onChangeVisibilityFilter(
+    ChangeVisibilityFilter event,
+    Emitter<StatisticsState> emit,
+  ) {
+    emit(state.copyWith(visibilityFilter: event.visibility));
   }
 
   Future<void> _onLoadAll(

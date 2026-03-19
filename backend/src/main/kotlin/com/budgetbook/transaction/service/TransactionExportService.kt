@@ -54,7 +54,8 @@ class TransactionExportService(
             paymentMethodId = null,
             pocketId = null,
             amountMin = null,
-            amountMax = null
+            amountMax = null,
+            userId = userId
         )
 
         val sort = Sort.by(Sort.Order.asc("transactionDate"), Sort.Order.asc("createdAt"))

@@ -3,6 +3,7 @@ package com.budgetbook.transaction.domain
 import com.budgetbook.auth.domain.User
 import com.budgetbook.category.domain.Category
 import com.budgetbook.common.entity.BaseTimeEntity
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.pocket.domain.MoneyPocket
@@ -60,7 +61,15 @@ class Transaction(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pocket_id")
-    var pocket: MoneyPocket? = null
+    var pocket: MoneyPocket? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false, length = 10)
+    var visibility: Visibility = Visibility.SHARED,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    var owner: User? = null
 ) : BaseTimeEntity()
 
 enum class TransactionType { INCOME, EXPENSE }

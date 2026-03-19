@@ -67,6 +67,14 @@ class RecurringListTile extends StatelessWidget {
         ),
         title: Row(
           children: [
+            if (transaction.isPrivate) ...[
+              Icon(
+                Icons.lock,
+                size: 14,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 4),
+            ],
             Flexible(
               child: Text(
                 transaction.description,

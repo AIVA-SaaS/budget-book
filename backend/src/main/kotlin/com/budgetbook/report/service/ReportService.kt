@@ -55,6 +55,7 @@ class ReportService(
             endDate = weekEnd,
             type = TransactionType.EXPENSE,
             categoryId = null,
+            userId = userId,
             pageable = PageRequest.of(0, MAX_TRANSACTIONS_PER_QUERY)
         ).content
 
@@ -81,7 +82,7 @@ class ReportService(
         val prevStart = weekStart.minusDays(28)
         val prevEnd = weekStart.minusDays(1)
         val topOverspendCategories = calculateCategorySpending(
-            couple.id, weekStart, weekEnd, prevStart, prevEnd
+            couple.id, weekStart, weekEnd, prevStart, prevEnd, userId
         )
 
         // Daily spending breakdown
@@ -118,7 +119,7 @@ class ReportService(
         val yearMonthStr = yearMonth.toString()
 
         // Get income/expense totals
-        val typeResults = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate)
+        val typeResults = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId)
         var totalIncome = 0L
         var totalExpense = 0L
         for (row in typeResults) {
@@ -132,14 +133,14 @@ class ReportService(
         val balance = totalIncome - totalExpense
 
         // Group summaries
-        val groupSummaries = calculateGroupSummaries(couple.id, yearMonthStr, startDate, endDate)
+        val groupSummaries = calculateGroupSummaries(couple.id, yearMonthStr, startDate, endDate, userId)
 
         // Top 5 categories by amount
-        val topCategories = calculateTopCategories(couple.id, startDate, endDate, year, month)
+        val topCategories = calculateTopCategories(couple.id, startDate, endDate, year, month, userId)
 
         // Previous month comparison
         val previousMonthComparison = calculatePreviousMonthComparison(
-            couple.id, yearMonth, totalIncome, totalExpense
+            couple.id, yearMonth, totalIncome, totalExpense, userId
         )
 
         // Card pending summary
@@ -152,6 +153,7 @@ class ReportService(
             endDate = endDate,
             type = TransactionType.EXPENSE,
             categoryId = null,
+            userId = userId,
             pageable = PageRequest.of(0, MAX_TRANSACTIONS_PER_QUERY)
         ).content
 
@@ -226,16 +228,17 @@ class ReportService(
         weekStart: LocalDate,
         weekEnd: LocalDate,
         prevStart: LocalDate,
-        prevEnd: LocalDate
+        prevEnd: LocalDate,
+        userId: UUID
     ): List<CategorySpendingItem> {
         // Current week spending by category
         val currentResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, weekStart, weekEnd, TransactionType.EXPENSE
+            coupleId, weekStart, weekEnd, TransactionType.EXPENSE, userId
         )
 
         // Previous 4 weeks spending by category (for average)
         val prevResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, prevStart, prevEnd, TransactionType.EXPENSE
+            coupleId, prevStart, prevEnd, TransactionType.EXPENSE, userId
         )
         val prevMap = prevResults.associate { row ->
             val catId = row[2] as UUID
@@ -295,14 +298,15 @@ class ReportService(
         coupleId: UUID,
         yearMonth: String,
         startDate: LocalDate,
-        endDate: LocalDate
+        endDate: LocalDate,
+        userId: UUID
     ): List<GroupSpendingSummary> {
         val groups = categoryGroupRepository.findByCoupleId(coupleId)
         val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
 
         // Fetch all category expenses once, then filter in-memory per group
         val allCategoryExpenses = transactionRepository.sumByCategoryForCouple(
-            coupleId, startDate, endDate, TransactionType.EXPENSE
+            coupleId, startDate, endDate, TransactionType.EXPENSE, userId
         )
         val expenseByCategoryId = allCategoryExpenses.associate { row ->
             (row[2] as UUID) to (row[0] as Long)
@@ -341,10 +345,11 @@ class ReportService(
         startDate: LocalDate,
         endDate: LocalDate,
         year: Int,
-        month: Int
+        month: Int,
+        userId: UUID
     ): List<CategorySpendingItem> {
         val currentResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, startDate, endDate, TransactionType.EXPENSE
+            coupleId, startDate, endDate, TransactionType.EXPENSE, userId
         )
 
         // Previous month for average comparison
@@ -352,7 +357,7 @@ class ReportService(
         val prevStart = prevMonth.atDay(1)
         val prevEnd = prevMonth.atEndOfMonth()
         val prevResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, prevStart, prevEnd, TransactionType.EXPENSE
+            coupleId, prevStart, prevEnd, TransactionType.EXPENSE, userId
         )
         val prevMap = prevResults.associate { row ->
             val catId = row[2] as UUID
@@ -391,13 +396,14 @@ class ReportService(
         coupleId: UUID,
         currentMonth: YearMonth,
         currentIncome: Long,
-        currentExpense: Long
+        currentExpense: Long,
+        userId: UUID
     ): MonthComparisonResponse? {
         val prevMonth = currentMonth.minusMonths(1)
         val prevStart = prevMonth.atDay(1)
         val prevEnd = prevMonth.atEndOfMonth()
 
-        val prevResults = transactionRepository.sumByTypeForCouple(coupleId, prevStart, prevEnd)
+        val prevResults = transactionRepository.sumByTypeForCouple(coupleId, prevStart, prevEnd, userId)
 
         if (prevResults.isEmpty()) return null
 

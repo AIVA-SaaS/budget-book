@@ -19,6 +19,8 @@ class TransactionModel extends Transaction {
     super.settlementDate,
     super.pocketId,
     super.pocketName,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -44,6 +46,8 @@ class TransactionModel extends Transaction {
       settlementDate: json['settlementDate'] as String?,
       pocketId: json['pocketId'] as String?,
       pocketName: json['pocketName'] as String?,
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

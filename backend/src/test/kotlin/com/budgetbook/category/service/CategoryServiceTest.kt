@@ -37,7 +37,8 @@ class CategoryServiceTest : BehaviorSpec({
     val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository)
 
     val user1 = User(
         email = "user1@example.com",
@@ -61,8 +62,8 @@ class CategoryServiceTest : BehaviorSpec({
         val category1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         val category2 = Category(couple = couple, name = "급여", type = CategoryType.INCOME, isDefault = true)
 
-        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category1, category2)
-        every { categoryRepository.findByCoupleIdAndType(couple.id, CategoryType.EXPENSE) } returns listOf(category1)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, user1.id) } returns listOf(category1, category2)
+        every { categoryRepository.findByCoupleIdAndTypeAndUserId(couple.id, CategoryType.EXPENSE, user1.id) } returns listOf(category1)
 
         When("listCategories is called without type filter") {
             val result = categoryService.listCategories(user1.id, null)

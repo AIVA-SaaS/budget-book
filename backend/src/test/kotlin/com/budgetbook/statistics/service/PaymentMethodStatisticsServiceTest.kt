@@ -39,7 +39,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
             transactionRepository.sumByPaymentMethodForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
-                LocalDate.of(2026, 3, 31)
+                LocalDate.of(2026, 3, 31),
+                any()
             )
         } returns listOf(
             arrayOf(pmId1, "Shinhan Card", 800000L, 20L),
@@ -78,7 +79,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
             transactionRepository.sumByPaymentMethodForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
-                LocalDate.of(2026, 3, 31)
+                LocalDate.of(2026, 3, 31),
+                any()
             )
         } returns emptyList()
 
@@ -98,7 +100,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
             transactionRepository.sumByPaymentMethodForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
-                LocalDate.of(2026, 3, 31)
+                LocalDate.of(2026, 3, 31),
+                any()
             )
         } returns listOf(
             arrayOf(pmId1, "KB Card", 500000L, 30L)
@@ -138,7 +141,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
             transactionRepository.sumByPaymentMethodForCouple(
                 couple.id,
                 LocalDate.of(2026, 3, 1),
-                LocalDate.of(2026, 3, 31)
+                LocalDate.of(2026, 3, 31),
+                any()
             )
         } returns listOf(
             arrayOf(pmId1, "Card A", 700000L, 10L),

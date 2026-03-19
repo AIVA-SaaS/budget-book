@@ -10,6 +10,8 @@ class CategoryGroup extends Equatable {
   final int displayOrder;
   final bool isDefault;
   final List<Category> categories;
+  final String visibility;
+  final String? ownerId;
   final DateTime createdAt;
 
   const CategoryGroup({
@@ -21,11 +23,15 @@ class CategoryGroup extends Equatable {
     required this.displayOrder,
     required this.isDefault,
     required this.categories,
+    this.visibility = 'SHARED',
+    this.ownerId,
     required this.createdAt,
   });
 
   bool get isWeekly => budgetType == 'WEEKLY';
   bool get isMonthly => budgetType == 'MONTHLY';
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   @override
   List<Object?> get props => [
@@ -37,6 +43,8 @@ class CategoryGroup extends Equatable {
         displayOrder,
         isDefault,
         categories,
+        visibility,
+        ownerId,
         createdAt,
       ];
 }

@@ -42,7 +42,8 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 5000000L, 10L),
@@ -65,7 +66,8 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any()
                 )
             } returns emptyList()
 
@@ -107,7 +109,8 @@ class StatisticsServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(800000L, 12L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -134,7 +137,8 @@ class StatisticsServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -167,7 +171,8 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.monthlyTrendForCouple(
                     couple.id,
                     startMonth.atDay(1),
-                    now.atEndOfMonth()
+                    now.atEndOfMonth(),
+                    any()
                 )
             } returns listOf(
                 arrayOf(startMonth.toString(), "INCOME", 4000000L),
@@ -205,7 +210,8 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.monthlyTrendForCouple(
                     couple.id,
                     startMonth.atDay(1),
-                    now.atEndOfMonth()
+                    now.atEndOfMonth(),
+                    any()
                 )
             } returns emptyList()
 

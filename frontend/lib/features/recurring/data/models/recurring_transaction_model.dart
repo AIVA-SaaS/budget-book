@@ -17,6 +17,8 @@ class RecurringTransactionModel extends RecurringTransaction {
     super.categoryName,
     super.paymentMethodId,
     super.paymentMethodName,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
   });
 
@@ -37,6 +39,8 @@ class RecurringTransactionModel extends RecurringTransaction {
       categoryName: json['categoryName'] as String?,
       paymentMethodId: json['paymentMethodId'] as String?,
       paymentMethodName: json['paymentMethodName'] as String?,
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

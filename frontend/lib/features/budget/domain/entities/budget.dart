@@ -16,6 +16,8 @@ class Budget extends Equatable {
   final String periodType;
   final DateTime? startDate;
   final DateTime? endDate;
+  final String visibility;
+  final String? ownerId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -34,6 +36,8 @@ class Budget extends Equatable {
     this.periodType = 'MONTHLY',
     this.startDate,
     this.endDate,
+    this.visibility = 'SHARED',
+    this.ownerId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -44,6 +48,9 @@ class Budget extends Equatable {
     if (groupName != null) return '$groupName (그룹)';
     return '전체 예산';
   }
+
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   @override
   List<Object?> get props => [
@@ -61,6 +68,8 @@ class Budget extends Equatable {
         periodType,
         startDate,
         endDate,
+        visibility,
+        ownerId,
         createdAt,
         updatedAt,
       ];

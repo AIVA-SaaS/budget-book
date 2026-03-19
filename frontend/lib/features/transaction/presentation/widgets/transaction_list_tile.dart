@@ -50,10 +50,24 @@ class TransactionListTile extends StatelessWidget {
             size: 20,
           ),
         ),
-        title: Text(
-          transaction.description,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          children: [
+            if (transaction.isPrivate) ...[
+              Icon(
+                Icons.lock,
+                size: 14,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Text(
+                transaction.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
         subtitle: Row(
           children: [

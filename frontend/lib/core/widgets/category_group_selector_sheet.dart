@@ -13,11 +13,15 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 
 /// Hierarchical category selector: groups -> sub-categories.
 /// Groups are expandable headers, only sub-categories are selectable.
+/// Groups are separated into SHARED and PRIVATE sections.
 class CategoryGroupSelectorSheet extends StatefulWidget {
   final String? selectedCategoryId;
   final String categoryType; // 'INCOME' or 'EXPENSE'
   final ValueChanged<Category?> onSelected;
   final ValueChanged<String>? onDelete;
+  /// Called when a category's visibility affects the parent form.
+  /// Passes the visibility of the selected category ('SHARED' or 'PRIVATE').
+  final ValueChanged<String>? onVisibilityChanged;
 
   const CategoryGroupSelectorSheet({
     super.key,
@@ -25,6 +29,7 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     required this.categoryType,
     required this.onSelected,
     this.onDelete,
+    this.onVisibilityChanged,
   });
 
   @override
@@ -118,9 +123,52 @@ class _CategoryGroupSelectorSheetState
   }
 
   Widget _buildGroupList(BuildContext context, List<CategoryGroup> groups) {
+    final sharedGroups = groups.where((g) => g.isShared).toList();
+    final privateGroups = groups.where((g) => g.isPrivate).toList();
+
     final List<Widget> children = [];
 
-    for (final group in groups) {
+    // Shared section
+    for (final group in sharedGroups) {
+      final filteredCategories = group.categories
+          .where((c) => c.type == widget.categoryType)
+          .toList();
+
+      final isExpanded = _expandedGroupIds.contains(group.id);
+
+      children.add(_buildGroupSection(
+        context,
+        group,
+        filteredCategories,
+        isExpanded,
+      ));
+    }
+
+    // Private section header
+    if (privateGroups.isNotEmpty) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.lock, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                '내 개인 카테고리',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+      children.add(const Divider(height: 1));
+    }
+
+    // Private groups
+    for (final group in privateGroups) {
       final filteredCategories = group.categories
           .where((c) => c.type == widget.categoryType)
           .toList();
@@ -155,6 +203,29 @@ class _CategoryGroupSelectorSheetState
           ),
         ),
         onTap: () => _showAddGroupDialog(context),
+      ),
+    );
+
+    // Add private category group button
+    children.add(
+      ListTile(
+        leading: CircleAvatar(
+          backgroundColor:
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+          child: Icon(
+            Icons.lock_outline,
+            color: Theme.of(context).colorScheme.secondary,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          '+ 개인 그룹 추가',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.secondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
       ),
     );
 
@@ -195,7 +266,7 @@ class _CategoryGroupSelectorSheetState
                   radius: 16,
                   backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(
-                    Icons.folder,
+                    group.isPrivate ? Icons.lock : Icons.folder,
                     color: color,
                     size: 18,
                   ),
@@ -205,11 +276,23 @@ class _CategoryGroupSelectorSheetState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        group.name,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
+                      Row(
+                        children: [
+                          Text(
+                            group.name,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          if (group.isPrivate) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.lock,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
+                          ],
+                        ],
                       ),
                       if (categories.isEmpty)
                         Text(
@@ -330,22 +413,26 @@ class _CategoryGroupSelectorSheetState
         ),
         onTap: () {
           widget.onSelected(category);
+          // Notify parent about the visibility of the selected category
+          widget.onVisibilityChanged?.call(category.visibility);
           Navigator.of(context).pop();
         },
       ),
     );
   }
 
-  Future<void> _showAddGroupDialog(BuildContext context) async {
+  Future<void> _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) async {
     _groupNameController.clear();
+    final isPrivate = visibility == 'PRIVATE';
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('그룹 추가'),
+        title: Text(isPrivate ? '개인 그룹 추가' : '그룹 추가'),
         content: TextField(
           controller: _groupNameController,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '그룹 이름',
+            prefixIcon: isPrivate ? const Icon(Icons.lock_outline) : null,
           ),
           autofocus: true,
         ),
@@ -367,7 +454,10 @@ class _CategoryGroupSelectorSheetState
       ),
     );
     if (name != null && context.mounted) {
-      getIt<CategoryGroupBloc>().add(CreateCategoryGroup(name: name));
+      getIt<CategoryGroupBloc>().add(CreateCategoryGroup(
+        name: name,
+        visibility: visibility,
+      ));
     }
   }
 
@@ -407,6 +497,7 @@ class _CategoryGroupSelectorSheetState
         name: name,
         type: widget.categoryType,
         groupId: group.id,
+        visibility: group.visibility,
       ));
     }
   }

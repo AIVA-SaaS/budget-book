@@ -1,6 +1,8 @@
 package com.budgetbook.pocket.domain
 
+import com.budgetbook.auth.domain.User
 import com.budgetbook.common.entity.BaseTimeEntity
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.couple.domain.Couple
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -50,5 +52,13 @@ class MoneyPocket(
     var goalAmount: Long? = null,
 
     @Column(name = "target_date")
-    var targetDate: LocalDate? = null
+    var targetDate: LocalDate? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false, length = 10)
+    var visibility: Visibility = Visibility.SHARED,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    var owner: User? = null
 ) : BaseTimeEntity()

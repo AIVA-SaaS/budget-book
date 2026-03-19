@@ -17,6 +17,8 @@ class BudgetModel extends Budget {
     super.periodType,
     super.startDate,
     super.endDate,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -44,6 +46,8 @@ class BudgetModel extends Budget {
       endDate: json['endDate'] != null
           ? DateTime.parse(json['endDate'] as String)
           : null,
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

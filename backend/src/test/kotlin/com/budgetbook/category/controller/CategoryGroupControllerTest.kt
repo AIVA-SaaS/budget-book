@@ -26,11 +26,11 @@ class CategoryGroupControllerTest : FunSpec({
         val groups = listOf(
             CategoryGroupResponse(
                 UUID.randomUUID(), "생활비", "wallet", "#4CAF50", "WEEKLY",
-                1, true, emptyList(), Instant.now()
+                1, true, emptyList(), createdAt = Instant.now()
             ),
             CategoryGroupResponse(
                 UUID.randomUUID(), "고정지출", "receipt", "#2196F3", "MONTHLY",
-                2, true, emptyList(), Instant.now()
+                2, true, emptyList(), createdAt = Instant.now()
             )
         )
         every { categoryGroupService.listCategoryGroups(testUserId) } returns groups
@@ -47,7 +47,7 @@ class CategoryGroupControllerTest : FunSpec({
         val request = CreateCategoryGroupRequest(name = "투자", icon = "trending_up", color = "#FF9800", budgetType = "MONTHLY")
         val response = CategoryGroupResponse(
             UUID.randomUUID(), "투자", "trending_up", "#FF9800", "MONTHLY",
-            0, false, emptyList(), Instant.now()
+            0, false, emptyList(), createdAt = Instant.now()
         )
         every { categoryGroupService.createCategoryGroup(testUserId, request) } returns response
 
@@ -63,7 +63,7 @@ class CategoryGroupControllerTest : FunSpec({
         val request = UpdateCategoryGroupRequest(name = "생활비/변동비")
         val response = CategoryGroupResponse(
             groupId, "생활비/변동비", "wallet", "#4CAF50", "WEEKLY",
-            1, true, emptyList(), Instant.now()
+            1, true, emptyList(), createdAt = Instant.now()
         )
         every { categoryGroupService.updateCategoryGroup(testUserId, groupId, request) } returns response
 

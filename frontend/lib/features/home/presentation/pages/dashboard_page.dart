@@ -74,6 +74,11 @@ class DashboardPage extends StatelessWidget {
                   // Summary card
                   _SummaryCard(state: state),
                   const SizedBox(height: 16),
+                  // Private summary card
+                  _PrivateSummaryCard(
+                    recentTransactions: state.recentTransactions,
+                  ),
+                  const SizedBox(height: 16),
                   // Budget usage card
                   if (state.budgetSummary != null)
                     _BudgetUsageCard(budgetSummary: state.budgetSummary!),
@@ -438,6 +443,100 @@ class _BudgetUsageCard extends StatelessWidget {
   }
 }
 
+class _PrivateSummaryCard extends StatelessWidget {
+  final List<Transaction> recentTransactions;
+
+  const _PrivateSummaryCard({required this.recentTransactions});
+
+  @override
+  Widget build(BuildContext context) {
+    final privateTxns = recentTransactions.where((t) => t.isPrivate).toList();
+    if (privateTxns.isEmpty) return const SizedBox.shrink();
+
+    final formatter = NumberFormat('#,###');
+    final privateExpense = privateTxns
+        .where((t) => t.isExpense)
+        .fold(0, (sum, t) => sum + t.amount);
+    final privateIncome = privateTxns
+        .where((t) => t.isIncome)
+        .fold(0, (sum, t) => sum + t.amount);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lock, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  '내 개인',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        '개인 지출',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${formatter.format(privateExpense)}원',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        '개인 수입',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${formatter.format(privateIncome)}원',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RecentTransactionsCard extends StatelessWidget {
   final List<Transaction> transactions;
   final String? error;
@@ -515,11 +614,25 @@ class _RecentTransactionsCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              txn.description,
-                              style:
-                                  Theme.of(context).textTheme.bodyMedium,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                if (txn.isPrivate) ...[
+                                  Icon(
+                                    Icons.lock,
+                                    size: 12,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                  ),
+                                  const SizedBox(width: 3),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    txn.description,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             Text(
                               '${txn.transactionDate}  ${txn.category?.name ?? '미분류'}',

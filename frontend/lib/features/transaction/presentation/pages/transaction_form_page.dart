@@ -56,6 +56,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _selectedPaymentMethodId;
   String? _selectedPocketId;
   late DateTime _selectedDate;
+  String _visibility = 'SHARED';
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
   String? _categoryError;
@@ -124,6 +125,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             _selectedCategoryId = transaction.category?.id;
             _selectedPaymentMethodId = transaction.paymentMethodId;
             _selectedPocketId = transaction.pocketId;
+            _visibility = transaction.visibility;
             _selectedDate = DateTime.parse(transaction.transactionDate);
           });
         }
@@ -237,6 +239,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                       setState(() {
                         _selectedType = value.first;
                         _selectedCategoryId = null;
+                        _visibility = 'SHARED';
                       });
                     },
                   ),
@@ -460,6 +463,11 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           if (_selectedCategoryId == id) {
             setState(() => _selectedCategoryId = null);
           }
+        },
+        onVisibilityChanged: (visibility) {
+          setState(() {
+            _visibility = visibility;
+          });
         },
       ),
     );
@@ -764,6 +772,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         memo: memo,
         paymentMethodId: _selectedPaymentMethodId,
         pocketId: _selectedPocketId,
+        visibility: _visibility,
       ));
     }
   }
