@@ -111,9 +111,10 @@ class BudgetService(
             }
         }
 
-        val numberOfWeeks = calculateNumberOfWeeks(request.yearMonth)
         val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
-            request.amount / numberOfWeeks
+            // Use client-provided weeklyAmount (the per-week budget the user intended),
+            // falling back to amount / numberOfWeeks for backward compat
+            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(request.yearMonth))
         } else {
             null
         }
