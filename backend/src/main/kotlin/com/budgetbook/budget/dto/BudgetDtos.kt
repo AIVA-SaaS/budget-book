@@ -26,6 +26,8 @@ data class BudgetRequest(
 
     val budgetPeriod: String? = "MONTHLY",
 
+    val weeklyAmount: Long? = null,
+
     val periodType: String? = null,  // NONE, DAILY, WEEKLY, MONTHLY
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
