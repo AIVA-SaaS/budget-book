@@ -17,9 +17,10 @@
   - [Logout](#5-logout)
 - [Couple](#couple)
   - [Create Invitation Code](#1-create-invitation-code)
-  - [Accept Invitation](#2-accept-invitation)
-  - [Get My Couple](#3-get-my-couple)
-  - [Dissolve Couple](#4-dissolve-couple)
+  - [Get My Invitation Status](#2-get-my-invitation-status)
+  - [Accept Invitation](#3-accept-invitation)
+  - [Get My Couple](#4-get-my-couple)
+  - [Dissolve Couple](#5-dissolve-couple)
 - [Categories](#categories)
   - [List Categories](#1-list-categories)
   - [Create Category](#2-create-category)
@@ -467,7 +468,49 @@ Generates a new 8-character invitation code. The previous pending invitation for
 
 ---
 
-### 2. Accept Invitation
+### 2. Get My Invitation Status
+
+Retrieves the most recent invitation issued by the current user. If the invitation is still `PENDING` but the expiry time has passed, the server automatically transitions the status to `EXPIRED` before returning.
+
+| Item        | Value                                          |
+|:------------|:-----------------------------------------------|
+| **Method**  | `GET`                                          |
+| **Path**    | `/api/v1/couples/invitations/me`               |
+| **Auth**    | Required                                       |
+
+**Request Body**: None
+
+**Response `200 OK`**: `ApiResponse<InvitationStatusResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "code": "ABCD1234",
+    "expiresAt": "2026-03-20T12:00:00Z",
+    "status": "PENDING"
+  },
+  "timestamp": "2026-03-19T10:00:00Z"
+}
+```
+
+**DTO fields**
+
+| Field       | Type     | Nullable | Description                                             |
+|:------------|:---------|:--------:|:--------------------------------------------------------|
+| `code`      | `string` | No       | 8-character alphanumeric invitation code                |
+| `expiresAt` | `string` | No       | ISO 8601 expiry timestamp                               |
+| `status`    | `string` | No       | `PENDING` (valid, awaiting acceptance), `EXPIRED` (time elapsed), `ACCEPTED` (already used) |
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `404`  | `INVITATION_NOT_FOUND` | No invitation exists for this user |
+
+---
+
+### 3. Accept Invitation
 
 Accepts an invitation code and links the two users as a couple. Default categories are seeded automatically upon acceptance.
 
@@ -515,7 +558,7 @@ Accepts an invitation code and links the two users as a couple. Default categori
 
 ---
 
-### 3. Get My Couple
+### 4. Get My Couple
 
 Retrieves the current user's couple information including the partner's profile.
 
@@ -561,7 +604,7 @@ Retrieves the current user's couple information including the partner's profile.
 
 ---
 
-### 4. Dissolve Couple
+### 5. Dissolve Couple
 
 Dissolves the current user's couple. All shared data (transactions, categories) is retained but no longer shared.
 
@@ -1994,6 +2037,14 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 |:------------|:---------|:--------:|:--------------------------------|
 | `code`      | `string` | No       | 8-character alphanumeric code   |
 | `expiresAt` | `string` | No       | ISO 8601 expiry timestamp (24h) |
+
+### InvitationStatusResponse
+
+| Field       | Type     | Nullable | Description                                             |
+|:------------|:---------|:--------:|:--------------------------------------------------------|
+| `code`      | `string` | No       | 8-character alphanumeric invitation code                |
+| `expiresAt` | `string` | No       | ISO 8601 expiry timestamp                               |
+| `status`    | `string` | No       | `PENDING` \| `EXPIRED` \| `ACCEPTED`                   |
 
 ### CoupleResponse
 

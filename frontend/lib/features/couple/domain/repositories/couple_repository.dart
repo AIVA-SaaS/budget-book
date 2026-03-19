@@ -8,4 +8,5 @@ abstract class CoupleRepository {
   Future<Either<Failure, Invitation>> createInvitation();
   Future<Either<Failure, Couple>> acceptInvitation(String code);
   Future<Either<Failure, void>> dissolveCouple();
+  Future<Either<Failure, Invitation>> getMyInvitation();
 }

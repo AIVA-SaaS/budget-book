@@ -6,6 +6,7 @@ import 'package:budget_book/features/couple/data/repositories/couple_repository_
 import 'package:budget_book/features/couple/data/datasources/couple_remote_datasource.dart';
 import 'package:budget_book/features/couple/data/models/couple_model.dart';
 import 'package:budget_book/features/couple/data/models/invitation_model.dart';
+import 'package:budget_book/features/couple/data/models/invitation_status_model.dart';
 import 'package:budget_book/features/couple/data/models/user_summary_model.dart';
 import 'package:budget_book/features/couple/domain/entities/couple.dart';
 import 'package:budget_book/features/couple/domain/entities/invitation.dart';
@@ -49,6 +50,16 @@ class MockCoupleRemoteDataSource extends Mock
         Invocation.method(#dissolveCouple, []),
         returnValue: Future.value(),
       ) as Future<void>;
+
+  @override
+  Future<InvitationStatusModel> getMyInvitation() => super.noSuchMethod(
+        Invocation.method(#getMyInvitation, []),
+        returnValue: Future.value(InvitationStatusModel(
+          code: '',
+          expiresAt: DateTime(2024),
+          status: 'PENDING',
+        )),
+      ) as Future<InvitationStatusModel>;
 }
 
 void main() {
@@ -187,6 +198,52 @@ void main() {
           result,
           equals(const Left<Failure, Couple>(
               ServerFailure('Invitation code has expired', null, 410))),
+        );
+      });
+    });
+
+    group('getMyInvitation', () {
+      final tInvitationStatusModel = InvitationStatusModel(
+        code: 'A3F9K2BX',
+        expiresAt: DateTime.parse('2024-01-02T12:00:00Z'),
+        status: 'PENDING',
+      );
+
+      test('returns Right(Invitation) when datasource succeeds', () async {
+        when(mockDataSource.getMyInvitation())
+            .thenAnswer((_) async => tInvitationStatusModel);
+
+        final result = await repository.getMyInvitation();
+
+        expect(
+            result, equals(Right<Failure, Invitation>(tInvitationStatusModel)));
+        verify(mockDataSource.getMyInvitation()).called(1);
+      });
+
+      test('returns Left(ServerFailure) on DioException 404', () async {
+        final dioException = DioException(
+          requestOptions: RequestOptions(
+              path: '/api/v1/couples/invitations/me'),
+          response: Response(
+            requestOptions: RequestOptions(
+                path: '/api/v1/couples/invitations/me'),
+            statusCode: 404,
+            data: {
+              'error': {
+                'message': 'No invitation found',
+              },
+            },
+          ),
+        );
+        when(mockDataSource.getMyInvitation())
+            .thenAnswer((_) async => throw dioException);
+
+        final result = await repository.getMyInvitation();
+
+        expect(
+          result,
+          equals(const Left<Failure, Invitation>(
+              ServerFailure('No invitation found', null, 404))),
         );
       });
     });

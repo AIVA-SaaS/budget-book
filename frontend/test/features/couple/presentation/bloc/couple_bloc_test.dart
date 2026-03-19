@@ -58,6 +58,18 @@ class MockCoupleRepository extends Mock implements CoupleRepository {
         Invocation.method(#dissolveCouple, []),
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
+
+  @override
+  Future<Either<Failure, Invitation>> getMyInvitation() =>
+      super.noSuchMethod(
+        Invocation.method(#getMyInvitation, []),
+        returnValue: Future.value(
+          Right<Failure, Invitation>(Invitation(
+            code: '',
+            expiresAt: DateTime(2024),
+          )),
+        ),
+      ) as Future<Either<Failure, Invitation>>;
 }
 
 void main() {
@@ -231,6 +243,110 @@ void main() {
         expect: () => [
           const CoupleLoading(),
           const CoupleError('User cannot accept their own invitation'),
+        ],
+      );
+    });
+
+    group('CheckInvitationStatus', () {
+      blocTest<CoupleBloc, CoupleState>(
+        'emits [CoupleLoading, CoupleLinked] when couple already exists',
+        build: () {
+          when(mockRepository.getMyCouple())
+              .thenAnswer((_) async => Right(tCouple));
+          return coupleBloc;
+        },
+        act: (bloc) => bloc.add(const CheckInvitationStatus()),
+        expect: () => [
+          const CoupleLoading(),
+          CoupleLinked(tCouple),
+        ],
+      );
+
+      blocTest<CoupleBloc, CoupleState>(
+        'emits [CoupleLoading, CoupleInvitationPending] when invitation is PENDING',
+        build: () {
+          when(mockRepository.getMyCouple()).thenAnswer((_) async =>
+              const Left(ServerFailure('Not found', 'COUPLE_NOT_FOUND', 404)));
+          when(mockRepository.getMyInvitation()).thenAnswer((_) async =>
+              Right(Invitation(
+                code: 'A3F9K2BX',
+                expiresAt: DateTime.now().add(const Duration(hours: 24)),
+                status: 'PENDING',
+              )));
+          return coupleBloc;
+        },
+        act: (bloc) => bloc.add(const CheckInvitationStatus()),
+        expect: () => [
+          const CoupleLoading(),
+          isA<CoupleInvitationPending>(),
+        ],
+      );
+
+      blocTest<CoupleBloc, CoupleState>(
+        'emits [CoupleLoading, CoupleInvitationExpired] when invitation is EXPIRED',
+        build: () {
+          when(mockRepository.getMyCouple()).thenAnswer((_) async =>
+              const Left(ServerFailure('Not found', 'COUPLE_NOT_FOUND', 404)));
+          when(mockRepository.getMyInvitation()).thenAnswer((_) async =>
+              Right(Invitation(
+                code: 'EXPIRED1',
+                expiresAt: DateTime.now().subtract(const Duration(hours: 1)),
+                status: 'EXPIRED',
+              )));
+          return coupleBloc;
+        },
+        act: (bloc) => bloc.add(const CheckInvitationStatus()),
+        expect: () => [
+          const CoupleLoading(),
+          isA<CoupleInvitationExpired>(),
+        ],
+      );
+
+      blocTest<CoupleBloc, CoupleState>(
+        'emits [CoupleLoading, CoupleNotLinked] when no invitation found (404)',
+        build: () {
+          when(mockRepository.getMyCouple()).thenAnswer((_) async =>
+              const Left(ServerFailure('Not found', 'COUPLE_NOT_FOUND', 404)));
+          when(mockRepository.getMyInvitation()).thenAnswer((_) async =>
+              const Left(ServerFailure('No invitation found', null, 404)));
+          return coupleBloc;
+        },
+        act: (bloc) => bloc.add(const CheckInvitationStatus()),
+        expect: () => [
+          const CoupleLoading(),
+          const CoupleNotLinked(),
+        ],
+      );
+
+      blocTest<CoupleBloc, CoupleState>(
+        'dispatches LoadCouple when invitation status is ACCEPTED',
+        build: () {
+          var callCount = 0;
+          when(mockRepository.getMyCouple()).thenAnswer((_) async {
+            callCount++;
+            if (callCount == 1) {
+              // First call from CheckInvitationStatus — not in couple yet
+              return const Left(
+                  ServerFailure('Not found', 'COUPLE_NOT_FOUND', 404));
+            }
+            // Second call from LoadCouple — now linked
+            return Right(tCouple);
+          });
+          when(mockRepository.getMyInvitation()).thenAnswer((_) async =>
+              Right(Invitation(
+                code: 'ACCEPT01',
+                expiresAt: DateTime.now().add(const Duration(hours: 24)),
+                status: 'ACCEPTED',
+              )));
+          return coupleBloc;
+        },
+        act: (bloc) => bloc.add(const CheckInvitationStatus()),
+        wait: const Duration(milliseconds: 100),
+        expect: () => [
+          const CoupleLoading(),
+          // LoadCouple is dispatched internally; duplicate CoupleLoading
+          // is deduplicated by BLoC (Equatable equality)
+          CoupleLinked(tCouple),
         ],
       );
     });

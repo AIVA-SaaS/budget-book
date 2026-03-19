@@ -60,4 +60,15 @@ class CoupleRepositoryImpl implements CoupleRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, Invitation>> getMyInvitation() async {
+    try {
+      final result = await remoteDataSource.getMyInvitation();
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to get invitation status'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to get invitation status'));
+    }
+  }
 }

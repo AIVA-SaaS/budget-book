@@ -17,6 +17,7 @@ class ApiEndpoints {
   // Couple
   static const String coupleMe = '/api/v1/couples/me';
   static const String coupleInvitations = '/api/v1/couples/invitations';
+  static const String coupleMyInvitation = '/api/v1/couples/invitations/me';
 
   // Transaction
   static const String transactions = '/api/v1/transactions';
