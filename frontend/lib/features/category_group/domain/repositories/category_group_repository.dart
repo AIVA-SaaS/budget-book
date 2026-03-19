@@ -19,4 +19,5 @@ abstract class CategoryGroupRepository {
     int? displayOrder,
   });
   Future<Either<Failure, void>> deleteCategoryGroup(String id);
+  Future<Either<Failure, void>> reorderGroups(List<String> orderedIds);
 }

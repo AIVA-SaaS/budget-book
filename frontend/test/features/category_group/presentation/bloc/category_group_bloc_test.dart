@@ -85,6 +85,13 @@ class MockCategoryGroupRepository extends Mock
         Invocation.method(#deleteCategoryGroup, [id]),
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
+
+  @override
+  Future<Either<Failure, void>> reorderGroups(List<String> orderedIds) =>
+      super.noSuchMethod(
+        Invocation.method(#reorderGroups, [orderedIds]),
+        returnValue: Future.value(const Right<Failure, void>(null)),
+      ) as Future<Either<Failure, void>>;
 }
 
 void main() {
@@ -336,6 +343,43 @@ void main() {
         expect: () => [
           CategoryGroupLoaded(tGroups,
               operationError: 'Default group cannot be deleted'),
+        ],
+      );
+    });
+
+    group('ReorderCategoryGroups', () {
+      blocTest<CategoryGroupBloc, CategoryGroupState>(
+        'emits [CategoryGroupLoaded] with reordered list on success',
+        build: () {
+          when(mockRepository.reorderGroups(['group-2', 'group-1']))
+              .thenAnswer((_) async => const Right(null));
+          return bloc;
+        },
+        seed: () => CategoryGroupLoaded(tGroups),
+        act: (bloc) =>
+            bloc.add(const ReorderCategoryGroups(['group-2', 'group-1'])),
+        expect: () => [
+          CategoryGroupLoaded([tGroup2, tGroup1]),
+        ],
+      );
+
+      blocTest<CategoryGroupBloc, CategoryGroupState>(
+        'emits optimistic reorder then rollback on failure',
+        build: () {
+          when(mockRepository.reorderGroups(['group-2', 'group-1']))
+              .thenAnswer((_) async => const Left(
+                  ServerFailure('Failed to reorder category groups')));
+          return bloc;
+        },
+        seed: () => CategoryGroupLoaded(tGroups),
+        act: (bloc) =>
+            bloc.add(const ReorderCategoryGroups(['group-2', 'group-1'])),
+        expect: () => [
+          // Optimistic reorder
+          CategoryGroupLoaded([tGroup2, tGroup1]),
+          // Rollback with error
+          CategoryGroupLoaded(tGroups,
+              operationError: 'Failed to reorder category groups'),
         ],
       );
     });

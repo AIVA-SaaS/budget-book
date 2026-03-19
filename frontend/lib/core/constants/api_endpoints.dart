@@ -27,6 +27,7 @@ class ApiEndpoints {
 
   // Category Group
   static const String categoryGroups = '/api/v1/category-groups';
+  static const String categoryGroupReorder = '/api/v1/category-groups/reorder';
 
   // Budget
   static const String budgets = '/api/v1/budgets';

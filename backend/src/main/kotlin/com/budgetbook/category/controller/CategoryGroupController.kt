@@ -2,6 +2,7 @@ package com.budgetbook.category.controller
 
 import com.budgetbook.category.dto.CategoryGroupResponse
 import com.budgetbook.category.dto.CreateCategoryGroupRequest
+import com.budgetbook.category.dto.ReorderCategoryGroupRequest
 import com.budgetbook.category.dto.UpdateCategoryGroupRequest
 import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.common.dto.ApiResponse
@@ -46,6 +47,14 @@ class CategoryGroupController(
         @Valid @RequestBody request: UpdateCategoryGroupRequest
     ): ApiResponse<CategoryGroupResponse> {
         return ApiResponse.ok(categoryGroupService.updateCategoryGroup(userId, id, request))
+    }
+
+    @PutMapping("/reorder")
+    fun reorderCategoryGroups(
+        @AuthUser userId: UUID,
+        @Valid @RequestBody request: ReorderCategoryGroupRequest
+    ): ApiResponse<List<CategoryGroupResponse>> {
+        return ApiResponse.ok(categoryGroupService.reorderGroups(userId, request.orderedIds))
     }
 
     @DeleteMapping("/{id}")

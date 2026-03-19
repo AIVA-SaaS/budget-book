@@ -49,6 +49,7 @@
   - [Create Category Group](#2-create-category-group)
   - [Update Category Group](#3-update-category-group)
   - [Delete Category Group](#4-delete-category-group)
+  - [Reorder Category Groups](#5-reorder-category-groups)
 - [Payment Methods](#payment-methods)
   - [List Payment Methods](#1-list-payment-methods)
   - [Create Payment Method](#2-create-payment-method)
@@ -789,7 +790,7 @@ Updates an existing category. Default categories cannot have their `type` change
 
 ### 4. Delete Category
 
-Deletes a custom category. Default categories cannot be deleted. Transactions with this category will have `category_id` set to null.
+Deletes a category (including default categories). Transactions with this category will have `category_id` set to null.
 
 | Item        | Value                            |
 |:------------|:---------------------------------|
@@ -809,7 +810,6 @@ Deletes a custom category. Default categories cannot be deleted. Transactions wi
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
-| `400`  | `CANNOT_DELETE_DEFAULT_CATEGORY` | Default categories cannot be deleted |
 | `403`  | `FORBIDDEN` | Category belongs to a different couple |
 | `404`  | `CATEGORY_NOT_FOUND` | Category does not exist |
 
@@ -1113,7 +1113,7 @@ The caller must be in an active couple.
 
 ### 1. Create Budget
 
-Creates a monthly budget for the couple. Set `categoryId` to `null` for a total (uncategorized) monthly budget.
+Creates a monthly budget for the couple. At most one of `categoryId` or `groupId` may be set. If both are `null`, the entry represents the total (uncategorized) monthly budget.
 
 | Item        | Value                        |
 |:------------|:-----------------------------|
@@ -1126,18 +1126,20 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
 ```json
 {
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
+  "groupId": null,
   "yearMonth": "2026-03",
   "amount": 150000,
   "budgetPeriod": "MONTHLY"
 }
 ```
 
-| Field          | Type     | Required | Description                                                            |
-|:---------------|:---------|:--------:|:-----------------------------------------------------------------------|
-| `categoryId`   | `UUID`   | No       | Category ID; `null` = total budget for the month                      |
-| `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                    |
-| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                    |
-| `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                   |
+| Field          | Type     | Required | Description                                                                                     |
+|:---------------|:---------|:--------:|:------------------------------------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | No       | Category ID. Mutually exclusive with `groupId`. Both `null` = total budget for the month.       |
+| `groupId`      | `UUID`   | No       | Category group ID. Mutually exclusive with `categoryId`. Both `null` = total budget for the month. |
+| `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                                             |
+| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                                              |
+| `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                                             |
 
 **Response `201 Created`**: `ApiResponse<BudgetResponse>`
 
@@ -1154,6 +1156,8 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
       "icon": "restaurant",
       "color": "#FF5733"
     },
+    "groupId": null,
+    "groupName": null,
     "yearMonth": "2026-03",
     "amount": 150000,
     "budgetPeriod": "MONTHLY",
@@ -1168,9 +1172,10 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
-| `400`  | `VALIDATION_ERROR` | Invalid field values |
+| `400`  | `VALIDATION_ERROR` | Invalid field values or both `categoryId` and `groupId` are set |
 | `404`  | `CATEGORY_NOT_FOUND` | Specified category does not exist |
-| `409`  | `DUPLICATE_BUDGET` | Budget for this category and month already exists |
+| `404`  | `GROUP_NOT_FOUND` | Specified category group does not exist |
+| `409`  | `DUPLICATE_BUDGET` | Budget for this category/group and month already exists |
 
 ---
 
@@ -1207,6 +1212,8 @@ Retrieves all budgets for the couple for a given month.
         "icon": "restaurant",
         "color": "#FF5733"
       },
+      "groupId": null,
+      "groupName": null,
       "yearMonth": "2026-03",
       "amount": 150000,
       "budgetPeriod": "MONTHLY",
@@ -1216,6 +1223,8 @@ Retrieves all budgets for the couple for a given month.
     {
       "id": "550e8400-e29b-41d4-a716-446655440051",
       "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "groupId": "550e8400-e29b-41d4-a716-446655440010",
+      "groupName": "생활비",
       "yearMonth": "2026-03",
       "amount": 800000,
       "budgetPeriod": "WEEKLY",
@@ -1250,6 +1259,8 @@ Updates an existing budget's amount, period type, or weekly amount.
 
 ```json
 {
+  "categoryId": null,
+  "groupId": "550e8400-e29b-41d4-a716-446655440010",
   "amount": 200000,
   "budgetPeriod": "WEEKLY",
   "weeklyAmount": 50000
@@ -1258,6 +1269,8 @@ Updates an existing budget's amount, period type, or weekly amount.
 
 | Field          | Type     | Required | Description                                                                 |
 |:---------------|:---------|:--------:|:----------------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | No       | Category ID. Mutually exclusive with `groupId`. Omit to preserve existing value. |
+| `groupId`      | `UUID`   | No       | Category group ID. Mutually exclusive with `categoryId`. Omit to preserve existing value. |
 | `amount`       | `long`   | Yes      | Updated budget amount (must be > 0)                                         |
 | `budgetPeriod` | `string` | No       | `MONTHLY` or `WEEKLY`. If omitted, existing value is preserved.             |
 | `weeklyAmount` | `long`   | No       | Per-week amount in KRW. Only relevant when `budgetPeriod` is `WEEKLY`. If omitted when switching to `WEEKLY`, it is auto-calculated from `amount`. |
@@ -1618,7 +1631,7 @@ Retrieves all category groups with their nested categories. Includes a virtual "
 
 ### 4. Delete Category Group
 
-Deletes a category group. Categories in the group become uncategorized (group_id set to null). Default groups cannot be deleted.
+Deletes a category group (including default groups). Categories in the group become uncategorized (`group_id` set to null).
 
 | Item        | Value                                |
 |:------------|:-------------------------------------|
@@ -1628,10 +1641,55 @@ Deletes a category group. Categories in the group become uncategorized (group_id
 
 **Response `204 No Content`**
 
-| Status | Error Code                    | Description                          |
-|:-------|:------------------------------|:-------------------------------------|
-| `404`  | `GROUP_NOT_FOUND`             | Category group does not exist        |
-| `400`  | `CANNOT_DELETE_DEFAULT_GROUP`  | Default groups cannot be deleted     |
+| Status | Error Code        | Description                          |
+|:-------|:------------------|:-------------------------------------|
+| `403`  | `FORBIDDEN`       | Group belongs to a different couple  |
+| `404`  | `GROUP_NOT_FOUND` | Category group does not exist        |
+
+---
+
+### 5. Reorder Category Groups
+
+Updates the display order of all category groups for the couple in a single call. All group IDs owned by the couple must be provided; the server rejects partial lists.
+
+| Item        | Value                                     |
+|:------------|:------------------------------------------|
+| **Method**  | `PUT`                                     |
+| **Path**    | `/api/v1/category-groups/reorder`         |
+| **Auth**    | Required                                  |
+
+**Request Body**
+
+```json
+{
+  "orderedIds": [
+    "550e8400-e29b-41d4-a716-446655440010",
+    "550e8400-e29b-41d4-a716-446655440011",
+    "550e8400-e29b-41d4-a716-446655440012"
+  ]
+}
+```
+
+| Field        | Type          | Required | Description                                                           |
+|:-------------|:--------------|:--------:|:----------------------------------------------------------------------|
+| `orderedIds` | `List<UUID>`  | Yes      | Ordered list of all category group IDs. Position in list = new `displayOrder`. |
+
+**Response `200 OK`**: `ApiResponse<void>` (`data` is `null`)
+
+```json
+{
+  "success": true,
+  "data": null,
+  "timestamp": "2026-03-19T12:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                                                        |
+|:-------|:-------------------|:-------------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR` | `orderedIds` is empty or null                                      |
+| `404`  | `GROUP_NOT_FOUND`  | One or more IDs do not belong to the caller's couple               |
 
 ---
 
@@ -2158,17 +2216,19 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### BudgetResponse
 
-| Field          | Type              | Nullable | Description                                                    |
-|:---------------|:------------------|:--------:|:---------------------------------------------------------------|
-| `id`           | `UUID`            | No       | Budget unique identifier                                       |
-| `coupleId`     | `UUID`            | No       | Owning couple ID                                               |
-| `category`     | `CategorySummary` | Yes      | Category (omitted when null — total budget with no category)   |
-| `yearMonth`    | `string`          | No       | Target month in `YYYY-MM` format                               |
-| `amount`       | `long`            | No       | Budget amount in KRW (always > 0)                              |
-| `budgetPeriod` | `string`          | No       | Budget period type: `MONTHLY` or `WEEKLY`                      |
-| `weeklyAmount` | `long`            | Yes      | Per-week amount (omitted unless `budgetPeriod` is `WEEKLY`)    |
-| `createdAt`    | `string`          | No       | ISO 8601 timestamp                                             |
-| `updatedAt`    | `string`          | No       | ISO 8601 timestamp                                             |
+| Field          | Type              | Nullable | Description                                                                           |
+|:---------------|:------------------|:--------:|:--------------------------------------------------------------------------------------|
+| `id`           | `UUID`            | No       | Budget unique identifier                                                              |
+| `coupleId`     | `UUID`            | No       | Owning couple ID                                                                      |
+| `category`     | `CategorySummary` | Yes      | Category (null when budget targets a group or is a total budget with no category)     |
+| `groupId`      | `UUID`            | Yes      | Category group ID (null when budget targets a category or is a total budget)          |
+| `groupName`    | `string`          | Yes      | Category group name (null when `groupId` is null)                                     |
+| `yearMonth`    | `string`          | No       | Target month in `YYYY-MM` format                                                      |
+| `amount`       | `long`            | No       | Budget amount in KRW (always > 0)                                                     |
+| `budgetPeriod` | `string`          | No       | Budget period type: `MONTHLY` or `WEEKLY`                                             |
+| `weeklyAmount` | `long`            | Yes      | Per-week amount (omitted unless `budgetPeriod` is `WEEKLY`)                           |
+| `createdAt`    | `string`          | No       | ISO 8601 timestamp                                                                    |
+| `updatedAt`    | `string`          | No       | ISO 8601 timestamp                                                                    |
 
 ### BudgetSummaryResponse
 
@@ -2803,12 +2863,10 @@ spring:
 | `INVITATION_EXPIRED`              | `410`       | Invitation code has expired                          |
 | `SELF_INVITATION`                 | `400`       | User cannot accept their own invitation              |
 | `CATEGORY_NOT_FOUND`              | `404`       | Requested category does not exist                    |
-| `CANNOT_DELETE_DEFAULT_CATEGORY`  | `400`       | Default (system) categories cannot be deleted        |
 | `TRANSACTION_NOT_FOUND`           | `404`       | Requested transaction does not exist                 |
 | `BUDGET_NOT_FOUND`                | `404`       | Requested budget does not exist                      |
-| `DUPLICATE_BUDGET`                | `409`       | Budget for this category and month already exists    |
+| `DUPLICATE_BUDGET`                | `409`       | Budget for this category/group and month already exists |
 | `GROUP_NOT_FOUND`                 | `404`       | Requested category group does not exist              |
-| `CANNOT_DELETE_DEFAULT_GROUP`     | `400`       | Default category groups cannot be deleted            |
 | `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
 | `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |
 | `RECURRING_NOT_FOUND`             | `404`       | Requested recurring transaction does not exist       |

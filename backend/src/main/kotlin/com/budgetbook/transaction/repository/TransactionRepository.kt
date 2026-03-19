@@ -158,6 +158,22 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
 
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = :type
+        AND t.category.group.id = :groupId
+    """)
+    fun sumAmountByGroupAndDateRange(
+        @Param("coupleId") coupleId: UUID,
+        @Param("groupId") groupId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("type") type: TransactionType
+    ): Long
+
     @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
     fun countDistinctAuthorsSince(@Param("since") since: java.time.Instant): Long
 

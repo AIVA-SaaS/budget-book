@@ -9,7 +9,6 @@ import com.budgetbook.category.dto.UpdateCategoryGroupRequest
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
-import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
@@ -129,10 +128,6 @@ class CategoryGroupService(
 
         OwnershipValidator.validateOwnership(group.couple.id, couple, "Category group")
 
-        if (group.isDefault) {
-            throw BusinessException("CANNOT_DELETE_DEFAULT_GROUP", "Default category groups cannot be deleted.")
-        }
-
         // Unassign categories from this group before deleting
         val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, groupId)
         categories.forEach { it.group = null }
@@ -146,6 +141,42 @@ class CategoryGroupService(
             coupleId = couple.id,
             authorId = userId
         ))
+    }
+
+    @Transactional
+    fun reorderGroups(userId: UUID, orderedIds: List<UUID>): List<CategoryGroupResponse> {
+        val couple = getActiveCouple(userId)
+        val groups = categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
+        val groupMap = groups.associateBy { it.id }
+
+        // Validate all IDs belong to this couple
+        orderedIds.forEach { id ->
+            if (!groupMap.containsKey(id)) {
+                throw NotFoundException("GROUP_NOT_FOUND", "Category group $id does not exist for this couple.")
+            }
+        }
+
+        // Set displayOrder based on orderedIds position
+        orderedIds.forEachIndexed { index, id ->
+            groupMap[id]!!.displayOrder = index
+        }
+
+        categoryGroupRepository.saveAll(groups)
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_GROUP_REORDERED",
+            entityType = "CATEGORY_GROUP",
+            entityId = couple.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+
+        // Return updated list in order
+        val sortedGroups = groups.sortedBy { it.displayOrder }
+        return sortedGroups.map { group ->
+            val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+            group.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
+        }
     }
 
     @Transactional

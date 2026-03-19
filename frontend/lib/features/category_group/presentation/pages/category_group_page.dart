@@ -9,6 +9,7 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/widgets/category_group_form_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/widgets/reorderable_entity_list.dart';
 
 class CategoryGroupPage extends StatelessWidget {
   const CategoryGroupPage({super.key});
@@ -68,13 +69,18 @@ class CategoryGroupPage extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _buildGroupTile(context, group);
+    return ReorderableEntityList<CategoryGroup>(
+      items: groups,
+      onReorder: (oldIndex, newIndex) {
+        final reordered = List<CategoryGroup>.from(groups);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        context.read<CategoryGroupBloc>().add(
+              ReorderCategoryGroups(reordered.map((g) => g.id).toList()),
+            );
       },
+      itemBuilder: (context, group, index) =>
+          _buildGroupTile(context, group),
     );
   }
 
@@ -150,17 +156,16 @@ class CategoryGroupPage extends StatelessWidget {
                 ],
               ),
             ),
-            if (!group.isDefault)
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('삭제', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('삭제', style: TextStyle(color: Colors.red)),
+                ],
               ),
+            ),
           ],
         ),
         children: group.categories.isEmpty

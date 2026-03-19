@@ -46,6 +46,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
   @override
   Future<Either<Failure, Budget>> createBudget({
     String? categoryId,
+    String? groupId,
     required String yearMonth,
     required int amount,
     String budgetPeriod = 'MONTHLY',
@@ -58,6 +59,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
       super.noSuchMethod(
         Invocation.method(#createBudget, [], {
           #categoryId: categoryId,
+          #groupId: groupId,
           #yearMonth: yearMonth,
           #amount: amount,
           #budgetPeriod: budgetPeriod,
@@ -83,6 +85,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? categoryId,
+    String? groupId,
     String? yearMonth,
   }) =>
       super.noSuchMethod(
@@ -96,6 +99,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #startDate: startDate,
           #endDate: endDate,
           #categoryId: categoryId,
+          #groupId: groupId,
           #yearMonth: yearMonth,
         }),
         returnValue: Future.value(

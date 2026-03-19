@@ -7,9 +7,16 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category_group/domain/entities/category_group.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
-import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/widgets/hierarchical_selector_sheet.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
@@ -38,7 +45,12 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late final TextEditingController _weeklyAmountController;
+  final _groupNameController = TextEditingController();
+  final _categoryNameController = TextEditingController();
   String? _selectedCategoryId;
+  String? _selectedCategoryName;
+  String? _selectedGroupId;
+  String? _selectedGroupName;
   String? _selectedPocketId;
   late int _selectedYear;
   late int _selectedMonth;
@@ -58,6 +70,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _selectedMonth = widget.month;
     _budgetPeriod = 'MONTHLY';
     _periodSelection = const PeriodSelection(type: PeriodType.none);
+    // Load category groups for the selector
+    getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
   }
 
   void _initializeFromBudget(Budget budget) {
@@ -67,6 +81,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _weeklyAmountController.text =
         budget.weeklyAmount != null ? budget.weeklyAmount.toString() : '';
     _selectedCategoryId = budget.category?.id;
+    _selectedCategoryName = budget.category?.name;
+    _selectedGroupId = budget.groupId;
+    _selectedGroupName = budget.groupName;
     _selectedPocketId = budget.pocketId;
     _budgetPeriod = budget.budgetPeriod;
     _periodSelection = PeriodSelection.fromApiValues(
@@ -80,6 +97,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void dispose() {
     _amountController.dispose();
     _weeklyAmountController.dispose();
+    _groupNameController.dispose();
+    _categoryNameController.dispose();
     super.dispose();
   }
 
@@ -178,7 +197,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
               },
             ),
             const SizedBox(height: 24),
-            // Category selector (optional)
+            // Category / Group selector (optional)
             _buildCategoryPicker(context),
             const SizedBox(height: 16),
             // Pocket selector (optional)
@@ -270,27 +289,33 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   }
 
   Widget _buildCategoryPicker(BuildContext context) {
-    return BlocBuilder<CategoryBloc, CategoryState>(
-      builder: (context, catState) {
-        final categories = catState is CategoryLoaded
-            ? catState.expenseCategories
-            : <Category>[];
+    // Display selected target label
+    final String? selectedLabel;
+    if (_selectedGroupId != null && _selectedGroupName != null) {
+      selectedLabel = '$_selectedGroupName (그룹)';
+    } else if (_selectedCategoryId != null && _selectedCategoryName != null) {
+      selectedLabel = _selectedCategoryName;
+    } else if (_selectedCategoryId != null) {
+      // Try to resolve name from CategoryBloc
+      final catState = context.read<CategoryBloc>().state;
+      if (catState is CategoryLoaded) {
+        selectedLabel = catState.expenseCategories
+            .where((c) => c.id == _selectedCategoryId)
+            .map((c) => c.name)
+            .firstOrNull;
+      } else {
+        selectedLabel = null;
+      }
+    } else {
+      selectedLabel = null;
+    }
 
-        final selectedName = _selectedCategoryId != null
-            ? categories
-                .where((c) => c.id == _selectedCategoryId)
-                .map((c) => c.name)
-                .firstOrNull
-            : null;
-
-        return ItemSelectorField(
-          label: '카테고리 (선택)',
-          selectedLabel: selectedName,
-          prefixIcon: Icons.category,
-          placeholder: '전체 예산 (카테고리 없음)',
-          onTap: () => _showCategorySelectorSheet(context),
-        );
-      },
+    return ItemSelectorField(
+      label: '카테고리 (선택)',
+      selectedLabel: selectedLabel,
+      prefixIcon: Icons.category,
+      placeholder: '전체 예산 (카테고리/그룹 없음)',
+      onTap: () => _showCategorySelectorSheet(context),
     );
   }
 
@@ -301,19 +326,174 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.7,
       ),
-      builder: (_) => CategoryGroupSelectorSheet(
-        selectedCategoryId: _selectedCategoryId,
-        categoryType: 'EXPENSE',
-        onSelected: (category) {
-          setState(() {
-            _selectedCategoryId = category?.id;
-          });
-        },
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider<CategoryGroupBloc>.value(
+            value: getIt<CategoryGroupBloc>(),
+          ),
+          BlocProvider<CategoryBloc>.value(
+            value: getIt<CategoryBloc>(),
+          ),
+        ],
+        child: BlocBuilder<CategoryGroupBloc, CategoryGroupState>(
+          builder: (sheetContext, groupState) {
+            if (groupState is! CategoryGroupLoaded) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+            return HierarchicalSelectorSheet<CategoryGroup, Category>(
+              groups: groupState.groups,
+              itemsOf: (g) =>
+                  g.categories.where((c) => c.type == 'EXPENSE').toList(),
+              groupLabel: (g) => g.name,
+              itemLabel: (c) => c.name,
+              groupColor: (g) => UIHelpers.parseColor(g.color),
+              itemColor: (c) => UIHelpers.parseColor(c.color),
+              groupId: (g) => g.id,
+              itemId: (c) => c.id,
+              groupSelectable: true,
+              selectedGroupId: _selectedGroupId,
+              selectedItemId: _selectedCategoryId,
+              onGroupSelected: (group) {
+                setState(() {
+                  _selectedGroupId = group.id;
+                  _selectedGroupName = group.name;
+                  _selectedCategoryId = null;
+                  _selectedCategoryName = null;
+                });
+              },
+              onItemSelected: (category) {
+                setState(() {
+                  _selectedCategoryId = category.id;
+                  _selectedCategoryName = category.name;
+                  _selectedGroupId = null;
+                  _selectedGroupName = null;
+                });
+              },
+              onAddGroup: () => _showAddGroupDialog(sheetContext),
+              onAddItem: (group) =>
+                  _showAddCategoryDialog(sheetContext, group),
+              onDeleteItem: (category) =>
+                  _confirmDeleteCategory(sheetContext, category),
+              title: '카테고리 선택',
+            );
+          },
+        ),
       ),
     );
   }
 
-  void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
+  Future<void> _showAddGroupDialog(BuildContext context) async {
+    _groupNameController.clear();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('그룹 추가'),
+        content: TextField(
+          controller: _groupNameController,
+          decoration: const InputDecoration(hintText: '그룹 이름'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = _groupNameController.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.of(dialogContext).pop(text);
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+    if (name != null) {
+      getIt<CategoryGroupBloc>().add(CreateCategoryGroup(name: name));
+    }
+  }
+
+  Future<void> _showAddCategoryDialog(
+      BuildContext context, CategoryGroup group) async {
+    _categoryNameController.clear();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${group.name} - 카테고리 추가'),
+        content: TextField(
+          controller: _categoryNameController,
+          decoration: const InputDecoration(hintText: '카테고리 이름'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = _categoryNameController.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.of(dialogContext).pop(text);
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+    if (name != null) {
+      getIt<CategoryBloc>().add(CreateCategory(
+        name: name,
+        type: 'EXPENSE',
+        groupId: group.id,
+      ));
+      // Reload groups to reflect new category
+      getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+    }
+  }
+
+  Future<void> _confirmDeleteCategory(
+      BuildContext context, Category category) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('카테고리 삭제'),
+        content: Text("'${category.name}'을(를) 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      if (_selectedCategoryId == category.id) {
+        setState(() {
+          _selectedCategoryId = null;
+          _selectedCategoryName = null;
+        });
+      }
+      getIt<CategoryBloc>().add(DeleteCategory(category.id));
+      getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+    }
+  }
+
+  void _showPocketSelectorSheet(
+      BuildContext context, List<MoneyPocket> pockets) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -387,11 +567,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           startDate: _periodSelection.startDate,
           endDate: _periodSelection.endDate,
           categoryId: _selectedCategoryId,
+          groupId: _selectedGroupId,
           yearMonth: yearMonth,
         ));
       } else {
         bloc.add(CreateBudget(
           categoryId: _selectedCategoryId,
+          groupId: _selectedGroupId,
           yearMonth: yearMonth,
           amount: amount,
           budgetPeriod: _budgetPeriod,

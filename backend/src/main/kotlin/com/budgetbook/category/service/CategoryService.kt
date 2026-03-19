@@ -118,10 +118,6 @@ class CategoryService(
 
         OwnershipValidator.validateOwnership(category.couple.id, couple, "Category")
 
-        if (category.isDefault) {
-            throw BusinessException("CANNOT_DELETE_DEFAULT_CATEGORY", "Default categories cannot be deleted.")
-        }
-
         categoryRepository.delete(category)
         syncEventPublisher.publish(SyncEvent(
             type = "CATEGORY_DELETED",

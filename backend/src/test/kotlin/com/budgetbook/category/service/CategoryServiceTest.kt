@@ -203,13 +203,13 @@ class CategoryServiceTest : BehaviorSpec({
 
         val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { categoryRepository.delete(category) } returns Unit
 
         When("deleteCategory is called") {
-            Then("throws BusinessException CANNOT_DELETE_DEFAULT_CATEGORY") {
-                val ex = shouldThrow<BusinessException> {
-                    categoryService.deleteCategory(user1.id, category.id)
-                }
-                ex.code shouldBe "CANNOT_DELETE_DEFAULT_CATEGORY"
+            categoryService.deleteCategory(user1.id, category.id)
+
+            Then("deletes the default category successfully") {
+                verify(exactly = 1) { categoryRepository.delete(category) }
             }
         }
     }
