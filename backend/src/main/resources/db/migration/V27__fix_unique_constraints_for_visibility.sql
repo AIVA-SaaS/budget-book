@@ -11,11 +11,5 @@ CREATE UNIQUE INDEX uk_categories_couple_name_owner
         COALESCE(owner_id, '00000000-0000-0000-0000-000000000000')
     );
 
--- 2. Payment methods: same pattern
-DROP INDEX IF EXISTS uk_payment_methods_couple_name;
-CREATE UNIQUE INDEX uk_payment_methods_couple_name_owner
-    ON payment_methods (
-        couple_id,
-        name,
-        COALESCE(owner_id, '00000000-0000-0000-0000-000000000000')
-    );
+-- 2. Payment methods: no owner_id column, keep original constraint as-is
+-- (payment_methods are always SHARED at couple level)
