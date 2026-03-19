@@ -39,7 +39,16 @@ class TransactionFormPage extends StatefulWidget {
   /// Used when navigating from dashboard quick actions.
   final String? initialType;
 
-  const TransactionFormPage({super.key, this.transactionId, this.initialType});
+  /// Optional initial date for the transaction.
+  /// Used when navigating from a date header in the transaction list.
+  final DateTime? initialDate;
+
+  const TransactionFormPage({
+    super.key,
+    this.transactionId,
+    this.initialType,
+    this.initialDate,
+  });
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -74,7 +83,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
         ? widget.initialType!
         : 'EXPENSE';
-    _selectedDate = DateTime.now();
+    _selectedDate = widget.initialDate ?? DateTime.now();
 
     if (isEditing) {
       _isLoadingTransaction = true;

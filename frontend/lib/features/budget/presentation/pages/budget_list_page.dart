@@ -543,16 +543,85 @@ class _BudgetListPageState extends State<BudgetListPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.amount)}원 (${usageRate.toStringAsFixed(1)}%)',
+              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.effectiveMonthlyAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
-        trailing: Text(
-          '${numberFormat.format(budget.amount)}원',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${numberFormat.format(budget.effectiveMonthlyAmount)}원',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                final state = context.read<BudgetBloc>().state;
+                final year =
+                    state is BudgetLoaded ? state.year : DateTime.now().year;
+                final month =
+                    state is BudgetLoaded ? state.month : DateTime.now().month;
+                if (value == 'edit') {
+                  context.push(
+                      '/budgets/edit/${budget.id}?year=$year&month=$month');
+                } else if (value == 'delete') {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('예산 삭제'),
+                      content: Text(
+                        '${budget.targetLabel}을(를) 삭제하시겠습니까?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('취소'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            context
+                                .read<BudgetBloc>()
+                                .add(DeleteBudget(budget.id));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
+                          ),
+                          child: const Text('삭제'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 18),
+                      SizedBox(width: 8),
+                      Text('수정'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('삭제', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         onTap: () {
           final state = context.read<BudgetBloc>().state;

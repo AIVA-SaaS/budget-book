@@ -297,6 +297,11 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
+        final dateStr = state.uri.queryParameters['date'];
+        DateTime? initialDate;
+        if (dateStr != null) {
+          initialDate = DateTime.tryParse(dateStr);
+        }
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         getIt<PocketBloc>().add(const LoadPockets());
@@ -315,7 +320,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               value: getIt<PocketBloc>(),
             ),
           ],
-          child: TransactionFormPage(initialType: type),
+          child: TransactionFormPage(
+            initialType: type,
+            initialDate: initialDate,
+          ),
         );
       },
     ),
