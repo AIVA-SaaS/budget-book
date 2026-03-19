@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Service
@@ -303,6 +304,9 @@ class BudgetService(
             userId = userId
         )
 
+        // Pre-calculate week ranges for WEEKLY budget pro-rata conversion
+        val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
+
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
             val groupId = budget.group?.id
@@ -318,9 +322,20 @@ class BudgetService(
                 )
                 else -> totalSpent
             }
-            val remainingAmount = budget.amount - spentAmount
-            val usageRate = if (budget.amount > 0) {
-                Math.round(spentAmount.toDouble() / budget.amount * 1000.0) / 10.0
+
+            // For WEEKLY budgets, compute the monthly equivalent as
+            // sum of pro-rata weekly amounts across all week ranges
+            val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY && budget.weeklyAmount != null) {
+                weekRanges.sumOf { (start, end) ->
+                    WeeklyBudgetService.calculateProRataBudget(budget.weeklyAmount!!, start, end)
+                }
+            } else {
+                budget.amount
+            }
+
+            val remainingAmount = effectiveBudgetAmount - spentAmount
+            val usageRate = if (effectiveBudgetAmount > 0) {
+                Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
                 0.0
             }
@@ -337,16 +352,27 @@ class BudgetService(
                 },
                 groupId = budget.group?.id,
                 groupName = budget.group?.name,
-                budgetAmount = budget.amount,
+                budgetAmount = effectiveBudgetAmount,
                 spentAmount = spentAmount,
                 remainingAmount = remainingAmount,
                 usageRate = usageRate
             )
         }
 
-        val totalBudgetEntry = budgets.find { it.category == null }
-        val totalBudget = totalBudgetEntry?.amount
-            ?: budgets.sumOf { it.amount }
+        val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
+        val totalBudget = if (totalBudgetEntry != null) {
+            // If a "total" budget exists, use its effective amount
+            if (totalBudgetEntry.budgetPeriod == BudgetPeriod.WEEKLY && totalBudgetEntry.weeklyAmount != null) {
+                weekRanges.sumOf { (start, end) ->
+                    WeeklyBudgetService.calculateProRataBudget(totalBudgetEntry.weeklyAmount!!, start, end)
+                }
+            } else {
+                totalBudgetEntry.amount
+            }
+        } else {
+            // Sum all individual budget items' effective amounts
+            items.sumOf { it.budgetAmount }
+        }
 
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
