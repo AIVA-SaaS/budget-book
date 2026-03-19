@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter/services.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -44,6 +45,7 @@ class TransactionFormPage extends StatefulWidget {
 class _TransactionFormPageState extends State<TransactionFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
+  String _amountHint = '';
   late final TextEditingController _descriptionController;
   late final TextEditingController _memoController;
   late String _selectedType;
@@ -62,6 +64,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   void initState() {
     super.initState();
     _amountController = TextEditingController();
+    _amountController.addListener(_updateAmountHint);
     _descriptionController = TextEditingController();
     _memoController = TextEditingController();
     _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
@@ -111,7 +114,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         if (mounted) {
           setState(() {
             _isLoadingTransaction = false;
-            _amountController.text = transaction.amount.toString();
+            _amountController.text = CurrencyFormatter.format(transaction.amount);
             _descriptionController.text = transaction.description;
             _memoController.text = transaction.memo ?? '';
             _selectedType = transaction.type;
@@ -125,8 +128,21 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  void _updateAmountHint() {
+    final parsed = CurrencyFormatter.parse(_amountController.text);
+    final hint = (parsed != null && parsed >= 10000)
+        ? CurrencyFormatter.toKoreanUnit(parsed)
+        : '';
+    if (hint != _amountHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _amountHint = hint);
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
     _descriptionController.dispose();
     _memoController.dispose();
@@ -222,18 +238,19 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 // Amount
                 TextFormField(
                   controller: _amountController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '금액',
                     suffixText: '원',
-                    prefixIcon: Icon(Icons.payments),
+                    prefixIcon: const Icon(Icons.payments),
+                    helperText: _amountHint.isNotEmpty ? _amountHint : null,
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: [CurrencyInputFormatter()],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '금액을 입력하세요';
                     }
-                    final amount = int.tryParse(value);
+                    final amount = CurrencyFormatter.parse(value);
                     if (amount == null || amount <= 0) {
                       return '0보다 큰 금액을 입력하세요';
                     }
@@ -712,7 +729,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     }
 
     setState(() => _isSubmitting = true);
-    final amount = int.parse(_amountController.text.trim());
+    final amount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final memo =

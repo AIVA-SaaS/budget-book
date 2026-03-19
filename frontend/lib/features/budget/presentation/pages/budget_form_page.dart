@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -45,6 +46,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late final TextEditingController _weeklyAmountController;
+  String _amountHint = '';
+  String _weeklyAmountHint = '';
   final _groupNameController = TextEditingController();
   final _categoryNameController = TextEditingController();
   String? _selectedCategoryId;
@@ -65,7 +68,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void initState() {
     super.initState();
     _amountController = TextEditingController();
+    _amountController.addListener(_updateAmountHint);
     _weeklyAmountController = TextEditingController();
+    _weeklyAmountController.addListener(_updateWeeklyAmountHint);
     _selectedYear = widget.year;
     _selectedMonth = widget.month;
     _budgetPeriod = 'MONTHLY';
@@ -77,9 +82,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   void _initializeFromBudget(Budget budget) {
     if (_initialized) return;
     _initialized = true;
-    _amountController.text = budget.amount.toString();
+    _amountController.text = CurrencyFormatter.format(budget.amount);
     _weeklyAmountController.text =
-        budget.weeklyAmount != null ? budget.weeklyAmount.toString() : '';
+        budget.weeklyAmount != null ? CurrencyFormatter.format(budget.weeklyAmount!) : '';
     _selectedCategoryId = budget.category?.id;
     _selectedCategoryName = budget.category?.name;
     _selectedGroupId = budget.groupId;
@@ -95,11 +100,37 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
 
   @override
   void dispose() {
+    _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
+    _weeklyAmountController.removeListener(_updateWeeklyAmountHint);
     _weeklyAmountController.dispose();
     _groupNameController.dispose();
     _categoryNameController.dispose();
     super.dispose();
+  }
+
+  void _updateAmountHint() {
+    final parsed = CurrencyFormatter.parse(_amountController.text);
+    final hint = (parsed != null && parsed >= 10000)
+        ? CurrencyFormatter.toKoreanUnit(parsed)
+        : '';
+    if (hint != _amountHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _amountHint = hint);
+      });
+    }
+  }
+
+  void _updateWeeklyAmountHint() {
+    final parsed = CurrencyFormatter.parse(_weeklyAmountController.text);
+    final hint = (parsed != null && parsed >= 10000)
+        ? CurrencyFormatter.toKoreanUnit(parsed)
+        : '';
+    if (hint != _weeklyAmountHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _weeklyAmountHint = hint);
+      });
+    }
   }
 
   @override
@@ -228,18 +259,19 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             if (_budgetPeriod == 'WEEKLY')
               TextFormField(
                 controller: _weeklyAmountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '주간 예산 금액',
                   suffixText: '원',
-                  prefixIcon: Icon(Icons.date_range),
+                  prefixIcon: const Icon(Icons.date_range),
+                  helperText: _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
                 ),
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [CurrencyInputFormatter()],
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '주간 예산 금액을 입력하세요';
                   }
-                  final amount = int.tryParse(value);
+                  final amount = CurrencyFormatter.parse(value);
                   if (amount == null || amount <= 0) {
                     return '0보다 큰 금액을 입력하세요';
                   }
@@ -249,18 +281,19 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             else
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '예산 금액',
                   suffixText: '원',
-                  prefixIcon: Icon(Icons.payments),
+                  prefixIcon: const Icon(Icons.payments),
+                  helperText: _amountHint.isNotEmpty ? _amountHint : null,
                 ),
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [CurrencyInputFormatter()],
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '금액을 입력하세요';
                   }
-                  final amount = int.tryParse(value);
+                  final amount = CurrencyFormatter.parse(value);
                   if (amount == null || amount <= 0) {
                     return '0보다 큰 금액을 입력하세요';
                   }
@@ -521,14 +554,14 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       final int amount;
       final int? weeklyAmount;
       if (_budgetPeriod == 'WEEKLY') {
-        final weekly = int.parse(_weeklyAmountController.text.trim());
+        final weekly = CurrencyFormatter.parse(_weeklyAmountController.text.trim())!;
         weeklyAmount = weekly;
         // Monthly amount = weekly * 4 (approximate)
         amount = _amountController.text.trim().isNotEmpty
-            ? int.parse(_amountController.text.trim())
+            ? CurrencyFormatter.parse(_amountController.text.trim())!
             : weekly * 4;
       } else {
-        amount = int.parse(_amountController.text.trim());
+        amount = CurrencyFormatter.parse(_amountController.text.trim())!;
         weeklyAmount = null;
       }
 
