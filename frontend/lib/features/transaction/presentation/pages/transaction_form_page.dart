@@ -23,6 +23,9 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -172,6 +175,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       body: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionLoaded) {
+            // Refresh dashboard so new transaction appears immediately
+            final now = DateTime.now();
+            getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
             context.pop();
           } else if (state is TransactionError) {
             setState(() => _isSubmitting = false);
