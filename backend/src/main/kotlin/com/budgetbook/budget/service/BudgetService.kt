@@ -326,9 +326,10 @@ class BudgetService(
 
             // For WEEKLY budgets, compute the monthly equivalent as
             // sum of pro-rata weekly amounts across all week ranges
-            val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY && budget.weeklyAmount != null) {
+            val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
+                val perWeek = budget.weeklyAmount ?: (budget.amount / weekRanges.size)
                 weekRanges.sumOf { (start, end) ->
-                    WeeklyBudgetService.calculateProRataBudget(budget.weeklyAmount!!, start, end)
+                    WeeklyBudgetService.calculateProRataBudget(perWeek, start, end)
                 }
             } else {
                 budget.amount
@@ -363,9 +364,10 @@ class BudgetService(
         val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
         val totalBudget = if (totalBudgetEntry != null) {
             // If a "total" budget exists, use its effective amount
-            if (totalBudgetEntry.budgetPeriod == BudgetPeriod.WEEKLY && totalBudgetEntry.weeklyAmount != null) {
+            if (totalBudgetEntry.budgetPeriod == BudgetPeriod.WEEKLY) {
+                val perWeek = totalBudgetEntry.weeklyAmount ?: (totalBudgetEntry.amount / weekRanges.size)
                 weekRanges.sumOf { (start, end) ->
-                    WeeklyBudgetService.calculateProRataBudget(totalBudgetEntry.weeklyAmount!!, start, end)
+                    WeeklyBudgetService.calculateProRataBudget(perWeek, start, end)
                 }
             } else {
                 totalBudgetEntry.amount
