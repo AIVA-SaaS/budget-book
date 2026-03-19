@@ -19,8 +19,10 @@ import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Service
@@ -43,11 +45,11 @@ class WeeklyBudgetService(
 
         val weekRanges = calculateWeekRanges(ym)
 
-        // Hoist budget query outside the loop (Problem 2)
-        val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size, userId)
+        // Calculate per-week weekly budget amount (used for pro-rata)
+        val perWeekBudget = calculatePerWeekBudgetAmount(couple.id, yearMonth, userId)
 
-        // Early return if no budget and no snapshots (Problem 3)
-        if (budgetAmount == 0L && snapshots.isEmpty()) {
+        // Early return if no budget and no snapshots
+        if (perWeekBudget == 0L && snapshots.isEmpty()) {
             val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
                 WeeklySnapshotResponse(
                     weekNumber = index + 1,
@@ -70,6 +72,9 @@ class WeeklyBudgetService(
             if (snapshot != null) {
                 toSnapshotResponse(snapshot)
             } else {
+                // Pro-rata budget for this week based on days in month
+                val budgetAmount = calculateProRataBudget(perWeekBudget, weekStart, weekEnd)
+
                 // Calculate in real-time using optimized SUM query
                 val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd, userId)
                 val remaining = budgetAmount - spent
@@ -164,9 +169,12 @@ class WeeklyBudgetService(
             val categoriesInGroup = categoriesByGroupId[group.id] ?: emptyList()
             val categoryIds = categoriesInGroup.map { it.id }.toSet()
 
+            // Pro-rata: scale weeklyAmount by days-in-month / 7
+            val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
             val groupBudgetAmount = categoryIds.sumOf { catId ->
                 val budget = budgetByCategoryId[catId]
-                budget?.weeklyAmount ?: (budget?.amount?.div(weekRanges.size) ?: 0L)
+                val rawWeekly = budget?.weeklyAmount ?: (budget?.amount?.div(weekRanges.size) ?: 0L)
+                (rawWeekly * daysInWeek) / 7
             }
 
             // In-memory lookup from batch query result (no additional DB call)
@@ -204,11 +212,13 @@ class WeeklyBudgetService(
         val weekRanges = calculateWeekRanges(ym)
         val today = LocalDate.now()
 
-        // Hoist budget query outside the loop (Problem 2)
-        val budgetAmount = calculateWeeklyBudgetAmount(couple.id, yearMonth, weekRanges.size, userId)
+        // Per-week budget amount (before pro-rata)
+        val perWeekBudget = calculatePerWeekBudgetAmount(couple.id, yearMonth, userId)
 
         weekRanges.forEachIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
+            // Pro-rata budget for this specific week
+            val budgetAmount = calculateProRataBudget(perWeekBudget, weekStart, weekEnd)
             val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd, userId)
 
             val status = when {
@@ -270,34 +280,75 @@ class WeeklyBudgetService(
         )
     }
 
-    private fun calculateWeeklyBudgetAmount(coupleId: UUID, yearMonth: String, numberOfWeeks: Int, userId: UUID): Long {
+    /**
+     * Returns the per-week budget amount (before pro-rata adjustment).
+     * This is the budget for a full 7-day week; partial weeks should
+     * be scaled using [calculateProRataBudget].
+     *
+     * Uses weeklyAmount from WEEKLY budgets, or derives from monthly amount / daysInMonth * 7.
+     */
+    private fun calculatePerWeekBudgetAmount(coupleId: UUID, yearMonth: String, userId: UUID): Long {
         val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
-        val totalMonthlyBudget = budgets.sumOf { it.amount }
-        return if (numberOfWeeks > 0) totalMonthlyBudget / numberOfWeeks else 0L
+        if (budgets.isEmpty()) return 0L
+
+        // Sum weekly contributions: use weeklyAmount if set, otherwise derive from monthly
+        val parts = yearMonth.split("-")
+        val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
+        val daysInMonth = ym.lengthOfMonth()
+
+        return budgets.sumOf { budget ->
+            budget.weeklyAmount ?: ((budget.amount * 7) / daysInMonth)
+        }
     }
 
     private fun formatYearMonth(year: Int, month: Int): String =
         "%04d-%02d".format(year, month)
 
     companion object {
+        /**
+         * Calculates real Monday-Sunday week ranges for a given month,
+         * clipping to the month boundaries.
+         *
+         * For example, if March 2026 starts on Sunday:
+         * - Week 1: Mar 1 (Sun) only (partial week, 1 day in month)
+         * - Week 2: Mar 2 (Mon) - Mar 8 (Sun), full 7 days
+         * - ...
+         * - Last week: clipped to end of month
+         */
         fun calculateWeekRanges(yearMonth: YearMonth): List<Pair<LocalDate, LocalDate>> {
+            val firstDay = yearMonth.atDay(1)
             val lastDay = yearMonth.atEndOfMonth()
             val ranges = mutableListOf<Pair<LocalDate, LocalDate>>()
 
-            // Week 1: 1st~7th, Week 2: 8th~14th, Week 3: 15th~21st, Week 4: 22nd~28th, Week 5: 29th~end
-            val weekStarts = listOf(1, 8, 15, 22, 29)
-            for (start in weekStarts) {
-                if (start > lastDay.dayOfMonth) break
-                val weekStart = yearMonth.atDay(start)
-                val weekEnd = if (start + 6 <= lastDay.dayOfMonth) {
-                    yearMonth.atDay(start + 6)
-                } else {
-                    lastDay
-                }
-                ranges.add(weekStart to weekEnd)
+            // Find the Monday of the week containing the 1st of the month
+            var weekStart = firstDay.with(DayOfWeek.MONDAY)
+            if (weekStart.isAfter(firstDay)) {
+                // 1st is not Monday; the Monday is in the next week, so go back
+                weekStart = weekStart.minusWeeks(1)
+            }
+
+            while (!weekStart.isAfter(lastDay)) {
+                val weekEnd = weekStart.plusDays(6) // Sunday
+
+                // Clip to month boundaries
+                val effectiveStart = if (weekStart.isBefore(firstDay)) firstDay else weekStart
+                val effectiveEnd = if (weekEnd.isAfter(lastDay)) lastDay else weekEnd
+
+                ranges.add(effectiveStart to effectiveEnd)
+                weekStart = weekStart.plusWeeks(1)
             }
 
             return ranges
+        }
+
+        /**
+         * Calculate the pro-rata budget for a week range within a month.
+         * Full week (7 days in month) = weeklyBudgetAmount
+         * Partial week (N days in month) = weeklyBudgetAmount * N / 7
+         */
+        fun calculateProRataBudget(weeklyAmount: Long, start: LocalDate, end: LocalDate): Long {
+            val days = ChronoUnit.DAYS.between(start, end) + 1
+            return (weeklyAmount * days) / 7
         }
     }
 }
