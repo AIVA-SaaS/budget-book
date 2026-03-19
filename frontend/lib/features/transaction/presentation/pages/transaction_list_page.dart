@@ -558,22 +558,39 @@ class _DateHeader extends StatelessWidget {
       formatted = dateStr;
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Theme.of(context)
-          .colorScheme
-          .surfaceContainerHighest
-          .withValues(alpha: 0.5),
-      child: Text(
-        formatted,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
+    return InkWell(
+      onTap: () => context.push('/transactions/create?date=$dateStr'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.5),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                formatted,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+              ),
+            ),
+            Icon(
+              Icons.add_circle_outline,
+              size: 16,
               color: Theme.of(context)
                   .colorScheme
                   .onSurface
-                  .withValues(alpha: 0.6),
+                  .withValues(alpha: 0.4),
             ),
+          ],
+        ),
       ),
     );
   }

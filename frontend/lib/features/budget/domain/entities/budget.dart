@@ -49,6 +49,22 @@ class Budget extends Equatable {
     return '전체 예산';
   }
 
+  /// For WEEKLY budgets, calculate the effective monthly amount
+  /// using pro-rata (weeklyAmount * daysInMonth / 7).
+  /// For MONTHLY budgets, returns amount as-is.
+  int get effectiveMonthlyAmount {
+    if (budgetPeriod != 'WEEKLY' || weeklyAmount == null) return amount;
+
+    // Parse yearMonth to get days in month
+    final parts = yearMonth.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+
+    // Pro-rata: weeklyAmount * daysInMonth / 7
+    return (weeklyAmount! * daysInMonth) ~/ 7;
+  }
+
   bool get isPrivate => visibility == 'PRIVATE';
   bool get isShared => visibility == 'SHARED';
 
