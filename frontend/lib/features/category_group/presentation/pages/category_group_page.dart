@@ -11,8 +11,12 @@ import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/reorderable_entity_list.dart';
 
+const _virtualGroupId = '00000000-0000-0000-0000-000000000000';
+
 class CategoryGroupPage extends StatelessWidget {
   const CategoryGroupPage({super.key});
+
+  bool _isVirtualGroup(CategoryGroup group) => group.id == _virtualGroupId;
 
   @override
   Widget build(BuildContext context) {
@@ -137,37 +141,39 @@ class CategoryGroupPage extends StatelessWidget {
                     .withValues(alpha: 0.5),
               ),
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showEditGroup(context, group);
-            } else if (value == 'delete') {
-              _showDeleteDialog(context, group);
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('수정'),
+        trailing: _isVirtualGroup(group)
+            ? null
+            : PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditGroup(context, group);
+                  } else if (value == 'delete') {
+                    _showDeleteDialog(context, group);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('수정'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('삭제', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('삭제', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-        ),
         children: group.categories.isEmpty
             ? [
                 Padding(
