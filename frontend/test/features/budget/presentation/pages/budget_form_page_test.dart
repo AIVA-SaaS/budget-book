@@ -226,7 +226,7 @@ void main() {
         budgets: [tOverallBudget],
       ));
       await tester.pumpAndSettle();
-      expect(find.text('150000'), findsOneWidget);
+      expect(find.text('150,000'), findsOneWidget);
     });
 
     testWidgets('shows "기간 미지정" text for NONE period type by default', (tester) async {
