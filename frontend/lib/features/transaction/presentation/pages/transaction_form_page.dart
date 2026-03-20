@@ -68,6 +68,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
+  bool _continueMode = false;
+  bool _keepSameItems = false;
   String? _categoryError;
   String? _paymentMethodError;
 
@@ -244,10 +246,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       body: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionLoaded) {
-            // Refresh dashboard so new transaction appears immediately
             final now = DateTime.now();
             getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
-            context.pop();
+            if (_continueMode) {
+              _resetFormForContinue();
+            } else {
+              context.pop();
+            }
           } else if (state is TransactionError) {
             setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -425,23 +430,87 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                       maxLines: 2,
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  // Submit button
+                  const SizedBox(height: 24),
+                  // Continue mode options (new transactions only)
+                  if (!isEditing) ...[
+                    GestureDetector(
+                      onTap: () => setState(() => _keepSameItems = !_keepSameItems),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _keepSameItems,
+                              onChanged: (v) => setState(() => _keepSameItems = v ?? false),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '동일 항목 유지 (날짜/카테고리/결제수단)',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // Submit buttons
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(7),
-                    child: FilledButton(
-                      onPressed: _isSubmitting ? null : _onSubmit,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(isEditing ? '수정' : '추가'),
-                    ),
+                    child: isEditing
+                        ? FilledButton(
+                            onPressed: _isSubmitting ? null : _onSubmit,
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 20, width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text('수정'),
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isSubmitting ? null : () {
+                                    _continueMode = true;
+                                    _onSubmit();
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  ),
+                                  child: _isSubmitting && _continueMode
+                                      ? const SizedBox(
+                                          height: 20, width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Text('저장 & 계속'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: _isSubmitting ? null : () {
+                                    _continueMode = false;
+                                    _onSubmit();
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  ),
+                                  child: _isSubmitting && !_continueMode
+                                      ? const SizedBox(
+                                          height: 20, width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Text('저장'),
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),
@@ -901,6 +970,35 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             child: const Text('삭제'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _resetFormForContinue() {
+    setState(() {
+      _amountController.clear();
+      _amountHint = '';
+      _descriptionController.clear();
+      _memoController.clear();
+      _suggestions = [];
+      _isSubmitting = false;
+      _continueMode = false;
+      _categoryError = null;
+      _paymentMethodError = null;
+
+      if (!_keepSameItems) {
+        _selectedCategoryId = null;
+        _selectedCategoryDisplayName = null;
+        _selectedPaymentMethodId = null;
+        _selectedPocketId = null;
+        _loadDefaultPaymentMethod();
+      }
+      // _selectedDate and _selectedType are always kept
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('저장 완료! 다음 항목을 입력하세요.'),
+        duration: Duration(seconds: 1),
       ),
     );
   }

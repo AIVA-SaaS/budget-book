@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/payment_method/data/card_issuer_presets.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -31,6 +32,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
   late final TextEditingController _settlementDayController;
   late final TextEditingController _closingDayController;
   late String _selectedType;
+  String? _selectedIssuerId;
   bool _isSubmitting = false;
 
   bool get isEditing => widget.paymentMethod != null;
@@ -165,8 +167,37 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              // Closing day and settlement day (only for CREDIT type)
+              // Card issuer presets + closing/settlement day (only for CREDIT type)
               if (_selectedType == 'CREDIT') ...[
+                if (!isEditing) ...[
+                  Text('카드사', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      ...cardIssuerPresets.map((preset) => ChoiceChip(
+                        label: Text(preset.name, style: const TextStyle(fontSize: 12)),
+                        selected: _selectedIssuerId == preset.id,
+                        onSelected: (_) => _onCardIssuerSelected(preset),
+                        visualDensity: VisualDensity.compact,
+                      )),
+                      ChoiceChip(
+                        label: const Text('직접 입력', style: TextStyle(fontSize: 12)),
+                        selected: _selectedIssuerId == 'custom',
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedIssuerId = 'custom';
+                            _settlementDayController.clear();
+                            _closingDayController.clear();
+                          });
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextFormField(
                   controller: _closingDayController,
                   decoration: const InputDecoration(
@@ -322,6 +353,17 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
         ],
       ),
     );
+  }
+
+  void _onCardIssuerSelected(CardIssuerPreset preset) {
+    setState(() {
+      _selectedIssuerId = preset.id;
+      _settlementDayController.text = preset.settlementDay.toString();
+      _closingDayController.text = preset.closingDay.toString();
+      if (_nameController.text.isEmpty) {
+        _nameController.text = preset.name;
+      }
+    });
   }
 
   void _onSubmit() {
