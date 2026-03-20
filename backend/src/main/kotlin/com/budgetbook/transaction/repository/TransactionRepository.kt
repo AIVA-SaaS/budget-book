@@ -196,6 +196,26 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.couple.id = :coupleId")
     fun countByCoupleId(@Param("coupleId") coupleId: UUID): Long
 
+    @Query(
+        value = """
+            SELECT t.description
+            FROM transactions t
+            WHERE t.couple_id = :coupleId
+            AND LOWER(t.description) LIKE LOWER(CONCAT('%', :query, '%'))
+            AND (t.visibility = 'SHARED' OR t.owner_id = CAST(:userId AS UUID))
+            GROUP BY t.description
+            ORDER BY MAX(t.created_at) DESC
+            LIMIT :limit
+        """,
+        nativeQuery = true
+    )
+    fun findDistinctDescriptionsByQuery(
+        @Param("coupleId") coupleId: UUID,
+        @Param("query") query: String,
+        @Param("userId") userId: UUID,
+        @Param("limit") limit: Int
+    ): List<String>
+
     @Query("""
         SELECT t.category.id, COALESCE(SUM(t.amount), 0)
         FROM Transaction t

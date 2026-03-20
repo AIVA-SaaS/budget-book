@@ -71,6 +71,15 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _categoryError;
   String? _paymentMethodError;
 
+  // Suggestion chips state
+  List<String> _suggestions = [];
+  Timer? _debounceTimer;
+
+  // FocusNodes for keyboard navigation on selector fields
+  final FocusNode _categoryFocusNode = FocusNode();
+  final FocusNode _paymentMethodFocusNode = FocusNode();
+  final FocusNode _pocketFocusNode = FocusNode();
+
   bool get isEditing => widget.transactionId != null;
 
   @override
@@ -79,6 +88,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     _amountController = TextEditingController();
     _amountController.addListener(_updateAmountHint);
     _descriptionController = TextEditingController();
+    _descriptionController.addListener(_onDescriptionChanged);
     _memoController = TextEditingController();
     _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
         ? widget.initialType!
@@ -142,6 +152,37 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  void _onDescriptionChanged() {
+    final text = _descriptionController.text.trim();
+    _debounceTimer?.cancel();
+
+    if (text.length < 2) {
+      if (_suggestions.isNotEmpty) {
+        setState(() => _suggestions = []);
+      }
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _fetchSuggestions(text);
+    });
+  }
+
+  Future<void> _fetchSuggestions(String query) async {
+    final repo = context.read<TransactionBloc>().transactionRepository;
+    final result = await repo.getSuggestions(query);
+    if (!mounted) return;
+    result.fold(
+      (_) {
+        // On error, silently clear suggestions
+        setState(() => _suggestions = []);
+      },
+      (suggestions) {
+        setState(() => _suggestions = suggestions);
+      },
+    );
+  }
+
   void _updateAmountHint() {
     final parsed = CurrencyFormatter.parse(_amountController.text);
     final hint = (parsed != null && parsed >= 10000)
@@ -156,10 +197,15 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
+    _descriptionController.removeListener(_onDescriptionChanged);
     _descriptionController.dispose();
     _memoController.dispose();
+    _categoryFocusNode.dispose();
+    _paymentMethodFocusNode.dispose();
+    _pocketFocusNode.dispose();
     super.dispose();
   }
 
@@ -202,140 +248,257 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Type toggle
-                if (isEditing)
-                  ListTile(
-                    leading: Icon(
-                      _selectedType == 'INCOME'
-                          ? Icons.arrow_upward
-                          : Icons.arrow_downward,
-                      color: _selectedType == 'INCOME'
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                    title: Text(
-                        _selectedType == 'INCOME' ? '수입' : '지출'),
-                    subtitle: const Text('유형은 수정할 수 없습니다'),
-                    tileColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  )
-                else
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'EXPENSE',
-                        label: Text('지출'),
-                        icon: Icon(Icons.arrow_downward),
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Type toggle
+                  if (isEditing)
+                    ListTile(
+                      leading: Icon(
+                        _selectedType == 'INCOME'
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        color: _selectedType == 'INCOME'
+                            ? Colors.green
+                            : Colors.red,
                       ),
-                      ButtonSegment(
-                        value: 'INCOME',
-                        label: Text('수입'),
-                        icon: Icon(Icons.arrow_upward),
+                      title: Text(
+                          _selectedType == 'INCOME' ? '수입' : '지출'),
+                      subtitle: const Text('유형은 수정할 수 없습니다'),
+                      tileColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                    selected: {_selectedType},
-                    onSelectionChanged: (value) {
-                      setState(() {
-                        _selectedType = value.first;
-                        _selectedCategoryId = null;
-                        _visibility = 'SHARED';
-                      });
-                    },
+                    )
+                  else
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'EXPENSE',
+                          label: Text('지출'),
+                          icon: Icon(Icons.arrow_downward),
+                        ),
+                        ButtonSegment(
+                          value: 'INCOME',
+                          label: Text('수입'),
+                          icon: Icon(Icons.arrow_upward),
+                        ),
+                      ],
+                      selected: {_selectedType},
+                      onSelectionChanged: (value) {
+                        setState(() {
+                          _selectedType = value.first;
+                          _selectedCategoryId = null;
+                          _visibility = 'SHARED';
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 24),
+                  // Date picker
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(0),
+                    child: _buildDatePicker(context),
                   ),
-                const SizedBox(height: 24),
-                // Date picker (최상단 배치)
-                _buildDatePicker(context),
-                const SizedBox(height: 16),
-                // Amount
-                TextFormField(
-                  controller: _amountController,
-                  decoration: InputDecoration(
-                    labelText: '금액',
-                    suffixText: '원',
-                    prefixIcon: const Icon(Icons.payments),
-                    helperText: _amountHint.isNotEmpty ? _amountHint : null,
+                  const SizedBox(height: 16),
+                  // Amount
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(1),
+                    child: TextFormField(
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        labelText: '금액',
+                        suffixText: '원',
+                        prefixIcon: const Icon(Icons.payments),
+                        helperText: _amountHint.isNotEmpty ? _amountHint : null,
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [CurrencyInputFormatter()],
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '금액을 입력하세요';
+                        }
+                        final amount = CurrencyFormatter.parse(value);
+                        if (amount == null || amount <= 0) {
+                          return '0보다 큰 금액을 입력하세요';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '금액을 입력하세요';
-                    }
-                    final amount = CurrencyFormatter.parse(value);
-                    if (amount == null || amount <= 0) {
-                      return '0보다 큰 금액을 입력하세요';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Description
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: '내용',
-                    hintText: '예: 점심 식사',
-                    prefixIcon: Icon(Icons.description),
+                  const SizedBox(height: 16),
+                  // Description with suggestion chips
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(2),
+                    child: TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: '내용',
+                        hintText: '예: 점심 식사',
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                      maxLength: 255,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '내용을 입력하세요';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  maxLength: 255,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '내용을 입력하세요';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Category picker
-                _buildCategoryPicker(context),
-                const SizedBox(height: 16),
-                // Payment method picker
-                _buildPaymentMethodPicker(context),
-                const SizedBox(height: 16),
-                // Pocket picker
-                _buildPocketPicker(context),
-                const SizedBox(height: 16),
-                // Memo
-                TextFormField(
-                  controller: _memoController,
-                  decoration: const InputDecoration(
-                    labelText: '메모 (선택)',
-                    hintText: '추가 메모',
-                    prefixIcon: Icon(Icons.note),
+                  if (_suggestions.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _suggestions.map((s) => ActionChip(
+                          label: Text(s),
+                          onPressed: () {
+                            _descriptionController.text = s;
+                            _descriptionController.selection =
+                                TextSelection.collapsed(offset: s.length);
+                            setState(() => _suggestions = []);
+                          },
+                        )).toList(),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // Category picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(3),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _categoryFocusNode,
+                      onActivate: () => _activateCategoryPicker(context),
+                      child: _buildCategoryPicker(context),
+                    ),
                   ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 32),
-                // Submit button
-                FilledButton(
-                  onPressed: _isSubmitting ? null : _onSubmit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  const SizedBox(height: 16),
+                  // Payment method picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(4),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _paymentMethodFocusNode,
+                      onActivate: () => _activatePaymentMethodPicker(context),
+                      child: _buildPaymentMethodPicker(context),
+                    ),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(isEditing ? '수정' : '추가'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  // Pocket picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(5),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _pocketFocusNode,
+                      onActivate: () => _activatePocketPicker(context),
+                      child: _buildPocketPicker(context),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Memo
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(6),
+                    child: TextFormField(
+                      controller: _memoController,
+                      decoration: const InputDecoration(
+                        labelText: '메모 (선택)',
+                        hintText: '추가 메모',
+                        prefixIcon: Icon(Icons.note),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Submit button
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(7),
+                    child: FilledButton(
+                      onPressed: _isSubmitting ? null : _onSubmit,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(isEditing ? '수정' : '추가'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// Wraps a selector field with Focus + KeyboardListener so that
+  /// Enter/Space activates the bottom sheet selector.
+  Widget _buildKeyboardActivatableField({
+    required FocusNode focusNode,
+    required VoidCallback onActivate,
+    required Widget child,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      canRequestFocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.space)) {
+          onActivate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: () {
+          focusNode.requestFocus();
+          onActivate();
+        },
+        child: AbsorbPointer(
+          // AbsorbPointer prevents the inner InkWell from capturing tap;
+          // the GestureDetector above handles it, allowing focus to be set.
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  void _activateCategoryPicker(BuildContext context) {
+    final catState = context.read<CategoryBloc>().state;
+    final categories = catState is CategoryLoaded
+        ? (_selectedType == 'INCOME'
+            ? catState.incomeCategories
+            : catState.expenseCategories)
+        : <Category>[];
+    setState(() => _categoryError = null);
+    _showCategorySelectorSheet(context, categories);
+  }
+
+  void _activatePaymentMethodPicker(BuildContext context) {
+    final pmState = context.read<PaymentMethodBloc>().state;
+    final methods = pmState is PaymentMethodLoaded
+        ? pmState.activePaymentMethods
+        : <PaymentMethod>[];
+    setState(() => _paymentMethodError = null);
+    _showPaymentMethodSelectorSheet(context, methods);
+  }
+
+  void _activatePocketPicker(BuildContext context) {
+    final pocketState = context.read<PocketBloc>().state;
+    final pockets = pocketState is PocketLoaded
+        ? pocketState.pockets
+        : <MoneyPocket>[];
+    _showPocketSelectorSheet(context, pockets);
   }
 
   Widget _buildCategoryPicker(BuildContext context) {
@@ -699,7 +862,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         }
       }
     } catch (_) {
-      // Timeout — user can manually select
+      // Timeout -- user can manually select
     }
   }
 

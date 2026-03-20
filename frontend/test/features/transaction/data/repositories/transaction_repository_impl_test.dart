@@ -81,6 +81,13 @@ class MockTransactionRemoteDataSource extends Mock
         returnValue: Future.value(),
       ) as Future<void>;
 
+  @override
+  Future<List<String>> getSuggestions(String query, {int limit = 10}) =>
+      super.noSuchMethod(
+        Invocation.method(#getSuggestions, [query], {#limit: limit}),
+        returnValue: Future.value(<String>[]),
+      ) as Future<List<String>>;
+
   static final _dummyModel = TransactionModel(
     id: '',
     coupleId: '',
@@ -397,6 +404,74 @@ void main() {
           result,
           equals(const Left<Failure, void>(
               ServerFailure('Transaction does not exist', null, 404))),
+        );
+      });
+    });
+
+    group('getSuggestions', () {
+      test('returns Right(List<String>) when datasource succeeds', () async {
+        final suggestions = ['점심 식사', '점심 커피', '점심 도시락'];
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => suggestions);
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(result.isRight(), isTrue);
+        result.fold(
+          (_) => fail('Expected Right'),
+          (data) => expect(data, ['점심 식사', '점심 커피', '점심 도시락']),
+        );
+        verify(mockDataSource.getSuggestions('점심')).called(1);
+      });
+
+      test('returns empty list when no suggestions', () async {
+        when(mockDataSource.getSuggestions('zzz'))
+            .thenAnswer((_) async => <String>[]);
+
+        final result = await repository.getSuggestions('zzz');
+
+        expect(result.isRight(), isTrue);
+        result.fold(
+          (_) => fail('Expected Right'),
+          (data) => expect(data, isEmpty),
+        );
+      });
+
+      test('returns Left(ServerFailure) on DioException', () async {
+        final dioException = DioException(
+          requestOptions: RequestOptions(
+              path: '/api/v1/transactions/suggestions'),
+          response: Response(
+            requestOptions: RequestOptions(
+                path: '/api/v1/transactions/suggestions'),
+            statusCode: 500,
+            data: {
+              'error': {'message': 'Internal server error'},
+            },
+          ),
+        );
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => throw dioException);
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(
+          result,
+          equals(const Left<Failure, List<String>>(
+              ServerFailure('Internal server error', null, 500))),
+        );
+      });
+
+      test('returns Left(ServerFailure) on generic exception', () async {
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => throw Exception('unexpected'));
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(
+          result,
+          equals(const Left<Failure, List<String>>(
+              ServerFailure('Failed to load suggestions'))),
         );
       });
     });

@@ -311,6 +311,15 @@ class TransactionService(
         ))
     }
 
+    @Transactional(readOnly = true)
+    fun getSuggestions(userId: UUID, query: String, limit: Int = 10): List<String> {
+        val couple = getActiveCouple(userId)
+        val safeLimit = limit.coerceIn(1, 50)
+        return transactionRepository.findDistinctDescriptionsByQuery(
+            couple.id, query, userId, safeLimit
+        )
+    }
+
     private fun calculateSettlementDate(
         paymentMethod: com.budgetbook.paymentmethod.domain.PaymentMethod,
         transactionDate: LocalDate

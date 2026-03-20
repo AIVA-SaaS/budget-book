@@ -427,6 +427,55 @@ class TransactionServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getSuggestions ---
+
+    Given("a user requesting description suggestions") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("matching descriptions exist") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 10) } returns listOf("점심 식사", "점심 도시락")
+
+            val result = service.getSuggestions(user1.id, "점", 10)
+
+            Then("returns matching descriptions") {
+                result.size shouldBe 2
+                result shouldBe listOf("점심 식사", "점심 도시락")
+            }
+        }
+
+        When("no matching descriptions exist") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "없는", user1.id, 10) } returns emptyList()
+
+            val result = service.getSuggestions(user1.id, "없는", 10)
+
+            Then("returns empty list") {
+                result shouldBe emptyList()
+            }
+        }
+
+        When("limit exceeds max") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) } returns listOf("점심")
+
+            val result = service.getSuggestions(user1.id, "점", 100)
+
+            Then("clamps limit to 50") {
+                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) }
+                result shouldBe listOf("점심")
+            }
+        }
+
+        When("limit is zero or negative") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) } returns listOf("점심")
+
+            val result = service.getSuggestions(user1.id, "점", 0)
+
+            Then("clamps limit to 1") {
+                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) }
+                result shouldBe listOf("점심")
+            }
+        }
+    }
+
     Given("transactions exist and paymentMethodId filter is used") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pmId = UUID.randomUUID()
