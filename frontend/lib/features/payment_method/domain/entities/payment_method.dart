@@ -26,6 +26,7 @@ class PaymentMethod extends Equatable {
   bool get isCash => type == 'CASH';
   bool get isDebit => type == 'DEBIT';
   bool get isCredit => type == 'CREDIT';
+  bool get isBank => type == 'BANK';
 
   @override
   List<Object?> get props => [

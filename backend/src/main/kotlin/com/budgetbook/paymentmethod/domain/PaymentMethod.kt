@@ -46,4 +46,4 @@ class PaymentMethod(
     var displayOrder: Int = 0
 ) : BaseTimeEntity()
 
-enum class PaymentMethodType { CASH, DEBIT, CREDIT }
+enum class PaymentMethodType { CASH, DEBIT, CREDIT, BANK }

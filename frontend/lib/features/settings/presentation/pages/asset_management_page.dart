@@ -717,6 +717,7 @@ class _PaymentMethodTab extends StatelessWidget {
       'CASH' => '현금',
       'DEBIT' => '체크',
       'CREDIT' => '신용',
+      'BANK' => '은행',
       _ => type,
     };
     return Container(
@@ -740,7 +741,8 @@ class _PaymentMethodTab extends StatelessWidget {
     return switch (type) {
       'CASH' => Icons.money,
       'DEBIT' => Icons.credit_card,
-      'CREDIT' => Icons.account_balance,
+      'CREDIT' => Icons.credit_score,
+      'BANK' => Icons.account_balance,
       _ => Icons.payment,
     };
   }
@@ -750,6 +752,7 @@ class _PaymentMethodTab extends StatelessWidget {
       'CASH' => Colors.green,
       'DEBIT' => Colors.blue,
       'CREDIT' => Colors.deepPurple,
+      'BANK' => Colors.teal,
       _ => Colors.grey,
     };
   }

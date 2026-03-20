@@ -142,12 +142,17 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                     ),
                     ButtonSegment(
                       value: 'DEBIT',
-                      label: Text('체크카드'),
+                      label: Text('체크'),
                       icon: Icon(Icons.credit_card),
                     ),
                     ButtonSegment(
                       value: 'CREDIT',
-                      label: Text('신용카드'),
+                      label: Text('신용'),
+                      icon: Icon(Icons.credit_score),
+                    ),
+                    ButtonSegment(
+                      value: 'BANK',
+                      label: Text('은행'),
                       icon: Icon(Icons.account_balance),
                     ),
                   ],
