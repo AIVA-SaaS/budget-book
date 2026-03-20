@@ -35,7 +35,7 @@ class MockWeeklyBudgetRepository extends Mock
               weekNumber: 1,
               weekStart: '',
               weekEnd: '',
-              groups: [],
+              items: [],
             ),
           ),
         ),
@@ -46,26 +46,44 @@ void main() {
   late WeeklyBudgetBloc bloc;
   late MockWeeklyBudgetRepository mockRepository;
 
-  const tWeek1 = WeekSummary(
+  const tItem1 = WeeklyBudgetItem(
+    budgetId: 'b1',
+    groupId: 'g1',
+    groupName: '생활비',
+    budgetAmount: 200000,
+    spentAmount: 80000,
+    remainingAmount: 120000,
+    usageRate: 40.0,
+  );
+
+  const tItem2 = WeeklyBudgetItem(
+    budgetId: 'b2',
+    groupId: 'g2',
+    groupName: '투자',
+    budgetAmount: 200000,
+    spentAmount: 40000,
+    remainingAmount: 160000,
+    usageRate: 20.0,
+  );
+
+  const tWeek1 = WeeklyWeek(
     weekNumber: 1,
     weekStart: '2026-03-01',
     weekEnd: '2026-03-07',
-    budgetAmount: 200000,
-    spentAmount: 180000,
-    remainingAmount: 20000,
-    usageRate: 90.0,
-    status: 'UNDER',
+    totalBudget: 400000,
+    totalSpent: 120000,
+    totalRemaining: 280000,
+    items: [tItem1, tItem2],
   );
 
-  const tWeek2 = WeekSummary(
+  const tWeek2 = WeeklyWeek(
     weekNumber: 2,
     weekStart: '2026-03-08',
     weekEnd: '2026-03-14',
-    budgetAmount: 200000,
-    spentAmount: 240000,
-    remainingAmount: -40000,
-    usageRate: 120.0,
-    status: 'OVER',
+    totalBudget: 400000,
+    totalSpent: 500000,
+    totalRemaining: -100000,
+    items: [tItem1],
   );
 
   const tOverview = WeeklyOverview(
@@ -73,7 +91,8 @@ void main() {
     weeks: [tWeek1, tWeek2],
   );
 
-  const tGroupSummary = WeeklyGroupSummary(
+  const tCurrentWeekItem = WeeklyBudgetItem(
+    budgetId: 'b1',
     groupId: 'g1',
     groupName: '생활비',
     budgetAmount: 200000,
@@ -87,7 +106,7 @@ void main() {
     weekNumber: 2,
     weekStart: '2026-03-08',
     weekEnd: '2026-03-14',
-    groups: [tGroupSummary],
+    items: [tCurrentWeekItem],
   );
 
   setUp(() {
@@ -199,16 +218,57 @@ void main() {
     });
   });
 
-  group('WeekSummary entity', () {
-    test('isOver returns true for OVER status', () {
-      expect(tWeek2.isOver, true);
-      expect(tWeek2.isUnder, false);
-      expect(tWeek2.isInProgress, false);
+  group('WeeklyWeek entity', () {
+    test('totalUsageRate computes correctly', () {
+      expect(tWeek1.totalUsageRate, 30.0);
     });
 
-    test('isUnder returns true for UNDER status', () {
-      expect(tWeek1.isUnder, true);
-      expect(tWeek1.isOver, false);
+    test('totalUsageRate is 0 when totalBudget is 0', () {
+      const emptyWeek = WeeklyWeek(
+        weekNumber: 1,
+        weekStart: '2026-03-01',
+        weekEnd: '2026-03-07',
+        totalBudget: 0,
+        totalSpent: 0,
+        totalRemaining: 0,
+        items: [],
+      );
+      expect(emptyWeek.totalUsageRate, 0.0);
+    });
+  });
+
+  group('WeeklyBudgetItem entity', () {
+    test('displayName returns groupName when categoryName is null', () {
+      expect(tItem1.displayName, '생활비');
+    });
+
+    test('displayName returns categoryName when available', () {
+      const itemWithCategory = WeeklyBudgetItem(
+        budgetId: 'b3',
+        categoryId: 'c1',
+        categoryName: '식비',
+        groupId: 'g1',
+        groupName: '생활비',
+        budgetAmount: 100000,
+        spentAmount: 50000,
+        remainingAmount: 50000,
+        usageRate: 50.0,
+      );
+      expect(itemWithCategory.displayName, '식비');
+    });
+  });
+
+  group('CurrentWeekSummary entity', () {
+    test('totalBudget sums item budgetAmounts', () {
+      expect(tCurrentWeek.totalBudget, 200000);
+    });
+
+    test('totalSpent sums item spentAmounts', () {
+      expect(tCurrentWeek.totalSpent, 120000);
+    });
+
+    test('totalRemaining sums item remainingAmounts', () {
+      expect(tCurrentWeek.totalRemaining, 80000);
     });
   });
 }

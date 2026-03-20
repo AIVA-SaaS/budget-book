@@ -3,7 +3,7 @@ import 'package:budget_book/features/weekly_budget/domain/entities/weekly_overvi
 import 'package:intl/intl.dart';
 
 class WeekSummaryCard extends StatelessWidget {
-  final WeekSummary weekSummary;
+  final WeeklyWeek weekSummary;
   final bool isCurrentWeek;
 
   const WeekSummaryCard({
@@ -16,9 +16,8 @@ class WeekSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final numberFormat = NumberFormat('#,###');
-    final statusColor = _getStatusColor(weekSummary.status);
-    final statusLabel = _getStatusLabel(weekSummary.status);
-    final progress = (weekSummary.usageRate / 100).clamp(0.0, 1.0);
+    final totalUsage = weekSummary.totalUsageRate;
+    final overallColor = _getUsageColor(totalUsage);
 
     return Card(
       elevation: isCurrentWeek ? 3 : 1,
@@ -33,6 +32,7 @@ class WeekSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -66,20 +66,12 @@ class WeekSummaryCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                    ),
+                Text(
+                  '${totalUsage.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: overallColor,
                   ),
                 ),
               ],
@@ -91,69 +83,108 @@ class WeekSummaryCard extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 8,
-                backgroundColor:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-              ),
-            ),
             const SizedBox(height: 8),
+            // Total summary row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${numberFormat.format(weekSummary.spentAmount)}원 / ${numberFormat.format(weekSummary.budgetAmount)}원',
-                  style: theme.textTheme.bodySmall,
-                ),
-                Text(
-                  '${weekSummary.usageRate.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
-                ),
+                _buildSummaryChip(
+                    context, '예산', numberFormat.format(weekSummary.totalBudget)),
+                _buildSummaryChip(
+                    context, '지출', numberFormat.format(weekSummary.totalSpent)),
+                _buildSummaryChip(context, '잔여',
+                    numberFormat.format(weekSummary.totalRemaining),
+                    color: weekSummary.totalRemaining >= 0
+                        ? Colors.green
+                        : Colors.red),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              weekSummary.remainingAmount >= 0
-                  ? '남은 금액: ${numberFormat.format(weekSummary.remainingAmount)}원'
-                  : '초과 금액: ${numberFormat.format(weekSummary.remainingAmount.abs())}원',
-              style: TextStyle(
-                fontSize: 12,
-                color: weekSummary.remainingAmount >= 0
-                    ? Colors.green
-                    : Colors.red,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            // Per-item breakdown
+            if (weekSummary.items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              ...weekSummary.items.map((item) {
+                final progress = (item.usageRate / 100).clamp(0.0, 1.0);
+                final itemColor = _getUsageColor(item.usageRate);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.folder_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5)),
+                              const SizedBox(width: 4),
+                              Text(
+                                item.displayName,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.1),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(itemColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    return switch (status) {
-      'UNDER' => Colors.green,
-      'OVER' => Colors.red,
-      'IN_PROGRESS' => Colors.blue,
-      _ => Colors.grey,
-    };
+  Widget _buildSummaryChip(BuildContext context, String label, String value,
+      {Color? color}) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '$value원',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
   }
 
-  String _getStatusLabel(String status) {
-    return switch (status) {
-      'UNDER' => '예산 이내',
-      'OVER' => '예산 초과',
-      'IN_PROGRESS' => '진행 중',
-      _ => status,
-    };
+  Color _getUsageColor(double usageRate) {
+    if (usageRate > 100) return Colors.red;
+    if (usageRate > 80) return Colors.orange;
+    return Colors.green;
   }
 }

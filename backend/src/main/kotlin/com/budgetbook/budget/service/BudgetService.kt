@@ -288,7 +288,9 @@ class BudgetService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        // Monthly view only includes MONTHLY budgets; WEEKLY budgets are shown in the weekly view
+        val budgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.MONTHLY }
 
         val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
             couple.id, startDate, endDate, TransactionType.EXPENSE, userId
@@ -304,9 +306,6 @@ class BudgetService(
             type = TransactionType.EXPENSE,
             userId = userId
         )
-
-        // Pre-calculate week ranges for WEEKLY budget pro-rata conversion
-        val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
 
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
@@ -324,16 +323,7 @@ class BudgetService(
                 else -> totalSpent
             }
 
-            // For WEEKLY budgets, compute the monthly equivalent as
-            // sum of pro-rata weekly amounts across all week ranges
-            val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
-                val perWeek = budget.weeklyAmount ?: (budget.amount / weekRanges.size)
-                weekRanges.sumOf { (start, end) ->
-                    WeeklyBudgetService.calculateProRataBudget(perWeek, start, end)
-                }
-            } else {
-                budget.amount
-            }
+            val effectiveBudgetAmount = budget.amount
 
             val remainingAmount = effectiveBudgetAmount - spentAmount
             val usageRate = if (effectiveBudgetAmount > 0) {
@@ -363,17 +353,8 @@ class BudgetService(
 
         val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
         val totalBudget = if (totalBudgetEntry != null) {
-            // If a "total" budget exists, use its effective amount
-            if (totalBudgetEntry.budgetPeriod == BudgetPeriod.WEEKLY) {
-                val perWeek = totalBudgetEntry.weeklyAmount ?: (totalBudgetEntry.amount / weekRanges.size)
-                weekRanges.sumOf { (start, end) ->
-                    WeeklyBudgetService.calculateProRataBudget(perWeek, start, end)
-                }
-            } else {
-                totalBudgetEntry.amount
-            }
+            totalBudgetEntry.amount
         } else {
-            // Sum all individual budget items' effective amounts
             items.sumOf { it.budgetAmount }
         }
 
