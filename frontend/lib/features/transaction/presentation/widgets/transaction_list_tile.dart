@@ -72,7 +72,7 @@ class TransactionListTile extends StatelessWidget {
         subtitle: Row(
           children: [
             Text(
-              category?.name ?? '미분류',
+              category?.displayName ?? '미분류',
               style: TextStyle(
                 color: Theme.of(context)
                     .colorScheme

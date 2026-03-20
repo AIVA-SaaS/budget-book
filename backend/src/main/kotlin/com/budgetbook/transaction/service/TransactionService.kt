@@ -140,6 +140,13 @@ class TransactionService(
             cat
         }
 
+        // If category is PRIVATE, force the transaction to PRIVATE as well
+        val effectiveVisibility = if (category?.visibility == Visibility.PRIVATE) {
+            Visibility.PRIVATE
+        } else {
+            visibility
+        }
+
         val paymentMethod = request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
                 .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
@@ -173,8 +180,8 @@ class TransactionService(
             paymentMethod = paymentMethod,
             settlementDate = settlementDate,
             pocket = pocket,
-            visibility = visibility,
-            owner = if (visibility == Visibility.PRIVATE) user else null
+            visibility = effectiveVisibility,
+            owner = if (effectiveVisibility == Visibility.PRIVATE) user else null
         )
 
         val saved = transactionRepository.save(transaction)
@@ -214,6 +221,19 @@ class TransactionService(
         request.transactionDate?.let { transaction.transactionDate = it }
         request.memo?.let { transaction.memo = it.value }
 
+        // Handle categoryId with PatchValue (before visibility, as category may force PRIVATE)
+        request.categoryId?.let { patchValue ->
+            val catId = patchValue.value
+            if (catId != null) {
+                val cat = categoryRepository.findById(catId)
+                    .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+                OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+                transaction.category = cat
+            } else {
+                transaction.category = null
+            }
+        }
+
         // Handle visibility change
         request.visibility?.let { visStr ->
             val newVisibility = parseVisibility(visStr)
@@ -227,16 +247,13 @@ class TransactionService(
             }
         }
 
-        // Handle categoryId with PatchValue
-        request.categoryId?.let { patchValue ->
-            val catId = patchValue.value
-            if (catId != null) {
-                val cat = categoryRepository.findById(catId)
-                    .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
-                OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
-                transaction.category = cat
-            } else {
-                transaction.category = null
+        // If the (possibly updated) category is PRIVATE, force the transaction to PRIVATE
+        if (transaction.category?.visibility == Visibility.PRIVATE) {
+            transaction.visibility = Visibility.PRIVATE
+            if (transaction.owner == null) {
+                val user = userRepository.findById(userId)
+                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+                transaction.owner = user
             }
         }
 
@@ -353,7 +370,9 @@ class TransactionService(
                 name = it.name,
                 type = it.type.name,
                 icon = it.icon,
-                color = it.color
+                color = it.color,
+                groupId = it.group?.id,
+                groupName = it.group?.name
             )
         },
         type = type.name,

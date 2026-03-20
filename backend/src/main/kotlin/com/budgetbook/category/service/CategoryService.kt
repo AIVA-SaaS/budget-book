@@ -20,6 +20,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
+import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.service.TransactionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -33,7 +34,8 @@ class CategoryService(
     override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
     private val redisCacheService: RedisCacheService,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val transactionRepository: TransactionRepository
 ) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -113,9 +115,10 @@ class CategoryService(
             category.group = group
         }
 
-        // Handle visibility change
+        // Handle visibility change and cascade to associated transactions
         request.visibility?.let { visStr ->
             val newVisibility = TransactionService.parseVisibility(visStr)
+            val oldVisibility = category.visibility
             category.visibility = newVisibility
             if (newVisibility == Visibility.PRIVATE) {
                 val user = userRepository.findById(userId)
@@ -123,6 +126,21 @@ class CategoryService(
                 category.owner = user
             } else {
                 category.owner = null
+            }
+
+            // Cascade visibility change to associated transactions
+            if (oldVisibility != newVisibility) {
+                val ownerId = if (newVisibility == Visibility.PRIVATE) {
+                    category.owner?.id
+                } else {
+                    null
+                }
+                transactionRepository.updateVisibilityByCategoryId(
+                    categoryId = category.id,
+                    visibility = newVisibility.name,
+                    ownerId = ownerId
+                )
+                log.info("Cascaded visibility change to transactions for categoryId={}, visibility={}", category.id, newVisibility)
             }
         }
 

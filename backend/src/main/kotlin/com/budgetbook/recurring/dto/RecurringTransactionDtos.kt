@@ -93,7 +93,9 @@ fun RecurringTransaction.toResponse() = RecurringTransactionResponse(
             name = it.name,
             type = it.type.name,
             icon = it.icon,
-            color = it.color
+            color = it.color,
+            groupId = it.group?.id,
+            groupName = it.group?.name
         )
     },
     paymentMethodId = paymentMethod?.id,

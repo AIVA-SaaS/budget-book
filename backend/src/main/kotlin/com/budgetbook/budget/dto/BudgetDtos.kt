@@ -137,7 +137,9 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
             name = it.name,
             type = it.type.name,
             icon = it.icon,
-            color = it.color
+            color = it.color,
+            groupId = it.group?.id,
+            groupName = it.group?.name
         )
     },
     groupId = group?.id,

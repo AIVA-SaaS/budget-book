@@ -160,7 +160,7 @@ class TransactionDetailPage extends StatelessWidget {
                   icon: UIHelpers.resolveIcon(category?.icon),
                   iconColor: UIHelpers.parseColor(category?.color),
                   label: '카테고리',
-                  value: category?.name ?? '미분류',
+                  value: category?.displayName ?? '미분류',
                 ),
                 if (txn.paymentMethodName != null) ...[
                   const Divider(height: 24),

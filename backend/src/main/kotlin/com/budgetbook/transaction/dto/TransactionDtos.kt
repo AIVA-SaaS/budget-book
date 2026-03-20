@@ -41,7 +41,9 @@ data class CategorySummary(
     val name: String,
     val type: String,
     val icon: String?,
-    val color: String?
+    val color: String?,
+    val groupId: UUID? = null,
+    val groupName: String? = null
 )
 
 data class CreateTransactionRequest(
