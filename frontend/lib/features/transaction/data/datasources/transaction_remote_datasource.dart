@@ -22,6 +22,7 @@ abstract class TransactionRemoteDataSource {
   Future<TransactionModel> updateTransaction(
       String id, Map<String, dynamic> data);
   Future<void> deleteTransaction(String id);
+  Future<List<String>> getSuggestions(String query, {int limit = 10});
 }
 
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
@@ -115,5 +116,18 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   @override
   Future<void> deleteTransaction(String id) async {
     await apiClient.dio.delete('${ApiEndpoints.transactions}/$id');
+  }
+
+  @override
+  Future<List<String>> getSuggestions(String query, {int limit = 10}) async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.transactionSuggestions,
+      queryParameters: {
+        'q': query,
+        'limit': limit,
+      },
+    );
+    final data = response.data['data'] as List<dynamic>;
+    return data.map((e) => e as String).toList();
   }
 }

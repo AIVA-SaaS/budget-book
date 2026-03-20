@@ -21,6 +21,8 @@ class ApiEndpoints {
 
   // Transaction
   static const String transactions = '/api/v1/transactions';
+  static const String transactionSuggestions =
+      '/api/v1/transactions/suggestions';
 
   // Category
   static const String categories = '/api/v1/categories';

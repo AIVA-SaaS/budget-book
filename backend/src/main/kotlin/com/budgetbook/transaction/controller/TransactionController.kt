@@ -92,6 +92,15 @@ class TransactionController(
         return ResponseEntity.noContent().build()
     }
 
+    @GetMapping("/suggestions")
+    fun getSuggestions(
+        @AuthUser userId: UUID,
+        @RequestParam q: String,
+        @RequestParam(defaultValue = "10") limit: Int
+    ): ApiResponse<List<String>> {
+        return ApiResponse.ok(transactionService.getSuggestions(userId, q, limit))
+    }
+
     @PostMapping("/import/csv")
     fun importCsv(
         @AuthUser userId: UUID,

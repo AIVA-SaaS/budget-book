@@ -45,4 +45,6 @@ abstract class TransactionRepository {
   });
 
   Future<Either<Failure, void>> deleteTransaction(String id);
+
+  Future<Either<Failure, List<String>>> getSuggestions(String query);
 }
