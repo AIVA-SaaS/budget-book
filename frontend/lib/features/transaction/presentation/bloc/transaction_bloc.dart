@@ -160,7 +160,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         memo: event.memo,
         paymentMethodId: event.paymentMethodId,
         pocketId: event.pocketId,
-        visibility: event.visibility,
       );
       result.fold(
         (failure) => emit(TransactionError(failure.message)),

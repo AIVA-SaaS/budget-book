@@ -29,7 +29,6 @@ abstract class TransactionRepository {
     String? memo,
     String? paymentMethodId,
     String? pocketId,
-    String visibility = 'SHARED',
   });
 
   Future<Either<Failure, Transaction>> updateTransaction({

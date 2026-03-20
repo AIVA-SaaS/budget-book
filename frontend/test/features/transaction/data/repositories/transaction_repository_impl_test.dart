@@ -244,7 +244,6 @@ void main() {
           'amount': 15000,
           'description': '점심 식사',
           'transactionDate': '2024-01-15',
-          'visibility': 'SHARED',
           'categoryId': 'cat-1',
           'memo': '팀 점심',
         };
@@ -270,7 +269,6 @@ void main() {
           'amount': 0,
           'description': '',
           'transactionDate': '2024-01-15',
-          'visibility': 'SHARED',
         };
         final dioException = DioException(
           requestOptions: RequestOptions(path: '/api/v1/transactions'),
