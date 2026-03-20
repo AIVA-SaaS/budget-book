@@ -3,6 +3,7 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category/domain/repositories/category_repository.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -19,6 +20,8 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
   final String categoryType; // 'INCOME' or 'EXPENSE'
   final ValueChanged<Category?> onSelected;
   final ValueChanged<String>? onDelete;
+  /// Called with (category, groupName) for display purposes.
+  final void Function(Category? category, String? groupName)? onSelectedWithGroupName;
 
   const CategoryGroupSelectorSheet({
     super.key,
@@ -26,6 +29,7 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     required this.categoryType,
     required this.onSelected,
     this.onDelete,
+    this.onSelectedWithGroupName,
   });
 
   @override
@@ -254,9 +258,14 @@ class _CategoryGroupSelectorSheetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group header — expandable if has sub-categories, auto-expand if empty
+        // Group header — expandable if has sub-categories, selectable if empty
         InkWell(
           onTap: () {
+            if (categories.isEmpty) {
+              // Empty group: auto-create a category with the group name, then select it
+              _createAndSelectGroupCategory(context, group);
+              return;
+            }
             setState(() {
               if (isExpanded) {
                 _expandedGroupIds.remove(group.id);
@@ -292,7 +301,7 @@ class _CategoryGroupSelectorSheetState
                       ),
                       if (categories.isEmpty)
                         Text(
-                          '카테고리를 추가하세요',
+                          '탭하여 선택',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context)
                                     .colorScheme
@@ -331,7 +340,7 @@ class _CategoryGroupSelectorSheetState
         ),
         // Expanded sub-categories
         if (isExpanded) ...[
-          ...categories.map((c) => _buildCategoryTile(context, c)),
+          ...categories.map((c) => _buildCategoryTile(context, c, group.name)),
           // Add sub-category button
           Padding(
             padding: const EdgeInsets.only(left: 24),
@@ -358,7 +367,7 @@ class _CategoryGroupSelectorSheetState
     );
   }
 
-  Widget _buildCategoryTile(BuildContext context, Category category) {
+  Widget _buildCategoryTile(BuildContext context, Category category, String groupName) {
     final isSelected = category.id == widget.selectedCategoryId;
     final color = UIHelpers.parseColor(category.color);
 
@@ -409,6 +418,7 @@ class _CategoryGroupSelectorSheetState
         ),
         onTap: () {
           widget.onSelected(category);
+          widget.onSelectedWithGroupName?.call(category, groupName);
           Navigator.of(context).pop();
         },
       ),
@@ -521,4 +531,28 @@ class _CategoryGroupSelectorSheetState
     }
   }
 
+  Future<void> _createAndSelectGroupCategory(BuildContext context, CategoryGroup group) async {
+    final repo = getIt<CategoryRepository>();
+    final result = await repo.createCategory(
+      name: group.name,
+      type: widget.categoryType,
+      groupId: group.id,
+      visibility: group.visibility,
+    );
+    result.fold(
+      (failure) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message), backgroundColor: Colors.red),
+          );
+        }
+      },
+      (category) {
+        widget.onSelected(category);
+        widget.onSelectedWithGroupName?.call(category, group.name);
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+        if (context.mounted) Navigator.of(context).pop();
+      },
+    );
+  }
 }
