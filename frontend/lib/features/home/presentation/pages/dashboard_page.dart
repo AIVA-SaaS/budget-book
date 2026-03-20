@@ -638,7 +638,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                               ],
                             ),
                             Text(
-                              '${txn.transactionDate}  ${txn.category?.name ?? '미분류'}',
+                              '${txn.transactionDate}  ${txn.category?.displayName ?? '미분류'}',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall

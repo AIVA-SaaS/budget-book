@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDate
@@ -234,4 +235,19 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("categoryIds") categoryIds: Set<UUID>,
         @Param("userId") userId: UUID
     ): List<Array<Any>>
+
+    @Modifying
+    @Query(
+        value = """
+            UPDATE transactions
+            SET visibility = :visibility, owner_id = CAST(:ownerId AS UUID)
+            WHERE category_id = :categoryId
+        """,
+        nativeQuery = true
+    )
+    fun updateVisibilityByCategoryId(
+        @Param("categoryId") categoryId: UUID,
+        @Param("visibility") visibility: String,
+        @Param("ownerId") ownerId: UUID?
+    )
 }

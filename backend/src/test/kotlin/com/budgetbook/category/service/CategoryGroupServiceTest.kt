@@ -39,7 +39,8 @@ class CategoryGroupServiceTest : BehaviorSpec({
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
     val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository)
+    val transactionRepository = mockk<com.budgetbook.transaction.repository.TransactionRepository>(relaxed = true)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository, transactionRepository)
     val categoryGroupService = CategoryGroupService(
         categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher, userRepository
     )
