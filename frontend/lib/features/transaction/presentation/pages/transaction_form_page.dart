@@ -65,7 +65,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _selectedPaymentMethodId;
   String? _selectedPocketId;
   late DateTime _selectedDate;
-  String _visibility = 'SHARED';
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
   String? _categoryError;
@@ -108,10 +107,22 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   Future<void> _loadDefaultPaymentMethod() async {
     final prefs = await SharedPreferences.getInstance();
     final defaultId = prefs.getString('default_payment_method_id');
-    if (defaultId != null && mounted) {
-      setState(() {
-        _selectedPaymentMethodId = defaultId;
-      });
+    if (defaultId == null || !mounted) return;
+
+    // Validate against current payment methods from server
+    final pmBloc = getIt<PaymentMethodBloc>();
+    final pmState = pmBloc.state;
+    if (pmState is PaymentMethodLoaded) {
+      final exists = pmState.paymentMethods.any((pm) => pm.id == defaultId);
+      if (exists) {
+        setState(() => _selectedPaymentMethodId = defaultId);
+      } else {
+        // Stale reference (e.g. from a previous couple) — clear it
+        await prefs.remove('default_payment_method_id');
+      }
+    } else {
+      // PM list not loaded yet — set tentatively, will be validated on submit
+      setState(() => _selectedPaymentMethodId = defaultId);
     }
   }
 
@@ -144,7 +155,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             _selectedCategoryId = transaction.category?.id;
             _selectedPaymentMethodId = transaction.paymentMethodId;
             _selectedPocketId = transaction.pocketId;
-            _visibility = transaction.visibility;
             _selectedDate = DateTime.parse(transaction.transactionDate);
           });
         }
@@ -296,7 +306,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                         setState(() {
                           _selectedType = value.first;
                           _selectedCategoryId = null;
-                          _visibility = 'SHARED';
                         });
                       },
                     ),
@@ -636,11 +645,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             setState(() => _selectedCategoryId = null);
           }
         },
-        onVisibilityChanged: (visibility) {
-          setState(() {
-            _visibility = visibility;
-          });
-        },
       ),
     );
   }
@@ -944,7 +948,6 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         memo: memo,
         paymentMethodId: _selectedPaymentMethodId,
         pocketId: _selectedPocketId,
-        visibility: _visibility,
       ));
     }
   }

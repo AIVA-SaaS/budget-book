@@ -19,9 +19,6 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
   final String categoryType; // 'INCOME' or 'EXPENSE'
   final ValueChanged<Category?> onSelected;
   final ValueChanged<String>? onDelete;
-  /// Called when a category's visibility affects the parent form.
-  /// Passes the visibility of the selected category ('SHARED' or 'PRIVATE').
-  final ValueChanged<String>? onVisibilityChanged;
 
   const CategoryGroupSelectorSheet({
     super.key,
@@ -29,7 +26,6 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     required this.categoryType,
     required this.onSelected,
     this.onDelete,
-    this.onVisibilityChanged,
   });
 
   @override
@@ -413,8 +409,6 @@ class _CategoryGroupSelectorSheetState
         ),
         onTap: () {
           widget.onSelected(category);
-          // Notify parent about the visibility of the selected category
-          widget.onVisibilityChanged?.call(category.visibility);
           Navigator.of(context).pop();
         },
       ),

@@ -148,6 +148,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (match.isNotEmpty) {
                       subtitle = match.first.name;
                       _defaultPaymentMethodName = match.first.name;
+                    } else {
+                      // Stale reference (e.g. from a previous couple) — clear it
+                      _defaultPaymentMethodId = null;
+                      _defaultPaymentMethodName = null;
+                      SharedPreferences.getInstance().then((p) =>
+                          p.remove('default_payment_method_id'));
                     }
                   } else if (_defaultPaymentMethodName != null) {
                     subtitle = _defaultPaymentMethodName!;

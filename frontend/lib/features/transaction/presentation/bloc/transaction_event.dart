@@ -40,7 +40,6 @@ class CreateTransaction extends TransactionEvent {
   final String? memo;
   final String? paymentMethodId;
   final String? pocketId;
-  final String visibility;
 
   const CreateTransaction({
     required this.type,
@@ -51,12 +50,11 @@ class CreateTransaction extends TransactionEvent {
     this.memo,
     this.paymentMethodId,
     this.pocketId,
-    this.visibility = 'SHARED',
   });
 
   @override
   List<Object?> get props =>
-      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId, pocketId, visibility];
+      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId, pocketId];
 }
 
 class UpdateTransaction extends TransactionEvent {

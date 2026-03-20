@@ -131,8 +131,6 @@ class TransactionService(
             throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: ${request.type}")
         }
 
-        val visibility = parseVisibility(request.visibility)
-
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
@@ -140,12 +138,8 @@ class TransactionService(
             cat
         }
 
-        // If category is PRIVATE, force the transaction to PRIVATE as well
-        val effectiveVisibility = if (category?.visibility == Visibility.PRIVATE) {
-            Visibility.PRIVATE
-        } else {
-            visibility
-        }
+        // Visibility is always derived from the category (not from request)
+        val effectiveVisibility = category?.visibility ?: Visibility.SHARED
 
         val paymentMethod = request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
@@ -234,27 +228,17 @@ class TransactionService(
             }
         }
 
-        // Handle visibility change
-        request.visibility?.let { visStr ->
-            val newVisibility = parseVisibility(visStr)
-            transaction.visibility = newVisibility
-            if (newVisibility == Visibility.PRIVATE) {
-                val user = userRepository.findById(userId)
-                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
-                transaction.owner = user
-            } else {
-                transaction.owner = null
-            }
-        }
-
-        // If the (possibly updated) category is PRIVATE, force the transaction to PRIVATE
-        if (transaction.category?.visibility == Visibility.PRIVATE) {
-            transaction.visibility = Visibility.PRIVATE
+        // Visibility is always derived from the category (not from request)
+        val newVisibility = transaction.category?.visibility ?: Visibility.SHARED
+        transaction.visibility = newVisibility
+        if (newVisibility == Visibility.PRIVATE) {
             if (transaction.owner == null) {
                 val user = userRepository.findById(userId)
                     .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
                 transaction.owner = user
             }
+        } else {
+            transaction.owner = null
         }
 
         // Handle paymentMethodId with PatchValue
