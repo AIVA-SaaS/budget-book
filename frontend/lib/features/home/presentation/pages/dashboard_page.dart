@@ -359,16 +359,24 @@ class _SummaryItem extends StatelessWidget {
   }
 }
 
-class _BudgetUsageCard extends StatelessWidget {
+class _BudgetUsageCard extends StatefulWidget {
   final BudgetSummary budgetSummary;
 
   const _BudgetUsageCard({required this.budgetSummary});
 
   @override
+  State<_BudgetUsageCard> createState() => _BudgetUsageCardState();
+}
+
+class _BudgetUsageCardState extends State<_BudgetUsageCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,###');
-    final usageRate = budgetSummary.usageRate;
-    final isOver = budgetSummary.isOverBudget;
+    final summary = widget.budgetSummary;
+    final usageRate = summary.usageRate;
+    final isOver = summary.isOverBudget;
     final progressColor = isOver
         ? Colors.red
         : usageRate > 80
@@ -376,67 +384,130 @@ class _BudgetUsageCard extends StatelessWidget {
             : Colors.green;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '예산 사용 현황',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '예산 사용 현황',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        '${usageRate.toStringAsFixed(1)}%',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: progressColor,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                ),
-                Text(
-                  '${usageRate.toStringAsFixed(1)}%',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: progressColor,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(width: 4),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (usageRate / 100).clamp(0.0, 1.0),
-                minHeight: 8,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                color: progressColor,
+                    ],
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '사용: ${formatter.format(budgetSummary.totalSpent)}원',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Text(
-                  '예산: ${formatter.format(budgetSummary.totalBudget)}원',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            if (isOver)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '예산을 ${formatter.format(budgetSummary.totalSpent - budgetSummary.totalBudget)}원 초과했습니다',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (usageRate / 100).clamp(0.0, 1.0),
+                  minHeight: 8,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  color: progressColor,
                 ),
               ),
-          ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '사용: ${formatter.format(summary.totalSpent)}원',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    '예산: ${formatter.format(summary.totalBudget)}원',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              if (isOver)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '예산을 ${formatter.format(summary.totalSpent - summary.totalBudget)}원 초과했습니다',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+              // Expanded: per-item breakdown
+              if (_expanded && summary.items.isNotEmpty) ...[
+                const Divider(height: 24),
+                ...summary.items.map((item) {
+                  final itemRate = item.budgetAmount > 0
+                      ? (item.spentAmount / item.budgetAmount * 100).clamp(0.0, 999.0)
+                      : 0.0;
+                  final itemColor = itemRate > 100
+                      ? Colors.red
+                      : itemRate > 80
+                          ? Colors.orange
+                          : Colors.green;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item.category?.name ?? '전체',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            Text(
+                              '${formatter.format(item.spentAmount)} / ${formatter.format(item.budgetAmount)}원',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: (itemRate / 100).clamp(0.0, 1.0),
+                            minHeight: 4,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            color: itemColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ],
+          ),
         ),
       ),
     );
