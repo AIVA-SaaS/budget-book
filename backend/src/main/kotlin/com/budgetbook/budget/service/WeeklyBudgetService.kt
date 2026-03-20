@@ -1,20 +1,18 @@
 package com.budgetbook.budget.service
 
+import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.WeeklyBudgetSnapshot
 import com.budgetbook.budget.domain.WeeklyStatus
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
-import com.budgetbook.budget.dto.WeeklyGroupSummary
+import com.budgetbook.budget.dto.WeeklyBudgetItemResponse
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
-import com.budgetbook.budget.dto.WeeklySnapshotResponse
+import com.budgetbook.budget.dto.WeeklyWeekResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.budget.repository.WeeklyBudgetSnapshotRepository
-import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
-import com.budgetbook.common.exception.NotFoundException
-import com.budgetbook.couple.domain.Couple
-import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
+import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
@@ -40,65 +38,120 @@ class WeeklyBudgetService(
         val couple = getActiveCouple(userId)
         val yearMonth = formatYearMonth(year, month)
         val ym = YearMonth.of(year, month)
-
-        val snapshots = snapshotRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
-
         val weekRanges = calculateWeekRanges(ym)
 
-        // Calculate per-week weekly budget amount (used for pro-rata)
-        val perWeekBudget = calculatePerWeekBudgetAmount(couple.id, yearMonth, userId)
+        // Only WEEKLY budgets for the weekly view
+        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val weeklyBudgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
-        // Early return if no budget and no snapshots
-        if (perWeekBudget == 0L && snapshots.isEmpty()) {
+        // Early return if no WEEKLY budgets
+        if (weeklyBudgets.isEmpty()) {
             val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
-                WeeklySnapshotResponse(
+                WeeklyWeekResponse(
                     weekNumber = index + 1,
                     weekStart = weekStart.toString(),
                     weekEnd = weekEnd.toString(),
-                    budgetAmount = 0,
-                    spentAmount = 0,
-                    remainingAmount = 0,
-                    usageRate = 0.0,
-                    status = if (weekEnd.isBefore(LocalDate.now())) "UNDER" else "IN_PROGRESS"
+                    totalBudget = 0,
+                    totalSpent = 0,
+                    totalRemaining = 0,
+                    items = emptyList()
                 )
             }
             return WeeklyOverviewResponse(yearMonth = yearMonth, weeks = weeks)
         }
 
+        // Collect all category/group IDs from weekly budgets for batch queries
+        val budgetCategoryIds = weeklyBudgets.mapNotNull { it.category?.id }.toSet()
+        val budgetGroupIds = weeklyBudgets.mapNotNull { it.group?.id }.toSet()
+
+        // For group budgets, collect underlying category IDs
+        val categoriesInGroups: Map<UUID, Set<UUID>> = if (budgetGroupIds.isNotEmpty()) {
+            val allCategories = categoryRepository.findByCoupleId(couple.id)
+            budgetGroupIds.associateWith { groupId ->
+                allCategories.filter { it.group?.id == groupId }.map { it.id }.toSet()
+            }
+        } else {
+            emptyMap()
+        }
+
         val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
-            val snapshot = snapshots.find { it.weekNumber == weekNumber }
+            val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
 
-            if (snapshot != null) {
-                toSnapshotResponse(snapshot)
+            // Batch query: spending per category for this week
+            val allRelevantCategoryIds = budgetCategoryIds + categoriesInGroups.values.flatten().toSet()
+            val spentByCategoryId: Map<UUID, Long> = if (allRelevantCategoryIds.isNotEmpty()) {
+                transactionRepository.sumAmountGroupedByCategoryId(
+                    coupleId = couple.id,
+                    startDate = weekStart,
+                    endDate = weekEnd,
+                    type = TransactionType.EXPENSE,
+                    categoryIds = allRelevantCategoryIds,
+                    userId = userId
+                ).associate { row ->
+                    val categoryId = row[0] as UUID
+                    val amount = (row[1] as Number).toLong()
+                    categoryId to amount
+                }
             } else {
-                // Pro-rata budget for this week based on days in month
-                val budgetAmount = calculateProRataBudget(perWeekBudget, weekStart, weekEnd)
+                emptyMap()
+            }
 
-                // Calculate in real-time using optimized SUM query
-                val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd, userId)
-                val remaining = budgetAmount - spent
-                val usageRate = if (budgetAmount > 0) {
-                    Math.round(spent.toDouble() / budgetAmount * 1000.0) / 10.0
-                } else 0.0
-                val today = LocalDate.now()
-                val status = when {
-                    weekEnd.isBefore(today) && spent <= budgetAmount -> "UNDER"
-                    weekEnd.isBefore(today) && spent > budgetAmount -> "OVER"
-                    else -> "IN_PROGRESS"
+            // For budgets with no category/group (total budget), get total spending
+            val hasUncategorizedBudget = weeklyBudgets.any { it.category == null && it.group == null }
+            val totalSpentForWeek: Long = if (hasUncategorizedBudget) {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(
+                    coupleId = couple.id,
+                    startDate = weekStart,
+                    endDate = weekEnd,
+                    type = TransactionType.EXPENSE,
+                    userId = userId
+                )
+            } else 0L
+
+            val items = weeklyBudgets.map { budget ->
+                val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
+                val proRataBudget = (perWeekAmount * daysInWeek) / 7
+
+                val spentAmount: Long = when {
+                    budget.category != null -> spentByCategoryId[budget.category!!.id] ?: 0L
+                    budget.group != null -> {
+                        val catIds = categoriesInGroups[budget.group!!.id] ?: emptySet()
+                        catIds.sumOf { catId -> spentByCategoryId[catId] ?: 0L }
+                    }
+                    else -> totalSpentForWeek
                 }
 
-                WeeklySnapshotResponse(
-                    weekNumber = weekNumber,
-                    weekStart = weekStart.toString(),
-                    weekEnd = weekEnd.toString(),
-                    budgetAmount = budgetAmount,
-                    spentAmount = spent,
+                val remaining = proRataBudget - spentAmount
+                val usageRate = if (proRataBudget > 0) {
+                    Math.round(spentAmount.toDouble() / proRataBudget * 1000.0) / 10.0
+                } else 0.0
+
+                WeeklyBudgetItemResponse(
+                    budgetId = budget.id,
+                    categoryId = budget.category?.id,
+                    categoryName = budget.category?.name,
+                    groupId = budget.group?.id,
+                    groupName = budget.group?.name,
+                    budgetAmount = proRataBudget,
+                    spentAmount = spentAmount,
                     remainingAmount = remaining,
-                    usageRate = usageRate,
-                    status = status
+                    usageRate = usageRate
                 )
             }
+
+            val totalBudget = items.sumOf { it.budgetAmount }
+            val totalSpent = items.sumOf { it.spentAmount }
+
+            WeeklyWeekResponse(
+                weekNumber = weekNumber,
+                weekStart = weekStart.toString(),
+                weekEnd = weekEnd.toString(),
+                totalBudget = totalBudget,
+                totalSpent = totalSpent,
+                totalRemaining = totalBudget - totalSpent,
+                items = items
+            )
         }
 
         return WeeklyOverviewResponse(
@@ -121,40 +174,44 @@ class WeeklyBudgetService(
         val weekNumber = currentWeekIndex + 1
         val (weekStart, weekEnd) = weekRanges[currentWeekIndex]
 
-        // Batch-fetch all data upfront (eliminates N+1 queries)
-        val allGroups = categoryGroupRepository.findByCoupleId(couple.id)
-        val weeklyGroups = allGroups.filter { it.budgetType == BudgetType.WEEKLY }
+        // Only WEEKLY budgets
+        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val weeklyBudgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
-        // Early return if no WEEKLY groups (Problem 3)
-        if (weeklyGroups.isEmpty()) {
+        // Early return if no WEEKLY budgets
+        if (weeklyBudgets.isEmpty()) {
             return CurrentWeekSummaryResponse(
                 yearMonth = yearMonth,
                 weekNumber = weekNumber,
                 weekStart = weekStart.toString(),
                 weekEnd = weekEnd.toString(),
-                groups = emptyList()
+                items = emptyList()
             )
         }
 
-        val allCategories = categoryRepository.findByCoupleId(couple.id)
-        val categoriesByGroupId = allCategories.groupBy { it.group?.id }
+        val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
 
-        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
-        val budgetByCategoryId = allBudgets.associateBy { it.category?.id }
+        // Collect category IDs for batch query
+        val budgetCategoryIds = weeklyBudgets.mapNotNull { it.category?.id }.toSet()
+        val budgetGroupIds = weeklyBudgets.mapNotNull { it.group?.id }.toSet()
 
-        // Collect ALL categoryIds across all weekly groups for batch query (Problem 1)
-        val allCategoryIds = weeklyGroups.flatMap { group ->
-            (categoriesByGroupId[group.id] ?: emptyList()).map { it.id }
-        }.toSet()
+        val categoriesInGroups: Map<UUID, Set<UUID>> = if (budgetGroupIds.isNotEmpty()) {
+            val allCategories = categoryRepository.findByCoupleId(couple.id)
+            budgetGroupIds.associateWith { groupId ->
+                allCategories.filter { it.group?.id == groupId }.map { it.id }.toSet()
+            }
+        } else {
+            emptyMap()
+        }
 
-        // Single batch query for all category spending
-        val spentByCategoryId: Map<UUID, Long> = if (allCategoryIds.isNotEmpty()) {
+        val allRelevantCategoryIds = budgetCategoryIds + categoriesInGroups.values.flatten().toSet()
+        val spentByCategoryId: Map<UUID, Long> = if (allRelevantCategoryIds.isNotEmpty()) {
             transactionRepository.sumAmountGroupedByCategoryId(
                 coupleId = couple.id,
                 startDate = weekStart,
                 endDate = weekEnd,
                 type = TransactionType.EXPENSE,
-                categoryIds = allCategoryIds,
+                categoryIds = allRelevantCategoryIds,
                 userId = userId
             ).associate { row ->
                 val categoryId = row[0] as UUID
@@ -165,31 +222,43 @@ class WeeklyBudgetService(
             emptyMap()
         }
 
-        val groups = weeklyGroups.map { group ->
-            val categoriesInGroup = categoriesByGroupId[group.id] ?: emptyList()
-            val categoryIds = categoriesInGroup.map { it.id }.toSet()
+        val hasUncategorizedBudget = weeklyBudgets.any { it.category == null && it.group == null }
+        val totalSpentForWeek: Long = if (hasUncategorizedBudget) {
+            transactionRepository.sumAmountByCoupleIdAndDateRange(
+                coupleId = couple.id,
+                startDate = weekStart,
+                endDate = weekEnd,
+                type = TransactionType.EXPENSE,
+                userId = userId
+            )
+        } else 0L
 
-            // Pro-rata: scale weeklyAmount by days-in-month / 7
-            val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
-            val groupBudgetAmount = categoryIds.sumOf { catId ->
-                val budget = budgetByCategoryId[catId]
-                val rawWeekly = budget?.weeklyAmount ?: (budget?.amount?.div(weekRanges.size) ?: 0L)
-                (rawWeekly * daysInWeek) / 7
+        val items = weeklyBudgets.map { budget ->
+            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
+            val proRataBudget = (perWeekAmount * daysInWeek) / 7
+
+            val spentAmount: Long = when {
+                budget.category != null -> spentByCategoryId[budget.category!!.id] ?: 0L
+                budget.group != null -> {
+                    val catIds = categoriesInGroups[budget.group!!.id] ?: emptySet()
+                    catIds.sumOf { catId -> spentByCategoryId[catId] ?: 0L }
+                }
+                else -> totalSpentForWeek
             }
 
-            // In-memory lookup from batch query result (no additional DB call)
-            val spent = categoryIds.sumOf { catId -> spentByCategoryId[catId] ?: 0L }
-
-            val remaining = groupBudgetAmount - spent
-            val usageRate = if (groupBudgetAmount > 0) {
-                Math.round(spent.toDouble() / groupBudgetAmount * 1000.0) / 10.0
+            val remaining = proRataBudget - spentAmount
+            val usageRate = if (proRataBudget > 0) {
+                Math.round(spentAmount.toDouble() / proRataBudget * 1000.0) / 10.0
             } else 0.0
 
-            WeeklyGroupSummary(
-                groupId = group.id,
-                groupName = group.name,
-                budgetAmount = groupBudgetAmount,
-                spentAmount = spent,
+            WeeklyBudgetItemResponse(
+                budgetId = budget.id,
+                categoryId = budget.category?.id,
+                categoryName = budget.category?.name,
+                groupId = budget.group?.id,
+                groupName = budget.group?.name,
+                budgetAmount = proRataBudget,
+                spentAmount = spentAmount,
                 remainingAmount = remaining,
                 usageRate = usageRate
             )
@@ -200,7 +269,7 @@ class WeeklyBudgetService(
             weekNumber = weekNumber,
             weekStart = weekStart.toString(),
             weekEnd = weekEnd.toString(),
-            groups = groups
+            items = items
         )
     }
 
@@ -212,7 +281,7 @@ class WeeklyBudgetService(
         val weekRanges = calculateWeekRanges(ym)
         val today = LocalDate.now()
 
-        // Per-week budget amount (before pro-rata)
+        // Per-week budget amount (before pro-rata) - WEEKLY budgets only
         val perWeekBudget = calculatePerWeekBudgetAmount(couple.id, yearMonth, userId)
 
         weekRanges.forEachIndexed { index, (weekStart, weekEnd) ->
@@ -253,23 +322,6 @@ class WeeklyBudgetService(
         }
     }
 
-    private fun toSnapshotResponse(snapshot: WeeklyBudgetSnapshot): WeeklySnapshotResponse {
-        val remaining = snapshot.budgetAmount - snapshot.spentAmount
-        val usageRate = if (snapshot.budgetAmount > 0) {
-            Math.round(snapshot.spentAmount.toDouble() / snapshot.budgetAmount * 1000.0) / 10.0
-        } else 0.0
-        return WeeklySnapshotResponse(
-            weekNumber = snapshot.weekNumber,
-            weekStart = snapshot.weekStart.toString(),
-            weekEnd = snapshot.weekEnd.toString(),
-            budgetAmount = snapshot.budgetAmount,
-            spentAmount = snapshot.spentAmount,
-            remainingAmount = remaining,
-            usageRate = usageRate,
-            status = snapshot.status.name
-        )
-    }
-
     private fun calculateSpentForPeriod(coupleId: UUID, start: LocalDate, end: LocalDate, userId: UUID): Long {
         return transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = coupleId,
@@ -281,22 +333,21 @@ class WeeklyBudgetService(
     }
 
     /**
-     * Returns the per-week budget amount (before pro-rata adjustment).
+     * Returns the per-week budget amount (before pro-rata adjustment) from WEEKLY budgets only.
      * This is the budget for a full 7-day week; partial weeks should
      * be scaled using [calculateProRataBudget].
-     *
-     * Uses weeklyAmount from WEEKLY budgets, or derives from monthly amount / daysInMonth * 7.
      */
     private fun calculatePerWeekBudgetAmount(coupleId: UUID, yearMonth: String, userId: UUID): Long {
         val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
-        if (budgets.isEmpty()) return 0L
+        val weeklyBudgets = budgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
+        if (weeklyBudgets.isEmpty()) return 0L
 
         // Sum weekly contributions: use weeklyAmount if set, otherwise derive from monthly
         val parts = yearMonth.split("-")
         val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
         val daysInMonth = ym.lengthOfMonth()
 
-        return budgets.sumOf { budget ->
+        return weeklyBudgets.sumOf { budget ->
             budget.weeklyAmount ?: ((budget.amount * 7) / daysInMonth)
         }
     }
@@ -308,32 +359,21 @@ class WeeklyBudgetService(
         /**
          * Calculates real Monday-Sunday week ranges for a given month,
          * clipping to the month boundaries.
-         *
-         * For example, if March 2026 starts on Sunday:
-         * - Week 1: Mar 1 (Sun) only (partial week, 1 day in month)
-         * - Week 2: Mar 2 (Mon) - Mar 8 (Sun), full 7 days
-         * - ...
-         * - Last week: clipped to end of month
          */
         fun calculateWeekRanges(yearMonth: YearMonth): List<Pair<LocalDate, LocalDate>> {
             val firstDay = yearMonth.atDay(1)
             val lastDay = yearMonth.atEndOfMonth()
             val ranges = mutableListOf<Pair<LocalDate, LocalDate>>()
 
-            // Find the Monday of the week containing the 1st of the month
             var weekStart = firstDay.with(DayOfWeek.MONDAY)
             if (weekStart.isAfter(firstDay)) {
-                // 1st is not Monday; the Monday is in the next week, so go back
                 weekStart = weekStart.minusWeeks(1)
             }
 
             while (!weekStart.isAfter(lastDay)) {
-                val weekEnd = weekStart.plusDays(6) // Sunday
-
-                // Clip to month boundaries
+                val weekEnd = weekStart.plusDays(6)
                 val effectiveStart = if (weekStart.isBefore(firstDay)) firstDay else weekStart
                 val effectiveEnd = if (weekEnd.isAfter(lastDay)) lastDay else weekEnd
-
                 ranges.add(effectiveStart to effectiveEnd)
                 weekStart = weekStart.plusWeeks(1)
             }

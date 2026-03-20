@@ -133,15 +133,31 @@ class WeeklyBudgetPage extends StatelessWidget {
                     theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
               ),
             ),
-            if (currentWeek.groups.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            // Total summary
+            if (currentWeek.items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildTotalChip(context, '총 예산',
+                      '${numberFormat.format(currentWeek.totalBudget)}원'),
+                  _buildTotalChip(context, '지출',
+                      '${numberFormat.format(currentWeek.totalSpent)}원'),
+                  _buildTotalChip(context, '잔여',
+                      '${numberFormat.format(currentWeek.totalRemaining)}원',
+                      color: currentWeek.totalRemaining >= 0
+                          ? Colors.green.shade700
+                          : Colors.red.shade700),
+                ],
+              ),
+              const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 12),
-              ...currentWeek.groups.map((group) {
-                final progress = (group.usageRate / 100).clamp(0.0, 1.0);
-                final statusColor = group.usageRate > 100
+              ...currentWeek.items.map((item) {
+                final progress = (item.usageRate / 100).clamp(0.0, 1.0);
+                final statusColor = item.usageRate > 100
                     ? Colors.red
-                    : group.usageRate > 80
+                    : item.usageRate > 80
                         ? Colors.orange
                         : Colors.green;
                 return Padding(
@@ -153,14 +169,14 @@ class WeeklyBudgetPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            group.groupName,
+                            item.displayName,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.onPrimaryContainer,
                             ),
                           ),
                           Text(
-                            '${numberFormat.format(group.spentAmount)}원 / ${numberFormat.format(group.budgetAmount)}원',
+                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                             ),
@@ -187,6 +203,30 @@ class WeeklyBudgetPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTotalChip(BuildContext context, String label, String value,
+      {Color? color}) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color:
+                theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color ?? theme.colorScheme.onPrimaryContainer,
+          ),
+        ),
+      ],
     );
   }
 

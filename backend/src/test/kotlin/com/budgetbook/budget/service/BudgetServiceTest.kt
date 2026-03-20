@@ -629,6 +629,44 @@ class BudgetServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getBudgetSummary excludes WEEKLY budgets ---
+
+    Given("a mix of MONTHLY and WEEKLY budgets in summary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val monthlyBudget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 300000,
+            budgetPeriod = BudgetPeriod.MONTHLY
+        )
+        val weeklyBudget = MonthlyBudget(
+            couple = couple, yearMonth = "2026-03", amount = 200000,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 50000
+        )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(monthlyBudget, weeklyBudget)
+
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
+        ) } returns listOf(
+            arrayOf(80000L, 1L, category.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733")
+        )
+
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+            coupleId = couple.id, startDate = LocalDate.of(2026, 3, 1),
+            endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
+        ) } returns 120000L
+
+        When("getBudgetSummary is called") {
+            val result = service.getBudgetSummary(user1.id, 2026, 3)
+
+            Then("excludes WEEKLY budgets from summary items and totalBudget") {
+                result.items.size shouldBe 1
+                result.items[0].category!!.name shouldBe "식비"
+                result.items[0].budgetAmount shouldBe 300000
+                result.totalBudget shouldBe 300000
+            }
+        }
+    }
+
     // --- user not in couple ---
 
     Given("a user not in any couple") {
