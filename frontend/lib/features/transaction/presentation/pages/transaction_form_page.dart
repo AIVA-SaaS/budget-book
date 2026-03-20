@@ -62,6 +62,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   late final TextEditingController _memoController;
   late String _selectedType;
   String? _selectedCategoryId;
+  String? _selectedCategoryDisplayName;
   String? _selectedPaymentMethodId;
   String? _selectedPocketId;
   late DateTime _selectedDate;
@@ -153,6 +154,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             _memoController.text = transaction.memo ?? '';
             _selectedType = transaction.type;
             _selectedCategoryId = transaction.category?.id;
+            _selectedCategoryDisplayName = transaction.category?.displayName;
             _selectedPaymentMethodId = transaction.paymentMethodId;
             _selectedPocketId = transaction.pocketId;
             _selectedDate = DateTime.parse(transaction.transactionDate);
@@ -306,6 +308,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                         setState(() {
                           _selectedType = value.first;
                           _selectedCategoryId = null;
+                          _selectedCategoryDisplayName = null;
                         });
                       },
                     ),
@@ -519,19 +522,12 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 : catState.expenseCategories)
             : <Category>[];
 
-        final selectedName = _selectedCategoryId != null
-            ? categories
-                .where((c) => c.id == _selectedCategoryId)
-                .map((c) => c.name)
-                .firstOrNull
-            : null;
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ItemSelectorField(
               label: '카테고리 *',
-              selectedLabel: selectedName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
+              selectedLabel: _selectedCategoryDisplayName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
               prefixIcon: Icons.category,
               placeholder: '카테고리를 선택하세요',
               onTap: () {
@@ -638,6 +634,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         onSelected: (category) {
           setState(() {
             _selectedCategoryId = category?.id;
+            _selectedCategoryDisplayName = null;
+          });
+        },
+        onSelectedWithGroupName: (category, groupName) {
+          setState(() {
+            _selectedCategoryId = category?.id;
+            if (category != null && groupName != null && groupName.isNotEmpty) {
+              _selectedCategoryDisplayName = '$groupName > ${category.name}';
+            } else {
+              _selectedCategoryDisplayName = category?.name;
+            }
           });
         },
         onDelete: (id) {
