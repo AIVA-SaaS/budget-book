@@ -39,7 +39,26 @@ class MoneyPocketService(
     fun getPockets(userId: UUID): List<PocketResponse> {
         val couple = getActiveCouple(userId)
         val pockets = moneyPocketRepository.findByCoupleIdAndIsActiveTrueAndUserId(couple.id, userId)
-        return pockets.map { it.toResponse(calculateBalance(it, userId)) }
+
+        if (pockets.isEmpty()) return emptyList()
+
+        val pocketIds = pockets.map { it.id }.toSet()
+
+        // Batch queries for balance calculation
+        val transfersInMap = pocketTransferRepository.sumAmountByToPocketIdIn(pocketIds)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+        val transfersOutMap = pocketTransferRepository.sumAmountByFromPocketIdIn(pocketIds)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+        val expensesMap = transactionRepository.sumExpenseByPocketIdIn(pocketIds, userId)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+
+        return pockets.map { pocket ->
+            val transfersIn = transfersInMap[pocket.id] ?: 0L
+            val transfersOut = transfersOutMap[pocket.id] ?: 0L
+            val expenses = expensesMap[pocket.id] ?: 0L
+            val balance = pocket.allocatedAmount + transfersIn - transfersOut - expenses
+            pocket.toResponse(balance)
+        }
     }
 
     @Transactional

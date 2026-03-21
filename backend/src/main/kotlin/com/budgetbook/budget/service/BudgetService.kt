@@ -28,7 +28,6 @@ import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
-import com.budgetbook.transaction.service.TransactionService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -59,8 +58,6 @@ class BudgetService(
             )
         }
 
-        val visibility = TransactionService.parseVisibility(request.visibility)
-
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
@@ -72,6 +69,13 @@ class BudgetService(
             val g = categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
                 ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
             g
+        }
+
+        // Derive visibility from category/group instead of request
+        val visibility = when {
+            category != null -> category.visibility
+            group != null -> group.visibility
+            else -> Visibility.SHARED
         }
 
         // Validate pocket ownership
@@ -237,17 +241,19 @@ class BudgetService(
             budget.pocket = pocket
         }
 
-        // Handle visibility change
-        request.visibility?.let { visStr ->
-            val newVisibility = TransactionService.parseVisibility(visStr)
-            budget.visibility = newVisibility
-            if (newVisibility == Visibility.PRIVATE) {
-                val user = userRepository.findById(userId)
-                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
-                budget.owner = user
-            } else {
-                budget.owner = null
-            }
+        // Derive visibility from category/group
+        val newVisibility = when {
+            budget.category != null -> budget.category!!.visibility
+            budget.group != null -> budget.group!!.visibility
+            else -> Visibility.SHARED
+        }
+        budget.visibility = newVisibility
+        if (newVisibility == Visibility.PRIVATE) {
+            val user = userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+            budget.owner = user
+        } else {
+            budget.owner = null
         }
 
         val saved = budgetRepository.save(budget)
@@ -307,19 +313,24 @@ class BudgetService(
             userId = userId
         )
 
+        // Pre-compute group spending from category spending to avoid N+1 queries
+        val groupIds = budgets.mapNotNull { it.group?.id }.toSet()
+        val spendingByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
+            val allCategories = categoryRepository.findByCoupleId(couple.id)
+            groupIds.associateWith { gId ->
+                allCategories.filter { it.group?.id == gId }
+                    .sumOf { cat -> spendingByCategory[cat.id] ?: 0L }
+            }
+        } else {
+            emptyMap()
+        }
+
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
             val groupId = budget.group?.id
             val spentAmount = when {
                 categoryId != null -> spendingByCategory[categoryId] ?: 0L
-                groupId != null -> transactionRepository.sumAmountByGroupAndDateRange(
-                    coupleId = couple.id,
-                    groupId = groupId,
-                    startDate = startDate,
-                    endDate = endDate,
-                    type = TransactionType.EXPENSE,
-                    userId = userId
-                )
+                groupId != null -> spendingByGroup[groupId] ?: 0L
                 else -> totalSpent
             }
 

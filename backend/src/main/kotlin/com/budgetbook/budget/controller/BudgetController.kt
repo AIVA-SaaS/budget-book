@@ -14,8 +14,11 @@ import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/budgets")
 class BudgetController(
@@ -47,8 +51,8 @@ class BudgetController(
     @GetMapping
     fun listBudgets(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int
     ): ApiResponse<List<BudgetResponse>> {
         return ApiResponse.ok(budgetService.getBudgetsByMonth(userId, year, month))
     }
@@ -91,8 +95,8 @@ class BudgetController(
     @GetMapping("/summary")
     fun getBudgetSummary(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int
     ): ApiResponse<BudgetSummaryResponse> {
         return ApiResponse.ok(budgetService.getBudgetSummary(userId, year, month))
     }
@@ -100,8 +104,8 @@ class BudgetController(
     @GetMapping("/weekly")
     fun getWeeklyOverview(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int
     ): ApiResponse<WeeklyOverviewResponse> {
         return ApiResponse.ok(weeklyBudgetService.getWeeklyOverview(userId, year, month))
     }

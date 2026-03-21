@@ -84,10 +84,8 @@ class CategoryGroupServiceTest : BehaviorSpec({
         )
 
         every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group1, group2, privateGroup)
-        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group1.id, any()) } returns listOf(category1, category2)
-        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group2.id, any()) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, privateGroup.id, any()) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns listOf(uncategorizedCategory)
+        // Batch load all categories (used by N+1-optimized listCategoryGroups)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, any()) } returns listOf(category1, category2, uncategorizedCategory)
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
@@ -116,9 +114,8 @@ class CategoryGroupServiceTest : BehaviorSpec({
             visibility = Visibility.PRIVATE, owner = user1
         )
         every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group, privateGroup)
-        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, any()) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, privateGroup.id, any()) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, any()) } returns emptyList()
+        // Batch load all categories (empty - no categories at all)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, any()) } returns emptyList()
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
