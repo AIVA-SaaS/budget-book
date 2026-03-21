@@ -407,6 +407,14 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   _selectedGroupName = null;
                 });
               },
+              onItemSelectedWithGroup: (category, group) {
+                setState(() {
+                  _selectedCategoryId = category.id;
+                  _selectedCategoryName = '${group.name} > ${category.name}';
+                  _selectedGroupId = null;
+                  _selectedGroupName = null;
+                });
+              },
               onAddGroup: () => _showAddGroupDialog(sheetContext),
               onAddItem: (group) =>
                   _showAddCategoryDialog(sheetContext, group),
