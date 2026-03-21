@@ -63,7 +63,7 @@ class ReportService(
 
         // Calculate total budget from WEEKLY groups' monthly budgets (divided by weeks in month)
         val weeksInMonth = getWeeksInMonth(yearMonth)
-        val totalBudget = calculateWeeklyBudget(couple.id, yearMonthStr, weeksInMonth)
+        val totalBudget = calculateWeeklyBudget(couple.id, yearMonthStr, weeksInMonth, userId)
 
         val remainingAmount = totalBudget - totalSpent
         val usageRate = if (totalBudget > 0) {
@@ -144,7 +144,7 @@ class ReportService(
         )
 
         // Card pending summary
-        val cardPendingSummary = calculateCardPendingSummary(couple.id, startDate, endDate)
+        val cardPendingSummary = calculateCardPendingSummary(couple.id, startDate, endDate, userId)
 
         // Day of week pattern
         val allExpenseTransactions = transactionRepository.findByCoupleIdAndFilters(
@@ -201,13 +201,13 @@ class ReportService(
         return if (daysInMonth > 28) 5 else 4
     }
 
-    private fun calculateWeeklyBudget(coupleId: UUID, yearMonth: String, weeksInMonth: Int): Long {
-        val groups = categoryGroupRepository.findByCoupleId(coupleId)
+    private fun calculateWeeklyBudget(coupleId: UUID, yearMonth: String, weeksInMonth: Int, userId: UUID): Long {
+        val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(coupleId, userId)
         val weeklyGroups = groups.filter { it.budgetType == BudgetType.WEEKLY }
 
         if (weeklyGroups.isEmpty()) return 0L
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
+        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
 
         // Get categories belonging to weekly groups
         val weeklyCategories = weeklyGroups.flatMap { group ->
@@ -301,8 +301,8 @@ class ReportService(
         endDate: LocalDate,
         userId: UUID
     ): List<GroupSpendingSummary> {
-        val groups = categoryGroupRepository.findByCoupleId(coupleId)
-        val budgets = budgetRepository.findByCoupleIdAndYearMonth(coupleId, yearMonth)
+        val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(coupleId, userId)
+        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
 
         // Fetch all category expenses once, then filter in-memory per group
         val allCategoryExpenses = transactionRepository.sumByCategoryForCouple(
@@ -438,10 +438,11 @@ class ReportService(
     private fun calculateCardPendingSummary(
         coupleId: UUID,
         startDate: LocalDate,
-        endDate: LocalDate
+        endDate: LocalDate,
+        userId: UUID
     ): CardPendingReportSummary? {
         val results = transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
-            coupleId, startDate, endDate
+            coupleId, startDate, endDate, userId
         )
 
         if (results.isEmpty()) return null

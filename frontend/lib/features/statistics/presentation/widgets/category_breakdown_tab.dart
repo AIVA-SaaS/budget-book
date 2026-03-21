@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 
 class CategoryBreakdownTab extends StatelessWidget {
@@ -124,8 +125,10 @@ class CategoryBreakdownTab extends StatelessWidget {
     return categoryStats.asMap().entries.map((entry) {
       final index = entry.key;
       final stat = entry.value;
-      final color = _parseColor(stat.category.color) ??
-          defaultColors[index % defaultColors.length];
+      final color = stat.category.color != null && stat.category.color!.isNotEmpty
+          ? UIHelpers.parseColor(stat.category.color,
+              fallback: defaultColors[index % defaultColors.length])
+          : defaultColors[index % defaultColors.length];
 
       return PieChartSectionData(
         value: stat.amount.toDouble(),
@@ -141,15 +144,6 @@ class CategoryBreakdownTab extends StatelessWidget {
     }).toList();
   }
 
-  Color? _parseColor(String? hex) {
-    if (hex == null || hex.isEmpty) return null;
-    try {
-      final hexColor = hex.replaceFirst('#', '');
-      return Color(int.parse('FF$hexColor', radix: 16));
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 class _CategoryListItem extends StatelessWidget {
@@ -160,24 +154,10 @@ class _CategoryListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,###');
-    final defaultColors = [
-      const Color(0xFFFF5733),
-      const Color(0xFF2196F3),
-      const Color(0xFF4CAF50),
-    ];
-
-    Color categoryColor;
-    final hex = stat.category.color;
-    if (hex != null && hex.isNotEmpty) {
-      try {
-        final hexColor = hex.replaceFirst('#', '');
-        categoryColor = Color(int.parse('FF$hexColor', radix: 16));
-      } catch (_) {
-        categoryColor = defaultColors[0];
-      }
-    } else {
-      categoryColor = defaultColors[0];
-    }
+    final categoryColor = UIHelpers.parseColor(
+      stat.category.color,
+      fallback: const Color(0xFFFF5733),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

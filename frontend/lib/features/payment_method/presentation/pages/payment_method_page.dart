@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
@@ -116,10 +117,10 @@ class PaymentMethodPage extends StatelessWidget {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getTypeColor(method.type).withValues(alpha: 0.15),
+          backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
           child: Icon(
-            _getTypeIcon(method.type),
-            color: _getTypeColor(method.type),
+            paymentMethodTypeIcon(method.type),
+            color: paymentMethodTypeColor(method.type),
             size: 20,
           ),
         ),
@@ -127,7 +128,7 @@ class PaymentMethodPage extends StatelessWidget {
           children: [
             Flexible(child: Text(method.name, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 8),
-            _buildTypeBadge(context, method.type),
+            buildPaymentMethodTypeBadge(context, method.type),
             if (!method.isActive) ...[
               const SizedBox(width: 8),
               Container(
@@ -227,51 +228,6 @@ class PaymentMethodPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildTypeBadge(BuildContext context, String type) {
-    final label = switch (type) {
-      'CASH' => '현금',
-      'DEBIT' => '체크',
-      'CREDIT' => '신용',
-      'BANK' => '은행',
-      _ => type,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: _getTypeColor(type).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: _getTypeColor(type),
-        ),
-      ),
-    );
-  }
-
-  IconData _getTypeIcon(String type) {
-    return switch (type) {
-      'CASH' => Icons.money,
-      'DEBIT' => Icons.credit_card,
-      'CREDIT' => Icons.credit_score,
-      'BANK' => Icons.account_balance,
-      _ => Icons.payment,
-    };
-  }
-
-  Color _getTypeColor(String type) {
-    return switch (type) {
-      'CASH' => Colors.green,
-      'DEBIT' => Colors.blue,
-      'CREDIT' => Colors.deepPurple,
-      'BANK' => Colors.teal,
-      _ => Colors.grey,
-    };
   }
 
   Widget _buildError(BuildContext context) {

@@ -180,7 +180,9 @@ class RecurringTransactionService(
 
         for (recurring in dueTransactions) {
             try {
-                // Create actual transaction
+                // Create actual transaction with visibility propagation
+                val txVisibility = recurring.category?.visibility ?: recurring.visibility
+                val txOwner = if (txVisibility == Visibility.PRIVATE) recurring.author else null
                 val transaction = Transaction(
                     couple = recurring.couple,
                     author = recurring.author,
@@ -190,7 +192,9 @@ class RecurringTransactionService(
                     description = recurring.description,
                     memo = recurring.memo,
                     transactionDate = recurring.nextRunDate,
-                    paymentMethod = recurring.paymentMethod
+                    paymentMethod = recurring.paymentMethod,
+                    visibility = txVisibility,
+                    owner = txOwner
                 )
                 transactionRepository.save(transaction)
 

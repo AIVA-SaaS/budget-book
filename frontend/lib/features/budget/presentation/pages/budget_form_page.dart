@@ -146,7 +146,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (state is BudgetLoaded && _isSubmitting) {
@@ -157,7 +157,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }

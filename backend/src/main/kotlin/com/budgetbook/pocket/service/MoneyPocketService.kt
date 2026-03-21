@@ -39,7 +39,7 @@ class MoneyPocketService(
     fun getPockets(userId: UUID): List<PocketResponse> {
         val couple = getActiveCouple(userId)
         val pockets = moneyPocketRepository.findByCoupleIdAndIsActiveTrueAndUserId(couple.id, userId)
-        return pockets.map { it.toResponse(calculateBalance(it)) }
+        return pockets.map { it.toResponse(calculateBalance(it, userId)) }
     }
 
     @Transactional
@@ -82,7 +82,7 @@ class MoneyPocketService(
             coupleId = couple.id,
             authorId = userId
         ))
-        return saved.toResponse(calculateBalance(saved))
+        return saved.toResponse(calculateBalance(saved, userId))
     }
 
     @Transactional
@@ -127,7 +127,7 @@ class MoneyPocketService(
             coupleId = couple.id,
             authorId = userId
         ))
-        return saved.toResponse(calculateBalance(saved))
+        return saved.toResponse(calculateBalance(saved, userId))
     }
 
     @Transactional
@@ -175,10 +175,10 @@ class MoneyPocketService(
         }
     }
 
-    internal fun calculateBalance(pocket: MoneyPocket): Long {
+    internal fun calculateBalance(pocket: MoneyPocket, userId: UUID): Long {
         val transfersIn = pocketTransferRepository.sumAmountByToPocketId(pocket.id)
         val transfersOut = pocketTransferRepository.sumAmountByFromPocketId(pocket.id)
-        val expenses = transactionRepository.sumExpenseByPocketId(pocket.id)
+        val expenses = transactionRepository.sumExpenseByPocketId(pocket.id, userId)
         return pocket.allocatedAmount + transfersIn - transfersOut - expenses
     }
 

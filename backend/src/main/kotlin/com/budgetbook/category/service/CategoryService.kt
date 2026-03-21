@@ -67,6 +67,11 @@ class CategoryService(
                 ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
         }
 
+        // Validate visibility consistency with parent group
+        if (group != null) {
+            validateVisibilityConsistency(group.visibility, visibility)
+        }
+
         val owner = if (visibility == Visibility.PRIVATE) {
             userRepository.findById(userId)
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
@@ -112,12 +117,18 @@ class CategoryService(
         request.groupId?.let { groupId ->
             val group = categoryGroupRepository.findByIdAndCoupleId(groupId, couple.id)
                 ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
+            // Validate visibility consistency with new group
+            val effectiveVisibility = request.visibility?.let { TransactionService.parseVisibility(it) } ?: category.visibility
+            validateVisibilityConsistency(group.visibility, effectiveVisibility)
             category.group = group
         }
 
         // Handle visibility change and cascade to associated transactions
         request.visibility?.let { visStr ->
             val newVisibility = TransactionService.parseVisibility(visStr)
+            // Validate visibility consistency with parent group before applying
+            category.group?.let { grp -> validateVisibilityConsistency(grp.visibility, newVisibility) }
+
             val oldVisibility = category.visibility
             category.visibility = newVisibility
             if (newVisibility == Visibility.PRIVATE) {
@@ -250,6 +261,15 @@ class CategoryService(
         ownerId = owner?.id,
         createdAt = createdAt
     )
+
+    private fun validateVisibilityConsistency(groupVisibility: Visibility, categoryVisibility: Visibility) {
+        if (groupVisibility != categoryVisibility) {
+            throw BusinessException(
+                "VISIBILITY_MISMATCH",
+                "Category visibility ($categoryVisibility) must match the parent group visibility ($groupVisibility)."
+            )
+        }
+    }
 
     private fun validatePrivateOwner(category: Category, userId: UUID) {
         if (category.visibility == Visibility.PRIVATE && category.owner?.id != null && category.owner?.id != userId) {

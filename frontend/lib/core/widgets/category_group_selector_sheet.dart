@@ -543,7 +543,7 @@ class _CategoryGroupSelectorSheetState
       (failure) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message), backgroundColor: Colors.red),
+            SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error),
           );
         }
       },

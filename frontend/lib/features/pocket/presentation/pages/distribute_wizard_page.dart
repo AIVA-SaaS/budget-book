@@ -138,7 +138,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (state is PocketLoaded && state.ratiosSaved) {
