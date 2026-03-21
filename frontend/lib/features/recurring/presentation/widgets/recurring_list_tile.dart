@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class RecurringListTile extends StatelessWidget {
   final RecurringTransaction transaction;
@@ -19,7 +20,6 @@ class RecurringListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
     final typeColor = transaction.isExpense ? Colors.red : Colors.blue;
 
     return Dismissible(
@@ -121,7 +121,7 @@ class RecurringListTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${transaction.isExpense ? '-' : '+'}${numberFormat.format(transaction.amount)}원',
+              '${transaction.isExpense ? '-' : '+'}${CurrencyFormatter.format(transaction.amount)}원',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: typeColor,

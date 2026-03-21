@@ -1,3 +1,4 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -15,7 +16,6 @@ class PaymentMethodStatsTab extends StatelessWidget {
     this.error,
   });
 
-  static final _formatter = NumberFormat('#,###');
 
   static const _colors = [
     Color(0xFF2196F3),
@@ -164,7 +164,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '${_formatter.format(stat.totalAmount)}원',
+                        '${CurrencyFormatter.format(stat.totalAmount)}원',
                         style:
                             Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,

@@ -1,3 +1,4 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -13,7 +14,6 @@ class MonthSummaryBar extends StatelessWidget {
     required this.balance,
   });
 
-  static final _formatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +72,7 @@ class MonthSummaryBar extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${_formatter.format(amount)}원',
+          '${CurrencyFormatter.format(amount)}원',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: color,
                 fontWeight: FontWeight.bold,

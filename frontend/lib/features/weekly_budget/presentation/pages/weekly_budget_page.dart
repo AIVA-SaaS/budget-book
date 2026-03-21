@@ -7,6 +7,7 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
 import 'package:budget_book/features/weekly_budget/presentation/widgets/week_summary_card.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class WeeklyBudgetPage extends StatelessWidget {
   const WeeklyBudgetPage({super.key});
@@ -101,7 +102,6 @@ class WeeklyBudgetPage extends StatelessWidget {
   Widget _buildCurrentWeekHero(
       BuildContext context, CurrentWeekSummary currentWeek) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
 
     return Card(
       elevation: 4,
@@ -140,11 +140,11 @@ class WeeklyBudgetPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildTotalChip(context, '총 예산',
-                      '${numberFormat.format(currentWeek.totalBudget)}원'),
+                      '${CurrencyFormatter.format(currentWeek.totalBudget)}원'),
                   _buildTotalChip(context, '지출',
-                      '${numberFormat.format(currentWeek.totalSpent)}원'),
+                      '${CurrencyFormatter.format(currentWeek.totalSpent)}원'),
                   _buildTotalChip(context, '잔여',
-                      '${numberFormat.format(currentWeek.totalRemaining)}원',
+                      '${CurrencyFormatter.format(currentWeek.totalRemaining)}원',
                       color: currentWeek.totalRemaining >= 0
                           ? Colors.green.shade700
                           : Colors.red.shade700),
@@ -176,7 +176,7 @@ class WeeklyBudgetPage extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
+                            '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                             ),

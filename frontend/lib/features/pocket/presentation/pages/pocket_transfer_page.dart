@@ -1,3 +1,4 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +13,6 @@ import 'package:budget_book/features/pocket/presentation/widgets/pocket_transfer
 class PocketTransferPage extends StatelessWidget {
   const PocketTransferPage({super.key});
 
-  static final _formatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +120,7 @@ class PocketTransferPage extends StatelessWidget {
             ),
       ),
       trailing: Text(
-        '${_formatter.format(transfer.amount)}원',
+        '${CurrencyFormatter.format(transfer.amount)}원',
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.blue,

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class TransactionImportPage extends StatefulWidget {
   const TransactionImportPage({super.key});
@@ -276,8 +277,8 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '${NumberFormat('#,###').format(_result!.successCount)}건 가져오기 완료'
-                        '${_result!.failCount > 0 ? ', ${NumberFormat('#,###').format(_result!.failCount)}건 실패' : ''}',
+                        '${CurrencyFormatter.format(_result!.successCount)}건 가져오기 완료'
+                        '${_result!.failCount > 0 ? ', ${CurrencyFormatter.format(_result!.failCount)}건 실패' : ''}',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),

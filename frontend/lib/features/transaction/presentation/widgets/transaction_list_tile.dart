@@ -1,3 +1,4 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
@@ -15,7 +16,6 @@ class TransactionListTile extends StatelessWidget {
     this.onDelete,
   });
 
-  static final _formatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +109,7 @@ class TransactionListTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              '$amountPrefix${_formatter.format(transaction.amount)}원',
+              '$amountPrefix${CurrencyFormatter.format(transaction.amount)}원',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: amountColor,
                     fontWeight: FontWeight.w600,

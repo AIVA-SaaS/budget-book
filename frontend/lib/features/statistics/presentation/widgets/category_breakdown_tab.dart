@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class CategoryBreakdownTab extends StatelessWidget {
   final List<CategoryStatistics> categoryStats;
@@ -153,7 +154,6 @@ class _CategoryListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,###');
     final categoryColor = UIHelpers.parseColor(
       stat.category.color,
       fallback: const Color(0xFFFF5733),
@@ -203,7 +203,7 @@ class _CategoryListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${formatter.format(stat.amount)}원',
+                    '${CurrencyFormatter.format(stat.amount)}원',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),

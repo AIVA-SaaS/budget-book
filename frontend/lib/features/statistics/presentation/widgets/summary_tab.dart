@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class SummaryTab extends StatelessWidget {
   final StatisticsSummary? summary;
@@ -131,7 +132,6 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,###');
     final isNegative = amount < 0;
     final displayAmount = isNegative ? -amount : amount;
     final prefix = isNegative ? '-' : '';
@@ -166,7 +166,7 @@ class _SummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$prefix${formatter.format(displayAmount)}원',
+                    '$prefix${CurrencyFormatter.format(displayAmount)}원',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: color,
                           fontWeight: FontWeight.bold,

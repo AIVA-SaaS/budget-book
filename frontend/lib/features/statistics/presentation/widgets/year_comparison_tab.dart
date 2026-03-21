@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class YearComparisonTab extends StatelessWidget {
   final StatisticsSummary? currentYear;
@@ -132,7 +133,6 @@ class _ComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,###');
     final suffix = isCount ? '건' : '원';
 
     String? changeText;
@@ -205,7 +205,7 @@ class _ComparisonCard extends StatelessWidget {
                       ),
                 ),
                 Text(
-                  '${formatter.format(currentAmount)}$suffix',
+                  '${CurrencyFormatter.format(currentAmount)}$suffix',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: color,
@@ -229,7 +229,7 @@ class _ComparisonCard extends StatelessWidget {
                 ),
                 Text(
                   previousAmount != null
-                      ? '${formatter.format(previousAmount)}$suffix'
+                      ? '${CurrencyFormatter.format(previousAmount!)}$suffix'
                       : '데이터 없음',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(context)

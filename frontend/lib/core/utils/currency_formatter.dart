@@ -9,7 +9,7 @@ class CurrencyFormatter {
   static final _numberFormat = NumberFormat('#,###');
 
   /// 숫자를 쉼표 포맷 문자열로 변환 (예: 1234567 → "1,234,567")
-  static String format(int amount) {
+  static String format(num amount) {
     return _numberFormat.format(amount);
   }
 
