@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';

@@ -37,7 +37,7 @@ class CurrencyFormatter {
     final parts = <String>[];
     if (eok > 0) parts.add('${_numberFormat.format(eok)}억');
     if (man > 0) parts.add('${_numberFormat.format(man)}만');
-    if (remainder > 0) parts.add('${_numberFormat.format(remainder)}');
+    if (remainder > 0) parts.add(_numberFormat.format(remainder));
 
     return '${isNegative ? '-' : ''}${parts.join(' ')}원';
   }

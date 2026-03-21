@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 

@@ -1,7 +1,6 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
 class PaymentMethodStatsTab extends StatelessWidget {

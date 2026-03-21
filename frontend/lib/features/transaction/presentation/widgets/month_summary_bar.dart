@@ -1,6 +1,5 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class MonthSummaryBar extends StatelessWidget {
   final int totalIncome;
