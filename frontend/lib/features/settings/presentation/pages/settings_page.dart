@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -29,9 +29,19 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadDefaultPaymentMethod();
   }
 
+  String? get _coupleId {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.coupleId;
+    }
+    return null;
+  }
+
   Future<void> _loadDefaultPaymentMethod() async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getString('default_payment_method_id');
+    final coupleId = _coupleId;
+    if (coupleId == null) return;
+
+    final id = await CouplePrefs.getString(coupleId, 'default_payment_method_id');
     if (id != null && mounted) {
       setState(() {
         _defaultPaymentMethodId = id;
@@ -149,11 +159,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle = match.first.name;
                       _defaultPaymentMethodName = match.first.name;
                     } else {
-                      // Stale reference (e.g. from a previous couple) — clear it
+                      // Stale reference (e.g. from a previous couple) -- clear it
                       _defaultPaymentMethodId = null;
                       _defaultPaymentMethodName = null;
-                      SharedPreferences.getInstance().then((p) =>
-                          p.remove('default_payment_method_id'));
+                      final coupleId = _coupleId;
+                      if (coupleId != null) {
+                        CouplePrefs.remove(coupleId, 'default_payment_method_id');
+                      }
                     }
                   } else if (_defaultPaymentMethodName != null) {
                     subtitle = _defaultPaymentMethodName!;
@@ -361,8 +373,10 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           SimpleDialogOption(
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('default_payment_method_id');
+              final coupleId = _coupleId;
+              if (coupleId != null) {
+                await CouplePrefs.remove(coupleId, 'default_payment_method_id');
+              }
               if (mounted) {
                 setState(() {
                   _defaultPaymentMethodId = null;
@@ -390,8 +404,10 @@ class _SettingsPageState extends State<SettingsPage> {
             final isSelected = pm.id == _defaultPaymentMethodId;
             return SimpleDialogOption(
               onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('default_payment_method_id', pm.id);
+                final coupleId = _coupleId;
+                if (coupleId != null) {
+                  await CouplePrefs.setString(coupleId, 'default_payment_method_id', pm.id);
+                }
                 if (mounted) {
                   setState(() {
                     _defaultPaymentMethodId = pm.id;

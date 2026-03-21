@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -490,24 +491,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
       key: Key(budget.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('예산 삭제'),
-            content: Text(
-              '${budget.targetLabel}을(를) 삭제하시겠습니까?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('삭제'),
-              ),
-            ],
-          ),
+        return await showDeleteConfirmDialog(
+          context,
+          title: '예산 삭제',
+          itemName: budget.targetLabel,
         );
       },
       onDismissed: (_) {
@@ -573,7 +560,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   ),
             ),
             PopupMenuButton<String>(
-              onSelected: (value) {
+              onSelected: (value) async {
                 final state = context.read<BudgetBloc>().state;
                 final year =
                     state is BudgetLoaded ? state.year : DateTime.now().year;
@@ -583,34 +570,16 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   context.push(
                       '/budgets/edit/${budget.id}?year=$year&month=$month');
                 } else if (value == 'delete') {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('예산 삭제'),
-                      content: Text(
-                        '${budget.targetLabel}을(를) 삭제하시겠습니까?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('취소'),
-                        ),
-                        FilledButton(
-                          onPressed: () {
-                            Navigator.of(ctx).pop();
-                            context
-                                .read<BudgetBloc>()
-                                .add(DeleteBudget(budget.id));
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
-                          ),
-                          child: const Text('삭제'),
-                        ),
-                      ],
-                    ),
+                  final confirmed = await showDeleteConfirmDialog(
+                    context,
+                    title: '예산 삭제',
+                    itemName: budget.targetLabel,
                   );
+                  if (confirmed && context.mounted) {
+                    context
+                        .read<BudgetBloc>()
+                        .add(DeleteBudget(budget.id));
+                  }
                 }
               },
               itemBuilder: (context) => [

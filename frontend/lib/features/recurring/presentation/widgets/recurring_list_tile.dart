@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
@@ -25,28 +26,15 @@ class RecurringListTile extends StatelessWidget {
       key: Key(transaction.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('반복 거래 삭제'),
-            content: Text("'${transaction.description}' 반복 거래를 삭제하시겠습니까?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('삭제'),
-              ),
-            ],
-          ),
+        final confirmed = await showDeleteConfirmDialog(
+          context,
+          title: '반복 거래 삭제',
+          itemName: transaction.description,
         );
-        if (confirmed == true) {
+        if (confirmed) {
           onDelete?.call();
         }
-        return confirmed ?? false;
+        return confirmed;
       },
       background: Container(
         color: Colors.red,
