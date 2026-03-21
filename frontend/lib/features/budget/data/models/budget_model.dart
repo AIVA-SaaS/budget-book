@@ -78,6 +78,8 @@ class BudgetSummaryModel extends BudgetSummary {
 class BudgetSummaryItemModel extends BudgetSummaryItem {
   const BudgetSummaryItemModel({
     super.category,
+    super.groupId,
+    super.groupName,
     required super.budgetAmount,
     required super.spentAmount,
     required super.remainingAmount,
@@ -90,6 +92,8 @@ class BudgetSummaryItemModel extends BudgetSummaryItem {
           ? TransactionCategoryModel.fromJson(
               json['category'] as Map<String, dynamic>)
           : null,
+      groupId: json['groupId'] as String?,
+      groupName: json['groupName'] as String?,
       budgetAmount: json['budgetAmount'] as int,
       spentAmount: json['spentAmount'] as int,
       remainingAmount: json['remainingAmount'] as int,

@@ -22,6 +22,7 @@ class HierarchicalSelectorSheet<G, I> extends StatefulWidget {
   final String? selectedItemId;
   final void Function(G group)? onGroupSelected;
   final void Function(I item)? onItemSelected;
+  final void Function(I item, G group)? onItemSelectedWithGroup;
   final void Function(G group)? onAddItem;
   final void Function()? onAddGroup;
   final void Function(I item)? onDeleteItem;
@@ -42,6 +43,7 @@ class HierarchicalSelectorSheet<G, I> extends StatefulWidget {
     this.selectedItemId,
     this.onGroupSelected,
     this.onItemSelected,
+    this.onItemSelectedWithGroup,
     this.onAddItem,
     this.onAddGroup,
     this.onDeleteItem,
@@ -126,7 +128,7 @@ class _HierarchicalSelectorSheetState<G, I>
         ),
         // Expanded children
         if (isExpanded) ...[
-          ...items.map((item) => _buildItemTile(context, item)),
+          ...items.map((item) => _buildItemTile(context, item, group)),
           if (widget.onAddItem != null) _buildAddItemButton(context, group),
         ],
         const Divider(height: 1),
@@ -287,7 +289,7 @@ class _HierarchicalSelectorSheetState<G, I>
     );
   }
 
-  Widget _buildItemTile(BuildContext context, I item) {
+  Widget _buildItemTile(BuildContext context, I item, G group) {
     final iId = widget.itemId(item);
     final isSelected = iId == widget.selectedItemId;
     final color = widget.itemColor?.call(item) ?? Colors.grey;
@@ -335,6 +337,7 @@ class _HierarchicalSelectorSheetState<G, I>
         ),
         onTap: () {
           widget.onItemSelected?.call(item);
+          widget.onItemSelectedWithGroup?.call(item, group);
           Navigator.of(context).pop();
         },
       ),

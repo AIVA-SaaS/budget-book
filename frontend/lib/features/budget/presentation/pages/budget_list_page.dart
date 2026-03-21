@@ -654,8 +654,22 @@ class _BudgetListPageState extends State<BudgetListPage> {
   BudgetSummaryItem? _findSummaryItem(
       List<BudgetSummaryItem> items, Budget budget) {
     for (final item in items) {
-      if (budget.category == null && item.category == null) return item;
-      if (budget.category?.id == item.category?.id) return item;
+      // Match by category ID
+      if (budget.category != null && item.category != null &&
+          budget.category!.id == item.category!.id) {
+        return item;
+      }
+      // Match by group ID (group budgets have no category)
+      if (budget.category == null && item.category == null &&
+          budget.groupId != null && item.groupId != null &&
+          budget.groupId == item.groupId) {
+        return item;
+      }
+      // Match total budget (no category, no group)
+      if (budget.category == null && item.category == null &&
+          budget.groupId == null && item.groupId == null) {
+        return item;
+      }
     }
     return null;
   }
