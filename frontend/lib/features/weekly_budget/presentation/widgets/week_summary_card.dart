@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/weekly_overview.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class WeekSummaryCard extends StatelessWidget {
   final WeeklyWeek weekSummary;
@@ -15,7 +16,6 @@ class WeekSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
     final totalUsage = weekSummary.totalUsageRate;
     final overallColor = _getUsageColor(totalUsage);
 
@@ -89,11 +89,11 @@ class WeekSummaryCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSummaryChip(
-                    context, '예산', numberFormat.format(weekSummary.totalBudget)),
+                    context, '예산', CurrencyFormatter.format(weekSummary.totalBudget)),
                 _buildSummaryChip(
-                    context, '지출', numberFormat.format(weekSummary.totalSpent)),
+                    context, '지출', CurrencyFormatter.format(weekSummary.totalSpent)),
                 _buildSummaryChip(context, '잔여',
-                    numberFormat.format(weekSummary.totalRemaining),
+                    CurrencyFormatter.format(weekSummary.totalRemaining),
                     color: weekSummary.totalRemaining >= 0
                         ? Colors.green
                         : Colors.red),
@@ -131,7 +131,7 @@ class WeekSummaryCard extends StatelessWidget {
                             ],
                           ),
                           Text(
-                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
+                            '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
                             style: theme.textTheme.bodySmall,
                           ),
                         ],

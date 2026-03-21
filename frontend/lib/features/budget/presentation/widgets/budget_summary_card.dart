@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class BudgetSummaryCard extends StatelessWidget {
   final BudgetSummary summary;
@@ -9,7 +10,6 @@ class BudgetSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final numberFormat = NumberFormat('#,###');
     final remaining = summary.remainingAmount;
     final isOver = summary.isOverBudget;
     final rate = summary.usageRate.clamp(0.0, 100.0) / 100.0;
@@ -31,7 +31,7 @@ class BudgetSummaryCard extends StatelessWidget {
                       ),
                 ),
                 Text(
-                  '${numberFormat.format(summary.totalBudget)}원',
+                  '${CurrencyFormatter.format(summary.totalBudget)}원',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -55,13 +55,13 @@ class BudgetSummaryCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '지출: ${numberFormat.format(summary.totalSpent)}원',
+                  '지출: ${CurrencyFormatter.format(summary.totalSpent)}원',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 Text(
                   isOver
-                      ? '${numberFormat.format(-remaining)}원 초과'
-                      : '${numberFormat.format(remaining)}원 남음',
+                      ? '${CurrencyFormatter.format(-remaining)}원 초과'
+                      : '${CurrencyFormatter.format(remaining)}원 남음',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: isOver ? Colors.red : Colors.green,
                         fontWeight: FontWeight.w600,

@@ -7,6 +7,7 @@ import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class DistributeWizardPage extends StatefulWidget {
   const DistributeWizardPage({super.key});
@@ -19,7 +20,6 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
   int _currentStep = 0;
   final _totalAmountController = TextEditingController();
   final Map<String, TextEditingController> _allocationControllers = {};
-  final _formatter = NumberFormat('#,###');
   bool _isSubmitting = false;
   bool _ratiosLoaded = false;
 
@@ -184,7 +184,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '남은 금액이 ${_formatter.format(_remaining)}원 있습니다. 모두 분배해주세요.',
+                      '남은 금액이 ${CurrencyFormatter.format(_remaining)}원 있습니다. 모두 분배해주세요.',
                     ),
                   ),
                 );
@@ -301,7 +301,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
               children: [
                 const Text('남은 금액'),
                 Text(
-                  '${_formatter.format(_remaining)}원',
+                  '${CurrencyFormatter.format(_remaining)}원',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: _remaining == 0
@@ -365,7 +365,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                   children: [
                     const Text('총 금액'),
                     Text(
-                      '${_formatter.format(_totalAmount)}원',
+                      '${CurrencyFormatter.format(_totalAmount)}원',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -386,7 +386,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(pocket.name),
-                        Text('${_formatter.format(amount)}원'),
+                        Text('${CurrencyFormatter.format(amount)}원'),
                       ],
                     ),
                   );

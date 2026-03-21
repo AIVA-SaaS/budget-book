@@ -25,6 +25,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart'
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class AssetManagementPage extends StatelessWidget {
   const AssetManagementPage({super.key});
@@ -804,7 +805,6 @@ class _PocketTab extends StatelessWidget {
   }
 
   Widget _buildPocketTile(BuildContext context, MoneyPocket pocket) {
-    final formatter = NumberFormat('#,###');
     final color = UIHelpers.parseColor(pocket.color);
     final typeLabel = switch (pocket.type) {
       'LIVING' => '생활비',
@@ -849,7 +849,7 @@ class _PocketTab extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          '잔액: ${formatter.format(pocket.balance)}원 / 할당: ${formatter.format(pocket.allocatedAmount)}원',
+          '잔액: ${CurrencyFormatter.format(pocket.balance)}원 / 할당: ${CurrencyFormatter.format(pocket.allocatedAmount)}원',
           style: TextStyle(
             fontSize: 12,
             color: Theme.of(context)

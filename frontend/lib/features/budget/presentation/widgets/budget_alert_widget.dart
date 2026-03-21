@@ -1,3 +1,4 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -61,7 +62,6 @@ class _BudgetAlertCard extends StatelessWidget {
 
   const _BudgetAlertCard({required this.item});
 
-  static final _formatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +125,7 @@ class _BudgetAlertCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${_formatter.format(item.spentAmount)}원 / ${_formatter.format(item.budgetAmount)}원',
+                  '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface
                         .withValues(alpha: 0.7),

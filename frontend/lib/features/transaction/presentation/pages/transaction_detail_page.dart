@@ -7,13 +7,13 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class TransactionDetailPage extends StatelessWidget {
   final String transactionId;
 
   const TransactionDetailPage({super.key, required this.transactionId});
 
-  static final _amountFormatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +125,7 @@ class TransactionDetailPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${isExpense ? "-" : "+"}${_amountFormatter.format(txn.amount)}원',
+                  '${isExpense ? "-" : "+"}${CurrencyFormatter.format(txn.amount)}원',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: amountColor,
                     fontWeight: FontWeight.bold,
