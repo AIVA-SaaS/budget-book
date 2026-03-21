@@ -44,10 +44,14 @@ class CategoryGroupService(
         val couple = getActiveCouple(userId)
         ensurePrivateGroupExists(couple, userId)
         val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
-        val uncategorized = categoryRepository.findByCoupleIdAndGroupIsNullAndUserId(couple.id, userId)
+
+        // Batch load all visible categories once, then group by groupId in memory
+        val allCategories = categoryRepository.findByCoupleIdAndUserId(couple.id, userId)
+        val categoriesByGroupId = allCategories.groupBy { it.group?.id }
+        val uncategorized = categoriesByGroupId[null] ?: emptyList()
 
         val result = groups.map { group ->
-            val categories = categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, userId)
+            val categories = categoriesByGroupId[group.id] ?: emptyList()
             group.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
         }.toMutableList()
 

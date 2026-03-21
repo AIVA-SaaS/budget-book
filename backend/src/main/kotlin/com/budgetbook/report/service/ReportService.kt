@@ -1,6 +1,8 @@
 package com.budgetbook.report.service
 
+import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
@@ -180,20 +182,9 @@ class ReportService(
     // --- Internal helpers ---
 
     internal fun calculateWeekRange(yearMonth: YearMonth, weekNumber: Int): Pair<LocalDate, LocalDate> {
-        val firstDay = yearMonth.atDay(1)
-        val lastDay = yearMonth.atEndOfMonth()
-        return when (weekNumber) {
-            1 -> firstDay to firstDay.plusDays(6).coerceAtMost(lastDay)
-            2 -> firstDay.plusDays(7) to firstDay.plusDays(13).coerceAtMost(lastDay)
-            3 -> firstDay.plusDays(14) to firstDay.plusDays(20).coerceAtMost(lastDay)
-            4 -> firstDay.plusDays(21) to firstDay.plusDays(27).coerceAtMost(lastDay)
-            5 -> {
-                val start = firstDay.plusDays(28)
-                if (start.isAfter(lastDay)) lastDay to lastDay
-                else start to lastDay
-            }
-            else -> firstDay to firstDay.plusDays(6).coerceAtMost(lastDay)
-        }
+        val weekRanges = WeeklyBudgetService.calculateWeekRanges(yearMonth)
+        val index = (weekNumber - 1).coerceIn(0, weekRanges.size - 1)
+        return weekRanges[index]
     }
 
     internal fun getWeeksInMonth(yearMonth: YearMonth): Int {
@@ -202,25 +193,19 @@ class ReportService(
     }
 
     private fun calculateWeeklyBudget(coupleId: UUID, yearMonth: String, weeksInMonth: Int, userId: UUID): Long {
-        val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(coupleId, userId)
-        val weeklyGroups = groups.filter { it.budgetType == BudgetType.WEEKLY }
-
-        if (weeklyGroups.isEmpty()) return 0L
-
         val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        val weeklyBudgets = budgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
-        // Get categories belonging to weekly groups
-        val weeklyCategories = weeklyGroups.flatMap { group ->
-            categoryRepository.findByCoupleIdAndGroupId(coupleId, group.id)
+        if (weeklyBudgets.isEmpty()) return 0L
+
+        // Sum weekly contributions: use weeklyAmount if set, otherwise derive from monthly
+        val parts = yearMonth.split("-")
+        val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
+        val daysInMonth = ym.lengthOfMonth()
+
+        return weeklyBudgets.sumOf { budget ->
+            budget.weeklyAmount ?: ((budget.amount * 7) / daysInMonth)
         }
-        val weeklyCategoryIds = weeklyCategories.map { it.id }.toSet()
-
-        // Sum budgets for weekly categories, divide by weeks
-        val totalMonthlyBudget = budgets
-            .filter { it.category != null && it.category!!.id in weeklyCategoryIds }
-            .sumOf { it.amount }
-
-        return totalMonthlyBudget / weeksInMonth
     }
 
     private fun calculateCategorySpending(

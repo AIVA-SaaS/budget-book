@@ -164,6 +164,19 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     ): Long
 
     @Query("""
+        SELECT t.pocket.id, COALESCE(SUM(t.amount), 0)
+        FROM Transaction t
+        WHERE t.pocket.id IN :pocketIds
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        GROUP BY t.pocket.id
+    """)
+    fun sumExpenseByPocketIdIn(
+        @Param("pocketIds") pocketIds: Set<UUID>,
+        @Param("userId") userId: UUID
+    ): List<Array<Any>>
+
+    @Query("""
         SELECT t.paymentMethod.id, t.paymentMethod.name, SUM(t.amount), COUNT(t)
         FROM Transaction t
         WHERE t.couple.id = :coupleId

@@ -596,28 +596,31 @@ class BudgetServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY, displayOrder = 1, isDefault = true)
+        val groupCat1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, group = group)
+        val groupCat2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group)
         val groupBudget = MonthlyBudget(couple = couple, group = group, yearMonth = "2026-03", amount = 500000)
         every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(groupBudget)
 
+        // Category expenses: groupCat1=150000, groupCat2=100000 => group total=250000
         every { transactionRepository.sumByCategoryForCouple(
             couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
-        ) } returns emptyList()
+        ) } returns listOf(
+            arrayOf(150000L, 1L, groupCat1.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733"),
+            arrayOf(100000L, 1L, groupCat2.id, "교통비", CategoryType.EXPENSE, "directions_bus", "#2196F3")
+        )
 
         every { transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id, startDate = LocalDate.of(2026, 3, 1),
             endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
         ) } returns 300000L
 
-        every { transactionRepository.sumAmountByGroupAndDateRange(
-            coupleId = couple.id, groupId = group.id,
-            startDate = LocalDate.of(2026, 3, 1), endDate = LocalDate.of(2026, 3, 31),
-            type = TransactionType.EXPENSE, userId = user1.id
-        ) } returns 250000L
+        // Batch category lookup for group spending computation
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(groupCat1, groupCat2)
 
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
 
-            Then("calculates group budget spent amount from group transactions") {
+            Then("calculates group budget spent amount from category aggregation") {
                 result.items.size shouldBe 1
                 val item = result.items[0]
                 item.groupId shouldBe group.id

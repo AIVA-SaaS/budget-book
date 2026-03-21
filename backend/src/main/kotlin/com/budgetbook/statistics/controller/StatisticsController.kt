@@ -8,12 +8,16 @@ import com.budgetbook.statistics.dto.PaymentMethodStatResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
 import com.budgetbook.statistics.service.PaymentMethodStatisticsService
 import com.budgetbook.statistics.service.StatisticsService
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/statistics")
 class StatisticsController(
@@ -24,8 +28,8 @@ class StatisticsController(
     @GetMapping("/summary")
     fun getMonthlySummary(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int
     ): ApiResponse<StatisticsSummaryResponse> {
         return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month))
     }
@@ -33,8 +37,8 @@ class StatisticsController(
     @GetMapping("/by-category")
     fun getCategoryBreakdown(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int,
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int,
         @RequestParam(required = false) type: String?
     ): ApiResponse<List<CategoryStatisticsResponse>> {
         return ApiResponse.ok(statisticsService.getCategoryBreakdown(userId, year, month, type))
@@ -43,8 +47,8 @@ class StatisticsController(
     @GetMapping("/payment-methods")
     fun getPaymentMethodStats(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam @Min(2000) @Max(2100) year: Int,
+        @RequestParam @Min(1) @Max(12) month: Int
     ): ApiResponse<List<PaymentMethodStatResponse>> {
         return ApiResponse.ok(paymentMethodStatisticsService.getPaymentMethodStats(userId, year, month))
     }

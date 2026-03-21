@@ -64,6 +64,7 @@ data class CreateTransactionRequest(
     @field:NotNull
     val transactionDate: LocalDate,
 
+    @field:Size(max = 1000)
     val memo: String? = null,
 
     val paymentMethodId: UUID? = null,

@@ -36,9 +36,12 @@ class MoneyPocketServiceTest : BehaviorSpec({
     val pocketTransferRepository = mockk<PocketTransferRepository> {
         every { sumAmountByToPocketId(any()) } returns 0L
         every { sumAmountByFromPocketId(any()) } returns 0L
+        every { sumAmountByToPocketIdIn(any()) } returns emptyList()
+        every { sumAmountByFromPocketIdIn(any()) } returns emptyList()
     }
     val transactionRepository = mockk<TransactionRepository> {
         every { sumExpenseByPocketId(any(), any()) } returns 0L
+        every { sumExpenseByPocketIdIn(any(), any()) } returns emptyList()
     }
     val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
     val service = MoneyPocketService(moneyPocketRepository, coupleResolver, syncEventPublisher, pocketTransferRepository, transactionRepository, userRepository)
