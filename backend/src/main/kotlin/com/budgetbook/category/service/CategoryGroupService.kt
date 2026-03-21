@@ -20,6 +20,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
+import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.service.TransactionService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,7 +33,8 @@ class CategoryGroupService(
     private val categoryService: CategoryService,
     override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val transactionRepository: TransactionRepository
 ) : CoupleAwareService {
 
     private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
@@ -127,9 +129,10 @@ class CategoryGroupService(
         }
         request.displayOrder?.let { group.displayOrder = it }
 
-        // Handle visibility change
+        // Handle visibility change with cascade to child categories
         request.visibility?.let { visStr ->
             val newVisibility = TransactionService.parseVisibility(visStr)
+            val oldVisibility = group.visibility
             group.visibility = newVisibility
             if (newVisibility == Visibility.PRIVATE) {
                 val user = userRepository.findById(userId)
@@ -137,6 +140,29 @@ class CategoryGroupService(
                 group.owner = user
             } else {
                 group.owner = null
+            }
+
+            // Cascade visibility change to child categories and their transactions
+            if (oldVisibility != newVisibility) {
+                val childCategories = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+                childCategories.forEach { cat ->
+                    cat.visibility = newVisibility
+                    if (newVisibility == Visibility.PRIVATE) {
+                        cat.owner = group.owner
+                    } else {
+                        cat.owner = null
+                    }
+                    categoryRepository.save(cat)
+
+                    // Cascade to transactions via CategoryService's existing logic
+                    val ownerId = if (newVisibility == Visibility.PRIVATE) group.owner?.id else null
+                    transactionRepository.updateVisibilityByCategoryId(
+                        categoryId = cat.id,
+                        visibility = newVisibility.name,
+                        ownerId = ownerId
+                    )
+                }
+                log.info("Cascaded visibility change to {} categories for groupId={}, visibility={}", childCategories.size, group.id, newVisibility)
             }
         }
 

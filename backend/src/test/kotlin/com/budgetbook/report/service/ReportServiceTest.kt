@@ -101,13 +101,13 @@ class ReportServiceTest : BehaviorSpec({
             } returns PageImpl(listOf(tx1, tx2, tx3))
 
             // Weekly budget setup: foodGroup is WEEKLY
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns listOf(foodGroup, monthlyGroup)
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(foodGroup, monthlyGroup)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, foodGroup.id) } returns listOf(foodCategory)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, monthlyGroup.id) } returns listOf(transportCategory)
 
             val foodBudget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
             val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-03", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(foodBudget, transportBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(foodBudget, transportBudget)
 
             // Current week category breakdown
             every {
@@ -197,8 +197,8 @@ class ReportServiceTest : BehaviorSpec({
                 )
             } returns PageImpl(emptyList())
 
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns emptyList()
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns emptyList()
 
             every {
                 transactionRepository.sumByCategoryForCouple(
@@ -233,7 +233,7 @@ class ReportServiceTest : BehaviorSpec({
                 )
             } returns PageImpl(emptyList())
 
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-01", any()) } returns emptyList()
 
             every {
                 transactionRepository.sumByCategoryForCouple(
@@ -299,13 +299,13 @@ class ReportServiceTest : BehaviorSpec({
             )
 
             // Group summaries setup
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns listOf(foodGroup, monthlyGroup)
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(foodGroup, monthlyGroup)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, foodGroup.id) } returns listOf(foodCategory)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, monthlyGroup.id) } returns listOf(transportCategory)
 
             val foodBudget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
             val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-03", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(foodBudget, transportBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(foodBudget, transportBudget)
 
             // Category expenses for group summaries + top categories
             every {
@@ -354,7 +354,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any()
                 )
             } returns listOf(arrayOf(creditCardId, 150000L))
 
@@ -443,8 +444,8 @@ class ReportServiceTest : BehaviorSpec({
                 arrayOf(TransactionType.EXPENSE, 1000000L, 10L)
             )
 
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns emptyList()
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-01", any()) } returns emptyList()
 
             every {
                 transactionRepository.sumByCategoryForCouple(
@@ -480,7 +481,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any()
                 )
             } returns emptyList()
 

@@ -142,7 +142,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -258,7 +258,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }

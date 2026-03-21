@@ -126,11 +126,13 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.paymentMethod.id = :paymentMethodId
         AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
     fun sumByPaymentMethodAndSettlementDateRange(
         @Param("paymentMethodId") paymentMethodId: UUID,
         @Param("startDate") startDate: LocalDate,
-        @Param("endDate") endDate: LocalDate
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
     ): List<Array<Any?>>
 
     @Query("""
@@ -139,12 +141,14 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         WHERE t.couple.id = :coupleId
         AND t.paymentMethod.type = com.budgetbook.paymentmethod.domain.PaymentMethodType.CREDIT
         AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         GROUP BY t.paymentMethod.id
     """)
     fun sumBySettlementDateGroupedByPaymentMethod(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
-        @Param("endDate") endDate: LocalDate
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
     ): List<Array<Any>>
 
     @Query("""
@@ -152,8 +156,12 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.pocket.id = :pocketId
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
-    fun sumExpenseByPocketId(@Param("pocketId") pocketId: UUID): Long
+    fun sumExpenseByPocketId(
+        @Param("pocketId") pocketId: UUID,
+        @Param("userId") userId: UUID
+    ): Long
 
     @Query("""
         SELECT t.paymentMethod.id, t.paymentMethod.name, SUM(t.amount), COUNT(t)

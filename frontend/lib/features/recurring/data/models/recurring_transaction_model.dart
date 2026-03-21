@@ -23,6 +23,15 @@ class RecurringTransactionModel extends RecurringTransaction {
   });
 
   factory RecurringTransactionModel.fromJson(Map<String, dynamic> json) {
+    final category = json['category'] as Map<String, dynamic>?;
+    String? categoryDisplayName;
+    if (category != null) {
+      final name = category['name'] as String?;
+      final groupName = category['groupName'] as String?;
+      categoryDisplayName =
+          groupName != null && groupName.isNotEmpty ? '$groupName > $name' : name;
+    }
+
     return RecurringTransactionModel(
       id: json['id'] as String,
       type: json['type'] as String,
@@ -35,8 +44,8 @@ class RecurringTransactionModel extends RecurringTransaction {
       nextRunDate: json['nextRunDate'] as String,
       lastRunDate: json['lastRunDate'] as String?,
       isActive: json['isActive'] as bool,
-      categoryId: json['categoryId'] as String?,
-      categoryName: json['categoryName'] as String?,
+      categoryId: category?['id'] as String?,
+      categoryName: categoryDisplayName,
       paymentMethodId: json['paymentMethodId'] as String?,
       paymentMethodName: json['paymentMethodName'] as String?,
       visibility: json['visibility'] as String? ?? 'SHARED',

@@ -33,7 +33,7 @@ class _CouplePageState extends State<CouplePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         } else if (state is CoupleLinked) {

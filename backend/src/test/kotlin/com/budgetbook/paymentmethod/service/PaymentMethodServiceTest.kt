@@ -240,7 +240,8 @@ class PaymentMethodServiceTest : BehaviorSpec({
             every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                 creditCard.id,
                 java.time.LocalDate.of(2024, 4, 1),
-                java.time.LocalDate.of(2024, 4, 30)
+                java.time.LocalDate.of(2024, 4, 30),
+                user1.id
             ) } returns listOf(arrayOf<Any?>(250000L, 5L))
 
             val result = service.getCardPendingSummary(user1.id, 2024, 4)
@@ -258,7 +259,8 @@ class PaymentMethodServiceTest : BehaviorSpec({
             every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                 creditCard.id,
                 java.time.LocalDate.of(2024, 4, 1),
-                java.time.LocalDate.of(2024, 4, 30)
+                java.time.LocalDate.of(2024, 4, 30),
+                user1.id
             ) } returns listOf(arrayOf<Any?>(null, 0L))
 
             val result = service.getCardPendingSummary(user1.id, 2024, 4)

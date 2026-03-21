@@ -149,7 +149,8 @@ class PaymentMethodService(
             val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                 paymentMethodId = card.id,
                 startDate = startDate,
-                endDate = endDate
+                endDate = endDate,
+                userId = userId
             )
             val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
             val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
