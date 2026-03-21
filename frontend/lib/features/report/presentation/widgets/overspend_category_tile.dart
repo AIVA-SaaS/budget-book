@@ -1,7 +1,6 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 
 class OverspendCategoryTile extends StatelessWidget {

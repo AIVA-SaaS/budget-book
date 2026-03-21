@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/weekly_overview.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class WeekSummaryCard extends StatelessWidget {
