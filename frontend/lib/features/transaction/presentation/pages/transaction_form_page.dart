@@ -1,13 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
@@ -24,6 +25,8 @@ import 'package:budget_book/features/payment_method/presentation/widgets/payment
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
@@ -107,9 +110,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     }
   }
 
+  String? _coupleId;
+
   Future<void> _loadDefaultPaymentMethod() async {
-    final prefs = await SharedPreferences.getInstance();
-    final defaultId = prefs.getString('default_payment_method_id');
+    _coupleId ??= _resolveCoupleId();
+    if (_coupleId == null) return;
+
+    final defaultId = await CouplePrefs.getString(_coupleId!, 'default_payment_method_id');
     if (defaultId == null || !mounted) return;
 
     // Validate against current payment methods from server
@@ -120,13 +127,21 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       if (exists) {
         setState(() => _selectedPaymentMethodId = defaultId);
       } else {
-        // Stale reference (e.g. from a previous couple) — clear it
-        await prefs.remove('default_payment_method_id');
+        // Stale reference — clear it
+        await CouplePrefs.remove(_coupleId!, 'default_payment_method_id');
       }
     } else {
       // PM list not loaded yet — set tentatively, will be validated on submit
       setState(() => _selectedPaymentMethodId = defaultId);
     }
+  }
+
+  String? _resolveCoupleId() {
+    final authState = getIt<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.coupleId;
+    }
+    return null;
   }
 
   Future<void> _loadTransaction() async {
@@ -946,32 +961,16 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     }
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('거래 삭제'),
-        content: const Text('정말 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TransactionBloc>().add(
-                    DeleteTransaction(widget.transactionId!),
-                  );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '거래 삭제',
     );
+    if (confirmed && context.mounted) {
+      context.read<TransactionBloc>().add(
+            DeleteTransaction(widget.transactionId!),
+          );
+    }
   }
 
   void _resetFormForContinue() {

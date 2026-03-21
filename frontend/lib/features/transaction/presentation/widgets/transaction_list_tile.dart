@@ -1,4 +1,5 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
@@ -36,7 +37,11 @@ class TransactionListTile extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       confirmDismiss: (_) async {
-        return await _showDeleteConfirm(context);
+        return await showDeleteConfirmDialog(
+          context,
+          title: '거래 삭제',
+          itemName: transaction.description,
+        );
       },
       onDismissed: (_) => onDelete?.call(),
       child: ListTile(
@@ -125,27 +130,6 @@ class TransactionListTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Future<bool?> _showDeleteConfirm(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('거래 삭제'),
-        content: const Text('이 거래를 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
       ),
     );
   }

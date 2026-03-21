@@ -122,7 +122,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('거래 삭제'), findsOneWidget);
-      expect(find.text('정말 이 거래를 삭제하시겠습니까?'), findsOneWidget);
+      expect(find.text('정말 삭제하시겠습니까?'), findsOneWidget);
       expect(find.text('취소'), findsOneWidget);
       expect(find.text('삭제'), findsOneWidget);
     });

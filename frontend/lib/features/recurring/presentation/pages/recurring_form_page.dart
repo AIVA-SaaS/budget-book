@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
@@ -339,32 +340,16 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('반복 거래 삭제'),
-        content: const Text('정말 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<RecurringBloc>().add(
-                    DeleteRecurringTransaction(widget.recurringId!),
-                  );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '반복 거래 삭제',
     );
+    if (confirmed && context.mounted) {
+      context.read<RecurringBloc>().add(
+            DeleteRecurringTransaction(widget.recurringId!),
+          );
+    }
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {

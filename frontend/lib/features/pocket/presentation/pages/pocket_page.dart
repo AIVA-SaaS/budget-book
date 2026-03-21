@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -161,25 +162,12 @@ class PocketPage extends StatelessWidget {
 
   Future<void> _showDeleteDialog(
       BuildContext context, MoneyPocket pocket) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('포켓 삭제'),
-        content: Text("'${pocket.name}' 포켓을 삭제하시겠습니까?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '포켓 삭제',
+      itemName: pocket.name,
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       context.read<PocketBloc>().add(DeletePocket(pocket.id));
     }
   }

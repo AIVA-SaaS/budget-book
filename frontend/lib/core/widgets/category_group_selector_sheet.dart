@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
@@ -507,25 +508,12 @@ class _CategoryGroupSelectorSheetState
   }
 
   Future<void> _confirmDelete(BuildContext context, Category category) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('카테고리 삭제'),
-        content: Text("'${category.name}'을(를) 삭제하시겠습니까?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '카테고리 삭제',
+      itemName: category.name,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       widget.onDelete?.call(category.id);
       getIt<CategoryBloc>().add(DeleteCategory(category.id));
     }
