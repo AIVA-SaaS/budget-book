@@ -495,8 +495,7 @@ class TransactionServiceTest : BehaviorSpec({
         When("creating a transaction with visibility SHARED but PRIVATE category") {
             val request = CreateTransactionRequest(
                 type = "EXPENSE", amount = 5000, description = "개인 지출",
-                categoryId = privateCategory.id, transactionDate = LocalDate.of(2024, 1, 15),
-                visibility = "SHARED"
+                categoryId = privateCategory.id, transactionDate = LocalDate.of(2024, 1, 15)
             )
             val txSlot = slot<Transaction>()
             every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
