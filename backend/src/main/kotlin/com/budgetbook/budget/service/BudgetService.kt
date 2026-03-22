@@ -294,9 +294,7 @@ class BudgetService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
-        // Monthly view only includes MONTHLY budgets; WEEKLY budgets are shown in the weekly view
-        val budgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.MONTHLY }
+        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
 
         val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
             couple.id, startDate, endDate, TransactionType.EXPENSE, userId

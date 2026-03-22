@@ -637,15 +637,20 @@ class BudgetServiceTest : BehaviorSpec({
     Given("a mix of MONTHLY and WEEKLY budgets in summary") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
+        val weeklyGroup = com.budgetbook.category.domain.CategoryGroup(
+            couple = couple, name = "생활비", budgetType = com.budgetbook.category.domain.BudgetType.WEEKLY
+        )
+
         val monthlyBudget = MonthlyBudget(
             couple = couple, category = category, yearMonth = "2026-03", amount = 300000,
             budgetPeriod = BudgetPeriod.MONTHLY
         )
         val weeklyBudget = MonthlyBudget(
-            couple = couple, yearMonth = "2026-03", amount = 200000,
+            couple = couple, group = weeklyGroup, yearMonth = "2026-03", amount = 200000,
             budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 50000
         )
         every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(monthlyBudget, weeklyBudget)
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category)
 
         every { transactionRepository.sumByCategoryForCouple(
             couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
@@ -661,11 +666,15 @@ class BudgetServiceTest : BehaviorSpec({
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
 
-            Then("excludes WEEKLY budgets from summary items and totalBudget") {
-                result.items.size shouldBe 1
-                result.items[0].category!!.name shouldBe "식비"
-                result.items[0].budgetAmount shouldBe 300000
-                result.totalBudget shouldBe 300000
+            Then("includes both MONTHLY and WEEKLY budgets in summary") {
+                result.items.size shouldBe 2
+                val monthly = result.items.find { it.category != null }!!
+                monthly.category!!.name shouldBe "식비"
+                monthly.budgetAmount shouldBe 300000
+                val weekly = result.items.find { it.groupId != null }!!
+                weekly.groupName shouldBe "생활비"
+                weekly.budgetAmount shouldBe 200000
+                result.totalBudget shouldBe 500000
             }
         }
     }
