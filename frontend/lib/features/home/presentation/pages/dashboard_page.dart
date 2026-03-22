@@ -478,7 +478,7 @@ class _BudgetUsageCardState extends State<_BudgetUsageCard> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              item.category?.name ?? '전체',
+                              item.category?.displayName ?? item.groupName ?? '전체',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
