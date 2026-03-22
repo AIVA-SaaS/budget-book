@@ -28,6 +28,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     Emitter<StatisticsState> emit,
   ) {
     emit(state.copyWith(visibilityFilter: event.visibility));
+    add(LoadAllStatistics(year: state.year, month: state.month));
   }
 
   Future<void> _onLoadAll(
@@ -47,17 +48,20 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
 
     try {
       // Load all three API calls in parallel using Future.wait
+      final vis = state.visibilityFilter;
       final results = await Future.wait([
         statisticsRepository.getSummary(
           year: event.year,
           month: event.month,
+          visibility: vis,
         ),
         statisticsRepository.getCategoryBreakdown(
           year: event.year,
           month: event.month,
           type: state.categoryType,
+          visibility: vis,
         ),
-        statisticsRepository.getMonthlyTrend(),
+        statisticsRepository.getMonthlyTrend(visibility: vis),
       ]);
 
       // Process summary result
@@ -122,6 +126,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       final result = await statisticsRepository.getSummary(
         year: event.year,
         month: event.month,
+        visibility: state.visibilityFilter,
       );
       result.fold(
         (failure) => emit(state.copyWith(
@@ -156,6 +161,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         year: event.year,
         month: event.month,
         type: event.type,
+        visibility: state.visibilityFilter,
       );
       result.fold(
         (failure) => emit(state.copyWith(
