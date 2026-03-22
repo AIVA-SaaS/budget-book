@@ -9,21 +9,25 @@ abstract class StatisticsRepository {
   Future<Either<Failure, StatisticsSummary>> getSummary({
     required int year,
     required int month,
+    String visibility = 'ALL',
   });
 
   Future<Either<Failure, List<CategoryStatistics>>> getCategoryBreakdown({
     required int year,
     required int month,
     String type = 'EXPENSE',
+    String visibility = 'ALL',
   });
 
   Future<Either<Failure, List<MonthlyTrend>>> getMonthlyTrend({
     int months = 6,
+    String visibility = 'ALL',
   });
 
   Future<Either<Failure, List<PaymentMethodStatistics>>>
       getPaymentMethodStats({
     required int year,
     required int month,
+    String visibility = 'ALL',
   });
 }

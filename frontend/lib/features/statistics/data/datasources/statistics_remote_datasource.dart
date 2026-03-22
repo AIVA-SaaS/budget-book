@@ -9,21 +9,25 @@ abstract class StatisticsRemoteDataSource {
   Future<StatisticsSummaryModel> getSummary({
     required int year,
     required int month,
+    String visibility = 'ALL',
   });
 
   Future<List<CategoryStatisticsModel>> getCategoryBreakdown({
     required int year,
     required int month,
     String type = 'EXPENSE',
+    String visibility = 'ALL',
   });
 
   Future<List<MonthlyTrendModel>> getMonthlyTrend({
     int months = 6,
+    String visibility = 'ALL',
   });
 
   Future<List<PaymentMethodStatisticsModel>> getPaymentMethodStats({
     required int year,
     required int month,
+    String visibility = 'ALL',
   });
 }
 
@@ -36,10 +40,11 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
   Future<StatisticsSummaryModel> getSummary({
     required int year,
     required int month,
+    String visibility = 'ALL',
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsSummary,
-      queryParameters: {'year': year, 'month': month},
+      queryParameters: {'year': year, 'month': month, 'visibility': visibility},
     );
     return StatisticsSummaryModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
@@ -51,10 +56,11 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     required int year,
     required int month,
     String type = 'EXPENSE',
+    String visibility = 'ALL',
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsByCategory,
-      queryParameters: {'year': year, 'month': month, 'type': type},
+      queryParameters: {'year': year, 'month': month, 'type': type, 'visibility': visibility},
     );
     final data = response.data['data'] as List<dynamic>;
     return data
@@ -66,10 +72,11 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
   @override
   Future<List<MonthlyTrendModel>> getMonthlyTrend({
     int months = 6,
+    String visibility = 'ALL',
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsMonthlyTrend,
-      queryParameters: {'months': months},
+      queryParameters: {'months': months, 'visibility': visibility},
     );
     final data = response.data['data'] as List<dynamic>;
     return data
@@ -81,10 +88,11 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
   Future<List<PaymentMethodStatisticsModel>> getPaymentMethodStats({
     required int year,
     required int month,
+    String visibility = 'ALL',
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsPaymentMethods,
-      queryParameters: {'year': year, 'month': month},
+      queryParameters: {'year': year, 'month': month, 'visibility': visibility},
     );
     final data = response.data['data'] as List<dynamic>;
     return data

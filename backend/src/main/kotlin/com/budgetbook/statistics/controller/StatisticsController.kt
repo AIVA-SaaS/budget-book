@@ -29,9 +29,10 @@ class StatisticsController(
     fun getMonthlySummary(
         @AuthUser userId: UUID,
         @RequestParam @Min(2000) @Max(2100) year: Int,
-        @RequestParam @Min(1) @Max(12) month: Int
+        @RequestParam @Min(1) @Max(12) month: Int,
+        @RequestParam(defaultValue = "ALL") visibility: String
     ): ApiResponse<StatisticsSummaryResponse> {
-        return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month))
+        return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month, visibility))
     }
 
     @GetMapping("/by-category")
@@ -39,25 +40,28 @@ class StatisticsController(
         @AuthUser userId: UUID,
         @RequestParam @Min(2000) @Max(2100) year: Int,
         @RequestParam @Min(1) @Max(12) month: Int,
-        @RequestParam(required = false) type: String?
+        @RequestParam(required = false) type: String?,
+        @RequestParam(defaultValue = "ALL") visibility: String
     ): ApiResponse<List<CategoryStatisticsResponse>> {
-        return ApiResponse.ok(statisticsService.getCategoryBreakdown(userId, year, month, type))
+        return ApiResponse.ok(statisticsService.getCategoryBreakdown(userId, year, month, type, visibility))
     }
 
     @GetMapping("/payment-methods")
     fun getPaymentMethodStats(
         @AuthUser userId: UUID,
         @RequestParam @Min(2000) @Max(2100) year: Int,
-        @RequestParam @Min(1) @Max(12) month: Int
+        @RequestParam @Min(1) @Max(12) month: Int,
+        @RequestParam(defaultValue = "ALL") visibility: String
     ): ApiResponse<List<PaymentMethodStatResponse>> {
-        return ApiResponse.ok(paymentMethodStatisticsService.getPaymentMethodStats(userId, year, month))
+        return ApiResponse.ok(paymentMethodStatisticsService.getPaymentMethodStats(userId, year, month, visibility))
     }
 
     @GetMapping("/monthly-trend")
     fun getMonthlyTrend(
         @AuthUser userId: UUID,
-        @RequestParam(defaultValue = "6") months: Int
+        @RequestParam(defaultValue = "6") months: Int,
+        @RequestParam(defaultValue = "ALL") visibility: String
     ): ApiResponse<List<MonthlyTrendResponse>> {
-        return ApiResponse.ok(statisticsService.getMonthlyTrend(userId, months))
+        return ApiResponse.ok(statisticsService.getMonthlyTrend(userId, months, visibility))
     }
 }

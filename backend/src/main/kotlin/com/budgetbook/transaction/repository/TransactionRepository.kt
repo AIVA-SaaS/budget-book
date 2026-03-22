@@ -38,14 +38,19 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.couple.id = :coupleId
         AND t.transactionDate BETWEEN :startDate AND :endDate
-        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        AND (
+            (:visFilter = 'ALL' AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId))
+            OR (:visFilter = 'SHARED' AND t.visibility = com.budgetbook.common.entity.Visibility.SHARED)
+            OR (:visFilter = 'PRIVATE' AND t.visibility = com.budgetbook.common.entity.Visibility.PRIVATE AND t.owner.id = :userId)
+        )
         GROUP BY t.type
     """)
     fun sumByTypeForCouple(
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
     @Query("""
@@ -56,7 +61,11 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
         AND t.category IS NOT NULL
-        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        AND (
+            (:visFilter = 'ALL' AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId))
+            OR (:visFilter = 'SHARED' AND t.visibility = com.budgetbook.common.entity.Visibility.SHARED)
+            OR (:visFilter = 'PRIVATE' AND t.visibility = com.budgetbook.common.entity.Visibility.PRIVATE AND t.owner.id = :userId)
+        )
         GROUP BY t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color
         ORDER BY SUM(t.amount) DESC
     """)
@@ -65,7 +74,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
         @Param("type") type: TransactionType,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
     @Query(
@@ -74,7 +84,11 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
             FROM transactions t
             WHERE t.couple_id = :coupleId
             AND t.transaction_date BETWEEN :startDate AND :endDate
-            AND (t.visibility = 'SHARED' OR t.owner_id = CAST(:userId AS UUID))
+            AND (
+                (:visFilter = 'ALL' AND (t.visibility = 'SHARED' OR t.owner_id = CAST(:userId AS UUID)))
+                OR (:visFilter = 'SHARED' AND t.visibility = 'SHARED')
+                OR (:visFilter = 'PRIVATE' AND t.visibility = 'PRIVATE' AND t.owner_id = CAST(:userId AS UUID))
+            )
             GROUP BY ym, t.type
             ORDER BY ym
         """,
@@ -84,7 +98,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
     @Query("""
@@ -183,7 +198,11 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND t.paymentMethod IS NOT NULL
-        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        AND (
+            (:visFilter = 'ALL' AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId))
+            OR (:visFilter = 'SHARED' AND t.visibility = com.budgetbook.common.entity.Visibility.SHARED)
+            OR (:visFilter = 'PRIVATE' AND t.visibility = com.budgetbook.common.entity.Visibility.PRIVATE AND t.owner.id = :userId)
+        )
         GROUP BY t.paymentMethod.id, t.paymentMethod.name
         ORDER BY SUM(t.amount) DESC
     """)
@@ -191,7 +210,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("coupleId") coupleId: UUID,
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
     @Query("""
