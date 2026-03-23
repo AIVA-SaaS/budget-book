@@ -2,6 +2,7 @@ import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/transaction/data/models/transaction_model.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
 abstract class TransactionRemoteDataSource {
   Future<PageResponse<TransactionModel>> getTransactions({
@@ -22,6 +23,7 @@ abstract class TransactionRemoteDataSource {
   Future<TransactionModel> updateTransaction(
       String id, Map<String, dynamic> data);
   Future<void> deleteTransaction(String id);
+  Future<List<SuggestionGroup>> getSuggestions(String query);
 }
 
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
@@ -115,5 +117,33 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   @override
   Future<void> deleteTransaction(String id) async {
     await apiClient.dio.delete('${ApiEndpoints.transactions}/$id');
+  }
+
+  @override
+  Future<List<SuggestionGroup>> getSuggestions(String query) async {
+    final response = await apiClient.dio.get(
+      '${ApiEndpoints.transactions}/suggestions',
+      queryParameters: {'q': query, 'limit': 5},
+    );
+    final list = response.data['data'] as List<dynamic>;
+    return list.map((item) {
+      final map = item as Map<String, dynamic>;
+      final patterns = (map['patterns'] as List<dynamic>).map((p) {
+        final pm = p as Map<String, dynamic>;
+        return SuggestionPattern(
+          categoryId: pm['categoryId'] as String?,
+          categoryName: pm['categoryName'] as String?,
+          categoryIcon: pm['categoryIcon'] as String?,
+          categoryColor: pm['categoryColor'] as String?,
+          paymentMethodId: pm['paymentMethodId'] as String?,
+          paymentMethodName: pm['paymentMethodName'] as String?,
+          count: pm['count'] as int,
+        );
+      }).toList();
+      return SuggestionGroup(
+        description: map['description'] as String,
+        patterns: patterns,
+      );
+    }).toList();
   }
 }

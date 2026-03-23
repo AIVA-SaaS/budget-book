@@ -288,6 +288,41 @@ class TransactionService(
         ))
     }
 
+    @Transactional(readOnly = true)
+    fun getSuggestions(userId: UUID, query: String, limit: Int = 5): List<com.budgetbook.transaction.dto.SuggestionResponse> {
+        if (query.length < 2) return emptyList()
+        val couple = getActiveCouple(userId)
+        val safeLimit = limit.coerceIn(1, 20)
+
+        val rows = transactionRepository.findSuggestionPatterns(couple.id, query)
+
+        // Group by description, then collect patterns per description
+        val grouped = linkedMapOf<String, MutableList<com.budgetbook.transaction.dto.SuggestionPattern>>()
+        for (row in rows) {
+            val description = row[0] as String
+            val pattern = com.budgetbook.transaction.dto.SuggestionPattern(
+                categoryId = row[1] as? UUID,
+                categoryName = row[2] as? String,
+                categoryIcon = row[3] as? String,
+                categoryColor = row[4] as? String,
+                paymentMethodId = row[5] as? UUID,
+                paymentMethodName = row[6] as? String,
+                count = (row[7] as Long)
+            )
+            grouped.getOrPut(description) { mutableListOf() }.add(pattern)
+        }
+
+        return grouped.entries
+            .sortedByDescending { entry -> entry.value.sumOf { it.count } }
+            .take(safeLimit)
+            .map { (desc, patterns) ->
+                com.budgetbook.transaction.dto.SuggestionResponse(
+                    description = desc,
+                    patterns = patterns.take(5)
+                )
+            }
+    }
+
     private fun calculateSettlementDate(
         paymentMethod: com.budgetbook.paymentmethod.domain.PaymentMethod,
         transactionDate: LocalDate

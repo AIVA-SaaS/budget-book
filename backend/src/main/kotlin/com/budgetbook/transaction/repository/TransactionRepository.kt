@@ -158,6 +158,24 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
 
+    @Query("""
+        SELECT t.description,
+               t.category.id, t.category.name, t.category.icon, t.category.color,
+               t.paymentMethod.id, t.paymentMethod.name,
+               COUNT(t)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND LOWER(t.description) LIKE LOWER(CONCAT(:query, '%'))
+        GROUP BY t.description,
+                 t.category.id, t.category.name, t.category.icon, t.category.color,
+                 t.paymentMethod.id, t.paymentMethod.name
+        ORDER BY t.description, COUNT(t) DESC
+    """)
+    fun findSuggestionPatterns(
+        @Param("coupleId") coupleId: UUID,
+        @Param("query") query: String
+    ): List<Array<Any?>>
+
     @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
     fun countDistinctAuthorsSince(@Param("since") since: java.time.Instant): Long
 

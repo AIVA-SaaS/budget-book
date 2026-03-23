@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -62,6 +63,11 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _categoryError;
   String? _paymentMethodError;
 
+  // Suggestion state
+  List<SuggestionGroup> _suggestions = [];
+  SuggestionGroup? _expandedSuggestion;
+  Timer? _debounceTimer;
+
   bool get isEditing => widget.transactionId != null;
 
   @override
@@ -69,6 +75,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     super.initState();
     _amountController = TextEditingController();
     _descriptionController = TextEditingController();
+    _descriptionController.addListener(_onDescriptionChanged);
     _memoController = TextEditingController();
     _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
         ? widget.initialType!
@@ -139,8 +146,54 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  void _onDescriptionChanged() {
+    final text = _descriptionController.text.trim();
+    _debounceTimer?.cancel();
+    if (text.length < 2) {
+      if (_suggestions.isNotEmpty || _expandedSuggestion != null) {
+        setState(() {
+          _suggestions = [];
+          _expandedSuggestion = null;
+        });
+      }
+      return;
+    }
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _fetchSuggestions(text);
+    });
+  }
+
+  Future<void> _fetchSuggestions(String query) async {
+    final repo = context.read<TransactionBloc>().transactionRepository;
+    final result = await repo.getSuggestions(query);
+    if (!mounted) return;
+    result.fold(
+      (_) => setState(() => _suggestions = []),
+      (data) => setState(() {
+        _suggestions = data;
+        _expandedSuggestion = null;
+      }),
+    );
+  }
+
+  void _applySuggestionPattern(SuggestionGroup group, SuggestionPattern? pattern) {
+    setState(() {
+      _descriptionController.text = group.description;
+      _descriptionController.selection =
+          TextSelection.collapsed(offset: group.description.length);
+      if (pattern != null) {
+        _selectedCategoryId = pattern.categoryId;
+        _selectedPaymentMethodId = pattern.paymentMethodId;
+      }
+      _suggestions = [];
+      _expandedSuggestion = null;
+    });
+  }
+
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _descriptionController.removeListener(_onDescriptionChanged);
     _amountController.dispose();
     _descriptionController.dispose();
     _memoController.dispose();
@@ -271,6 +324,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                     return null;
                   },
                 ),
+                // Suggestion chips
+                if (_suggestions.isNotEmpty)
+                  _buildSuggestionArea(context),
                 const SizedBox(height: 16),
                 // Category picker
                 _buildCategoryPicker(context),
@@ -313,6 +369,106 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionArea(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Suggestion chips (description only)
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: _suggestions.map((sg) {
+              final isExpanded = _expandedSuggestion == sg;
+              return ActionChip(
+                label: Text(sg.description),
+                avatar: isExpanded
+                    ? const Icon(Icons.expand_less, size: 18)
+                    : null,
+                onPressed: () {
+                  if (isExpanded) {
+                    // Collapse: apply description only (empty pattern)
+                    _applySuggestionPattern(sg, null);
+                  } else {
+                    setState(() => _expandedSuggestion = sg);
+                  }
+                },
+              );
+            }).toList(),
+          ),
+          // Expanded patterns for selected suggestion
+          if (_expandedSuggestion != null) ...[
+            const SizedBox(height: 8),
+            // First option: description only, no pre-fill
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _applySuggestionPattern(_expandedSuggestion!, null),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '내용만 입력 (카테고리·결제수단 직접 선택)',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Grouped patterns sorted by count
+            ..._expandedSuggestion!.patterns.map((p) {
+              final label = [
+                p.categoryName,
+                p.paymentMethodName,
+              ].where((s) => s != null).join(' · ');
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _applySuggestionPattern(_expandedSuggestion!, p),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label.isEmpty ? '미분류' : label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${p.count}회',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
       ),
     );
   }
