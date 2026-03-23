@@ -11,6 +11,7 @@ interface CategoryRepository : JpaRepository<Category, UUID> {
 
     @Query("""
         SELECT c FROM Category c
+        LEFT JOIN FETCH c.group
         WHERE c.couple.id = :coupleId
         AND (c.visibility = com.budgetbook.common.entity.Visibility.SHARED OR c.owner.id = :userId)
     """)
@@ -21,6 +22,7 @@ interface CategoryRepository : JpaRepository<Category, UUID> {
 
     @Query("""
         SELECT c FROM Category c
+        LEFT JOIN FETCH c.group
         WHERE c.couple.id = :coupleId
         AND c.type = :type
         AND (c.visibility = com.budgetbook.common.entity.Visibility.SHARED OR c.owner.id = :userId)
@@ -55,7 +57,12 @@ interface CategoryRepository : JpaRepository<Category, UUID> {
     ): List<Category>
 
     // Keep original methods for internal use (seeding, migrations, etc.)
-    fun findByCoupleId(coupleId: UUID): List<Category>
+    @Query("""
+        SELECT c FROM Category c
+        LEFT JOIN FETCH c.group
+        WHERE c.couple.id = :coupleId
+    """)
+    fun findByCoupleId(@Param("coupleId") coupleId: UUID): List<Category>
 
     fun findByCoupleIdAndType(coupleId: UUID, type: CategoryType): List<Category>
 
