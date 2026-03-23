@@ -55,6 +55,7 @@ dependencies {
 
     // Test
     testImplementation(libs.spring.boot.starter.test)
+    testRuntimeOnly("com.h2database:h2")
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.property)
