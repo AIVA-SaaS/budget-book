@@ -311,13 +311,14 @@ class BudgetService(
             userId = userId
         )
 
-        // Pre-compute group spending from category spending to avoid N+1 queries
+        // Pre-compute group spending with direct DB aggregation (no lazy loading dependency)
         val groupIds = budgets.mapNotNull { it.group?.id }.toSet()
         val spendingByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
-            val allCategories = categoryRepository.findByCoupleId(couple.id)
-            groupIds.associateWith { gId ->
-                allCategories.filter { it.group?.id == gId }
-                    .sumOf { cat -> spendingByCategory[cat.id] ?: 0L }
+            val groupResults = transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, startDate, endDate, TransactionType.EXPENSE, groupIds, userId
+            )
+            groupResults.associate { row ->
+                (row[0] as UUID) to (row[1] as Long)
             }
         } else {
             emptyMap()

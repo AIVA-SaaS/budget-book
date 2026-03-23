@@ -4,7 +4,10 @@ import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.budget.domain.BudgetPeriod
+import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.Category
+import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
@@ -317,6 +320,54 @@ class BudgetAlertServiceTest : BehaviorSpec({
                     service.getBudgetAlerts(user1.id, "2026-03")
                 }
                 ex.code shouldBe "COUPLE_NOT_FOUND"
+            }
+        }
+    }
+
+    Given("a group budget that is exceeded") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group = CategoryGroup(couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY)
+        val groupBudget = MonthlyBudget(
+            couple = couple, group = group, yearMonth = "2026-03", amount = 885714,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 200000
+        )
+
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(groupBudget)
+
+        every {
+            transactionRepository.sumByCategoryForCouple(
+                couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                TransactionType.EXPENSE, any()
+            )
+        } returns emptyList()
+
+        every {
+            transactionRepository.sumAmountByCoupleIdAndDateRange(
+                couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                TransactionType.EXPENSE, any()
+            )
+        } returns 900000L
+
+        // Direct DB aggregation for group spending: 900000 / 885714 = 101%
+        every {
+            transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                TransactionType.EXPENSE, setOf(group.id), any()
+            )
+        } returns listOf(
+            arrayOf(group.id, 900000L)
+        )
+
+        When("getBudgetAlerts is called") {
+            val result = service.getBudgetAlerts(user1.id, "2026-03")
+
+            Then("returns EXCEEDED alert for group budget") {
+                result shouldHaveSize 1
+                result[0].categoryName shouldBe "생활비"
+                result[0].spentAmount shouldBe 900000
+                result[0].budgetAmount shouldBe 885714
+                result[0].alertLevel shouldBe "EXCEEDED"
             }
         }
     }

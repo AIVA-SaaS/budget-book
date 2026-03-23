@@ -46,15 +46,29 @@ class BudgetAlertService(
             userId = userId
         )
 
+        // Pre-compute group spending with direct DB aggregation
+        val groupIds = budgets.mapNotNull { it.group?.id }.toSet()
+        val spendingByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
+            val groupResults = transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, startDate, endDate, TransactionType.EXPENSE, groupIds, userId
+            )
+            groupResults.associate { row ->
+                (row[0] as UUID) to (row[1] as Long)
+            }
+        } else {
+            emptyMap()
+        }
+
         return budgets.mapNotNull { budget ->
             val categoryId = budget.category?.id
-            val categoryName = budget.category?.name ?: "Total"
+            val groupId = budget.group?.id
+            val categoryName = budget.category?.name ?: budget.group?.name ?: "Total"
             val budgetAmount = budget.amount
 
-            val spentAmount = if (categoryId != null) {
-                spendingByCategory[categoryId] ?: 0L
-            } else {
-                totalExpense
+            val spentAmount = when {
+                categoryId != null -> spendingByCategory[categoryId] ?: 0L
+                groupId != null -> spendingByGroup[groupId] ?: 0L
+                else -> totalExpense
             }
 
             val percentage = if (budgetAmount > 0) {

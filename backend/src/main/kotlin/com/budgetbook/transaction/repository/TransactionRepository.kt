@@ -78,6 +78,26 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
+    @Query("""
+        SELECT t.category.group.id, SUM(t.amount)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = :type
+        AND t.category IS NOT NULL
+        AND t.category.group.id IN :groupIds
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        GROUP BY t.category.group.id
+    """)
+    fun sumByCategoryGroupForCouple(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("type") type: TransactionType,
+        @Param("groupIds") groupIds: Set<UUID>,
+        @Param("userId") userId: UUID
+    ): List<Array<Any>>
+
     @Query(
         value = """
             SELECT TO_CHAR(t.transaction_date, 'YYYY-MM') as ym, t.type, SUM(t.amount) as total
