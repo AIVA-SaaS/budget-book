@@ -364,16 +364,23 @@ class BudgetService(
         }
 
         val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
-        val totalBudget = if (totalBudgetEntry != null) {
-            totalBudgetEntry.amount
+        val effectiveTotalBudget: Long
+        val effectiveTotalSpent: Long
+
+        if (totalBudgetEntry != null) {
+            // "전체 예산" exists: use its amount and total spending
+            effectiveTotalBudget = totalBudgetEntry.amount
+            effectiveTotalSpent = totalSpent
         } else {
-            items.sumOf { it.budgetAmount }
+            // No total budget: sum from items only (consistent budget vs spent)
+            effectiveTotalBudget = items.sumOf { it.budgetAmount }
+            effectiveTotalSpent = items.sumOf { it.spentAmount }
         }
 
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
-            totalBudget = totalBudget,
-            totalSpent = totalSpent,
+            totalBudget = effectiveTotalBudget,
+            totalSpent = effectiveTotalSpent,
             items = items
         )
     }

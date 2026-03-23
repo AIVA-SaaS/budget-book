@@ -79,15 +79,16 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     ): List<Array<Any>>
 
     @Query("""
-        SELECT t.category.group.id, SUM(t.amount)
+        SELECT cg.id, SUM(t.amount)
         FROM Transaction t
+        JOIN t.category c
+        JOIN c.group cg
         WHERE t.couple.id = :coupleId
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
-        AND t.category IS NOT NULL
-        AND t.category.group.id IN :groupIds
+        AND cg.id IN :groupIds
         AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
-        GROUP BY t.category.group.id
+        GROUP BY cg.id
     """)
     fun sumByCategoryGroupForCouple(
         @Param("coupleId") coupleId: UUID,
