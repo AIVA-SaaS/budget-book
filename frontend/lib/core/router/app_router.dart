@@ -14,6 +14,7 @@ import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart'
 import 'package:budget_book/features/couple/presentation/pages/couple_page.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
@@ -297,6 +298,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
+        final copyFrom = state.extra as Transaction?;
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         getIt<PocketBloc>().add(const LoadPockets());
@@ -315,7 +317,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               value: getIt<PocketBloc>(),
             ),
           ],
-          child: TransactionFormPage(initialType: type),
+          child: TransactionFormPage(
+            initialType: copyFrom?.type ?? type,
+            copyFrom: copyFrom,
+          ),
         );
       },
     ),

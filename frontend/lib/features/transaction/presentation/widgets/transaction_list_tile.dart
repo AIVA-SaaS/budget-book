@@ -67,6 +67,35 @@ class TransactionListTile extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
+            if (transaction.paymentMethodName != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '·',
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.3),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  transaction.paymentMethodName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
             if (transaction.pocketName != null) ...[
               const SizedBox(width: 6),
               Container(
