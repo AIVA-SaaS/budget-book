@@ -689,6 +689,8 @@ class BudgetServiceTest : BehaviorSpec({
                 weekly.budgetAmount shouldBe 200000
                 weekly.spentAmount shouldBe 40000
                 result.totalBudget shouldBe 500000
+                // No total budget entry → totalSpent = sum of items, not all expenses
+                result.totalSpent shouldBe 120000
             }
         }
     }
