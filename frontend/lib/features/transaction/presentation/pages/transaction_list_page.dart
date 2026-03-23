@@ -30,6 +30,8 @@ class TransactionListPage extends StatefulWidget {
 
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _dateKeys = {};
   Timer? _debounceTimer;
 
   // Filter state
@@ -42,6 +44,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -437,6 +440,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final grouped = state.groupedByDate;
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
+    // Scroll to target date after build
+    if (state.scrollToDate != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToDate(state.scrollToDate!, sortedDates);
+      });
+    }
+
     // Add 1 extra item for the loading indicator when loading more
     final itemCount =
         sortedDates.length + (state.isLoadingMore || state.hasMore ? 1 : 0);
@@ -460,6 +470,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         return false;
       },
       child: ListView.builder(
+        controller: _scrollController,
         itemCount: itemCount,
         itemBuilder: (context, index) {
           // Last item is loading indicator
@@ -471,7 +482,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
           }
           final date = sortedDates[index];
           final transactions = grouped[date]!;
+          final dateKey = _dateKeys.putIfAbsent(date, () => GlobalKey());
           return Column(
+            key: dateKey,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DateHeader(dateStr: date),
@@ -517,6 +530,17 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
     );
+  }
+
+  void _scrollToDate(String targetDate, List<String> sortedDates) {
+    final key = _dateKeys[targetDate];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Widget _buildEmpty(BuildContext context) {
