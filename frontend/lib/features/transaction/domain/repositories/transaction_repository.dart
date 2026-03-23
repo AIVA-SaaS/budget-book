@@ -44,4 +44,33 @@ abstract class TransactionRepository {
   });
 
   Future<Either<Failure, void>> deleteTransaction(String id);
+
+  Future<Either<Failure, List<SuggestionGroup>>> getSuggestions(String query);
+}
+
+class SuggestionGroup {
+  final String description;
+  final List<SuggestionPattern> patterns;
+
+  const SuggestionGroup({required this.description, required this.patterns});
+}
+
+class SuggestionPattern {
+  final String? categoryId;
+  final String? categoryName;
+  final String? categoryIcon;
+  final String? categoryColor;
+  final String? paymentMethodId;
+  final String? paymentMethodName;
+  final int count;
+
+  const SuggestionPattern({
+    this.categoryId,
+    this.categoryName,
+    this.categoryIcon,
+    this.categoryColor,
+    this.paymentMethodId,
+    this.paymentMethodName,
+    required this.count,
+  });
 }

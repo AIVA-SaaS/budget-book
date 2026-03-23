@@ -134,4 +134,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<SuggestionGroup>>> getSuggestions(String query) async {
+    try {
+      final data = await remoteDataSource.getSuggestions(query);
+      return Right(data);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to load suggestions'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load suggestions'));
+    }
+  }
 }
