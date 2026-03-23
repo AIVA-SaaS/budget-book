@@ -265,6 +265,10 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
             getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
             if (_continueMode) {
               _resetFormForContinue();
+            } else if (isEditing) {
+              // After editing, go directly to transactions list
+              // to avoid stale edit page in browser history
+              context.go('/transactions');
             } else {
               context.pop();
             }
