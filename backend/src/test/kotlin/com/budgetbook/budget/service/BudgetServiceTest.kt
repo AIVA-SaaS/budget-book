@@ -601,7 +601,7 @@ class BudgetServiceTest : BehaviorSpec({
         val groupBudget = MonthlyBudget(couple = couple, group = group, yearMonth = "2026-03", amount = 500000)
         every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(groupBudget)
 
-        // Category expenses: groupCat1=150000, groupCat2=100000 => group total=250000
+        // Category expenses (used for category-level budgets, not group)
         every { transactionRepository.sumByCategoryForCouple(
             couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
         ) } returns listOf(
@@ -614,13 +614,18 @@ class BudgetServiceTest : BehaviorSpec({
             endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
         ) } returns 300000L
 
-        // Batch category lookup for group spending computation
-        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(groupCat1, groupCat2)
+        // Direct DB aggregation for group spending
+        every { transactionRepository.sumByCategoryGroupForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+            TransactionType.EXPENSE, setOf(group.id), user1.id
+        ) } returns listOf(
+            arrayOf(group.id, 250000L)
+        )
 
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
 
-            Then("calculates group budget spent amount from category aggregation") {
+            Then("calculates group budget spent amount from direct DB aggregation") {
                 result.items.size shouldBe 1
                 val item = result.items[0]
                 item.groupId shouldBe group.id
@@ -650,7 +655,6 @@ class BudgetServiceTest : BehaviorSpec({
             budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 50000
         )
         every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(monthlyBudget, weeklyBudget)
-        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category)
 
         every { transactionRepository.sumByCategoryForCouple(
             couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
@@ -663,17 +667,27 @@ class BudgetServiceTest : BehaviorSpec({
             endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
         ) } returns 120000L
 
+        // Direct DB aggregation for weekly group spending
+        every { transactionRepository.sumByCategoryGroupForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+            TransactionType.EXPENSE, setOf(weeklyGroup.id), user1.id
+        ) } returns listOf(
+            arrayOf(weeklyGroup.id, 40000L)
+        )
+
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
 
-            Then("includes both MONTHLY and WEEKLY budgets in summary") {
+            Then("includes both MONTHLY and WEEKLY budgets with correct spent amounts") {
                 result.items.size shouldBe 2
                 val monthly = result.items.find { it.category != null }!!
                 monthly.category!!.name shouldBe "식비"
                 monthly.budgetAmount shouldBe 300000
+                monthly.spentAmount shouldBe 80000
                 val weekly = result.items.find { it.groupId != null }!!
                 weekly.groupName shouldBe "생활비"
                 weekly.budgetAmount shouldBe 200000
+                weekly.spentAmount shouldBe 40000
                 result.totalBudget shouldBe 500000
             }
         }
