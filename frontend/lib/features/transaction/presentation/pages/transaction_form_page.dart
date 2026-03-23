@@ -22,6 +22,8 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
+    as tx_entity;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -35,7 +37,11 @@ class TransactionFormPage extends StatefulWidget {
   /// Used when navigating from dashboard quick actions.
   final String? initialType;
 
-  const TransactionFormPage({super.key, this.transactionId, this.initialType});
+  /// Pre-fill fields from an existing transaction (for copy).
+  /// Date defaults to today; all other fields are copied.
+  final tx_entity.Transaction? copyFrom;
+
+  const TransactionFormPage({super.key, this.transactionId, this.initialType, this.copyFrom});
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -71,10 +77,18 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
     if (isEditing) {
       _isLoadingTransaction = true;
-      // Load the transaction by ID via the bloc
       _loadTransaction();
+    } else if (widget.copyFrom != null) {
+      // Pre-fill from copied transaction (date defaults to today)
+      final src = widget.copyFrom!;
+      _amountController.text = src.amount.toString();
+      _descriptionController.text = src.description;
+      _memoController.text = src.memo ?? '';
+      _selectedType = src.type;
+      _selectedCategoryId = src.category?.id;
+      _selectedPaymentMethodId = src.paymentMethodId;
+      _selectedPocketId = src.pocketId;
     } else {
-      // Pre-select default payment method for new transactions
       _loadDefaultPaymentMethod();
     }
   }
