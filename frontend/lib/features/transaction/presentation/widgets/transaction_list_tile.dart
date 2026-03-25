@@ -46,12 +46,38 @@ class TransactionListTile extends StatelessWidget {
       onDismissed: (_) => onDelete?.call(),
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: iconColor.withValues(alpha: 0.15),
-          child: Icon(
-            UIHelpers.resolveIcon(category?.icon),
-            color: iconColor,
-            size: 20,
+        leading: SizedBox(
+          width: 40,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: iconColor.withValues(alpha: 0.15),
+                child: Icon(
+                  UIHelpers.resolveIcon(category?.icon),
+                  color: iconColor,
+                  size: 16,
+                ),
+              ),
+              if (transaction.paymentMethodName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(
+                    transaction.paymentMethodName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 8,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         title: Row(

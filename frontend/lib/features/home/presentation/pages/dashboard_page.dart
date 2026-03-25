@@ -6,6 +6,7 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -619,8 +620,6 @@ class _RecentTransactionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,###');
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -669,73 +668,9 @@ class _RecentTransactionsCard extends StatelessWidget {
               ),
             if (error == null)
               ...transactions.map(
-                (txn) => InkWell(
-                  onTap: () => context.go('/transactions'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(
-                        txn.isIncome
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                        size: 20,
-                        color: txn.isIncome ? Colors.blue : Colors.red,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                if (txn.isPrivate) ...[
-                                  Icon(
-                                    Icons.visibility_off,
-                                    size: 12,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                  ),
-                                  const SizedBox(width: 3),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    txn.description,
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              '${txn.transactionDate}  ${txn.category?.displayName ?? '미분류'}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.5),
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '${txn.isExpense ? "-" : "+"}${formatter.format(txn.amount)}원',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: txn.isIncome
-                                      ? Colors.blue
-                                      : Colors.red,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
-                    ],
-                  ),
-                ),
+                (txn) => TransactionListTile(
+                  transaction: txn,
+                  onTap: () => context.push('/transactions/detail/${txn.id}'),
                 ),
               ),
           ],

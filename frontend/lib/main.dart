@@ -10,12 +10,6 @@ import 'package:budget_book/core/router/app_router.dart';
 import 'package:budget_book/core/utils/error_reporter.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  usePathUrlStrategy();
-  await configureDependencies();
-  await initOnboardingFlag();
-  Bloc.observer = AppBlocObserver();
-
   // Sentry disables itself when DSN is empty (built-in behavior).
   await SentryFlutter.init(
     (options) {
@@ -26,6 +20,12 @@ void main() async {
           const String.fromEnvironment('ENV', defaultValue: 'local');
     },
     appRunner: () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      usePathUrlStrategy();
+      await configureDependencies();
+      await initOnboardingFlag();
+      Bloc.observer = AppBlocObserver();
+
       // Global Flutter error handler - catches framework-level errors
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
