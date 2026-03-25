@@ -873,12 +873,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       builder: (_) => BlocProvider<PaymentMethodBloc>.value(
         value: bloc,
         child: PaymentMethodFormSheet(
-          onSubmit: (name, type, settlementDay, closingDay) {
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
             bloc.add(CreatePaymentMethod(
               name: name,
               type: type,
               settlementDay: settlementDay,
               closingDay: closingDay,
+              linkedBankId: linkedBankId,
             ));
           },
         ),

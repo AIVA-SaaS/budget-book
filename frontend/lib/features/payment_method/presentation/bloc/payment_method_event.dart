@@ -16,16 +16,18 @@ class CreatePaymentMethod extends PaymentMethodEvent {
   final String type;
   final int? settlementDay;
   final int? closingDay;
+  final String? linkedBankId;
 
   const CreatePaymentMethod({
     required this.name,
     required this.type,
     this.settlementDay,
     this.closingDay,
+    this.linkedBankId,
   });
 
   @override
-  List<Object?> get props => [name, type, settlementDay, closingDay];
+  List<Object?> get props => [name, type, settlementDay, closingDay, linkedBankId];
 }
 
 class UpdatePaymentMethod extends PaymentMethodEvent {
@@ -35,6 +37,8 @@ class UpdatePaymentMethod extends PaymentMethodEvent {
   final int? closingDay;
   final bool? isActive;
   final int? displayOrder;
+  final String? linkedBankId;
+  final bool clearLinkedBank;
 
   const UpdatePaymentMethod({
     required this.id,
@@ -43,11 +47,13 @@ class UpdatePaymentMethod extends PaymentMethodEvent {
     this.closingDay,
     this.isActive,
     this.displayOrder,
+    this.linkedBankId,
+    this.clearLinkedBank = false,
   });
 
   @override
   List<Object?> get props =>
-      [id, name, settlementDay, closingDay, isActive, displayOrder];
+      [id, name, settlementDay, closingDay, isActive, displayOrder, linkedBankId, clearLinkedBank];
 }
 
 class DeletePaymentMethod extends PaymentMethodEvent {
@@ -67,4 +73,8 @@ class LoadCardPending extends PaymentMethodEvent {
 
   @override
   List<Object?> get props => [year, month];
+}
+
+class LoadCardSettlementSummary extends PaymentMethodEvent {
+  const LoadCardSettlementSummary();
 }

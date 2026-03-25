@@ -14,6 +14,7 @@ import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -33,8 +34,9 @@ class PaymentMethodServiceTest : BehaviorSpec({
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val coupleResolver = mockk<CoupleResolver>()
     val transactionRepository = mockk<TransactionRepository>()
+    val transferRepository = mockk<TransferRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = PaymentMethodService(paymentMethodRepository, coupleResolver, transactionRepository, syncEventPublisher)
+    val service = PaymentMethodService(paymentMethodRepository, coupleResolver, transactionRepository, transferRepository, syncEventPublisher)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -48,14 +50,19 @@ class PaymentMethodServiceTest : BehaviorSpec({
         val cash = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH, isDefault = true, displayOrder = 0)
         val debit = PaymentMethod(couple = couple, name = "체크카드", type = PaymentMethodType.DEBIT, isDefault = true, displayOrder = 1)
         every { paymentMethodRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(cash, debit)
+        every { transactionRepository.netAmountByPaymentMethodForCouple(couple.id) } returns emptyList()
+        every { transferRepository.sumAmountByDestinationForCouple(couple.id) } returns emptyList()
+        every { transferRepository.sumAmountBySourceForCouple(couple.id) } returns emptyList()
 
         When("listPaymentMethods is called") {
             val result = service.listPaymentMethods(user1.id)
 
-            Then("returns all payment methods ordered by displayOrder") {
+            Then("returns all payment methods ordered by displayOrder with balance") {
                 result shouldHaveSize 2
                 result[0].name shouldBe "현금"
+                result[0].balance shouldBe 0L
                 result[1].name shouldBe "체크카드"
+                result[1].balance shouldBe 0L
             }
         }
     }
@@ -269,6 +276,102 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 result shouldHaveSize 1
                 result[0].pendingAmount shouldBe 0
                 result[0].transactionCount shouldBe 0
+            }
+        }
+    }
+
+    // --- balance calculation ---
+
+    Given("payment methods with transactions and transfers") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bank = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK, displayOrder = 0)
+        val cash = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH, displayOrder = 1)
+        val credit = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 10, displayOrder = 2)
+
+        every { paymentMethodRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(bank, cash, credit)
+
+        // net from transactions: bank +500000, cash -30000
+        every { transactionRepository.netAmountByPaymentMethodForCouple(couple.id) } returns listOf(
+            arrayOf<Any>(bank.id, 500000L),
+            arrayOf<Any>(cash.id, -30000L)
+        )
+        // transfer inflows: bank +100000
+        every { transferRepository.sumAmountByDestinationForCouple(couple.id) } returns listOf(
+            arrayOf<Any>(bank.id, 100000L)
+        )
+        // transfer outflows: bank -200000
+        every { transferRepository.sumAmountBySourceForCouple(couple.id) } returns listOf(
+            arrayOf<Any>(bank.id, 200000L)
+        )
+
+        When("listPaymentMethods is called") {
+            val result = service.listPaymentMethods(user1.id)
+
+            Then("calculates correct balances for non-CREDIT types") {
+                result shouldHaveSize 3
+                // bank: 500000 + 100000 - 200000 = 400000
+                result[0].name shouldBe "신한은행"
+                result[0].balance shouldBe 400000L
+                // cash: -30000 + 0 - 0 = -30000
+                result[1].name shouldBe "현금"
+                result[1].balance shouldBe -30000L
+                // credit: balance is null
+                result[2].name shouldBe "신한카드"
+                result[2].balance shouldBe null
+            }
+        }
+    }
+
+    // --- linkedBank validation ---
+
+    Given("a user creating a CREDIT card with linkedBank") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val cashPm = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH)
+
+        When("creating CREDIT with valid BANK linkedBankId") {
+            every { paymentMethodRepository.findByIdAndCoupleId(bankPm.id, couple.id) } returns bankPm
+            val pmSlot = slot<PaymentMethod>()
+            every { paymentMethodRepository.save(capture(pmSlot)) } answers { pmSlot.captured }
+
+            val request = CreatePaymentMethodRequest(
+                name = "신한카드", type = "CREDIT", settlementDay = 15, closingDay = 10, linkedBankId = bankPm.id
+            )
+            val result = service.createPaymentMethod(user1.id, request)
+
+            Then("creates with linkedBank") {
+                result.linkedBankId shouldBe bankPm.id
+                result.linkedBankName shouldBe "신한은행"
+            }
+        }
+
+        When("creating CREDIT with CASH as linkedBankId") {
+            every { paymentMethodRepository.findByIdAndCoupleId(cashPm.id, couple.id) } returns cashPm
+
+            val request = CreatePaymentMethodRequest(
+                name = "카드", type = "CREDIT", settlementDay = 15, closingDay = 10, linkedBankId = cashPm.id
+            )
+
+            Then("throws BusinessException") {
+                val ex = shouldThrow<BusinessException> {
+                    service.createPaymentMethod(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("creating CASH with linkedBankId") {
+            val request = CreatePaymentMethodRequest(
+                name = "현금2", type = "CASH", linkedBankId = bankPm.id
+            )
+
+            Then("throws BusinessException (linkedBank only for CREDIT)") {
+                val ex = shouldThrow<BusinessException> {
+                    service.createPaymentMethod(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
             }
         }
     }

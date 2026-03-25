@@ -298,6 +298,16 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): List<Array<Any>>
 
+    @Query("""
+        SELECT t.paymentMethod.id,
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.INCOME THEN t.amount ELSE 0L END), 0L) -
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE THEN t.amount ELSE 0L END), 0L)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId AND t.paymentMethod IS NOT NULL
+        GROUP BY t.paymentMethod.id
+    """)
+    fun netAmountByPaymentMethodForCouple(@Param("coupleId") coupleId: UUID): List<Array<Any>>
+
     @Modifying
     @Query(
         value = """

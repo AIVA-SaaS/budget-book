@@ -8,6 +8,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
+import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 import 'package:budget_book/core/error/failure.dart';
 
 class MockPaymentMethodRepository extends Mock
@@ -27,6 +28,7 @@ class MockPaymentMethodRepository extends Mock
     required String type,
     int? settlementDay,
     int? closingDay,
+    String? linkedBankId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createPaymentMethod, [], {
@@ -34,6 +36,7 @@ class MockPaymentMethodRepository extends Mock
           #type: type,
           #settlementDay: settlementDay,
           #closingDay: closingDay,
+          #linkedBankId: linkedBankId,
         }),
         returnValue: Future.value(
           Right<Failure, PaymentMethod>(PaymentMethod(
@@ -56,6 +59,8 @@ class MockPaymentMethodRepository extends Mock
     int? closingDay,
     bool? isActive,
     int? displayOrder,
+    String? linkedBankId,
+    bool clearLinkedBank = false,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updatePaymentMethod, [], {
@@ -65,6 +70,8 @@ class MockPaymentMethodRepository extends Mock
           #closingDay: closingDay,
           #isActive: isActive,
           #displayOrder: displayOrder,
+          #linkedBankId: linkedBankId,
+          #clearLinkedBank: clearLinkedBank,
         }),
         returnValue: Future.value(
           Right<Failure, PaymentMethod>(PaymentMethod(
@@ -95,6 +102,31 @@ class MockPaymentMethodRepository extends Mock
           const Right<Failure, List<CardPending>>([]),
         ),
       ) as Future<Either<Failure, List<CardPending>>>;
+
+  @override
+  Future<Either<Failure, CardSettlementSummary>>
+      getCardSettlementSummary() =>
+          super.noSuchMethod(
+            Invocation.method(#getCardSettlementSummary, []),
+            returnValue: Future.value(
+              const Right<Failure, CardSettlementSummary>(
+                CardSettlementSummary(
+                  previousMonth: CardSettlementMonth(
+                    year: 2026,
+                    month: 2,
+                    totalAmount: 0,
+                    cards: [],
+                  ),
+                  currentMonth: CardSettlementMonth(
+                    year: 2026,
+                    month: 3,
+                    totalAmount: 0,
+                    cards: [],
+                  ),
+                ),
+              ),
+            ),
+          ) as Future<Either<Failure, CardSettlementSummary>>;
 }
 
 void main() {
@@ -196,6 +228,7 @@ void main() {
             type: 'DEBIT',
             settlementDay: null,
             closingDay: null,
+            linkedBankId: null,
           )).thenAnswer((_) async => Right(tNewDebitMethod));
           return bloc;
         },
@@ -217,6 +250,7 @@ void main() {
             type: 'DEBIT',
             settlementDay: null,
             closingDay: null,
+            linkedBankId: null,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to create payment method')));
           return bloc;
@@ -251,6 +285,7 @@ void main() {
             type: 'CREDIT',
             settlementDay: 10,
             closingDay: 20,
+            linkedBankId: null,
           )).thenAnswer((_) async => Right(newCredit));
           return bloc;
         },
@@ -291,6 +326,7 @@ void main() {
             id: 'pm-2',
             name: '신한카드 (변경)',
             settlementDay: 20,
+            clearLinkedBank: false,
           )).thenAnswer((_) async => Right(tUpdatedMethod));
           return bloc;
         },
@@ -311,6 +347,7 @@ void main() {
           when(mockRepository.updatePaymentMethod(
             id: 'pm-2',
             name: '신한카드 (변경)',
+            clearLinkedBank: false,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to update payment method')));
           return bloc;
