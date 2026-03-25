@@ -17,12 +17,21 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_e
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
+import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 
 class TransactionListPage extends StatefulWidget {
-  const TransactionListPage({super.key});
+  final String? initialPaymentMethodId;
+  final String? initialPaymentMethodName;
+
+  const TransactionListPage({super.key, this.initialPaymentMethodId, this.initialPaymentMethodName});
 
   @override
   State<TransactionListPage> createState() => _TransactionListPageState();
@@ -33,11 +42,38 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Timer? _debounceTimer;
 
   // Filter state
-  String? _filterPaymentMethodId;
+  late String? _filterPaymentMethodId = widget.initialPaymentMethodId;
+  late String? _filterPaymentMethodName = widget.initialPaymentMethodName;
   String? _filterPocketId;
   int? _filterAmountMin;
   int? _filterAmountMax;
-  bool _hasActiveFilters = false;
+  late bool _hasActiveFilters = widget.initialPaymentMethodId != null;
+
+  String get _appBarTitle {
+    if (_filterPaymentMethodId == null) return '거래 (전체)';
+    if (_filterPaymentMethodName != null) return '거래 ($_filterPaymentMethodName)';
+    return '거래 (전체)';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPaymentMethodId != null && _filterPaymentMethodName == null) {
+      _resolvePaymentMethodName(widget.initialPaymentMethodId!);
+    }
+  }
+
+  void _resolvePaymentMethodName(String pmId) {
+    final pmState = getIt<PaymentMethodBloc>().state;
+    if (pmState is PaymentMethodLoaded) {
+      final match = pmState.paymentMethods
+          .where((pm) => pm.id == pmId)
+          .firstOrNull;
+      if (match != null) {
+        setState(() => _filterPaymentMethodName = match.name);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -192,49 +228,18 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Payment method ID
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: '결제수단 ID',
-                      hintText: '결제수단 ID를 입력하세요',
-                      suffixIcon: tempPaymentMethodId != null
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setSheetState(
-                                    () => tempPaymentMethodId = null);
-                              },
-                            )
-                          : null,
-                    ),
-                    controller:
-                        TextEditingController(text: tempPaymentMethodId ?? ''),
-                    onChanged: (value) {
-                      tempPaymentMethodId =
-                          value.trim().isEmpty ? null : value.trim();
-                    },
+                  // Payment method dropdown
+                  _buildPaymentMethodDropdown(
+                    context,
+                    tempPaymentMethodId,
+                    (value) => setSheetState(() => tempPaymentMethodId = value),
                   ),
                   const SizedBox(height: 16),
-                  // Pocket ID
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: '포켓 ID',
-                      hintText: '포켓 ID를 입력하세요',
-                      suffixIcon: tempPocketId != null
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setSheetState(() => tempPocketId = null);
-                              },
-                            )
-                          : null,
-                    ),
-                    controller:
-                        TextEditingController(text: tempPocketId ?? ''),
-                    onChanged: (value) {
-                      tempPocketId =
-                          value.trim().isEmpty ? null : value.trim();
-                    },
+                  // Pocket dropdown
+                  _buildPocketDropdown(
+                    context,
+                    tempPocketId,
+                    (value) => setSheetState(() => tempPocketId = value),
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -244,6 +249,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           onPressed: () {
                             setState(() {
                               _filterPaymentMethodId = null;
+                              _filterPaymentMethodName = null;
                               _filterPocketId = null;
                               _filterAmountMin = null;
                               _filterAmountMax = null;
@@ -267,6 +273,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
                               _filterAmountMax =
                                   maxText.isEmpty ? null : int.tryParse(maxText);
                               _filterPaymentMethodId = tempPaymentMethodId;
+                              if (tempPaymentMethodId != null) {
+                                _resolvePaymentMethodName(tempPaymentMethodId!);
+                              } else {
+                                _filterPaymentMethodName = null;
+                              }
                               _filterPocketId = tempPocketId;
                               _hasActiveFilters = _filterAmountMin != null ||
                                   _filterAmountMax != null ||
@@ -290,11 +301,73 @@ class _TransactionListPageState extends State<TransactionListPage> {
     );
   }
 
+  Widget _buildPaymentMethodDropdown(
+    BuildContext context,
+    String? selectedId,
+    ValueChanged<String?> onChanged,
+  ) {
+    final pmBloc = getIt<PaymentMethodBloc>();
+    final pmState = pmBloc.state;
+    final methods = pmState is PaymentMethodLoaded
+        ? pmState.activePaymentMethods
+        : <PaymentMethod>[];
+
+    return DropdownButtonFormField<String>(
+      initialValue: selectedId,
+      decoration: const InputDecoration(
+        labelText: '결제수단',
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('전체'),
+        ),
+        ...methods.map((pm) => DropdownMenuItem<String>(
+              value: pm.id,
+              child: Text(pm.name),
+            )),
+      ],
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildPocketDropdown(
+    BuildContext context,
+    String? selectedId,
+    ValueChanged<String?> onChanged,
+  ) {
+    final pocketBloc = getIt<PocketBloc>();
+    final pocketState = pocketBloc.state;
+    final pockets = pocketState is PocketLoaded
+        ? pocketState.activePockets
+        : <MoneyPocket>[];
+
+    return DropdownButtonFormField<String>(
+      initialValue: selectedId,
+      decoration: const InputDecoration(
+        labelText: '포켓',
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('전체'),
+        ),
+        ...pockets.map((p) => DropdownMenuItem<String>(
+              value: p.id,
+              child: Text(p.name),
+            )),
+      ],
+      onChanged: onChanged,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('거래'),
+        title: Text(_appBarTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.file_upload),

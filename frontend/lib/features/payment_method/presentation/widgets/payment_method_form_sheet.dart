@@ -13,6 +13,7 @@ class PaymentMethodFormSheet extends StatefulWidget {
     String type,
     int? settlementDay,
     int? closingDay,
+    String? linkedBankId,
   ) onSubmit;
 
   const PaymentMethodFormSheet({
@@ -33,6 +34,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
   late final TextEditingController _closingDayController;
   late String _selectedType;
   String? _selectedIssuerId;
+  String? _selectedLinkedBankId;
   bool _isSubmitting = false;
 
   bool get isEditing => widget.paymentMethod != null;
@@ -49,6 +51,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
       text: pm?.closingDay?.toString() ?? '',
     );
     _selectedType = pm?.type ?? 'CASH';
+    _selectedLinkedBankId = pm?.linkedBankId;
   }
 
   @override
@@ -255,6 +258,9 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                 // Billing cycle info
                 _buildBillingCycleInfo(context),
                 const SizedBox(height: 16),
+                // Linked bank dropdown
+                _buildLinkedBankDropdown(context),
+                const SizedBox(height: 16),
               ],
               const SizedBox(height: 8),
               FilledButton(
@@ -355,6 +361,35 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
     );
   }
 
+  Widget _buildLinkedBankDropdown(BuildContext context) {
+    final pmState = context.read<PaymentMethodBloc>().state;
+    final bankMethods = pmState is PaymentMethodLoaded
+        ? pmState.paymentMethods.where((pm) => pm.isBank).toList()
+        : <PaymentMethod>[];
+
+    return DropdownButtonFormField<String?>(
+      initialValue: _selectedLinkedBankId,
+      decoration: const InputDecoration(
+        labelText: '결제 은행',
+        prefixIcon: Icon(Icons.account_balance),
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('없음'),
+        ),
+        ...bankMethods.map((bank) => DropdownMenuItem<String?>(
+              value: bank.id,
+              child: Text(bank.name),
+            )),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedLinkedBankId = value);
+      },
+    );
+  }
+
   void _onCardIssuerSelected(CardIssuerPreset preset) {
     setState(() {
       _selectedIssuerId = preset.id;
@@ -381,6 +416,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
         _selectedType,
         settlementDay,
         closingDay,
+        _selectedType == 'CREDIT' ? _selectedLinkedBankId : null,
       );
     }
   }

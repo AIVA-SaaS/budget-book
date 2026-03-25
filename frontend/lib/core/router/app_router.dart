@@ -57,6 +57,10 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_ev
 import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/transfer/presentation/pages/transfer_list_page.dart';
+import 'package:budget_book/features/transfer/presentation/pages/transfer_form_page.dart';
 import 'package:budget_book/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_users_page.dart';
@@ -229,11 +233,20 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               path: '/transactions',
               builder: (context, state) {
                 final now = DateTime.now();
+                final paymentMethodId = state.uri.queryParameters['paymentMethodId'];
+                final paymentMethodName = state.uri.queryParameters['paymentMethodName'];
                 getIt<TransactionBloc>()
-                    .add(LoadTransactions(year: now.year, month: now.month));
+                    .add(LoadTransactions(
+                      year: now.year,
+                      month: now.month,
+                      paymentMethodId: paymentMethodId,
+                    ));
                 return BlocProvider<TransactionBloc>.value(
                   value: getIt<TransactionBloc>(),
-                  child: const TransactionListPage(),
+                  child: TransactionListPage(
+                    initialPaymentMethodId: paymentMethodId,
+                    initialPaymentMethodName: paymentMethodName,
+                  ),
                 );
               },
             ),
@@ -621,6 +634,57 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
           child: const PocketTransferPage(),
+        );
+      },
+    ),
+    // Transfers (payment method to payment method)
+    GoRoute(
+      path: '/transfers',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final now = DateTime.now();
+        getIt<TransferBloc>()
+            .add(LoadTransfers(year: now.year, month: now.month));
+        return BlocProvider<TransferBloc>.value(
+          value: getIt<TransferBloc>(),
+          child: const TransferListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/transfers/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TransferBloc>.value(
+              value: getIt<TransferBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+          ],
+          child: const TransferFormPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/transfers/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final transferId = state.pathParameters['id']!;
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<TransferBloc>.value(
+              value: getIt<TransferBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+          ],
+          child: TransferFormPage(transferId: transferId),
         );
       },
     ),

@@ -85,7 +85,7 @@ class _BudgetAlertCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    item.category?.name ?? '전체',
+                    item.category?.displayName ?? item.groupName ?? '전체',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
