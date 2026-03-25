@@ -10,6 +10,9 @@ class PaymentMethodModel extends PaymentMethod {
     required super.isActive,
     required super.isDefault,
     required super.displayOrder,
+    super.balance,
+    super.linkedBankId,
+    super.linkedBankName,
     required super.createdAt,
   });
 
@@ -23,6 +26,9 @@ class PaymentMethodModel extends PaymentMethod {
       isActive: json['isActive'] as bool,
       isDefault: json['isDefault'] as bool? ?? false,
       displayOrder: json['displayOrder'] as int,
+      balance: json['balance'] as int?,
+      linkedBankId: json['linkedBankId'] as String?,
+      linkedBankName: json['linkedBankName'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

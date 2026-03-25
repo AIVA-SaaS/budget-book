@@ -2,6 +2,7 @@ import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/payment_method/data/models/payment_method_model.dart';
 import 'package:budget_book/features/payment_method/data/models/card_pending_model.dart';
+import 'package:budget_book/features/payment_method/data/models/card_settlement_summary_model.dart';
 
 abstract class PaymentMethodRemoteDataSource {
   Future<List<PaymentMethodModel>> getPaymentMethods();
@@ -10,6 +11,7 @@ abstract class PaymentMethodRemoteDataSource {
       String id, Map<String, dynamic> data);
   Future<void> deletePaymentMethod(String id);
   Future<List<CardPendingModel>> getCardPending(int year, int month);
+  Future<CardSettlementSummaryModel> getCardSettlementSummary();
 }
 
 class PaymentMethodRemoteDataSourceImpl
@@ -66,5 +68,15 @@ class PaymentMethodRemoteDataSourceImpl
     return list
         .map((e) => CardPendingModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<CardSettlementSummaryModel> getCardSettlementSummary() async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.paymentMethodsCardSettlementSummary,
+    );
+    return CardSettlementSummaryModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
   }
 }

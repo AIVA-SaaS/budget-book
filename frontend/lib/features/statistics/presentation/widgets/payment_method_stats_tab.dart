@@ -1,6 +1,7 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
 class PaymentMethodStatsTab extends StatelessWidget {
@@ -118,9 +119,14 @@ class PaymentMethodStatsTab extends StatelessWidget {
 
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                context.push('/transactions?paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
                 children: [
                   // Color indicator
                   Container(
@@ -181,6 +187,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           );
         }),

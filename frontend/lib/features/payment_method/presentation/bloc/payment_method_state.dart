@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
+import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 
 sealed class PaymentMethodState extends Equatable {
   const PaymentMethodState();
@@ -20,11 +21,13 @@ class PaymentMethodLoading extends PaymentMethodState {
 class PaymentMethodLoaded extends PaymentMethodState {
   final List<PaymentMethod> paymentMethods;
   final List<CardPending>? cardPendings;
+  final CardSettlementSummary? cardSettlementSummary;
   final String? operationError;
 
   const PaymentMethodLoaded(
     this.paymentMethods, {
     this.cardPendings,
+    this.cardSettlementSummary,
     this.operationError,
   });
 
@@ -35,7 +38,8 @@ class PaymentMethodLoaded extends PaymentMethodState {
       paymentMethods.where((pm) => pm.isCredit).toList();
 
   @override
-  List<Object?> get props => [paymentMethods, cardPendings, operationError];
+  List<Object?> get props =>
+      [paymentMethods, cardPendings, cardSettlementSummary, operationError];
 }
 
 class PaymentMethodError extends PaymentMethodState {

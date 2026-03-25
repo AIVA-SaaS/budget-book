@@ -56,6 +56,7 @@
   - [Update Payment Method](#3-update-payment-method)
   - [Delete Payment Method](#4-delete-payment-method)
   - [Card Pending Summary](#5-card-pending-summary)
+  - [Card Settlement Summary](#6-card-settlement-summary)
 - [Weekly Budgets](#weekly-budgets)
   - [Weekly Overview](#1-weekly-overview)
   - [Current Week Summary](#2-current-week-summary)
@@ -79,6 +80,12 @@
 - [Pocket Transfers](#pocket-transfers)
   - [List Pocket Transfers](#1-list-pocket-transfers)
   - [Create Pocket Transfer](#2-create-pocket-transfer)
+- [Transfers](#transfers)
+  - [Create Transfer](#1-create-transfer)
+  - [List Transfers](#2-list-transfers)
+  - [Get Transfer](#3-get-transfer)
+  - [Update Transfer](#4-update-transfer)
+  - [Delete Transfer](#5-delete-transfer)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -1761,6 +1768,9 @@ Retrieves all payment methods for the couple.
       "isActive": true,
       "isDefault": true,
       "displayOrder": 0,
+      "balance": 150000,
+      "linkedBankId": null,
+      "linkedBankName": null,
       "createdAt": "2024-01-01T12:00:00Z"
     },
     {
@@ -1772,6 +1782,9 @@ Retrieves all payment methods for the couple.
       "isActive": true,
       "isDefault": false,
       "displayOrder": 2,
+      "balance": null,
+      "linkedBankId": "550e8400-e29b-41d4-a716-446655440032",
+      "linkedBankName": "신한은행",
       "createdAt": "2024-01-01T12:00:00Z"
     }
   ]
@@ -1790,12 +1803,13 @@ Retrieves all payment methods for the couple.
 
 **Request Body**
 
-| Field           | Type      | Required | Description                              |
-|:----------------|:----------|:--------:|:-----------------------------------------|
-| `name`          | `string`  | Yes      | Payment method name (max 100 chars)      |
-| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, or `CREDIT`             |
-| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)   |
-| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)      |
+| Field           | Type      | Required | Description                                                                                          |
+|:----------------|:----------|:--------:|:-----------------------------------------------------------------------------------------------------|
+| `name`          | `string`  | Yes      | Payment method name (max 100 chars)                                                                  |
+| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, `CREDIT`, or `BANK`                                                                 |
+| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)                                                               |
+| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)                                                                  |
+| `linkedBankId`  | `UUID`    | No       | ID of a BANK-type payment method in the same couple to link as the settlement bank (CREDIT type only) |
 
 **Response `201 Created`**: `ApiResponse<PaymentMethodResponse>`
 
@@ -1811,13 +1825,14 @@ Retrieves all payment methods for the couple.
 
 **Request Body** (all fields optional)
 
-| Field           | Type      | Description                              |
-|:----------------|:----------|:-----------------------------------------|
-| `name`          | `string`  | Payment method name                      |
-| `settlementDay` | `integer` | Card settlement day (1-31)               |
-| `closingDay`    | `integer` | Card closing day (1-31)                  |
-| `isActive`      | `boolean` | Active status                            |
-| `displayOrder`  | `integer` | Sort order                               |
+| Field           | Type      | Description                                                                                          |
+|:----------------|:----------|:-----------------------------------------------------------------------------------------------------|
+| `name`          | `string`  | Payment method name                                                                                  |
+| `settlementDay` | `integer` | Card settlement day (1-31)                                                                           |
+| `closingDay`    | `integer` | Card closing day (1-31)                                                                              |
+| `isActive`      | `boolean` | Active status                                                                                        |
+| `displayOrder`  | `integer` | Sort order                                                                                           |
+| `linkedBankId`  | `UUID` \| `null` | Set to a BANK-type payment method UUID to link it; pass `null` (PatchValue) to unlink (CREDIT only) |
 
 **Response `200 OK`**: `ApiResponse<PaymentMethodResponse>`
 
@@ -1877,6 +1892,65 @@ Returns unsettled credit card amounts for a given month.
       "transactionCount": 12
     }
   ]
+}
+```
+
+---
+
+### 6. Card Settlement Summary
+
+Returns credit card spending grouped by settlement month for the previous and current calendar months. Used to display how much is due for settlement per card.
+
+> **Note**: CREDIT↔CREDIT transfers (card-to-card) are prohibited. A transfer where both the source and destination payment methods have type `CREDIT` will be rejected with `400 VALIDATION_ERROR`.
+
+| Item        | Value                                                          |
+|:------------|:---------------------------------------------------------------|
+| **Method**  | `GET`                                                          |
+| **Path**    | `/api/v1/payment-methods/card-settlement-summary`             |
+| **Auth**    | Required                                                       |
+
+**Response `200 OK`**: `ApiResponse<CardSettlementSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "previousMonth": {
+      "year": 2026,
+      "month": 2,
+      "totalAmount": 350000,
+      "cards": [
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+          "paymentMethodName": "롯데카드",
+          "amount": 200000,
+          "settlementDate": "2026-02-25",
+          "transactionCount": 15
+        },
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440035",
+          "paymentMethodName": "신한카드",
+          "amount": 150000,
+          "settlementDate": "2026-02-15",
+          "transactionCount": 8
+        }
+      ]
+    },
+    "currentMonth": {
+      "year": 2026,
+      "month": 3,
+      "totalAmount": 420000,
+      "cards": [
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+          "paymentMethodName": "롯데카드",
+          "amount": 420000,
+          "settlementDate": "2026-03-25",
+          "transactionCount": 22
+        }
+      ]
+    }
+  }
 }
 ```
 
@@ -2191,17 +2265,20 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### PaymentMethodResponse
 
-| Field           | Type      | Nullable | Description                           |
-|:----------------|:----------|:--------:|:--------------------------------------|
-| `id`            | `UUID`    | No       | Payment method unique identifier      |
-| `name`          | `string`  | No       | Payment method name                   |
-| `type`          | `enum`    | No       | `CASH`, `DEBIT`, or `CREDIT`          |
-| `settlementDay` | `integer` | Yes      | Card settlement day (1-31)            |
-| `closingDay`    | `integer` | Yes      | Card closing day (1-31)               |
-| `isActive`      | `boolean` | No       | Whether this method is active         |
-| `isDefault`     | `boolean` | No       | Whether this is a system default      |
-| `displayOrder`  | `integer` | No       | Sort order                            |
-| `createdAt`     | `string`  | No       | ISO 8601 timestamp                    |
+| Field            | Type      | Nullable | Description                                                                               |
+|:-----------------|:----------|:--------:|:------------------------------------------------------------------------------------------|
+| `id`             | `UUID`    | No       | Payment method unique identifier                                                          |
+| `name`           | `string`  | No       | Payment method name                                                                       |
+| `type`           | `enum`    | No       | `CASH`, `DEBIT`, `CREDIT`, or `BANK`                                                      |
+| `settlementDay`  | `integer` | Yes      | Card settlement day (1-31)                                                                |
+| `closingDay`     | `integer` | Yes      | Card closing day (1-31)                                                                   |
+| `isActive`       | `boolean` | No       | Whether this method is active                                                             |
+| `isDefault`      | `boolean` | No       | Whether this is a system default                                                          |
+| `displayOrder`   | `integer` | No       | Sort order                                                                                |
+| `balance`        | `long`    | Yes      | Computed balance (null for `CREDIT` type). `BANK`/`CASH`/`DEBIT`: income transfers − expense transfers |
+| `linkedBankId`   | `UUID`    | Yes      | ID of the linked BANK-type payment method (only for `CREDIT` type)                       |
+| `linkedBankName` | `string`  | Yes      | Display name of the linked bank (only for `CREDIT` type)                                 |
+| `createdAt`      | `string`  | No       | ISO 8601 timestamp                                                                        |
 
 ### CardPendingResponse
 
@@ -2368,6 +2445,58 @@ Abbreviated pocket reference used within transfer responses.
 | `description`  | `string`        | Yes      | Optional transfer note                 |
 | `transferDate` | `string`        | No       | ISO 8601 date: `YYYY-MM-DD`            |
 | `authorId`     | `UUID`          | No       | ID of user who created the transfer    |
+
+### TransferResponse
+
+| Field                        | Type                      | Nullable | Description                                                              |
+|:-----------------------------|:--------------------------|:--------:|:-------------------------------------------------------------------------|
+| `id`                         | `UUID`                    | No       | Transfer unique identifier                                               |
+| `coupleId`                   | `UUID`                    | No       | Owning couple ID                                                         |
+| `author`                     | `UserSummary`             | No       | User who created the transfer                                            |
+| `sourcePaymentMethod`        | `PaymentMethodSummary`    | No       | Source payment method (id, name, type)                                   |
+| `destinationPaymentMethod`   | `PaymentMethodSummary`    | No       | Destination payment method (id, name, type)                              |
+| `amount`                     | `long`                    | No       | Transfer amount in KRW (always > 0)                                      |
+| `description`                | `string`                  | Yes      | Short label for the transfer (max 255)                                   |
+| `memo`                       | `string`                  | Yes      | Optional additional notes                                                |
+| `transferDate`               | `string`                  | No       | ISO 8601 date: `YYYY-MM-DD`                                              |
+| `autoSettlementKey`          | `string`                  | Yes      | Deduplication key for system-generated auto-settlement transfers (null for manual transfers) |
+| `createdAt`                  | `string`                  | No       | ISO 8601 timestamp                                                       |
+
+### PaymentMethodSummary
+
+Abbreviated payment method reference used within transfer responses.
+
+| Field  | Type     | Nullable | Description                          |
+|:-------|:---------|:--------:|:-------------------------------------|
+| `id`   | `UUID`   | No       | Payment method unique identifier     |
+| `name` | `string` | No       | Payment method display name          |
+| `type` | `enum`   | No       | `CASH`, `DEBIT`, `CREDIT`, or `BANK` |
+
+### CardSettlementSummaryResponse
+
+| Field           | Type                         | Nullable | Description                               |
+|:----------------|:-----------------------------|:--------:|:------------------------------------------|
+| `previousMonth` | `CardSettlementMonthSummary` | No       | Settlement data for the previous calendar month |
+| `currentMonth`  | `CardSettlementMonthSummary` | No       | Settlement data for the current calendar month  |
+
+### CardSettlementMonthSummary
+
+| Field         | Type                          | Nullable | Description                              |
+|:--------------|:------------------------------|:--------:|:-----------------------------------------|
+| `year`        | `integer`                     | No       | Year (e.g., 2026)                        |
+| `month`       | `integer`                     | No       | Month 1–12                               |
+| `totalAmount` | `long`                        | No       | Sum of all card spending amounts         |
+| `cards`       | `List<CardSettlementCardItem>`| No       | Per-card breakdown                       |
+
+### CardSettlementCardItem
+
+| Field               | Type      | Nullable | Description                                   |
+|:--------------------|:----------|:--------:|:----------------------------------------------|
+| `paymentMethodId`   | `UUID`    | No       | Credit card payment method ID                 |
+| `paymentMethodName` | `string`  | No       | Credit card display name                      |
+| `amount`            | `long`    | No       | Total spending amount for this card            |
+| `settlementDate`    | `string`  | Yes      | Next settlement date `YYYY-MM-DD` (null if no `settlementDay` configured) |
+| `transactionCount`  | `integer` | No       | Number of transactions for this card          |
 
 ### RecurringTransactionResponse
 
@@ -2717,6 +2846,239 @@ Returns pocket transfer history for the couple. Supports optional filtering.
 
 ---
 
+## Transfers
+
+Base path: `/api/v1/transfers`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+Records money moved between payment methods (e.g., bank account to cash withdrawal). Transfers are intentionally excluded from transaction statistics and budget calculations.
+
+---
+
+### 1. Create Transfer
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `POST`                   |
+| **Path**    | `/api/v1/transfers`      |
+| **Auth**    | Required                 |
+| **Returns** | `201 Created`            |
+
+**Request Body**
+
+| Field                        | Type     | Required | Constraints              | Description                               |
+|:-----------------------------|:---------|:--------:|:-------------------------|:------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`   | Yes      | Must differ from dest    | Source payment method ID                  |
+| `destinationPaymentMethodId` | `UUID`   | Yes      | Must differ from source  | Destination payment method ID             |
+| `amount`                     | `long`   | Yes      | min=1, max=999999999     | Transfer amount in KRW                    |
+| `description`                | `string` | No       | max=255                  | Short label for the transfer              |
+| `transferDate`               | `string` | Yes      | `YYYY-MM-DD`             | Date of the transfer                      |
+| `memo`                       | `string` | No       |                          | Optional additional notes                 |
+
+**Request Example**
+
+```json
+{
+  "sourcePaymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+  "destinationPaymentMethodId": "550e8400-e29b-41d4-a716-446655440011",
+  "amount": 100000,
+  "description": "신한→현금 ATM 출금",
+  "transferDate": "2026-03-25",
+  "memo": null
+}
+```
+
+**Response `201 Created`**: `ApiResponse<TransferResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "author": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nickname": "홍길동"
+    },
+    "sourcePaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "신한은행",
+      "type": "BANK"
+    },
+    "destinationPaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440011",
+      "name": "현금",
+      "type": "CASH"
+    },
+    "amount": 100000,
+    "description": "신한→현금 ATM 출금",
+    "memo": null,
+    "transferDate": "2026-03-25",
+    "autoSettlementKey": null,
+    "createdAt": "2026-03-25T10:00:00"
+  },
+  "timestamp": "2026-03-25T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code                    | Description                                              |
+|:------:|:------------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`            | Missing required fields, amount out of range, source == destination, or both source and destination are CREDIT type |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`    | Source or destination payment method does not exist      |
+| `403`  | `FORBIDDEN`                   | Payment method belongs to another couple                 |
+
+---
+
+### 2. List Transfers
+
+Returns transfers for the couple filtered by month.
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `GET`                    |
+| **Path**    | `/api/v1/transfers`      |
+| **Auth**    | Required                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description                             |
+|:----------|:----------|:--------:|:----------------------------------------|
+| `year`    | `integer` | Yes      | Year (e.g., `2026`)                     |
+| `month`   | `integer` | Yes      | Month 1–12 (e.g., `3`)                  |
+
+**Response `200 OK`**: `ApiResponse<List<TransferResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440200",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "author": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "홍길동"
+      },
+      "sourcePaymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "신한은행",
+        "type": "BANK"
+      },
+      "destinationPaymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440011",
+        "name": "현금",
+        "type": "CASH"
+      },
+      "amount": 100000,
+      "description": "신한→현금 ATM 출금",
+      "memo": null,
+      "transferDate": "2026-03-25",
+      "autoSettlementKey": null,
+      "createdAt": "2026-03-25T10:00:00"
+    }
+  ],
+  "timestamp": "2026-03-25T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                        |
+|:------:|:-------------------|:-----------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid year/month      |
+
+---
+
+### 3. Get Transfer
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `GET`                       |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>`
+
+**Error Responses**
+
+| Status | Error Code          | Description                                  |
+|:------:|:--------------------|:---------------------------------------------|
+| `404`  | `TRANSFER_NOT_FOUND`| Transfer does not exist or belongs to another couple |
+
+---
+
+### 4. Update Transfer
+
+All fields are optional (partial update). Omitted fields retain their current values.
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `PUT`                       |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Request Body** (`UpdateTransferRequest` — all fields optional, PatchValue pattern)
+
+| Field                        | Type     | Constraints              | Description                               |
+|:-----------------------------|:---------|:-------------------------|:------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`   | Must differ from dest    | New source payment method ID              |
+| `destinationPaymentMethodId` | `UUID`   | Must differ from source  | New destination payment method ID         |
+| `amount`                     | `long`   | min=1, max=999999999     | New transfer amount in KRW                |
+| `description`                | `string` | max=255                  | New short label (pass `null` to clear)    |
+| `transferDate`               | `string` | `YYYY-MM-DD`             | New transfer date                         |
+| `memo`                       | `string` |                          | New memo (pass `null` to clear)           |
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>`
+
+**Error Responses**
+
+| Status | Error Code                 | Description                                              |
+|:------:|:---------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`         | Invalid field values or source == destination            |
+| `404`  | `TRANSFER_NOT_FOUND`       | Transfer does not exist or belongs to another couple     |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified payment method does not exist                  |
+| `403`  | `FORBIDDEN`                | Payment method belongs to another couple                 |
+
+---
+
+### 5. Delete Transfer
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `DELETE`                    |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+| **Returns** | `204 No Content`            |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Error Responses**
+
+| Status | Error Code           | Description                                  |
+|:------:|:---------------------|:---------------------------------------------|
+| `404`  | `TRANSFER_NOT_FOUND` | Transfer does not exist or belongs to another couple |
+
+---
+
 ## Infrastructure
 
 Health and observability endpoints. Both are publicly accessible (`permitAll()` in `SecurityConfig`) and require no authentication.
@@ -2941,4 +3303,7 @@ spring:
 | `RECURRING_NOT_FOUND`             | `404`       | Requested recurring transaction does not exist       |
 | `POCKET_NOT_FOUND`                | `404`       | Requested money pocket does not exist                |
 | `POCKET_TRANSFER_NOT_FOUND`       | `404`       | Requested pocket transfer does not exist             |
+| `TRANSFER_NOT_FOUND`              | `404`       | Requested transfer does not exist or belongs to another couple |
+| `CREDIT_TO_CREDIT_TRANSFER_FORBIDDEN` | `400`   | Transfer between two CREDIT-type payment methods is not allowed |
+| `LINKED_BANK_NOT_FOUND`           | `404`       | Specified linkedBankId does not exist or is not BANK type |
 | `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |

@@ -38,6 +38,7 @@ class CustomOAuth2UserService(
         return when (provider) {
             AuthProvider.GOOGLE -> extractGoogleUserInfo(attributes)
             AuthProvider.KAKAO -> extractKakaoUserInfo(attributes)
+            AuthProvider.SYSTEM -> throw IllegalStateException("SYSTEM provider cannot be used for OAuth2 login")
         }
     }
 
