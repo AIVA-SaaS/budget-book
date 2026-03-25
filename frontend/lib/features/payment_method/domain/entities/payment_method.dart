@@ -9,6 +9,9 @@ class PaymentMethod extends Equatable {
   final bool isActive;
   final bool isDefault;
   final int displayOrder;
+  final int? balance;
+  final String? linkedBankId;
+  final String? linkedBankName;
   final DateTime createdAt;
 
   const PaymentMethod({
@@ -20,6 +23,9 @@ class PaymentMethod extends Equatable {
     required this.isActive,
     required this.isDefault,
     required this.displayOrder,
+    this.balance,
+    this.linkedBankId,
+    this.linkedBankName,
     required this.createdAt,
   });
 
@@ -38,6 +44,9 @@ class PaymentMethod extends Equatable {
         isActive,
         isDefault,
         displayOrder,
+        balance,
+        linkedBankId,
+        linkedBankName,
         createdAt,
       ];
 }

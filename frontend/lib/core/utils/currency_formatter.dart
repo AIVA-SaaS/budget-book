@@ -13,6 +13,13 @@ class CurrencyFormatter {
     return _numberFormat.format(amount);
   }
 
+  /// 부호 포함 쉼표 포맷 (예: 150000 → "+150,000원", -50000 → "-50,000원", 0 → "0원")
+  static String formatWithSign(int amount) {
+    if (amount == 0) return '0원';
+    final prefix = amount > 0 ? '+' : '';
+    return '$prefix${_numberFormat.format(amount)}원';
+  }
+
   /// 쉼표 포맷 문자열에서 숫자 추출 (예: "1,234,567" → 1234567)
   static int? parse(String text) {
     final digits = text.replaceAll(',', '');

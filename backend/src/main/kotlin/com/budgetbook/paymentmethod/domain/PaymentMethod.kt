@@ -43,7 +43,11 @@ class PaymentMethod(
     val isDefault: Boolean = false,
 
     @Column(name = "display_order", nullable = false)
-    var displayOrder: Int = 0
+    var displayOrder: Int = 0,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_bank_id")
+    var linkedBank: PaymentMethod? = null
 ) : BaseTimeEntity()
 
 enum class PaymentMethodType { CASH, DEBIT, CREDIT, BANK }

@@ -110,12 +110,13 @@ class AssetManagementPage extends StatelessWidget {
       builder: (_) => BlocProvider.value(
         value: bloc,
         child: PaymentMethodFormSheet(
-          onSubmit: (name, type, settlementDay, closingDay) {
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
             bloc.add(CreatePaymentMethod(
               name: name,
               type: type,
               settlementDay: settlementDay,
               closingDay: closingDay,
+              linkedBankId: linkedBankId,
             ));
           },
         ),
@@ -722,12 +723,14 @@ class _PaymentMethodTab extends StatelessWidget {
         value: bloc,
         child: PaymentMethodFormSheet(
           paymentMethod: method,
-          onSubmit: (name, type, settlementDay, closingDay) {
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
             bloc.add(UpdatePaymentMethod(
               id: method.id,
               name: name,
               settlementDay: settlementDay,
               closingDay: closingDay,
+              linkedBankId: linkedBankId,
+              clearLinkedBank: linkedBankId == null && method.linkedBankId != null,
             ));
           },
         ),
