@@ -1,0 +1,396 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
+
+class TransferFormPage extends StatefulWidget {
+  final String? transferId;
+
+  const TransferFormPage({super.key, this.transferId});
+
+  @override
+  State<TransferFormPage> createState() => _TransferFormPageState();
+}
+
+class _TransferFormPageState extends State<TransferFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _amountController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _memoController;
+  String? _sourcePaymentMethodId;
+  String? _destinationPaymentMethodId;
+  late DateTime _selectedDate;
+  bool _isSubmitting = false;
+  Transfer? _existingTransfer;
+  int _swapCounter = 0;
+
+  bool get isEditing => widget.transferId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _memoController = TextEditingController();
+    _selectedDate = DateTime.now();
+
+    if (isEditing) {
+      _loadExistingTransfer();
+    }
+  }
+
+  void _loadExistingTransfer() {
+    final bloc = context.read<TransferBloc>();
+    final state = bloc.state;
+    if (state is TransferLoaded) {
+      final transfer = state.transfers
+          .where((t) => t.id == widget.transferId)
+          .firstOrNull;
+      if (transfer != null) {
+        _populateForm(transfer);
+      }
+    }
+  }
+
+  void _populateForm(Transfer transfer) {
+    _existingTransfer = transfer;
+    _amountController.text = CurrencyFormatter.format(transfer.amount);
+    _descriptionController.text = transfer.description ?? '';
+    _memoController.text = transfer.memo ?? '';
+    _sourcePaymentMethodId = transfer.sourcePaymentMethod.id;
+    _destinationPaymentMethodId = transfer.destinationPaymentMethod.id;
+    try {
+      _selectedDate = DateTime.parse(transfer.transferDate);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _descriptionController.dispose();
+    _memoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      locale: const Locale('ko'),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    if (_sourcePaymentMethodId == null || _destinationPaymentMethodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('출금/입금 결제수단을 모두 선택해주세요')),
+      );
+      return;
+    }
+    if (_sourcePaymentMethodId == _destinationPaymentMethodId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('출금/입금 결제수단이 같을 수 없습니다')),
+      );
+      return;
+    }
+
+    // Block CREDIT↔CREDIT transfers
+    final pmState = getIt<PaymentMethodBloc>().state;
+    if (pmState is PaymentMethodLoaded) {
+      final source = pmState.activePaymentMethods
+          .where((pm) => pm.id == _sourcePaymentMethodId)
+          .firstOrNull;
+      final dest = pmState.activePaymentMethods
+          .where((pm) => pm.id == _destinationPaymentMethodId)
+          .firstOrNull;
+      if (source != null && dest != null && source.isCredit && dest.isCredit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('카드 간 이체는 지원하지 않습니다')),
+        );
+        return;
+      }
+    }
+
+    final amount = CurrencyFormatter.parse(_amountController.text);
+    if (amount == null || amount <= 0) return;
+
+    final description = _descriptionController.text.trim().isEmpty
+        ? null
+        : _descriptionController.text.trim();
+    final memo = _memoController.text.trim().isEmpty
+        ? null
+        : _memoController.text.trim();
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+    setState(() => _isSubmitting = true);
+
+    final bloc = context.read<TransferBloc>();
+
+    if (isEditing) {
+      final oldDescription = _existingTransfer?.description;
+      final clearDescription =
+          description == null && oldDescription != null;
+      final oldMemo = _existingTransfer?.memo;
+      final clearMemo = memo == null && oldMemo != null;
+
+      bloc.add(UpdateTransfer(
+        id: widget.transferId!,
+        sourcePaymentMethodId: _sourcePaymentMethodId,
+        destinationPaymentMethodId: _destinationPaymentMethodId,
+        amount: amount,
+        description: description,
+        clearDescription: clearDescription,
+        transferDate: dateStr,
+        memo: memo,
+        clearMemo: clearMemo,
+      ));
+    } else {
+      bloc.add(CreateTransfer(
+        sourcePaymentMethodId: _sourcePaymentMethodId!,
+        destinationPaymentMethodId: _destinationPaymentMethodId!,
+        amount: amount,
+        description: description,
+        transferDate: dateStr,
+        memo: memo,
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<TransferBloc, TransferState>(
+      listener: (context, state) {
+        if (state is TransferLoaded && _isSubmitting) {
+          if (state.operationError != null) {
+            setState(() => _isSubmitting = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.operationError!),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          } else {
+            context.pop();
+          }
+        } else if (state is TransferError && _isSubmitting) {
+          setState(() => _isSubmitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(isEditing ? '이체 수정' : '이체 추가'),
+        ),
+        body: _buildForm(context),
+      ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context) {
+    final pmState = getIt<PaymentMethodBloc>().state;
+    final methods = pmState is PaymentMethodLoaded
+        ? pmState.activePaymentMethods
+        : <PaymentMethod>[];
+
+    // Determine if selected payment methods are CREDIT
+    final selectedDest = methods
+        .where((pm) => pm.id == _destinationPaymentMethodId)
+        .firstOrNull;
+    final selectedSource = methods
+        .where((pm) => pm.id == _sourcePaymentMethodId)
+        .firstOrNull;
+    final destIsCredit = selectedDest?.isCredit ?? false;
+    final sourceIsCredit = selectedSource?.isCredit ?? false;
+
+    // Filter source list: exclude CREDIT if destination is CREDIT
+    final sourceMethods = destIsCredit
+        ? methods.where((pm) => !pm.isCredit).toList()
+        : methods;
+    // Filter dest list: exclude source + exclude CREDIT if source is CREDIT
+    final destMethods = methods
+        .where((pm) => pm.id != _sourcePaymentMethodId)
+        .where((pm) => !sourceIsCredit || !pm.isCredit)
+        .toList();
+
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Source payment method
+          DropdownButtonFormField<String>(
+            key: ValueKey('source_$_swapCounter'),
+            initialValue: _sourcePaymentMethodId,
+            decoration: const InputDecoration(
+              labelText: '출금 결제수단',
+              prefixIcon: Icon(Icons.account_balance_wallet),
+            ),
+            isExpanded: true,
+            items: sourceMethods
+                .map((pm) => DropdownMenuItem(
+                      value: pm.id,
+                      child: Text(pm.name),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _sourcePaymentMethodId = value;
+                // Clear destination if it would create CREDIT↔CREDIT
+                final newSource = methods
+                    .where((pm) => pm.id == value)
+                    .firstOrNull;
+                if (newSource?.isCredit == true && selectedDest?.isCredit == true) {
+                  _destinationPaymentMethodId = null;
+                }
+              });
+            },
+            validator: (value) =>
+                value == null ? '출금 결제수단을 선택하세요' : null,
+          ),
+          const SizedBox(height: 8),
+          // Swap button
+          Center(
+            child: IconButton(
+              onPressed: () {
+                // Block swap if it would create CREDIT↔CREDIT
+                final wouldSwapSourceBeCredit = selectedDest?.isCredit ?? false;
+                final wouldSwapDestBeCredit = selectedSource?.isCredit ?? false;
+                if (wouldSwapSourceBeCredit && wouldSwapDestBeCredit) return;
+                setState(() {
+                  final temp = _sourcePaymentMethodId;
+                  _sourcePaymentMethodId = _destinationPaymentMethodId;
+                  _destinationPaymentMethodId = temp;
+                  _swapCounter++;
+                });
+              },
+              icon: const Icon(Icons.swap_vert),
+              tooltip: '출금/입금 교환',
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Destination payment method
+          DropdownButtonFormField<String>(
+            key: ValueKey('dest_$_swapCounter'),
+            initialValue: _destinationPaymentMethodId,
+            decoration: const InputDecoration(
+              labelText: '입금 결제수단',
+              prefixIcon: Icon(Icons.account_balance),
+            ),
+            isExpanded: true,
+            items: destMethods
+                .map((pm) => DropdownMenuItem(
+                      value: pm.id,
+                      child: Text(pm.name),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _destinationPaymentMethodId = value;
+                // Clear source if it would create CREDIT↔CREDIT
+                final newDest = methods
+                    .where((pm) => pm.id == value)
+                    .firstOrNull;
+                if (newDest?.isCredit == true && selectedSource?.isCredit == true) {
+                  _sourcePaymentMethodId = null;
+                  _swapCounter++;
+                }
+              });
+            },
+            validator: (value) =>
+                value == null ? '입금 결제수단을 선택하세요' : null,
+          ),
+          const SizedBox(height: 16),
+          // Amount
+          TextFormField(
+            controller: _amountController,
+            decoration: const InputDecoration(
+              labelText: '금액',
+              prefixIcon: Icon(Icons.attach_money),
+              suffixText: '원',
+            ),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              CurrencyInputFormatter(),
+            ],
+            validator: (value) {
+              if (value == null || value.isEmpty) return '금액을 입력하세요';
+              final amount = CurrencyFormatter.parse(value);
+              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          // Date
+          InkWell(
+            onTap: _selectDate,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: '이체일',
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Description
+          TextFormField(
+            controller: _descriptionController,
+            decoration: const InputDecoration(
+              labelText: '설명 (선택)',
+              prefixIcon: Icon(Icons.description),
+              hintText: '예: ATM 출금',
+            ),
+            maxLength: 255,
+          ),
+          const SizedBox(height: 8),
+          // Memo
+          TextFormField(
+            controller: _memoController,
+            decoration: const InputDecoration(
+              labelText: '메모 (선택)',
+              prefixIcon: Icon(Icons.notes),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 24),
+          // Submit button
+          FilledButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(isEditing ? '수정' : '저장'),
+          ),
+        ],
+      ),
+    );
+  }
+}
