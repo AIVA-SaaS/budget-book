@@ -1,6 +1,9 @@
+-- Extend provider CHECK to allow SYSTEM (for auto-settlement bot)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_provider;
+ALTER TABLE users ADD CONSTRAINT ck_users_provider
+    CHECK (provider IN ('GOOGLE', 'KAKAO', 'SYSTEM'));
+
 -- System account for auto-settlement transfers
--- role must be 'USER' per chk_users_role constraint (V21)
--- is_active added in V21, defaults to true
 INSERT INTO users (id, email, nickname, provider, provider_id, role, created_at, updated_at)
 VALUES ('00000000-0000-0000-0000-000000000001', 'system@budgetbook.internal', '자동결제', 'SYSTEM', 'SYSTEM', 'USER', NOW(), NOW())
 ON CONFLICT DO NOTHING;
