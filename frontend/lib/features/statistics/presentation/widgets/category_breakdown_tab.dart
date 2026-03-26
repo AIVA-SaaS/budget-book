@@ -4,7 +4,9 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
-class CategoryBreakdownTab extends StatelessWidget {
+enum CategoryViewMode { group, category }
+
+class CategoryBreakdownTab extends StatefulWidget {
   final List<CategoryStatistics> categoryStats;
   final bool isLoading;
   final String? error;
@@ -21,10 +23,32 @@ class CategoryBreakdownTab extends StatelessWidget {
   });
 
   @override
+  State<CategoryBreakdownTab> createState() => _CategoryBreakdownTabState();
+}
+
+class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
+  CategoryViewMode _viewMode = CategoryViewMode.group;
+  String? _selectedGroupId;
+  String? _selectedGroupName;
+
+  static const _defaultColors = [
+    Color(0xFFFF5733),
+    Color(0xFF2196F3),
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFF9C27B0),
+    Color(0xFF00BCD4),
+    Color(0xFFE91E63),
+    Color(0xFF795548),
+    Color(0xFF607D8B),
+    Color(0xFFCDDC39),
+  ];
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Type toggle
+        // Type toggle (지출/수입)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: SegmentedButton<String>(
@@ -32,196 +56,359 @@ class CategoryBreakdownTab extends StatelessWidget {
               ButtonSegment(value: 'EXPENSE', label: Text('지출')),
               ButtonSegment(value: 'INCOME', label: Text('수입')),
             ],
-            selected: {selectedType},
-            onSelectionChanged: (set) => onTypeChanged(set.first),
+            selected: {widget.selectedType},
+            onSelectionChanged: (set) => widget.onTypeChanged(set.first),
           ),
         ),
-        Expanded(
-          child: _buildContent(context),
+        // View mode toggle
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              if (_selectedGroupId != null) ...[
+                // Back button when viewing a specific group
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, size: 20),
+                  onPressed: () => setState(() {
+                    _selectedGroupId = null;
+                    _selectedGroupName = null;
+                  }),
+                  tooltip: '그룹 목록으로',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _selectedGroupName ?? '',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+              ] else ...[
+                Expanded(
+                  child: SegmentedButton<CategoryViewMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: CategoryViewMode.group,
+                        label: Text('그룹별'),
+                      ),
+                      ButtonSegment(
+                        value: CategoryViewMode.category,
+                        label: Text('전체 카테고리'),
+                      ),
+                    ],
+                    selected: {_viewMode},
+                    onSelectionChanged: (set) =>
+                        setState(() => _viewMode = set.first),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
+        const SizedBox(height: 8),
+        Expanded(child: _buildContent(context)),
       ],
     );
   }
 
   Widget _buildContent(BuildContext context) {
-    if (isLoading) {
+    if (widget.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (error != null) {
+    if (widget.error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(error!, textAlign: TextAlign.center),
+            Text(widget.error!, textAlign: TextAlign.center),
           ],
         ),
       );
     }
-    if (categoryStats.isEmpty) {
+    if (widget.categoryStats.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.pie_chart_outline,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
+            Icon(Icons.pie_chart_outline, size: 64,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            Text(
-              '이 달에 기록된 거래가 없습니다',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-            ),
+            Text('이 달에 기록된 거래가 없습니다',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
           ],
         ),
       );
+    }
+
+    // Determine which data to display
+    if (_selectedGroupId != null) {
+      return _buildSubcategoryView(context);
+    }
+
+    switch (_viewMode) {
+      case CategoryViewMode.group:
+        return _buildGroupView(context);
+      case CategoryViewMode.category:
+        return _buildAllCategoryView(context);
+    }
+  }
+
+  /// Group view: aggregate by groupName, tap to drill down
+  Widget _buildGroupView(BuildContext context) {
+    final groupMap = <String, _GroupData>{};
+    for (final stat in widget.categoryStats) {
+      final gId = stat.category.groupId ?? 'ungrouped';
+      final gName = stat.category.groupName ?? '미분류';
+      groupMap.putIfAbsent(gId, () => _GroupData(id: gId, name: gName));
+      groupMap[gId]!.amount += stat.amount;
+      groupMap[gId]!.count += stat.transactionCount;
+    }
+
+    final totalAmount = groupMap.values.fold(0, (sum, g) => sum + g.amount);
+    final groups = groupMap.values.toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+
+    for (final g in groups) {
+      g.percentage = totalAmount > 0 ? g.amount / totalAmount * 100 : 0;
     }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Pie chart
           SizedBox(
             height: 220,
-            child: PieChart(
-              PieChartData(
-                sections: _buildPieSections(),
-                centerSpaceRadius: 40,
-                sectionsSpace: 2,
-              ),
-            ),
+            child: PieChart(PieChartData(
+              sections: groups.asMap().entries.map((entry) {
+                final color = _defaultColors[entry.key % _defaultColors.length];
+                final g = entry.value;
+                return PieChartSectionData(
+                  value: g.amount.toDouble(),
+                  title: g.percentage >= 5 ? '${g.percentage.toStringAsFixed(0)}%' : '',
+                  color: color,
+                  radius: 60,
+                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                );
+              }).toList(),
+              centerSpaceRadius: 40,
+              sectionsSpace: 2,
+            )),
           ),
           const SizedBox(height: 24),
-          // Category list
-          ...categoryStats.map((stat) => _CategoryListItem(stat: stat)),
+          ...groups.asMap().entries.map((entry) {
+            final index = entry.key;
+            final g = entry.value;
+            final color = _defaultColors[index % _defaultColors.length];
+            return _buildListItem(
+              context,
+              color: color,
+              name: g.name,
+              amount: g.amount,
+              percentage: g.percentage,
+              count: g.count,
+              onTap: g.id != 'ungrouped'
+                  ? () => setState(() {
+                        _selectedGroupId = g.id;
+                        _selectedGroupName = g.name;
+                      })
+                  : null,
+            );
+          }),
         ],
       ),
     );
   }
 
-  List<PieChartSectionData> _buildPieSections() {
-    final defaultColors = [
-      const Color(0xFFFF5733),
-      const Color(0xFF2196F3),
-      const Color(0xFF4CAF50),
-      const Color(0xFFFF9800),
-      const Color(0xFF9C27B0),
-      const Color(0xFF00BCD4),
-      const Color(0xFFE91E63),
-      const Color(0xFF795548),
-    ];
+  /// Subcategory view: categories within a selected group
+  Widget _buildSubcategoryView(BuildContext context) {
+    final filtered = widget.categoryStats
+        .where((s) => s.category.groupId == _selectedGroupId)
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
 
-    return categoryStats.asMap().entries.map((entry) {
-      final index = entry.key;
-      final stat = entry.value;
-      final color = stat.category.color != null && stat.category.color!.isNotEmpty
-          ? UIHelpers.parseColor(stat.category.color,
-              fallback: defaultColors[index % defaultColors.length])
-          : defaultColors[index % defaultColors.length];
+    final totalAmount = filtered.fold(0, (sum, s) => sum + s.amount);
 
-      return PieChartSectionData(
-        value: stat.amount.toDouble(),
-        title: '${stat.percentage.toStringAsFixed(1)}%',
-        color: color,
-        radius: 60,
-        titleStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    }).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 220,
+            child: PieChart(PieChartData(
+              sections: filtered.asMap().entries.map((entry) {
+                final stat = entry.value;
+                final color = _getStatColor(stat, entry.key);
+                final pct = totalAmount > 0 ? stat.amount / totalAmount * 100 : 0.0;
+                return PieChartSectionData(
+                  value: stat.amount.toDouble(),
+                  title: pct >= 5 ? '${pct.toStringAsFixed(0)}%' : '',
+                  color: color,
+                  radius: 60,
+                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                );
+              }).toList(),
+              centerSpaceRadius: 40,
+              sectionsSpace: 2,
+            )),
+          ),
+          const SizedBox(height: 24),
+          ...filtered.asMap().entries.map((entry) {
+            final stat = entry.value;
+            final color = _getStatColor(stat, entry.key);
+            final pct = totalAmount > 0 ? stat.amount / totalAmount * 100 : 0.0;
+            return _buildListItem(
+              context,
+              color: color,
+              name: stat.category.name,
+              amount: stat.amount,
+              percentage: pct,
+              count: stat.transactionCount,
+            );
+          }),
+        ],
+      ),
+    );
   }
 
-}
+  /// All categories view: flat list regardless of group
+  Widget _buildAllCategoryView(BuildContext context) {
+    final sorted = widget.categoryStats.toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
 
-class _CategoryListItem extends StatelessWidget {
-  final CategoryStatistics stat;
-
-  const _CategoryListItem({required this.stat});
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryColor = UIHelpers.parseColor(
-      stat.category.color,
-      fallback: const Color(0xFFFF5733),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 220,
+            child: PieChart(PieChartData(
+              sections: sorted.asMap().entries.map((entry) {
+                final stat = entry.value;
+                final color = _getStatColor(stat, entry.key);
+                return PieChartSectionData(
+                  value: stat.amount.toDouble(),
+                  title: stat.percentage >= 5
+                      ? '${stat.percentage.toStringAsFixed(0)}%'
+                      : '',
+                  color: color,
+                  radius: 60,
+                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                );
+              }).toList(),
+              centerSpaceRadius: 40,
+              sectionsSpace: 2,
+            )),
+          ),
+          const SizedBox(height: 24),
+          ...sorted.asMap().entries.map((entry) {
+            final stat = entry.value;
+            final color = _getStatColor(stat, entry.key);
+            return _buildListItem(
+              context,
+              color: color,
+              name: stat.category.displayName,
+              amount: stat.amount,
+              percentage: stat.percentage,
+              count: stat.transactionCount,
+            );
+          }),
+        ],
+      ),
     );
+  }
 
+  Color _getStatColor(CategoryStatistics stat, int index) {
+    if (stat.category.color != null && stat.category.color!.isNotEmpty) {
+      return UIHelpers.parseColor(stat.category.color,
+          fallback: _defaultColors[index % _defaultColors.length]);
+    }
+    return _defaultColors[index % _defaultColors.length];
+  }
+
+  Widget _buildListItem(
+    BuildContext context, {
+    required Color color,
+    required String name,
+    required int amount,
+    required double percentage,
+    required int count,
+    VoidCallback? onTap,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: categoryColor,
-                  shape: BoxShape.circle,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: Theme.of(context).textTheme.bodyLarge),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (percentage / 100).clamp(0.0, 1.0),
+                          backgroundColor: color.withValues(alpha: 0.1),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      stat.category.name,
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      '${CurrencyFormatter.format(amount)}원',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 4),
-                    // Percentage bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: stat.percentage / 100,
-                        backgroundColor: categoryColor.withValues(alpha: 0.1),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(categoryColor),
-                        minHeight: 6,
-                      ),
+                    Text(
+                      '${percentage.toStringAsFixed(1)}% ($count건)',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${CurrencyFormatter.format(stat.amount)}원',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  Text(
-                    '${stat.percentage.toStringAsFixed(1)}% (${stat.transactionCount}건)',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
-                  ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 18,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
                 ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _GroupData {
+  final String id;
+  final String name;
+  int amount = 0;
+  int count = 0;
+  double percentage = 0;
+
+  _GroupData({required this.id, required this.name});
 }

@@ -56,6 +56,36 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                 themeMode: themeMode,
                 scaffoldMessengerKey: rootScaffoldMessengerKey,
                 routerConfig: _router,
+                builder: (context, child) {
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Mobile: no constraint, Web: centered with max width + background
+                      if (constraints.maxWidth <= 768) {
+                        return child!;
+                      }
+                      final bgColor = Theme.of(context).colorScheme.surfaceContainerLowest;
+                      return ColoredBox(
+                        color: bgColor,
+                        child: Center(
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 960),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 24,
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
                 localizationsDelegates: const [
                   GlobalMaterialLocalizations.delegate,
                   GlobalWidgetsLocalizations.delegate,

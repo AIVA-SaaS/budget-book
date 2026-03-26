@@ -200,25 +200,47 @@ class PaymentMethodService(
 
     @Transactional(readOnly = true)
     fun getCardSettlementSummary(userId: UUID): CardSettlementSummaryResponse {
+        val couple = getActiveCouple(userId)
         val now = YearMonth.now()
         val prev = now.minusMonths(1)
 
-        val prevCards = getCardPendingSummary(userId, prev.year, prev.monthValue)
-        val currCards = getCardPendingSummary(userId, now.year, now.monthValue)
+        val creditCards = paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(
+            couple.id, PaymentMethodType.CREDIT
+        )
+
+        fun buildMonth(yearMonth: YearMonth): CardSettlementMonth {
+            val startDate = yearMonth.atDay(1)
+            val endDate = yearMonth.atEndOfMonth()
+            val cards = creditCards.map { card ->
+                val results = transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                    paymentMethodId = card.id,
+                    startDate = startDate,
+                    endDate = endDate,
+                    userId = userId
+                )
+                val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
+                val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
+                CardPendingResponse(
+                    paymentMethod = card.toResponse(),
+                    pendingAmount = totalAmount,
+                    settlementDate = if (card.settlementDay != null) {
+                        LocalDate.of(yearMonth.year, yearMonth.month,
+                            card.settlementDay!!.coerceAtMost(yearMonth.lengthOfMonth()))
+                    } else null,
+                    transactionCount = count
+                )
+            }
+            return CardSettlementMonth(
+                year = yearMonth.year,
+                month = yearMonth.monthValue,
+                totalAmount = cards.sumOf { it.pendingAmount },
+                cards = cards
+            )
+        }
 
         return CardSettlementSummaryResponse(
-            previousMonth = CardSettlementMonth(
-                year = prev.year,
-                month = prev.monthValue,
-                totalAmount = prevCards.sumOf { it.pendingAmount },
-                cards = prevCards
-            ),
-            currentMonth = CardSettlementMonth(
-                year = now.year,
-                month = now.monthValue,
-                totalAmount = currCards.sumOf { it.pendingAmount },
-                cards = currCards
-            )
+            previousMonth = buildMonth(prev),
+            currentMonth = buildMonth(now)
         )
     }
 

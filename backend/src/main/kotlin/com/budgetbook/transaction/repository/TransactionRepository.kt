@@ -55,8 +55,10 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
 
     @Query("""
         SELECT SUM(t.amount), COUNT(t),
-               t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color
+               t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color,
+               t.category.group.id, t.category.group.name
         FROM Transaction t
+        LEFT JOIN t.category.group
         WHERE t.couple.id = :coupleId
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = :type
@@ -66,7 +68,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
             OR (:visFilter = 'SHARED' AND t.visibility = com.budgetbook.common.entity.Visibility.SHARED)
             OR (:visFilter = 'PRIVATE' AND t.visibility = com.budgetbook.common.entity.Visibility.PRIVATE AND t.owner.id = :userId)
         )
-        GROUP BY t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color
+        GROUP BY t.category.id, t.category.name, t.category.type, t.category.icon, t.category.color,
+                 t.category.group.id, t.category.group.name
         ORDER BY SUM(t.amount) DESC
     """)
     fun sumByCategoryForCouple(
@@ -76,7 +79,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("type") type: TransactionType,
         @Param("userId") userId: UUID,
         @Param("visFilter") visFilter: String = "ALL"
-    ): List<Array<Any>>
+    ): List<Array<Any?>>
 
     @Query("""
         SELECT cg.id, SUM(t.amount)
@@ -156,6 +159,21 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("categoryIds") categoryIds: Set<UUID>,
         @Param("userId") userId: UUID
     ): Long
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0), COUNT(t)
+        FROM Transaction t
+        WHERE t.paymentMethod.id = :paymentMethodId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+    """)
+    fun sumByPaymentMethodAndTransactionDateRange(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
+    ): List<Array<Any?>>
 
     @Query("""
         SELECT SUM(t.amount), COUNT(t)

@@ -85,6 +85,7 @@ class PaymentMethodPage extends StatelessWidget {
     }
 
     return ListView(
+      key: const PageStorageKey('payment_method_list'),
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
         // Card settlement summary at the top if there are credit cards
@@ -252,6 +253,17 @@ class PaymentMethodPage extends StatelessWidget {
           '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일');
       if (method.linkedBankName != null) {
         parts.add('결제은행: ${method.linkedBankName}');
+      }
+      // Show current month usage from settlement summary
+      final pmState = context.read<PaymentMethodBloc>().state;
+      if (pmState is PaymentMethodLoaded && pmState.cardSettlementSummary != null) {
+        final summary = pmState.cardSettlementSummary!;
+        try {
+          final currCard = summary.currentMonth.cards.where((c) => c.paymentMethodId == method.id);
+          if (currCard.isNotEmpty) {
+            parts.add('이번달 사용: ${CurrencyFormatter.format(currCard.first.amount)}원');
+          }
+        } catch (_) {}
       }
       return Text(parts.join('\n'), style: subtitleStyle);
     }

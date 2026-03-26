@@ -6,12 +6,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/utils/web_download_stub.dart'
     if (dart.library.html) 'package:budget_book/core/utils/web_download_web.dart'
     as web_download;
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -39,7 +41,10 @@ class TransactionListPage extends StatefulWidget {
 
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
+  bool _isSearching = false;
 
   // Filter state
   late String? _filterPaymentMethodId = widget.initialPaymentMethodId;
@@ -78,14 +83,23 @@ class _TransactionListPageState extends State<TransactionListPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
+    _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
+    _isSearching = true;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       _reloadWithFilters();
+      // Restore focus after reload completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_isSearching && mounted) {
+          _searchFocusNode.requestFocus();
+        }
+      });
     });
   }
 
@@ -313,6 +327,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         : <PaymentMethod>[];
 
     return DropdownButtonFormField<String>(
+      key: ValueKey('pm_$selectedId'),
       initialValue: selectedId,
       decoration: const InputDecoration(
         labelText: '결제수단',
@@ -344,6 +359,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         : <MoneyPocket>[];
 
     return DropdownButtonFormField<String>(
+      key: ValueKey('pocket_$selectedId'),
       initialValue: selectedId,
       decoration: const InputDecoration(
         labelText: '포켓',
@@ -367,7 +383,27 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_appBarTitle),
+        title: Builder(
+          builder: (context) {
+            final bloc = context.watch<TransactionBloc>();
+            final state = bloc.state;
+            final count = state is TransactionLoaded ? state.totalElements : null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_appBarTitle, style: const TextStyle(fontSize: 18)),
+                if (count != null)
+                  Text(
+                    '$count건',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.file_upload),
@@ -417,7 +453,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/transactions/create'),
+        onPressed: () {
+          final pmParam = _filterPaymentMethodId != null
+              ? '?paymentMethodId=$_filterPaymentMethodId'
+              : '';
+          context.push('/transactions/create$pmParam');
+        },
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),
@@ -456,6 +497,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
               Expanded(
                 child: TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   onChanged: _onSearchChanged,
                   decoration: InputDecoration(
                     hintText: '거래 검색...',
@@ -465,6 +507,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchController.clear();
+                              _isSearching = false;
                               _reloadWithFilters();
                             },
                           )
@@ -510,6 +553,21 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final grouped = state.groupedByDate;
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
+    // Calculate running totals in display order (newest date first, within date same order as displayed)
+    // Accumulate from the bottom of the list (oldest) upward
+    final flatTransactions = <Transaction>[];
+    for (final date in sortedDates) {
+      flatTransactions.addAll(grouped[date]!);
+    }
+    // Reverse to process oldest first, then assign cumulative in display order
+    final runningTotals = <String, int>{};
+    int cumulative = 0;
+    for (int i = flatTransactions.length - 1; i >= 0; i--) {
+      final t = flatTransactions[i];
+      cumulative += t.isExpense ? -t.amount : t.amount;
+      runningTotals[t.id] = cumulative;
+    }
+
     // Add 1 extra item for the loading indicator when loading more
     final itemCount =
         sortedDates.length + (state.isLoadingMore || state.hasMore ? 1 : 0);
@@ -519,8 +577,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         if (notification is ScrollUpdateNotification) {
           final maxScroll = notification.metrics.maxScrollExtent;
           final currentScroll = notification.metrics.pixels;
-          // Trigger load more at 80% scroll
-          if (currentScroll >= maxScroll * 0.8) {
+          // Trigger load more at 70% scroll for smoother infinite scrolling
+          if (currentScroll >= maxScroll * 0.7) {
             final bloc = context.read<TransactionBloc>();
             final currentState = bloc.state;
             if (currentState is TransactionLoaded &&
@@ -533,6 +591,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         return false;
       },
       child: ListView.builder(
+        controller: _scrollController,
+        key: const PageStorageKey('transaction_list'),
         itemCount: itemCount,
         itemBuilder: (context, index) {
           // Last item is loading indicator
@@ -547,9 +607,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DateHeader(dateStr: date),
+              _DateHeader(
+                dateStr: date,
+                dayIncome: transactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount),
+                dayExpense: transactions.where((t) => t.isExpense).fold(0, (s, t) => s + t.amount),
+              ),
               ...transactions.map((t) => TransactionListTile(
                     transaction: t,
+                    runningTotal: runningTotals[t.id],
                     onTap: () => context.push('/transactions/detail/${t.id}'),
                     onDelete: () {
                       showDialog(
@@ -618,8 +683,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
 class _DateHeader extends StatelessWidget {
   final String dateStr;
+  final int dayIncome;
+  final int dayExpense;
 
-  const _DateHeader({required this.dateStr});
+  const _DateHeader({
+    required this.dateStr,
+    this.dayIncome = 0,
+    this.dayExpense = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -642,18 +713,30 @@ class _DateHeader extends StatelessWidget {
             .withValues(alpha: 0.5),
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                formatted,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.6),
-                    ),
-              ),
+            Text(
+              formatted,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
             ),
+            const Spacer(),
+            if (dayIncome > 0)
+              Text(
+                '+${CurrencyFormatter.format(dayIncome)}',
+                style: TextStyle(fontSize: 11, color: Colors.blue.shade600, fontWeight: FontWeight.w500),
+              ),
+            if (dayIncome > 0 && dayExpense > 0)
+              const SizedBox(width: 6),
+            if (dayExpense > 0)
+              Text(
+                '-${CurrencyFormatter.format(dayExpense)}',
+                style: TextStyle(fontSize: 11, color: Colors.red.shade600, fontWeight: FontWeight.w500),
+              ),
+            const SizedBox(width: 8),
             Icon(
               Icons.add_circle_outline,
               size: 16,

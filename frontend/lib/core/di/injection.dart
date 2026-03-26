@@ -144,7 +144,8 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<TransactionBloc>(
     () => TransactionBloc(
-        transactionRepository: getIt<TransactionRepository>()),
+        transactionRepository: getIt<TransactionRepository>(),
+        statisticsRepository: getIt<StatisticsRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 

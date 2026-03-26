@@ -27,7 +27,13 @@ class PaymentMethodBloc
       final result = await paymentMethodRepository.getPaymentMethods();
       result.fold(
         (failure) => emit(PaymentMethodError(failure.message)),
-        (methods) => emit(PaymentMethodLoaded(methods)),
+        (methods) {
+          emit(PaymentMethodLoaded(methods));
+          // Auto-load card settlement summary if credit cards exist
+          if (methods.any((pm) => pm.isCredit)) {
+            add(const LoadCardSettlementSummary());
+          }
+        },
       );
     } catch (_) {
       emit(const PaymentMethodError('예기치 않은 오류가 발생했습니다'));

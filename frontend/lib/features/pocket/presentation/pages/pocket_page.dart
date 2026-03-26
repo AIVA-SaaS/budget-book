@@ -85,6 +85,7 @@ class PocketPage extends StatelessWidget {
     }
 
     return ListView(
+      key: const PageStorageKey('pocket_list'),
       padding: const EdgeInsets.all(16),
       children: [
         // Total balance card

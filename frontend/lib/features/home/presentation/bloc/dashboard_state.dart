@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 
@@ -24,6 +25,7 @@ class DashboardLoaded extends DashboardState {
   final StatisticsSummary? summary;
   final List<Transaction> recentTransactions;
   final BudgetSummary? budgetSummary;
+  final List<PaymentMethodStatistics> paymentMethodStats;
   final String? summaryError;
   final String? transactionsError;
   final String? budgetError;
@@ -34,6 +36,7 @@ class DashboardLoaded extends DashboardState {
     this.summary,
     this.recentTransactions = const [],
     this.budgetSummary,
+    this.paymentMethodStats = const [],
     this.summaryError,
     this.transactionsError,
     this.budgetError,
@@ -46,6 +49,7 @@ class DashboardLoaded extends DashboardState {
         summary,
         recentTransactions,
         budgetSummary,
+        paymentMethodStats,
         summaryError,
         transactionsError,
         budgetError,
