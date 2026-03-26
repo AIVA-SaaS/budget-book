@@ -8,12 +8,14 @@ class TransactionListTile extends StatelessWidget {
   final Transaction transaction;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final int? runningTotal;
 
   const TransactionListTile({
     super.key,
     required this.transaction,
     this.onTap,
     this.onDelete,
+    this.runningTotal,
   });
 
 
@@ -136,6 +138,7 @@ class TransactionListTile extends StatelessWidget {
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
@@ -145,15 +148,27 @@ class TransactionListTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
             ),
-            Text(
-              transaction.author.nickname,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
-                  ),
-            ),
+            if (runningTotal != null)
+              Text(
+                '${CurrencyFormatter.format(runningTotal!)}원',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.35),
+                ),
+              )
+            else
+              Text(
+                transaction.author.nickname,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.4),
+                    ),
+              ),
           ],
         ),
       ),

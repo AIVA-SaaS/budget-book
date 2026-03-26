@@ -100,6 +100,8 @@ class StatisticsService(
             val catType = (row[4] as Enum<*>).name
             val catIcon = row[5] as? String
             val catColor = row[6] as? String
+            val groupId = row[7] as? UUID
+            val groupName = row[8] as? String
 
             CategoryStatisticsResponse(
                 category = CategorySummary(
@@ -107,7 +109,9 @@ class StatisticsService(
                     name = catName,
                     type = catType,
                     icon = catIcon,
-                    color = catColor
+                    color = catColor,
+                    groupId = groupId,
+                    groupName = groupName
                 ),
                 amount = amount,
                 percentage = if (totalAmount > 0) {

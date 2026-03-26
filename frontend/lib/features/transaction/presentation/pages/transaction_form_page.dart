@@ -46,11 +46,16 @@ class TransactionFormPage extends StatefulWidget {
   /// Used when navigating from a date header in the transaction list.
   final DateTime? initialDate;
 
+  /// Optional initial payment method ID.
+  /// Used when adding a transaction from a filtered payment method view.
+  final String? initialPaymentMethodId;
+
   const TransactionFormPage({
     super.key,
     this.transactionId,
     this.initialType,
     this.initialDate,
+    this.initialPaymentMethodId,
   });
 
   @override
@@ -113,6 +118,12 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _coupleId;
 
   Future<void> _loadDefaultPaymentMethod() async {
+    // If initial payment method is specified (e.g., from filtered view), use it
+    if (widget.initialPaymentMethodId != null && _selectedPaymentMethodId == null) {
+      setState(() => _selectedPaymentMethodId = widget.initialPaymentMethodId);
+      return;
+    }
+
     _coupleId ??= _resolveCoupleId();
     if (_coupleId == null) return;
 
@@ -851,7 +862,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       child: InputDecorator(
         decoration: const InputDecoration(
           labelText: '날짜',
-          prefixIcon: Icon(Icons.calendar_today),
+          suffixIcon: Icon(Icons.calendar_today),
         ),
         child: Text(formattedDate),
       ),

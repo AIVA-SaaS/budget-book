@@ -118,6 +118,7 @@ class TransferListPage extends StatelessWidget {
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView.builder(
+      key: const PageStorageKey('transfer_list'),
       itemCount: sortedDates.length,
       itemBuilder: (context, index) {
         final date = sortedDates[index];

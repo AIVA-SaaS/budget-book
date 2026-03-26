@@ -12,9 +12,12 @@ import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
-import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/widgets/account_balance_card.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
@@ -249,6 +252,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
           ..add(const LoadCurrentWeek());
       },
       child: ListView(
+        key: const PageStorageKey('budget_weekly_list'),
         padding: const EdgeInsets.all(16),
         children: [
           // Current week hero card
@@ -429,7 +433,34 @@ class _BudgetListPageState extends State<BudgetListPage> {
           BudgetSummaryCard(summary: state.summary!),
         Expanded(
           child: state.budgets.isEmpty
-              ? _buildEmpty(context)
+              ? ListView(
+                  children: [
+                    const SizedBox(height: 48),
+                    Center(
+                      child: Text(
+                        '이 달에 설정된 예산이 없습니다',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                      ),
+                    ),
+                    BlocProvider<PaymentMethodBloc>.value(
+                      value: getIt<PaymentMethodBloc>(),
+                      child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+                        builder: (context, pmState) {
+                          if (pmState is PaymentMethodInitial) {
+                            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                          }
+                          if (pmState is! PaymentMethodLoaded) {
+                            return const Padding(padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()));
+                          }
+                          return const AccountBalanceCard(showHeader: false);
+                        },
+                      ),
+                    ),
+                  ],
+                )
               : _buildBudgetList(context, state),
         ),
       ],
@@ -474,7 +505,26 @@ class _BudgetListPageState extends State<BudgetListPage> {
       }
     }
 
-    return ListView(children: allItems);
+    // Payment method asset summary at bottom
+    allItems.add(
+      BlocProvider<PaymentMethodBloc>.value(
+        value: getIt<PaymentMethodBloc>(),
+        child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (context, pmState) {
+            if (pmState is PaymentMethodInitial) {
+              getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+            }
+            if (pmState is! PaymentMethodLoaded) {
+              return const Padding(padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()));
+            }
+            return const AccountBalanceCard(showHeader: false);
+          },
+        ),
+      ),
+    );
+
+    return ListView(key: const PageStorageKey('budget_monthly_list'), children: allItems);
   }
 
   Widget _buildBudgetTile(
@@ -643,18 +693,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
     return null;
   }
 
-  Widget _buildEmpty(BuildContext context) {
-    final state = context.read<BudgetBloc>().state;
-    final year = state is BudgetLoaded ? state.year : DateTime.now().year;
-    final month = state is BudgetLoaded ? state.month : DateTime.now().month;
-    return EmptyStateWidget(
-      icon: Icons.account_balance_wallet,
-      title: '예산이 없습니다',
-      subtitle: '이 달에 설정된 예산이 없습니다',
-      actionLabel: '예산 추가',
-      onAction: () => context.push('/budgets/create?year=$year&month=$month'),
-    );
-  }
+  // _buildEmpty removed: inline empty state used in _buildLoaded
 
   Widget _buildError(BuildContext context) {
     final now = DateTime.now();

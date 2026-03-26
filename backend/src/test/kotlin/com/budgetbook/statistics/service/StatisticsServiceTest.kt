@@ -178,8 +178,8 @@ class StatisticsServiceTest : BehaviorSpec({
                     "ALL"
                 )
             } returns listOf(
-                arrayOf(800000L, 12L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733"),
-                arrayOf(320000L, 8L, catId2, "교통비", com.budgetbook.category.domain.CategoryType.EXPENSE, "directions_car", "#2196F3")
+                arrayOf<Any?>(800000L, 12L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null),
+                arrayOf<Any?>(320000L, 8L, catId2, "교통비", com.budgetbook.category.domain.CategoryType.EXPENSE, "directions_car", "#2196F3", null, null)
             )
 
             val result = service.getCategoryBreakdown(user1.id, 2026, 3, "EXPENSE")
@@ -207,7 +207,7 @@ class StatisticsServiceTest : BehaviorSpec({
                     "SHARED"
                 )
             } returns listOf(
-                arrayOf(600000L, 8L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733")
+                arrayOf<Any?>(600000L, 8L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null)
             )
 
             val result = service.getCategoryBreakdown(user1.id, 2026, 3, "EXPENSE", "SHARED")

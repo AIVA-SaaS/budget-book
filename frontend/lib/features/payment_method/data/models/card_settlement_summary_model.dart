@@ -48,10 +48,12 @@ class CardSettlementCardModel extends CardSettlementCard {
   });
 
   factory CardSettlementCardModel.fromJson(Map<String, dynamic> json) {
+    // BE returns CardPendingResponse with nested paymentMethod object
+    final pm = json['paymentMethod'] as Map<String, dynamic>?;
     return CardSettlementCardModel(
-      paymentMethodId: json['paymentMethodId'] as String,
-      paymentMethodName: json['paymentMethodName'] as String,
-      amount: json['amount'] as int,
+      paymentMethodId: pm?['id'] as String? ?? json['paymentMethodId'] as String,
+      paymentMethodName: pm?['name'] as String? ?? json['paymentMethodName'] as String,
+      amount: (json['pendingAmount'] as num?)?.toInt() ?? (json['amount'] as num?)?.toInt() ?? 0,
       settlementDate: json['settlementDate'] as String?,
       transactionCount: json['transactionCount'] as int,
     );

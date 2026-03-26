@@ -11,7 +11,10 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/widgets/announcement_banner.dart';
-import 'package:budget_book/features/budget/presentation/widgets/budget_alert_widget.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/utils/payment_method_helpers.dart';
+import 'package:budget_book/core/widgets/account_balance_card.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -60,12 +63,11 @@ class DashboardPage extends StatelessWidget {
                     );
               },
               child: ListView(
+                key: const PageStorageKey('dashboard_list'),
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Announcement banner
                   const AnnouncementBanner(),
-                  // Budget alerts
-                  const BudgetAlertWidget(),
                   // Month/Year header with navigation
                   _MonthHeader(year: state.year, month: state.month),
                   const SizedBox(height: 16),
@@ -80,6 +82,9 @@ class DashboardPage extends StatelessWidget {
                     recentTransactions: state.recentTransactions,
                   ),
                   const SizedBox(height: 16),
+                  // Account balance summary
+                  const AccountBalanceCard(),
+                  const SizedBox(height: 16),
                   // Budget usage card
                   if (state.budgetSummary != null)
                     _BudgetUsageCard(budgetSummary: state.budgetSummary!),
@@ -89,6 +94,12 @@ class DashboardPage extends StatelessWidget {
                     transactions: state.recentTransactions,
                     error: state.transactionsError,
                   ),
+                  const SizedBox(height: 16),
+                  // Payment method spending breakdown
+                  if (state.paymentMethodStats.isNotEmpty)
+                    _PaymentMethodStatsCard(
+                      stats: state.paymentMethodStats,
+                    ),
                 ],
               ),
             );
@@ -673,6 +684,147 @@ class _RecentTransactionsCard extends StatelessWidget {
                   onTap: () => context.push('/transactions/detail/${txn.id}'),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// AccountBalanceCard is now in core/widgets/account_balance_card.dart
+
+class _PaymentMethodStatsCard extends StatelessWidget {
+  final List<PaymentMethodStatistics> stats;
+
+  static const _colors = [
+    Color(0xFF2196F3),
+    Color(0xFFF44336),
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFF9C27B0),
+    Color(0xFF00BCD4),
+    Color(0xFFE91E63),
+    Color(0xFF795548),
+  ];
+
+  const _PaymentMethodStatsCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '결제수단별 지출',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final shell = StatefulNavigationShell.maybeOf(context);
+                    if (shell != null) {
+                      shell.goBranch(3); // Statistics tab
+                    }
+                  },
+                  child: const Text('더보기'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...stats.asMap().entries.map((entry) {
+              final index = entry.key;
+              final stat = entry.value;
+              final color = _colors[index % _colors.length];
+
+              return InkWell(
+                onTap: () => context.push(
+                  '/transactions?paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}',
+                ),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      if (stat.paymentMethodType != null) ...[
+                        Icon(
+                          paymentMethodTypeIcon(stat.paymentMethodType!),
+                          size: 16,
+                          color: paymentMethodTypeColor(stat.paymentMethodType!),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stat.paymentMethodName,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            Text(
+                              '${stat.transactionCount}건',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${CurrencyFormatter.format(stat.totalAmount)}원',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          '${stat.percentage.toStringAsFixed(0)}%',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.3),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),

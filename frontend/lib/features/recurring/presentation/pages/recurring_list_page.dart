@@ -75,6 +75,7 @@ class RecurringListPage extends StatelessWidget {
             .add(const LoadRecurringTransactions());
       },
       child: ListView(
+        key: const PageStorageKey('recurring_list'),
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           if (state.activeTransactions.isNotEmpty) ...[

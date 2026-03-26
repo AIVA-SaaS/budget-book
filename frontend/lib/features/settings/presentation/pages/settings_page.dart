@@ -22,11 +22,13 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   String? _defaultPaymentMethodId;
   String? _defaultPaymentMethodName;
+  int _recentTransactionCount = 5;
 
   @override
   void initState() {
     super.initState();
     _loadDefaultPaymentMethod();
+    _loadRecentTransactionCount();
   }
 
   String? get _coupleId {
@@ -35,6 +37,15 @@ class _SettingsPageState extends State<SettingsPage> {
       return authState.user.coupleId;
     }
     return null;
+  }
+
+  Future<void> _loadRecentTransactionCount() async {
+    final coupleId = _coupleId;
+    if (coupleId == null) return;
+    final count = await CouplePrefs.getString(coupleId, 'dashboard_recent_count');
+    if (count != null && mounted) {
+      setState(() => _recentTransactionCount = int.tryParse(count) ?? 5);
+    }
   }
 
   Future<void> _loadDefaultPaymentMethod() async {
@@ -180,6 +191,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 },
               ),
+            ),
+            // Recent transaction count
+            ListTile(
+              leading: const Icon(Icons.format_list_numbered),
+              title: const Text('홈 최근 거래 수'),
+              subtitle: Text('$_recentTransactionCount개'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showRecentCountDialog(context),
             ),
             // Admin (only visible for ADMIN users)
             BlocBuilder<AuthBloc, AuthState>(
@@ -433,6 +452,46 @@ class _SettingsPageState extends State<SettingsPage> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  void _showRecentCountDialog(BuildContext context) {
+    const options = [5, 10, 20, 30];
+    showDialog(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('홈 최근 거래 수'),
+        children: options.map((count) {
+          final isSelected = count == _recentTransactionCount;
+          return SimpleDialogOption(
+            onPressed: () async {
+              final coupleId = _coupleId;
+              if (coupleId != null) {
+                await CouplePrefs.setString(
+                    coupleId, 'dashboard_recent_count', count.toString());
+              }
+              if (mounted) {
+                setState(() => _recentTransactionCount = count);
+              }
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Text(count == 30 ? '$count개 (약 1개월)' : '$count개'),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

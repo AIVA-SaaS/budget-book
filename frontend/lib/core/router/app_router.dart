@@ -311,6 +311,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
         final dateStr = state.uri.queryParameters['date'];
+        final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
         DateTime? initialDate;
         if (dateStr != null) {
           initialDate = DateTime.tryParse(dateStr);
@@ -336,6 +337,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           child: TransactionFormPage(
             initialType: type,
             initialDate: initialDate,
+            initialPaymentMethodId: initialPaymentMethodId,
           ),
         );
       },
