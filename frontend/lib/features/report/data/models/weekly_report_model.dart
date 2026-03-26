@@ -15,9 +15,13 @@ class OverspendCategoryModel extends OverspendCategory {
 
   factory OverspendCategoryModel.fromJson(Map<String, dynamic> json) {
     final category = json['category'] as Map<String, dynamic>;
+    final name = category['name'] as String;
+    final groupName = category['groupName'] as String?;
+    final displayName =
+        groupName != null && groupName.isNotEmpty ? '$groupName > $name' : name;
     return OverspendCategoryModel(
       categoryId: category['id'] as String,
-      categoryName: category['name'] as String,
+      categoryName: displayName,
       categoryType: category['type'] as String,
       categoryIcon: category['icon'] as String?,
       categoryColor: category['color'] as String?,

@@ -26,6 +26,7 @@ data class RecurringTransactionResponse(
     val category: CategorySummary?,
     val paymentMethodId: UUID?,
     val paymentMethodName: String?,
+    val visibility: String = "SHARED",
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -53,7 +54,9 @@ data class CreateRecurringTransactionRequest(
 
     val dayOfMonth: Int? = null,
 
-    val dayOfWeek: Int? = null
+    val dayOfWeek: Int? = null,
+
+    val visibility: String? = "SHARED"
 )
 
 data class UpdateRecurringTransactionRequest(
@@ -66,7 +69,8 @@ data class UpdateRecurringTransactionRequest(
     val paymentMethodId: UUID? = null,
     val dayOfMonth: Int? = null,
     val dayOfWeek: Int? = null,
-    val isActive: Boolean? = null
+    val isActive: Boolean? = null,
+    val visibility: String? = null
 )
 
 fun RecurringTransaction.toResponse() = RecurringTransactionResponse(
@@ -89,11 +93,14 @@ fun RecurringTransaction.toResponse() = RecurringTransactionResponse(
             name = it.name,
             type = it.type.name,
             icon = it.icon,
-            color = it.color
+            color = it.color,
+            groupId = it.group?.id,
+            groupName = it.group?.name
         )
     },
     paymentMethodId = paymentMethod?.id,
     paymentMethodName = paymentMethod?.name,
+    visibility = visibility.name,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

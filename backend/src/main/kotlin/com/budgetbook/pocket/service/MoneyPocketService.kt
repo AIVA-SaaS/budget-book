@@ -1,5 +1,7 @@
 package com.budgetbook.pocket.service
 
+import com.budgetbook.auth.repository.UserRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -17,6 +19,7 @@ import com.budgetbook.pocket.repository.PocketTransferRepository
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transaction.service.TransactionService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -28,14 +31,34 @@ class MoneyPocketService(
     override val coupleResolver: CoupleResolver,
     private val syncEventPublisher: SyncEventPublisher,
     private val pocketTransferRepository: PocketTransferRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val userRepository: UserRepository
 ) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun getPockets(userId: UUID): List<PocketResponse> {
         val couple = getActiveCouple(userId)
-        val pockets = moneyPocketRepository.findByCoupleIdAndIsActiveTrue(couple.id)
-        return pockets.map { it.toResponse(calculateBalance(it)) }
+        val pockets = moneyPocketRepository.findByCoupleIdAndIsActiveTrueAndUserId(couple.id, userId)
+
+        if (pockets.isEmpty()) return emptyList()
+
+        val pocketIds = pockets.map { it.id }.toSet()
+
+        // Batch queries for balance calculation
+        val transfersInMap = pocketTransferRepository.sumAmountByToPocketIdIn(pocketIds)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+        val transfersOutMap = pocketTransferRepository.sumAmountByFromPocketIdIn(pocketIds)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+        val expensesMap = transactionRepository.sumExpenseByPocketIdIn(pocketIds, userId)
+            .associate { (it[0] as UUID) to (it[1] as Long) }
+
+        return pockets.map { pocket ->
+            val transfersIn = transfersInMap[pocket.id] ?: 0L
+            val transfersOut = transfersOutMap[pocket.id] ?: 0L
+            val expenses = expensesMap[pocket.id] ?: 0L
+            val balance = pocket.allocatedAmount + transfersIn - transfersOut - expenses
+            pocket.toResponse(balance)
+        }
     }
 
     @Transactional
@@ -48,7 +71,13 @@ class MoneyPocketService(
             throw BusinessException("VALIDATION_ERROR", "Invalid pocket type: ${request.type}")
         }
 
+        val visibility = TransactionService.parseVisibility(request.visibility)
         val maxOrder = moneyPocketRepository.maxDisplayOrderByCoupleId(couple.id)
+
+        val owner = if (visibility == Visibility.PRIVATE) {
+            userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        } else null
 
         val pocket = MoneyPocket(
             couple = couple,
@@ -59,7 +88,9 @@ class MoneyPocketService(
             color = request.color,
             displayOrder = maxOrder + 1,
             goalAmount = request.goalAmount,
-            targetDate = request.targetDate
+            targetDate = request.targetDate,
+            visibility = visibility,
+            owner = owner
         )
 
         val saved = moneyPocketRepository.save(pocket)
@@ -70,7 +101,7 @@ class MoneyPocketService(
             coupleId = couple.id,
             authorId = userId
         ))
-        return saved.toResponse(calculateBalance(saved))
+        return saved.toResponse(calculateBalance(saved, userId))
     }
 
     @Transactional
@@ -84,6 +115,7 @@ class MoneyPocketService(
         }
 
         OwnershipValidator.validateOwnership(pocket.couple.id, couple, "Pocket")
+        validatePrivateOwner(pocket, userId)
 
         request.name?.let { pocket.name = it }
         request.allocatedAmount?.let { pocket.allocatedAmount = it }
@@ -93,6 +125,19 @@ class MoneyPocketService(
         request.goalAmount?.let { pocket.goalAmount = it }
         request.targetDate?.let { pocket.targetDate = it }
 
+        // Handle visibility change
+        request.visibility?.let { visStr ->
+            val newVisibility = TransactionService.parseVisibility(visStr)
+            pocket.visibility = newVisibility
+            if (newVisibility == Visibility.PRIVATE) {
+                val user = userRepository.findById(userId)
+                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+                pocket.owner = user
+            } else {
+                pocket.owner = null
+            }
+        }
+
         val saved = moneyPocketRepository.save(pocket)
         syncEventPublisher.publish(SyncEvent(
             type = "POCKET_UPDATED",
@@ -101,7 +146,7 @@ class MoneyPocketService(
             coupleId = couple.id,
             authorId = userId
         ))
-        return saved.toResponse(calculateBalance(saved))
+        return saved.toResponse(calculateBalance(saved, userId))
     }
 
     @Transactional
@@ -113,6 +158,8 @@ class MoneyPocketService(
         if (!pocket.isActive) {
             throw NotFoundException("POCKET_NOT_FOUND", "Pocket does not exist.")
         }
+
+        validatePrivateOwner(pocket, userId)
 
         pocket.isActive = false
         moneyPocketRepository.save(pocket)
@@ -147,11 +194,17 @@ class MoneyPocketService(
         }
     }
 
-    internal fun calculateBalance(pocket: MoneyPocket): Long {
+    internal fun calculateBalance(pocket: MoneyPocket, userId: UUID): Long {
         val transfersIn = pocketTransferRepository.sumAmountByToPocketId(pocket.id)
         val transfersOut = pocketTransferRepository.sumAmountByFromPocketId(pocket.id)
-        val expenses = transactionRepository.sumExpenseByPocketId(pocket.id)
+        val expenses = transactionRepository.sumExpenseByPocketId(pocket.id, userId)
         return pocket.allocatedAmount + transfersIn - transfersOut - expenses
+    }
+
+    private fun validatePrivateOwner(pocket: MoneyPocket, userId: UUID) {
+        if (pocket.visibility == Visibility.PRIVATE && pocket.owner?.id != null && pocket.owner?.id != userId) {
+            throw ForbiddenException("FORBIDDEN", "Only the owner can modify a private pocket.")
+        }
     }
 
     private fun MoneyPocket.toResponse(balance: Long) = PocketResponse(
@@ -166,6 +219,8 @@ class MoneyPocketService(
         isActive = isActive,
         goalAmount = goalAmount,
         targetDate = targetDate,
+        visibility = visibility.name,
+        ownerId = owner?.id,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

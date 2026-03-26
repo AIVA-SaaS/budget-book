@@ -15,6 +15,7 @@ import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.domain.InvitationStatus
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
+import com.budgetbook.couple.dto.InvitationStatusResponse
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.couple.repository.CoupleInvitationRepository
 import com.budgetbook.couple.repository.CoupleRepository
@@ -126,6 +127,12 @@ class CoupleService(
         categoryGroupService.seedDefaultCategoryGroups(couple)
         paymentMethodService.seedDefaultPaymentMethods(couple)
 
+        // Seed PRIVATE category groups and categories for each user
+        listOf(invitation.inviter, acceptingUser).forEach { user ->
+            val privateGroup = categoryGroupService.seedPrivateCategoryGroup(couple, user)
+            categoryService.seedPrivateCategories(couple, user, privateGroup)
+        }
+
         val partner = invitation.inviter
         return CoupleResponse(
             id = couple.id,
@@ -137,6 +144,24 @@ class CoupleService(
             status = couple.status.name,
             createdAt = couple.createdAt,
             dissolvedAt = couple.dissolvedAt
+        )
+    }
+
+    @Transactional
+    fun getMyInvitation(userId: UUID): InvitationStatusResponse {
+        val invitation = coupleInvitationRepository.findTopByInviterIdOrderByCreatedAtDesc(userId)
+            ?: throw NotFoundException("INVITATION_NOT_FOUND", "No invitation found for the user.")
+
+        // If PENDING but expired, update to EXPIRED
+        if (invitation.status == InvitationStatus.PENDING && invitation.expiresAt.isBefore(Instant.now())) {
+            invitation.status = InvitationStatus.EXPIRED
+            coupleInvitationRepository.save(invitation)
+        }
+
+        return InvitationStatusResponse(
+            code = invitation.invitationCode,
+            expiresAt = invitation.expiresAt,
+            status = invitation.status.name
         )
     }
 

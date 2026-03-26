@@ -9,6 +9,9 @@ class PaymentMethod extends Equatable {
   final bool isActive;
   final bool isDefault;
   final int displayOrder;
+  final int? balance;
+  final String? linkedBankId;
+  final String? linkedBankName;
   final DateTime createdAt;
 
   const PaymentMethod({
@@ -20,12 +23,16 @@ class PaymentMethod extends Equatable {
     required this.isActive,
     required this.isDefault,
     required this.displayOrder,
+    this.balance,
+    this.linkedBankId,
+    this.linkedBankName,
     required this.createdAt,
   });
 
   bool get isCash => type == 'CASH';
   bool get isDebit => type == 'DEBIT';
   bool get isCredit => type == 'CREDIT';
+  bool get isBank => type == 'BANK';
 
   @override
   List<Object?> get props => [
@@ -37,6 +44,9 @@ class PaymentMethod extends Equatable {
         isActive,
         isDefault,
         displayOrder,
+        balance,
+        linkedBankId,
+        linkedBankName,
         createdAt,
       ];
 }

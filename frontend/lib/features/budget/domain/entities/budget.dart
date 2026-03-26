@@ -5,6 +5,8 @@ class Budget extends Equatable {
   final String id;
   final String coupleId;
   final TransactionCategory? category;
+  final String? groupId;
+  final String? groupName;
   final String yearMonth;
   final int amount;
   final String budgetPeriod;
@@ -14,6 +16,8 @@ class Budget extends Equatable {
   final String periodType;
   final DateTime? startDate;
   final DateTime? endDate;
+  final String visibility;
+  final String? ownerId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +25,8 @@ class Budget extends Equatable {
     required this.id,
     required this.coupleId,
     this.category,
+    this.groupId,
+    this.groupName,
     required this.yearMonth,
     required this.amount,
     this.budgetPeriod = 'MONTHLY',
@@ -30,15 +36,45 @@ class Budget extends Equatable {
     this.periodType = 'MONTHLY',
     this.startDate,
     this.endDate,
+    this.visibility = 'SHARED',
+    this.ownerId,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Display label for this budget target (category, group, or total).
+  String get targetLabel {
+    if (category != null) return category!.name;
+    if (groupName != null) return '$groupName (그룹)';
+    return '전체 예산';
+  }
+
+  /// For WEEKLY budgets, calculate the effective monthly amount
+  /// using pro-rata (weeklyAmount * daysInMonth / 7).
+  /// For MONTHLY budgets, returns amount as-is.
+  int get effectiveMonthlyAmount {
+    if (budgetPeriod != 'WEEKLY' || weeklyAmount == null) return amount;
+
+    // Parse yearMonth to get days in month
+    final parts = yearMonth.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+
+    // Pro-rata: weeklyAmount * daysInMonth / 7
+    return (weeklyAmount! * daysInMonth) ~/ 7;
+  }
+
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   @override
   List<Object?> get props => [
         id,
         coupleId,
         category,
+        groupId,
+        groupName,
         yearMonth,
         amount,
         budgetPeriod,
@@ -48,6 +84,8 @@ class Budget extends Equatable {
         periodType,
         startDate,
         endDate,
+        visibility,
+        ownerId,
         createdAt,
         updatedAt,
       ];
@@ -79,6 +117,8 @@ class BudgetSummary extends Equatable {
 
 class BudgetSummaryItem extends Equatable {
   final TransactionCategory? category;
+  final String? groupId;
+  final String? groupName;
   final int budgetAmount;
   final int spentAmount;
   final int remainingAmount;
@@ -86,6 +126,8 @@ class BudgetSummaryItem extends Equatable {
 
   const BudgetSummaryItem({
     this.category,
+    this.groupId,
+    this.groupName,
     required this.budgetAmount,
     required this.spentAmount,
     required this.remainingAmount,
@@ -96,5 +138,5 @@ class BudgetSummaryItem extends Equatable {
 
   @override
   List<Object?> get props =>
-      [category, budgetAmount, spentAmount, remainingAmount, usageRate];
+      [category, groupId, groupName, budgetAmount, spentAmount, remainingAmount, usageRate];
 }

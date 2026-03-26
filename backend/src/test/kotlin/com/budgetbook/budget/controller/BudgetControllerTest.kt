@@ -7,9 +7,9 @@ import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
-import com.budgetbook.budget.dto.WeeklyGroupSummary
+import com.budgetbook.budget.dto.WeeklyBudgetItemResponse
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
-import com.budgetbook.budget.dto.WeeklySnapshotResponse
+import com.budgetbook.budget.dto.WeeklyWeekResponse
 import com.budgetbook.budget.service.BudgetAlertService
 import com.budgetbook.budget.service.BudgetService
 import com.budgetbook.budget.service.WeeklyBudgetService
@@ -163,13 +163,26 @@ class BudgetControllerTest : FunSpec({
 
     test("getWeeklyOverview returns weekly overview") {
 
+        val budgetId = UUID.randomUUID()
         val overview = WeeklyOverviewResponse(
             yearMonth = "2026-03",
             weeks = listOf(
-                WeeklySnapshotResponse(
+                WeeklyWeekResponse(
                     weekNumber = 1, weekStart = "2026-03-01", weekEnd = "2026-03-07",
-                    budgetAmount = 100000, spentAmount = 80000, remainingAmount = 20000,
-                    usageRate = 80.0, status = "UNDER"
+                    totalBudget = 100000, totalSpent = 80000, totalRemaining = 20000,
+                    items = listOf(
+                        WeeklyBudgetItemResponse(
+                            budgetId = budgetId,
+                            categoryId = sampleCategory.id,
+                            categoryName = "식비",
+                            groupId = null,
+                            groupName = null,
+                            budgetAmount = 100000,
+                            spentAmount = 80000,
+                            remainingAmount = 20000,
+                            usageRate = 80.0
+                        )
+                    )
                 )
             )
         )
@@ -181,17 +194,22 @@ class BudgetControllerTest : FunSpec({
         result.data!!.yearMonth shouldBe "2026-03"
         result.data!!.weeks.size shouldBe 1
         result.data!!.weeks[0].weekNumber shouldBe 1
+        result.data!!.weeks[0].items.size shouldBe 1
     }
 
     test("getCurrentWeekSummary returns current week summary") {
 
+        val budgetId = UUID.randomUUID()
         val summary = CurrentWeekSummaryResponse(
             yearMonth = "2026-03",
             weekNumber = 2,
             weekStart = "2026-03-08",
             weekEnd = "2026-03-14",
-            groups = listOf(
-                WeeklyGroupSummary(
+            items = listOf(
+                WeeklyBudgetItemResponse(
+                    budgetId = budgetId,
+                    categoryId = null,
+                    categoryName = null,
                     groupId = UUID.randomUUID(),
                     groupName = "생활비",
                     budgetAmount = 100000,
@@ -207,7 +225,7 @@ class BudgetControllerTest : FunSpec({
 
         result.success shouldBe true
         result.data!!.weekNumber shouldBe 2
-        result.data!!.groups.size shouldBe 1
-        result.data!!.groups[0].groupName shouldBe "생활비"
+        result.data!!.items.size shouldBe 1
+        result.data!!.items[0].groupName shouldBe "생활비"
     }
 })

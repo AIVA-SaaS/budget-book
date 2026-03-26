@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/payment_method/data/card_issuer_presets.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -12,6 +13,7 @@ class PaymentMethodFormSheet extends StatefulWidget {
     String type,
     int? settlementDay,
     int? closingDay,
+    String? linkedBankId,
   ) onSubmit;
 
   const PaymentMethodFormSheet({
@@ -31,6 +33,8 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
   late final TextEditingController _settlementDayController;
   late final TextEditingController _closingDayController;
   late String _selectedType;
+  String? _selectedIssuerId;
+  String? _selectedLinkedBankId;
   bool _isSubmitting = false;
 
   bool get isEditing => widget.paymentMethod != null;
@@ -47,6 +51,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
       text: pm?.closingDay?.toString() ?? '',
     );
     _selectedType = pm?.type ?? 'CASH';
+    _selectedLinkedBankId = pm?.linkedBankId;
   }
 
   @override
@@ -142,12 +147,17 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                     ),
                     ButtonSegment(
                       value: 'DEBIT',
-                      label: Text('체크카드'),
+                      label: Text('체크'),
                       icon: Icon(Icons.credit_card),
                     ),
                     ButtonSegment(
                       value: 'CREDIT',
-                      label: Text('신용카드'),
+                      label: Text('신용'),
+                      icon: Icon(Icons.credit_score),
+                    ),
+                    ButtonSegment(
+                      value: 'BANK',
+                      label: Text('은행'),
                       icon: Icon(Icons.account_balance),
                     ),
                   ],
@@ -160,8 +170,37 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              // Closing day and settlement day (only for CREDIT type)
+              // Card issuer presets + closing/settlement day (only for CREDIT type)
               if (_selectedType == 'CREDIT') ...[
+                if (!isEditing) ...[
+                  Text('카드사', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      ...cardIssuerPresets.map((preset) => ChoiceChip(
+                        label: Text(preset.name, style: const TextStyle(fontSize: 12)),
+                        selected: _selectedIssuerId == preset.id,
+                        onSelected: (_) => _onCardIssuerSelected(preset),
+                        visualDensity: VisualDensity.compact,
+                      )),
+                      ChoiceChip(
+                        label: const Text('직접 입력', style: TextStyle(fontSize: 12)),
+                        selected: _selectedIssuerId == 'custom',
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedIssuerId = 'custom';
+                            _settlementDayController.clear();
+                            _closingDayController.clear();
+                          });
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextFormField(
                   controller: _closingDayController,
                   decoration: const InputDecoration(
@@ -218,6 +257,9 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                 const SizedBox(height: 12),
                 // Billing cycle info
                 _buildBillingCycleInfo(context),
+                const SizedBox(height: 16),
+                // Linked bank dropdown
+                _buildLinkedBankDropdown(context),
                 const SizedBox(height: 16),
               ],
               const SizedBox(height: 8),
@@ -319,6 +361,46 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
     );
   }
 
+  Widget _buildLinkedBankDropdown(BuildContext context) {
+    final pmState = context.read<PaymentMethodBloc>().state;
+    final bankMethods = pmState is PaymentMethodLoaded
+        ? pmState.paymentMethods.where((pm) => pm.isBank).toList()
+        : <PaymentMethod>[];
+
+    return DropdownButtonFormField<String?>(
+      initialValue: _selectedLinkedBankId,
+      decoration: const InputDecoration(
+        labelText: '결제 은행',
+        prefixIcon: Icon(Icons.account_balance),
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('없음'),
+        ),
+        ...bankMethods.map((bank) => DropdownMenuItem<String?>(
+              value: bank.id,
+              child: Text(bank.name),
+            )),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedLinkedBankId = value);
+      },
+    );
+  }
+
+  void _onCardIssuerSelected(CardIssuerPreset preset) {
+    setState(() {
+      _selectedIssuerId = preset.id;
+      _settlementDayController.text = preset.settlementDay.toString();
+      _closingDayController.text = preset.closingDay.toString();
+      if (_nameController.text.isEmpty) {
+        _nameController.text = preset.name;
+      }
+    });
+  }
+
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isSubmitting = true);
@@ -334,6 +416,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
         _selectedType,
         settlementDay,
         closingDay,
+        _selectedType == 'CREDIT' ? _selectedLinkedBankId : null,
       );
     }
   }

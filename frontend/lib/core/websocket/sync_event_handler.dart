@@ -17,6 +17,8 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bl
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_event.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 
 import 'sync_event.dart';
 
@@ -47,6 +49,7 @@ class SyncEventHandler {
     switch (event.entityType) {
       case 'TRANSACTION':
         _refreshTransactions();
+        _refreshPaymentMethods();
         _refreshDashboard();
       case 'BUDGET':
         _refreshBudgets();
@@ -63,6 +66,10 @@ class SyncEventHandler {
       case 'POCKET_TRANSFER':
         _refreshPockets();
         _refreshPocketTransfers();
+        _refreshDashboard();
+      case 'TRANSFER':
+        _refreshTransfers();
+        _refreshPaymentMethods();
         _refreshDashboard();
       default:
         _logger.w('Unknown entity type: ${event.entityType}');
@@ -138,6 +145,17 @@ class SyncEventHandler {
       _logger.d('Dispatched LoadPocketTransfers refresh');
     } catch (e) {
       _logger.e('Failed to refresh pocket transfers: $e');
+    }
+  }
+
+  void _refreshTransfers() {
+    try {
+      final now = DateTime.now();
+      final bloc = _getIt<TransferBloc>();
+      bloc.add(LoadTransfers(year: now.year, month: now.month));
+      _logger.d('Dispatched LoadTransfers refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh transfers: $e');
     }
   }
 

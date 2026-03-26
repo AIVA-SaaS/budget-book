@@ -44,6 +44,7 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
         icon: event.icon,
         color: event.color,
         groupId: event.groupId,
+        visibility: event.visibility,
       );
       result.fold(
         (failure) => emit(CategoryLoaded(currentCategories,

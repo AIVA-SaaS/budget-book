@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -7,13 +8,13 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class TransactionDetailPage extends StatelessWidget {
   final String transactionId;
 
   const TransactionDetailPage({super.key, required this.transactionId});
 
-  static final _amountFormatter = NumberFormat('#,###');
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +139,7 @@ class TransactionDetailPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${isExpense ? "-" : "+"}${_amountFormatter.format(txn.amount)}원',
+                  '${isExpense ? "-" : "+"}${CurrencyFormatter.format(txn.amount)}원',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: amountColor,
                     fontWeight: FontWeight.bold,
@@ -173,7 +174,7 @@ class TransactionDetailPage extends StatelessWidget {
                   icon: UIHelpers.resolveIcon(category?.icon),
                   iconColor: UIHelpers.parseColor(category?.color),
                   label: '카테고리',
-                  value: category?.name ?? '미분류',
+                  value: category?.displayName ?? '미분류',
                 ),
                 if (txn.paymentMethodName != null) ...[
                   const Divider(height: 24),
@@ -219,36 +220,20 @@ class TransactionDetailPage extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirm(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('거래 삭제'),
-        content: const Text('정말 이 거래를 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context
-                  .read<TransactionBloc>()
-                  .add(DeleteTransaction(transactionId));
-              context.pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('거래가 삭제되었습니다')),
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+  Future<void> _showDeleteConfirm(BuildContext context) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '거래 삭제',
     );
+    if (confirmed && context.mounted) {
+      context
+          .read<TransactionBloc>()
+          .add(DeleteTransaction(transactionId));
+      context.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('거래가 삭제되었습니다')),
+      );
+    }
   }
 
 }

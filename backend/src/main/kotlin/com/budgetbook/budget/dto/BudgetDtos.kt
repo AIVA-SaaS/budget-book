@@ -13,6 +13,7 @@ import java.util.UUID
 
 data class BudgetRequest(
     val categoryId: UUID? = null,
+    val groupId: UUID? = null,
 
     @field:NotBlank
     @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "yearMonth must be in YYYY-MM format")
@@ -25,11 +26,15 @@ data class BudgetRequest(
 
     val budgetPeriod: String? = "MONTHLY",
 
+    val weeklyAmount: Long? = null,
+
     val periodType: String? = null,  // NONE, DAILY, WEEKLY, MONTHLY
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
 
-    val pocketId: UUID? = null
+    val pocketId: UUID? = null,
+
+    val visibility: String? = "SHARED"
 )
 
 data class BudgetUpdateRequest(
@@ -39,6 +44,7 @@ data class BudgetUpdateRequest(
     val amount: Long,
 
     val categoryId: UUID? = null,
+    val groupId: UUID? = null,
 
     val budgetPeriod: String? = null,
 
@@ -48,13 +54,17 @@ data class BudgetUpdateRequest(
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
 
-    val pocketId: UUID? = null
+    val pocketId: UUID? = null,
+
+    val visibility: String? = null
 )
 
 data class BudgetResponse(
     val id: UUID,
     val coupleId: UUID,
     val category: CategorySummary?,
+    val groupId: UUID? = null,
+    val groupName: String? = null,
     val yearMonth: String,
     val amount: Long,
     val budgetPeriod: String,
@@ -64,6 +74,8 @@ data class BudgetResponse(
     val endDate: String?,    // ISO date format (YYYY-MM-DD)
     val pocketId: UUID? = null,
     val pocketName: String? = null,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -99,6 +111,8 @@ data class CopyBudgetRequest(
 
 data class BudgetSummaryItemResponse(
     val category: CategorySummary?,
+    val groupId: UUID? = null,
+    val groupName: String? = null,
     val budgetAmount: Long,
     val spentAmount: Long,
     val remainingAmount: Long,
@@ -123,9 +137,13 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
             name = it.name,
             type = it.type.name,
             icon = it.icon,
-            color = it.color
+            color = it.color,
+            groupId = it.group?.id,
+            groupName = it.group?.name
         )
     },
+    groupId = group?.id,
+    groupName = group?.name,
     yearMonth = yearMonth,
     amount = amount,
     budgetPeriod = budgetPeriod.name,
@@ -135,6 +153,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     endDate = endDate?.toString(),
     pocketId = pocket?.id,
     pocketName = pocket?.name,
+    visibility = visibility.name,
+    ownerId = owner?.id,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

@@ -8,8 +8,11 @@ import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.Category
+import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.domain.CategoryType
+import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.ForbiddenException
@@ -42,10 +45,12 @@ class BudgetServiceTest : BehaviorSpec({
     val budgetRepository = mockk<MonthlyBudgetRepository>()
     val coupleResolver = mockk<CoupleResolver>()
     val categoryRepository = mockk<CategoryRepository>()
+    val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val transactionRepository = mockk<TransactionRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
-    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, transactionRepository, syncEventPublisher, moneyPocketRepository)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, categoryGroupRepository, transactionRepository, syncEventPublisher, moneyPocketRepository, userRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -59,7 +64,7 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("creating a budget with a category") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
-            every { budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, category.id, "2026-03") } returns false
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, category.id, null, "2026-03") } returns false
             val budgetSlot = slot<MonthlyBudget>()
             every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
 
@@ -76,7 +81,7 @@ class BudgetServiceTest : BehaviorSpec({
         }
 
         When("creating a total budget (null category)") {
-            every { budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, null, "2026-03") } returns false
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, null, null, "2026-03") } returns false
             val budgetSlot = slot<MonthlyBudget>()
             every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
 
@@ -91,7 +96,7 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("creating a duplicate budget") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
-            every { budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, category.id, "2026-03") } returns true
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, category.id, null, "2026-03") } returns true
 
             val request = BudgetRequest(categoryId = category.id, yearMonth = "2026-03", amount = 150000)
 
@@ -140,7 +145,7 @@ class BudgetServiceTest : BehaviorSpec({
 
         val budget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget1, budget2)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget1, budget2)
 
         When("getBudgetsByMonth is called") {
             val result = service.getBudgetsByMonth(user1.id, 2026, 3)
@@ -401,14 +406,15 @@ class BudgetServiceTest : BehaviorSpec({
 
         val budget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
         val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget1, budget2)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget1, budget2)
 
         // Mock category expense aggregation query: category -> 95000
         every { transactionRepository.sumByCategoryForCouple(
             couple.id,
             LocalDate.of(2026, 3, 1),
             LocalDate.of(2026, 3, 31),
-            TransactionType.EXPENSE
+            TransactionType.EXPENSE,
+            user1.id
         ) } returns listOf(
             arrayOf(95000L, 1L, category.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733")
         )
@@ -418,7 +424,8 @@ class BudgetServiceTest : BehaviorSpec({
             coupleId = couple.id,
             startDate = LocalDate.of(2026, 3, 1),
             endDate = LocalDate.of(2026, 3, 31),
-            type = TransactionType.EXPENSE
+            type = TransactionType.EXPENSE,
+            userId = user1.id
         ) } returns 145000L
 
         When("getBudgetSummary is called") {
@@ -459,8 +466,8 @@ class BudgetServiceTest : BehaviorSpec({
         When("copying budgets from a month with budgets to an empty month") {
             val sourceBudget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
             val sourceBudget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-02", amount = 3000000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget1, sourceBudget2)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-02", user1.id) } returns listOf(sourceBudget1, sourceBudget2)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
             every { budgetRepository.saveAll(any<List<MonthlyBudget>>()) } answers { firstArg() }
 
             val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
@@ -478,11 +485,11 @@ class BudgetServiceTest : BehaviorSpec({
         When("copying budgets when target month already has some budgets") {
             val sourceBudget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
             val sourceBudget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-02", amount = 3000000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget1, sourceBudget2)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-02", user1.id) } returns listOf(sourceBudget1, sourceBudget2)
 
             // Target month already has the category budget
             val existingBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(existingBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(existingBudget)
             every { budgetRepository.saveAll(any<List<MonthlyBudget>>()) } answers { firstArg() }
 
             val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 3)
@@ -496,7 +503,7 @@ class BudgetServiceTest : BehaviorSpec({
         }
 
         When("copying budgets from a month with no budgets") {
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-01", user1.id) } returns emptyList()
 
             val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 1, targetYear = 2026, targetMonth = 3)
 
@@ -521,16 +528,169 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("all source categories already exist in target") {
             val sourceBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-02", amount = 150000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-02") } returns listOf(sourceBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-02", user1.id) } returns listOf(sourceBudget)
 
             val existingBudget = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-04", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-04") } returns listOf(existingBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-04", user1.id) } returns listOf(existingBudget)
 
             val request = CopyBudgetRequest(sourceYear = 2026, sourceMonth = 2, targetYear = 2026, targetMonth = 4)
             val result = service.copyFromPreviousMonth(user1.id, request)
 
             Then("returns empty list") {
                 result.size shouldBe 0
+            }
+        }
+    }
+
+    // --- group budget ---
+
+    Given("a user creating a group budget") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group = CategoryGroup(couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY, displayOrder = 1, isDefault = true)
+
+        When("creating a budget with a groupId") {
+            every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, null, group.id, "2026-03") } returns false
+            val budgetSlot = slot<MonthlyBudget>()
+            every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
+
+            val request = BudgetRequest(groupId = group.id, yearMonth = "2026-03", amount = 500000)
+            val result = service.createBudget(user1.id, request)
+
+            Then("creates budget with group info") {
+                result.groupId shouldBe group.id
+                result.groupName shouldBe "생활비"
+                result.category shouldBe null
+                result.amount shouldBe 500000
+            }
+        }
+
+        When("creating a budget with both categoryId and groupId") {
+            val request = BudgetRequest(categoryId = category.id, groupId = group.id, yearMonth = "2026-03", amount = 100000)
+
+            Then("throws BusinessException for mutual exclusivity") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.createBudget(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("creating a budget with a non-existent groupId") {
+            val fakeId = UUID.randomUUID()
+            every { categoryGroupRepository.findByIdAndCoupleId(fakeId, couple.id) } returns null
+
+            val request = BudgetRequest(groupId = fakeId, yearMonth = "2026-03", amount = 100000)
+
+            Then("throws NotFoundException") {
+                val ex = shouldThrow<NotFoundException> {
+                    service.createBudget(user1.id, request)
+                }
+                ex.code shouldBe "GROUP_NOT_FOUND"
+            }
+        }
+    }
+
+    Given("a group budget in summary calculation") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group = CategoryGroup(couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY, displayOrder = 1, isDefault = true)
+        val groupCat1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, group = group)
+        val groupCat2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group)
+        val groupBudget = MonthlyBudget(couple = couple, group = group, yearMonth = "2026-03", amount = 500000)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(groupBudget)
+
+        // Category expenses (used for category-level budgets, not group)
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
+        ) } returns listOf(
+            arrayOf(150000L, 1L, groupCat1.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733"),
+            arrayOf(100000L, 1L, groupCat2.id, "교통비", CategoryType.EXPENSE, "directions_bus", "#2196F3")
+        )
+
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+            coupleId = couple.id, startDate = LocalDate.of(2026, 3, 1),
+            endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
+        ) } returns 300000L
+
+        // Direct DB aggregation for group spending
+        every { transactionRepository.sumByCategoryGroupForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+            TransactionType.EXPENSE, setOf(group.id), user1.id
+        ) } returns listOf(
+            arrayOf(group.id, 250000L)
+        )
+
+        When("getBudgetSummary is called") {
+            val result = service.getBudgetSummary(user1.id, 2026, 3)
+
+            Then("calculates group budget spent amount from direct DB aggregation") {
+                result.items.size shouldBe 1
+                val item = result.items[0]
+                item.groupId shouldBe group.id
+                item.groupName shouldBe "생활비"
+                item.budgetAmount shouldBe 500000
+                item.spentAmount shouldBe 250000
+                item.remainingAmount shouldBe 250000
+            }
+        }
+    }
+
+    // --- getBudgetSummary excludes WEEKLY budgets ---
+
+    Given("a mix of MONTHLY and WEEKLY budgets in summary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val weeklyGroup = com.budgetbook.category.domain.CategoryGroup(
+            couple = couple, name = "생활비", budgetType = com.budgetbook.category.domain.BudgetType.WEEKLY
+        )
+
+        val monthlyBudget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03", amount = 300000,
+            budgetPeriod = BudgetPeriod.MONTHLY
+        )
+        val weeklyBudget = MonthlyBudget(
+            couple = couple, group = weeklyGroup, yearMonth = "2026-03", amount = 200000,
+            budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 50000
+        )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(monthlyBudget, weeklyBudget)
+
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
+        ) } returns listOf(
+            arrayOf(80000L, 1L, category.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733")
+        )
+
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+            coupleId = couple.id, startDate = LocalDate.of(2026, 3, 1),
+            endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
+        ) } returns 120000L
+
+        // Direct DB aggregation for weekly group spending
+        every { transactionRepository.sumByCategoryGroupForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+            TransactionType.EXPENSE, setOf(weeklyGroup.id), user1.id
+        ) } returns listOf(
+            arrayOf(weeklyGroup.id, 40000L)
+        )
+
+        When("getBudgetSummary is called") {
+            val result = service.getBudgetSummary(user1.id, 2026, 3)
+
+            Then("includes both MONTHLY and WEEKLY budgets with correct spent amounts") {
+                result.items.size shouldBe 2
+                val monthly = result.items.find { it.category != null }!!
+                monthly.category!!.name shouldBe "식비"
+                monthly.budgetAmount shouldBe 300000
+                monthly.spentAmount shouldBe 80000
+                val weekly = result.items.find { it.groupId != null }!!
+                weekly.groupName shouldBe "생활비"
+                weekly.budgetAmount shouldBe 200000
+                weekly.spentAmount shouldBe 40000
+                result.totalBudget shouldBe 500000
+                // No total budget entry → totalSpent = sum of items, not all expenses
+                result.totalSpent shouldBe 120000
             }
         }
     }

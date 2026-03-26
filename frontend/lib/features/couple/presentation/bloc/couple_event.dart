@@ -24,6 +24,10 @@ class AcceptInvitation extends CoupleEvent {
   List<Object?> get props => [code];
 }
 
+class CheckInvitationStatus extends CoupleEvent {
+  const CheckInvitationStatus();
+}
+
 class DissolveCouple extends CoupleEvent {
   const DissolveCouple();
 }

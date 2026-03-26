@@ -1,6 +1,8 @@
 package com.budgetbook.category.domain
 
+import com.budgetbook.auth.domain.User
 import com.budgetbook.common.entity.BaseTimeEntity
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.couple.domain.Couple
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -44,7 +46,15 @@ class Category(
     val isDefault: Boolean = false,
 
     @Column(name = "display_order", nullable = false)
-    var displayOrder: Int = 0
+    var displayOrder: Int = 0,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false, length = 10)
+    var visibility: Visibility = Visibility.SHARED,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    var owner: User? = null
 ) : BaseTimeEntity()
 
 enum class CategoryType { INCOME, EXPENSE }

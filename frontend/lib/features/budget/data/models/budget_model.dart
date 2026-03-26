@@ -6,6 +6,8 @@ class BudgetModel extends Budget {
     required super.id,
     required super.coupleId,
     super.category,
+    super.groupId,
+    super.groupName,
     required super.yearMonth,
     required super.amount,
     super.budgetPeriod,
@@ -15,6 +17,8 @@ class BudgetModel extends Budget {
     super.periodType,
     super.startDate,
     super.endDate,
+    super.visibility,
+    super.ownerId,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -27,6 +31,8 @@ class BudgetModel extends Budget {
           ? TransactionCategoryModel.fromJson(
               json['category'] as Map<String, dynamic>)
           : null,
+      groupId: json['groupId'] as String?,
+      groupName: json['groupName'] as String?,
       yearMonth: json['yearMonth'] as String,
       amount: json['amount'] as int,
       budgetPeriod: json['budgetPeriod'] as String? ?? 'MONTHLY',
@@ -40,6 +46,8 @@ class BudgetModel extends Budget {
       endDate: json['endDate'] != null
           ? DateTime.parse(json['endDate'] as String)
           : null,
+      visibility: json['visibility'] as String? ?? 'SHARED',
+      ownerId: json['ownerId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -70,6 +78,8 @@ class BudgetSummaryModel extends BudgetSummary {
 class BudgetSummaryItemModel extends BudgetSummaryItem {
   const BudgetSummaryItemModel({
     super.category,
+    super.groupId,
+    super.groupName,
     required super.budgetAmount,
     required super.spentAmount,
     required super.remainingAmount,
@@ -82,6 +92,8 @@ class BudgetSummaryItemModel extends BudgetSummaryItem {
           ? TransactionCategoryModel.fromJson(
               json['category'] as Map<String, dynamic>)
           : null,
+      groupId: json['groupId'] as String?,
+      groupName: json['groupName'] as String?,
       budgetAmount: json['budgetAmount'] as int,
       spentAmount: json['spentAmount'] as int,
       remainingAmount: json['remainingAmount'] as int,

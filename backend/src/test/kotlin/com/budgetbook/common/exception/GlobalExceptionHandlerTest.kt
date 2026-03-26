@@ -3,7 +3,12 @@ package com.budgetbook.common.exception
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import jakarta.validation.ConstraintViolation
+import jakarta.validation.ConstraintViolationException
+import jakarta.validation.Path
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.validation.BeanPropertyBindingResult
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -85,6 +90,44 @@ class GlobalExceptionHandlerTest : FunSpec({
         response.body!!.error!!.code shouldBe "VALIDATION_ERROR"
         response.body!!.error!!.message shouldContain "email: must not be blank"
         response.body!!.error!!.message shouldContain "name: must not be empty"
+    }
+
+    test("handleDataIntegrityViolation returns BAD_REQUEST with CONSTRAINT_VIOLATION") {
+        val exception = DataIntegrityViolationException("duplicate key value")
+
+        val response = handler.handleDataIntegrityViolation(exception)
+
+        response.statusCode shouldBe HttpStatus.BAD_REQUEST
+        response.body!!.success shouldBe false
+        response.body!!.error!!.code shouldBe "CONSTRAINT_VIOLATION"
+        response.body!!.error!!.message shouldBe "Data integrity constraint violated"
+    }
+
+    test("handleConstraintViolation returns BAD_REQUEST with VALIDATION_ERROR") {
+        val path = io.mockk.mockk<Path>()
+        io.mockk.every { path.toString() } returns "year"
+        val violation = io.mockk.mockk<ConstraintViolation<*>>()
+        io.mockk.every { violation.propertyPath } returns path
+        io.mockk.every { violation.message } returns "must be at least 2000"
+        val exception = ConstraintViolationException(setOf(violation))
+
+        val response = handler.handleConstraintViolation(exception)
+
+        response.statusCode shouldBe HttpStatus.BAD_REQUEST
+        response.body!!.success shouldBe false
+        response.body!!.error!!.code shouldBe "VALIDATION_ERROR"
+        response.body!!.error!!.message shouldContain "year: must be at least 2000"
+    }
+
+    test("handleHttpMessageNotReadable returns BAD_REQUEST") {
+        val exception = HttpMessageNotReadableException("Could not read JSON")
+
+        val response = handler.handleHttpMessageNotReadable(exception)
+
+        response.statusCode shouldBe HttpStatus.BAD_REQUEST
+        response.body!!.success shouldBe false
+        response.body!!.error!!.code shouldBe "BAD_REQUEST"
+        response.body!!.error!!.message shouldBe "Malformed request body"
     }
 
     test("handleException returns INTERNAL_SERVER_ERROR for unexpected exceptions") {

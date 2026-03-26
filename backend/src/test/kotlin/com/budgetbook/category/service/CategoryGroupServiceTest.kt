@@ -3,6 +3,7 @@ package com.budgetbook.category.service
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.category.domain.BudgetType
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.domain.CategoryType
@@ -37,9 +38,11 @@ class CategoryGroupServiceTest : BehaviorSpec({
     val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val transactionRepository = mockk<com.budgetbook.transaction.repository.TransactionRepository>(relaxed = true)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository, transactionRepository)
     val categoryGroupService = CategoryGroupService(
-        categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher
+        categoryGroupRepository, categoryRepository, categoryService, coupleResolver, syncEventPublisher, userRepository, transactionRepository
     )
 
     val user1 = User(
@@ -74,22 +77,29 @@ class CategoryGroupServiceTest : BehaviorSpec({
         val category2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group1)
         val uncategorizedCategory = Category(couple = couple, name = "Custom", type = CategoryType.EXPENSE)
 
-        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group1, group2)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group1.id) } returns listOf(category1, category2)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group2.id) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNull(couple.id) } returns listOf(uncategorizedCategory)
+        val privateGroup = CategoryGroup(
+            couple = couple, name = "개인 항목", icon = "person", color = "#607D8B",
+            budgetType = BudgetType.NONE, displayOrder = 100, isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group1, group2, privateGroup)
+        // Batch load all categories (used by N+1-optimized listCategoryGroups)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, any()) } returns listOf(category1, category2, uncategorizedCategory)
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
 
             Then("returns groups with their categories plus uncategorized") {
-                result shouldHaveSize 3
+                result shouldHaveSize 4
                 result[0].name shouldBe "생활비"
                 result[0].categories shouldHaveSize 2
                 result[1].name shouldBe "고정지출"
                 result[1].categories shouldHaveSize 0
-                result[2].name shouldBe "미분류"
-                result[2].categories shouldHaveSize 1
+                result[2].name shouldBe "개인 항목"
+                result[2].categories shouldHaveSize 0
+                result[3].name shouldBe "미분류"
+                result[3].categories shouldHaveSize 1
             }
         }
     }
@@ -98,16 +108,22 @@ class CategoryGroupServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val group = CategoryGroup(couple = couple, name = "생활비", displayOrder = 1, isDefault = true)
-        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group)
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id) } returns emptyList()
-        every { categoryRepository.findByCoupleIdAndGroupIsNull(couple.id) } returns emptyList()
+        val privateGroup = CategoryGroup(
+            couple = couple, name = "개인 항목", icon = "person", color = "#607D8B",
+            budgetType = BudgetType.NONE, displayOrder = 100, isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+        every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(group, privateGroup)
+        // Batch load all categories (empty - no categories at all)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, any()) } returns emptyList()
 
         When("listCategoryGroups is called") {
             val result = categoryGroupService.listCategoryGroups(user1.id)
 
             Then("does not include uncategorized group") {
-                result shouldHaveSize 1
+                result shouldHaveSize 2
                 result[0].name shouldBe "생활비"
+                result[1].name shouldBe "개인 항목"
             }
         }
     }
@@ -171,7 +187,7 @@ class CategoryGroupServiceTest : BehaviorSpec({
         )
         every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
         every { categoryGroupRepository.save(group) } returns group
-        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id) } returns emptyList()
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, any()) } returns emptyList()
 
         When("updateCategoryGroup is called") {
             val request = UpdateCategoryGroupRequest(name = "생활비/변동비", budgetType = "MONTHLY", displayOrder = 5)
@@ -247,13 +263,61 @@ class CategoryGroupServiceTest : BehaviorSpec({
 
         val group = CategoryGroup(couple = couple, name = "생활비", isDefault = true)
         every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
+        every { categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id) } returns emptyList()
+        every { categoryRepository.saveAll(emptyList<Category>()) } returns emptyList()
+        every { categoryGroupRepository.delete(group) } returns Unit
 
         When("deleteCategoryGroup is called") {
-            Then("throws BusinessException CANNOT_DELETE_DEFAULT_GROUP") {
-                val ex = shouldThrow<BusinessException> {
-                    categoryGroupService.deleteCategoryGroup(user1.id, group.id)
+            categoryGroupService.deleteCategoryGroup(user1.id, group.id)
+
+            Then("deletes the default group successfully") {
+                verify(exactly = 1) { categoryGroupRepository.delete(group) }
+            }
+        }
+    }
+
+    // --- reorderGroups ---
+
+    Given("a user with multiple category groups for reordering") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group1 = CategoryGroup(couple = couple, name = "생활비", displayOrder = 0, isDefault = true)
+        val group2 = CategoryGroup(couple = couple, name = "고정지출", displayOrder = 1, isDefault = true)
+        val group3 = CategoryGroup(couple = couple, name = "기타", displayOrder = 2, isDefault = false)
+
+        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group1, group2, group3)
+        every { categoryGroupRepository.saveAll(any<List<CategoryGroup>>()) } answers { firstArg() }
+        every { categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, any(), any()) } returns emptyList()
+
+        When("reorderGroups is called with reversed order") {
+            val orderedIds = listOf(group3.id, group2.id, group1.id)
+            val result = categoryGroupService.reorderGroups(user1.id, orderedIds)
+
+            Then("updates display order correctly") {
+                group3.displayOrder shouldBe 0
+                group2.displayOrder shouldBe 1
+                group1.displayOrder shouldBe 2
+                result shouldHaveSize 3
+                result[0].name shouldBe "기타"
+                result[1].name shouldBe "고정지출"
+                result[2].name shouldBe "생활비"
+            }
+        }
+    }
+
+    Given("a user attempting to reorder with an invalid group ID") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group1 = CategoryGroup(couple = couple, name = "생활비", displayOrder = 0, isDefault = true)
+        every { categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id) } returns listOf(group1)
+
+        When("reorderGroups is called with a non-existent group ID") {
+            val fakeId = UUID.randomUUID()
+            Then("throws NotFoundException") {
+                val ex = shouldThrow<NotFoundException> {
+                    categoryGroupService.reorderGroups(user1.id, listOf(fakeId))
                 }
-                ex.code shouldBe "CANNOT_DELETE_DEFAULT_GROUP"
+                ex.code shouldBe "GROUP_NOT_FOUND"
             }
         }
     }

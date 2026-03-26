@@ -7,6 +7,7 @@ import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.dto.PatchValue
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
@@ -92,7 +93,8 @@ class TransactionServiceTest : BehaviorSpec({
 
             Then("includes category in response") {
                 result.category shouldBe com.budgetbook.transaction.dto.CategorySummary(
-                    id = category.id, name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733"
+                    id = category.id, name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733",
+                    groupId = null, groupName = null
                 )
             }
         }
@@ -241,7 +243,8 @@ class TransactionServiceTest : BehaviorSpec({
 
             Then("keeps the existing category") {
                 result.category shouldBe com.budgetbook.transaction.dto.CategorySummary(
-                    id = category.id, name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733"
+                    id = category.id, name = "식비", type = "EXPENSE", icon = "restaurant", color = "#FF5733",
+                    groupId = null, groupName = null
                 )
             }
         }
@@ -372,7 +375,7 @@ class TransactionServiceTest : BehaviorSpec({
         )
         val page = PageImpl(listOf(tx2, tx1), PageRequest.of(0, 20), 2)
         every { transactionRepository.findByCoupleIdAndFilters(
-            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, any()
+            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
         ) } returns page
 
         When("listTransactions is called for January 2024 without extended filters") {
@@ -423,6 +426,115 @@ class TransactionServiceTest : BehaviorSpec({
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
+            }
+        }
+    }
+
+    // --- getSuggestions ---
+
+    Given("a user requesting description suggestions") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("matching descriptions exist") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 10) } returns listOf("점심 식사", "점심 도시락")
+
+            val result = service.getSuggestions(user1.id, "점", 10)
+
+            Then("returns matching descriptions") {
+                result.size shouldBe 2
+                result shouldBe listOf("점심 식사", "점심 도시락")
+            }
+        }
+
+        When("no matching descriptions exist") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "없는", user1.id, 10) } returns emptyList()
+
+            val result = service.getSuggestions(user1.id, "없는", 10)
+
+            Then("returns empty list") {
+                result shouldBe emptyList()
+            }
+        }
+
+        When("limit exceeds max") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) } returns listOf("점심")
+
+            val result = service.getSuggestions(user1.id, "점", 100)
+
+            Then("clamps limit to 50") {
+                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) }
+                result shouldBe listOf("점심")
+            }
+        }
+
+        When("limit is zero or negative") {
+            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) } returns listOf("점심")
+
+            val result = service.getSuggestions(user1.id, "점", 0)
+
+            Then("clamps limit to 1") {
+                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) }
+                result shouldBe listOf("점심")
+            }
+        }
+    }
+
+    // --- PRIVATE category forces PRIVATE transaction ---
+
+    Given("a user creating a transaction with a PRIVATE category") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val privateCategory = Category(
+            couple = couple, name = "용돈", type = CategoryType.EXPENSE,
+            icon = "money", color = "#FF9800", isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+        every { categoryRepository.findById(privateCategory.id) } returns Optional.of(privateCategory)
+
+        When("creating a transaction with visibility SHARED but PRIVATE category") {
+            val request = CreateTransactionRequest(
+                type = "EXPENSE", amount = 5000, description = "개인 지출",
+                categoryId = privateCategory.id, transactionDate = LocalDate.of(2024, 1, 15)
+            )
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
+
+            val result = service.createTransaction(user1.id, request)
+
+            Then("forces the transaction to PRIVATE") {
+                result.visibility shouldBe "PRIVATE"
+                result.ownerId shouldBe user1.id
+            }
+        }
+    }
+
+    Given("an existing SHARED transaction being updated to a PRIVATE category") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심", transactionDate = LocalDate.of(2024, 1, 15),
+            visibility = Visibility.SHARED, owner = null
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        val privateCategory = Category(
+            couple = couple, name = "용돈", type = CategoryType.EXPENSE,
+            icon = "money", color = "#FF9800", isDefault = false,
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+        every { categoryRepository.findById(privateCategory.id) } returns Optional.of(privateCategory)
+
+        When("updateTransaction changes category to a PRIVATE one") {
+            val request = UpdateTransactionRequest(categoryId = PatchValue(privateCategory.id))
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("forces the transaction to PRIVATE") {
+                result.visibility shouldBe "PRIVATE"
+                result.ownerId shouldBe user1.id
             }
         }
     }

@@ -1,9 +1,13 @@
 package com.budgetbook.config
 
 import com.budgetbook.auth.service.JwtTokenProvider
+import com.budgetbook.couple.domain.Couple
+import com.budgetbook.couple.domain.CoupleStatus
+import com.budgetbook.couple.repository.CoupleRepository
 import io.jsonwebtoken.Claims
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.mockk.every
@@ -17,7 +21,8 @@ import java.util.UUID
 class WebSocketAuthInterceptorTest : BehaviorSpec({
 
     val jwtTokenProvider = mockk<JwtTokenProvider>()
-    val interceptor = WebSocketAuthInterceptor(jwtTokenProvider)
+    val coupleRepository = mockk<CoupleRepository>()
+    val interceptor = WebSocketAuthInterceptor(jwtTokenProvider, coupleRepository)
 
     Given("a STOMP CONNECT frame with a valid JWT token") {
         val userId = UUID.randomUUID()
@@ -36,7 +41,7 @@ class WebSocketAuthInterceptorTest : BehaviorSpec({
             val result = interceptor.preSend(message, mockk())
 
             Then("sets the principal with the userId") {
-                val resultAccessor = StompHeaderAccessor.wrap(result)
+                val resultAccessor = StompHeaderAccessor.wrap(result!!)
                 resultAccessor.user shouldNotBe null
                 resultAccessor.user!!.name shouldBe userId.toString()
             }
@@ -85,6 +90,89 @@ class WebSocketAuthInterceptorTest : BehaviorSpec({
 
             Then("passes through without authentication") {
                 result shouldNotBe null
+            }
+        }
+    }
+
+    Given("a STOMP SUBSCRIBE to a couple topic by an authorized member") {
+        val userId = UUID.randomUUID()
+        val coupleId = UUID.randomUUID()
+        val couple = mockk<Couple>()
+        every { couple.id } returns coupleId
+
+        every { coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE) } returns couple
+
+        When("preSend is called") {
+            val accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE)
+            accessor.setLeaveMutable(true)
+            accessor.destination = "/topic/couple/$coupleId"
+            accessor.user = StompPrincipal(userId)
+            val message = MessageBuilder.createMessage(ByteArray(0), accessor.messageHeaders)
+
+            val result = interceptor.preSend(message, mockk())
+
+            Then("allows the subscription") {
+                result shouldNotBe null
+            }
+        }
+    }
+
+    Given("a STOMP SUBSCRIBE to a couple topic by a non-member") {
+        val userId = UUID.randomUUID()
+        val coupleId = UUID.randomUUID()
+
+        every { coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE) } returns null
+
+        When("preSend is called") {
+            val accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE)
+            accessor.setLeaveMutable(true)
+            accessor.destination = "/topic/couple/$coupleId"
+            accessor.user = StompPrincipal(userId)
+            val message = MessageBuilder.createMessage(ByteArray(0), accessor.messageHeaders)
+
+            val result = interceptor.preSend(message, mockk())
+
+            Then("blocks the subscription by returning null") {
+                result.shouldBeNull()
+            }
+        }
+    }
+
+    Given("a STOMP SUBSCRIBE to a couple topic by a member of a different couple") {
+        val userId = UUID.randomUUID()
+        val userCoupleId = UUID.randomUUID()
+        val targetCoupleId = UUID.randomUUID()
+        val couple = mockk<Couple>()
+        every { couple.id } returns userCoupleId
+
+        every { coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE) } returns couple
+
+        When("preSend is called") {
+            val accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE)
+            accessor.setLeaveMutable(true)
+            accessor.destination = "/topic/couple/$targetCoupleId"
+            accessor.user = StompPrincipal(userId)
+            val message = MessageBuilder.createMessage(ByteArray(0), accessor.messageHeaders)
+
+            val result = interceptor.preSend(message, mockk())
+
+            Then("blocks the subscription by returning null") {
+                result.shouldBeNull()
+            }
+        }
+    }
+
+    Given("a STOMP SUBSCRIBE without authentication") {
+        When("preSend is called") {
+            val accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE)
+            accessor.setLeaveMutable(true)
+            accessor.destination = "/topic/couple/${UUID.randomUUID()}"
+            val message = MessageBuilder.createMessage(ByteArray(0), accessor.messageHeaders)
+
+            Then("throws MessageDeliveryException") {
+                shouldThrow<MessageDeliveryException> {
+                    interceptor.preSend(message, mockk())
+                }
             }
         }
     }

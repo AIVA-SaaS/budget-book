@@ -1,5 +1,7 @@
 package com.budgetbook.paymentmethod.dto
 
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
@@ -15,6 +17,9 @@ data class PaymentMethodResponse(
     val isActive: Boolean,
     val isDefault: Boolean,
     val displayOrder: Int,
+    val balance: Long? = null,
+    val linkedBankId: UUID? = null,
+    val linkedBankName: String? = null,
     val createdAt: Instant
 )
 
@@ -24,17 +29,27 @@ data class CreatePaymentMethodRequest(
     val name: String,
     @field:NotBlank
     val type: String,
+    @field:Min(1)
+    @field:Max(31)
     val settlementDay: Int? = null,
-    val closingDay: Int? = null
+    @field:Min(1)
+    @field:Max(31)
+    val closingDay: Int? = null,
+    val linkedBankId: UUID? = null
 )
 
 data class UpdatePaymentMethodRequest(
     @field:Size(max = 100)
     val name: String? = null,
+    @field:Min(1)
+    @field:Max(31)
     val settlementDay: Int? = null,
+    @field:Min(1)
+    @field:Max(31)
     val closingDay: Int? = null,
     val isActive: Boolean? = null,
-    val displayOrder: Int? = null
+    val displayOrder: Int? = null,
+    val linkedBankId: UUID? = null
 )
 
 data class CardPendingResponse(
@@ -42,4 +57,16 @@ data class CardPendingResponse(
     val pendingAmount: Long,
     val settlementDate: LocalDate?,
     val transactionCount: Int
+)
+
+data class CardSettlementSummaryResponse(
+    val previousMonth: CardSettlementMonth,
+    val currentMonth: CardSettlementMonth
+)
+
+data class CardSettlementMonth(
+    val year: Int,
+    val month: Int,
+    val totalAmount: Long,
+    val cards: List<CardPendingResponse>
 )

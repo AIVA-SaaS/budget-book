@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
@@ -25,6 +27,11 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart'
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
     as tx_entity;
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -42,7 +49,22 @@ class TransactionFormPage extends StatefulWidget {
   /// Date defaults to today; all other fields are copied.
   final tx_entity.Transaction? copyFrom;
 
-  const TransactionFormPage({super.key, this.transactionId, this.initialType, this.copyFrom});
+  /// Optional initial date for the transaction.
+  /// Used when navigating from a date header in the transaction list.
+  final DateTime? initialDate;
+
+  /// Optional initial payment method ID.
+  /// Used when adding a transaction from a filtered payment method view.
+  final String? initialPaymentMethodId;
+
+  const TransactionFormPage({
+    super.key,
+    this.transactionId,
+    this.initialType,
+    this.copyFrom,
+    this.initialDate,
+    this.initialPaymentMethodId,
+  });
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -51,15 +73,19 @@ class TransactionFormPage extends StatefulWidget {
 class _TransactionFormPageState extends State<TransactionFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
+  String _amountHint = '';
   late final TextEditingController _descriptionController;
   late final TextEditingController _memoController;
   late String _selectedType;
   String? _selectedCategoryId;
+  String? _selectedCategoryDisplayName;
   String? _selectedPaymentMethodId;
   String? _selectedPocketId;
   late DateTime _selectedDate;
   bool _isLoadingTransaction = false;
   bool _isSubmitting = false;
+  bool _continueMode = false;
+  bool _keepSameItems = false;
   String? _categoryError;
   String? _paymentMethodError;
 
@@ -68,19 +94,26 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   SuggestionGroup? _expandedSuggestion;
   Timer? _debounceTimer;
 
+  // FocusNodes for keyboard navigation on selector fields
+  final FocusNode _categoryFocusNode = FocusNode();
+  final FocusNode _paymentMethodFocusNode = FocusNode();
+  final FocusNode _pocketFocusNode = FocusNode();
+
+
   bool get isEditing => widget.transactionId != null;
 
   @override
   void initState() {
     super.initState();
     _amountController = TextEditingController();
+    _amountController.addListener(_updateAmountHint);
     _descriptionController = TextEditingController();
     _descriptionController.addListener(_onDescriptionChanged);
     _memoController = TextEditingController();
     _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
         ? widget.initialType!
         : 'EXPENSE';
-    _selectedDate = DateTime.now();
+    _selectedDate = widget.initialDate ?? DateTime.now();
 
     if (isEditing) {
       _isLoadingTransaction = true;
@@ -100,14 +133,44 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     }
   }
 
+  String? _coupleId;
+
   Future<void> _loadDefaultPaymentMethod() async {
-    final prefs = await SharedPreferences.getInstance();
-    final defaultId = prefs.getString('default_payment_method_id');
-    if (defaultId != null && mounted) {
-      setState(() {
-        _selectedPaymentMethodId = defaultId;
-      });
+    // If initial payment method is specified (e.g., from filtered view), use it
+    if (widget.initialPaymentMethodId != null && _selectedPaymentMethodId == null) {
+      setState(() => _selectedPaymentMethodId = widget.initialPaymentMethodId);
+      return;
     }
+
+    _coupleId ??= _resolveCoupleId();
+    if (_coupleId == null) return;
+
+    final defaultId = await CouplePrefs.getString(_coupleId!, 'default_payment_method_id');
+    if (defaultId == null || !mounted) return;
+
+    // Validate against current payment methods from server
+    final pmBloc = getIt<PaymentMethodBloc>();
+    final pmState = pmBloc.state;
+    if (pmState is PaymentMethodLoaded) {
+      final exists = pmState.paymentMethods.any((pm) => pm.id == defaultId);
+      if (exists) {
+        setState(() => _selectedPaymentMethodId = defaultId);
+      } else {
+        // Stale reference — clear it
+        await CouplePrefs.remove(_coupleId!, 'default_payment_method_id');
+      }
+    } else {
+      // PM list not loaded yet — set tentatively, will be validated on submit
+      setState(() => _selectedPaymentMethodId = defaultId);
+    }
+  }
+
+  String? _resolveCoupleId() {
+    final authState = getIt<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.coupleId;
+    }
+    return null;
   }
 
   Future<void> _loadTransaction() async {
@@ -123,7 +186,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -132,11 +195,12 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         if (mounted) {
           setState(() {
             _isLoadingTransaction = false;
-            _amountController.text = transaction.amount.toString();
+            _amountController.text = CurrencyFormatter.format(transaction.amount);
             _descriptionController.text = transaction.description;
             _memoController.text = transaction.memo ?? '';
             _selectedType = transaction.type;
             _selectedCategoryId = transaction.category?.id;
+            _selectedCategoryDisplayName = transaction.category?.displayName;
             _selectedPaymentMethodId = transaction.paymentMethodId;
             _selectedPocketId = transaction.pocketId;
             _selectedDate = DateTime.parse(transaction.transactionDate);
@@ -158,6 +222,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       }
       return;
     }
+
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       _fetchSuggestions(text);
     });
@@ -190,13 +255,29 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     });
   }
 
+  void _updateAmountHint() {
+    final parsed = CurrencyFormatter.parse(_amountController.text);
+    final hint = (parsed != null && parsed >= 10000)
+        ? CurrencyFormatter.toKoreanUnit(parsed)
+        : '';
+    if (hint != _amountHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _amountHint = hint);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _descriptionController.removeListener(_onDescriptionChanged);
+    _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
     _descriptionController.dispose();
     _memoController.dispose();
+    _categoryFocusNode.dispose();
+    _paymentMethodFocusNode.dispose();
+    _pocketFocusNode.dispose();
     super.dispose();
   }
 
@@ -223,149 +304,264 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       body: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionLoaded) {
-            context.pop();
+            final now = DateTime.now();
+            getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+            if (_continueMode) {
+              _resetFormForContinue();
+            } else if (isEditing) {
+              // After editing, go directly to transactions list
+              // to avoid stale edit page in browser history
+              context.go('/transactions');
+            } else {
+              context.pop();
+            }
           } else if (state is TransactionError) {
             setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Type toggle
-                if (isEditing)
-                  ListTile(
-                    leading: Icon(
-                      _selectedType == 'INCOME'
-                          ? Icons.arrow_upward
-                          : Icons.arrow_downward,
-                      color: _selectedType == 'INCOME'
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                    title: Text(
-                        _selectedType == 'INCOME' ? '수입' : '지출'),
-                    subtitle: const Text('유형은 수정할 수 없습니다'),
-                    tileColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
-                        .withValues(alpha: 0.3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  )
-                else
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'EXPENSE',
-                        label: Text('지출'),
-                        icon: Icon(Icons.arrow_downward),
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Type toggle
+                  if (isEditing)
+                    ListTile(
+                      leading: Icon(
+                        _selectedType == 'INCOME'
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        color: _selectedType == 'INCOME'
+                            ? Colors.green
+                            : Colors.red,
                       ),
-                      ButtonSegment(
-                        value: 'INCOME',
-                        label: Text('수입'),
-                        icon: Icon(Icons.arrow_upward),
+                      title: Text(
+                          _selectedType == 'INCOME' ? '수입' : '지출'),
+                      subtitle: const Text('유형은 수정할 수 없습니다'),
+                      tileColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                    selected: {_selectedType},
-                    onSelectionChanged: (value) {
-                      setState(() {
-                        _selectedType = value.first;
-                        _selectedCategoryId = null;
-                      });
-                    },
+                    )
+                  else
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'EXPENSE',
+                          label: Text('지출'),
+                          icon: Icon(Icons.arrow_downward),
+                        ),
+                        ButtonSegment(
+                          value: 'INCOME',
+                          label: Text('수입'),
+                          icon: Icon(Icons.arrow_upward),
+                        ),
+                      ],
+                      selected: {_selectedType},
+                      onSelectionChanged: (value) {
+                        setState(() {
+                          _selectedType = value.first;
+                          _selectedCategoryId = null;
+                          _selectedCategoryDisplayName = null;
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 24),
+                  // Date picker
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(0),
+                    child: _buildDatePicker(context),
                   ),
-                const SizedBox(height: 24),
-                // Amount
-                TextFormField(
-                  controller: _amountController,
-                  decoration: const InputDecoration(
-                    labelText: '금액',
-                    suffixText: '원',
-                    prefixIcon: Icon(Icons.payments),
+                  const SizedBox(height: 16),
+                  // Amount
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(1),
+                    child: TextFormField(
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        labelText: '금액',
+                        suffixText: '원',
+                        prefixIcon: const Icon(Icons.payments),
+                        helperText: _amountHint.isNotEmpty ? _amountHint : null,
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [CurrencyInputFormatter()],
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '금액을 입력하세요';
+                        }
+                        final amount = CurrencyFormatter.parse(value);
+                        if (amount == null || amount <= 0) {
+                          return '0보다 큰 금액을 입력하세요';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '금액을 입력하세요';
-                    }
-                    final amount = int.tryParse(value);
-                    if (amount == null || amount <= 0) {
-                      return '0보다 큰 금액을 입력하세요';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Description
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: '내용',
-                    hintText: '예: 점심 식사',
-                    prefixIcon: Icon(Icons.description),
+                  const SizedBox(height: 16),
+                  // Description with suggestion chips
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(2),
+                    child: TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: '내용',
+                        hintText: '예: 점심 식사',
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                      maxLength: 255,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '내용을 입력하세요';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  maxLength: 255,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '내용을 입력하세요';
-                    }
-                    return null;
-                  },
-                ),
-                // Suggestion chips
-                if (_suggestions.isNotEmpty)
-                  _buildSuggestionArea(context),
-                const SizedBox(height: 16),
-                // Category picker
-                _buildCategoryPicker(context),
-                const SizedBox(height: 16),
-                // Payment method picker
-                _buildPaymentMethodPicker(context),
-                const SizedBox(height: 16),
-                // Pocket picker
-                _buildPocketPicker(context),
-                const SizedBox(height: 16),
-                // Date picker
-                _buildDatePicker(context),
-                const SizedBox(height: 16),
-                // Memo
-                TextFormField(
-                  controller: _memoController,
-                  decoration: const InputDecoration(
-                    labelText: '메모 (선택)',
-                    hintText: '추가 메모',
-                    prefixIcon: Icon(Icons.note),
+                  // Suggestion chips (rich - with category/payment method patterns)
+                  if (_suggestions.isNotEmpty)
+                    _buildSuggestionArea(context),
+                  const SizedBox(height: 16),
+                  // Category picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(3),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _categoryFocusNode,
+                      onActivate: () => _activateCategoryPicker(context),
+                      child: _buildCategoryPicker(context),
+                    ),
                   ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 32),
-                // Submit button
-                FilledButton(
-                  onPressed: _isSubmitting ? null : _onSubmit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  const SizedBox(height: 16),
+                  // Payment method picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(4),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _paymentMethodFocusNode,
+                      onActivate: () => _activatePaymentMethodPicker(context),
+                      child: _buildPaymentMethodPicker(context),
+                    ),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(isEditing ? '수정' : '추가'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  // Pocket picker with keyboard support
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(5),
+                    child: _buildKeyboardActivatableField(
+                      focusNode: _pocketFocusNode,
+                      onActivate: () => _activatePocketPicker(context),
+                      child: _buildPocketPicker(context),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Memo
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(6),
+                    child: TextFormField(
+                      controller: _memoController,
+                      decoration: const InputDecoration(
+                        labelText: '메모 (선택)',
+                        hintText: '추가 메모',
+                        prefixIcon: Icon(Icons.note),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Continue mode options (new transactions only)
+                  if (!isEditing) ...[
+                    GestureDetector(
+                      onTap: () => setState(() => _keepSameItems = !_keepSameItems),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _keepSameItems,
+                              onChanged: (v) => setState(() => _keepSameItems = v ?? false),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '동일 항목 유지 (날짜/카테고리/결제수단)',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // Submit buttons
+                  FocusTraversalOrder(
+                    order: const NumericFocusOrder(7),
+                    child: isEditing
+                        ? FilledButton(
+                            onPressed: _isSubmitting ? null : _onSubmit,
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 20, width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text('수정'),
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isSubmitting ? null : () {
+                                    _continueMode = true;
+                                    _onSubmit();
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  ),
+                                  child: _isSubmitting && _continueMode
+                                      ? const SizedBox(
+                                          height: 20, width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Text('저장 & 계속'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: _isSubmitting ? null : () {
+                                    _continueMode = false;
+                                    _onSubmit();
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  ),
+                                  child: _isSubmitting && !_continueMode
+                                      ? const SizedBox(
+                                          height: 20, width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Text('저장'),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -473,6 +669,68 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  /// Wraps a selector field with Focus + KeyboardListener so that
+  /// Enter/Space activates the bottom sheet selector.
+  Widget _buildKeyboardActivatableField({
+    required FocusNode focusNode,
+    required VoidCallback onActivate,
+    required Widget child,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      canRequestFocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.space)) {
+          onActivate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: () {
+          focusNode.requestFocus();
+          onActivate();
+        },
+        child: AbsorbPointer(
+          // AbsorbPointer prevents the inner InkWell from capturing tap;
+          // the GestureDetector above handles it, allowing focus to be set.
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  void _activateCategoryPicker(BuildContext context) {
+    final catState = context.read<CategoryBloc>().state;
+    final categories = catState is CategoryLoaded
+        ? (_selectedType == 'INCOME'
+            ? catState.incomeCategories
+            : catState.expenseCategories)
+        : <Category>[];
+    setState(() => _categoryError = null);
+    _showCategorySelectorSheet(context, categories);
+  }
+
+  void _activatePaymentMethodPicker(BuildContext context) {
+    final pmState = context.read<PaymentMethodBloc>().state;
+    final methods = pmState is PaymentMethodLoaded
+        ? pmState.activePaymentMethods
+        : <PaymentMethod>[];
+    setState(() => _paymentMethodError = null);
+    _showPaymentMethodSelectorSheet(context, methods);
+  }
+
+  void _activatePocketPicker(BuildContext context) {
+    final pocketState = context.read<PocketBloc>().state;
+    final pockets = pocketState is PocketLoaded
+        ? pocketState.pockets
+        : <MoneyPocket>[];
+    _showPocketSelectorSheet(context, pockets);
+  }
+
+
   Widget _buildCategoryPicker(BuildContext context) {
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, catState) {
@@ -482,19 +740,12 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                 : catState.expenseCategories)
             : <Category>[];
 
-        final selectedName = _selectedCategoryId != null
-            ? categories
-                .where((c) => c.id == _selectedCategoryId)
-                .map((c) => c.name)
-                .firstOrNull
-            : null;
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ItemSelectorField(
               label: '카테고리 *',
-              selectedLabel: selectedName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
+              selectedLabel: _selectedCategoryDisplayName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
               prefixIcon: Icons.category,
               placeholder: '카테고리를 선택하세요',
               onTap: () {
@@ -593,7 +844,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       context: context,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _selectedCategoryId,
@@ -601,6 +852,17 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         onSelected: (category) {
           setState(() {
             _selectedCategoryId = category?.id;
+            _selectedCategoryDisplayName = null;
+          });
+        },
+        onSelectedWithGroupName: (category, groupName) {
+          setState(() {
+            _selectedCategoryId = category?.id;
+            if (category != null && groupName != null && groupName.isNotEmpty) {
+              _selectedCategoryDisplayName = '$groupName > ${category.name}';
+            } else {
+              _selectedCategoryDisplayName = category?.name;
+            }
           });
         },
         onDelete: (id) {
@@ -719,7 +981,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       child: InputDecorator(
         decoration: const InputDecoration(
           labelText: '날짜',
-          prefixIcon: Icon(Icons.calendar_today),
+          suffixIcon: Icon(Icons.calendar_today),
         ),
         child: Text(formattedDate),
       ),
@@ -741,12 +1003,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       builder: (_) => BlocProvider<PaymentMethodBloc>.value(
         value: bloc,
         child: PaymentMethodFormSheet(
-          onSubmit: (name, type, settlementDay, closingDay) {
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
             bloc.add(CreatePaymentMethod(
               name: name,
               type: type,
               settlementDay: settlementDay,
               closingDay: closingDay,
+              linkedBankId: linkedBankId,
             ));
           },
         ),
@@ -829,34 +1092,47 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         }
       }
     } catch (_) {
-      // Timeout — user can manually select
+      // Timeout -- user can manually select
     }
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('거래 삭제'),
-        content: const Text('정말 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TransactionBloc>().add(
-                    DeleteTransaction(widget.transactionId!),
-                  );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '거래 삭제',
+    );
+    if (confirmed && context.mounted) {
+      context.read<TransactionBloc>().add(
+            DeleteTransaction(widget.transactionId!),
+          );
+    }
+  }
+
+  void _resetFormForContinue() {
+    setState(() {
+      _amountController.clear();
+      _amountHint = '';
+      _descriptionController.clear();
+      _memoController.clear();
+      _suggestions = [];
+      _isSubmitting = false;
+      _continueMode = false;
+      _categoryError = null;
+      _paymentMethodError = null;
+
+      if (!_keepSameItems) {
+        _selectedCategoryId = null;
+        _selectedCategoryDisplayName = null;
+        _selectedPaymentMethodId = null;
+        _selectedPocketId = null;
+        _loadDefaultPaymentMethod();
+      }
+      // _selectedDate and _selectedType are always kept
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('저장 완료! 다음 항목을 입력하세요.'),
+        duration: Duration(seconds: 1),
       ),
     );
   }
@@ -882,7 +1158,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     }
 
     setState(() => _isSubmitting = true);
-    final amount = int.parse(_amountController.text.trim());
+    final amount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final memo =

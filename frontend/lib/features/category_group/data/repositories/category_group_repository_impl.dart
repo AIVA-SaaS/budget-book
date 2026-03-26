@@ -29,10 +29,12 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
     String? icon,
     String? color,
     String? budgetType,
+    String visibility = 'SHARED',
   }) async {
     try {
       final data = <String, dynamic>{
         'name': name,
+        'visibility': visibility,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
         if (budgetType != null) 'budgetType': budgetType,
@@ -84,4 +86,15 @@ class CategoryGroupRepositoryImpl implements CategoryGroupRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> reorderGroups(List<String> orderedIds) async {
+    try {
+      await remoteDataSource.reorderGroups(orderedIds);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to reorder category groups'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to reorder category groups'));
+    }
+  }
 }

@@ -26,10 +26,11 @@ class MockCategoryRepository extends Mock implements CategoryRepository {
     String? icon,
     String? color,
     String? groupId,
+    String visibility = 'SHARED',
   }) =>
       super.noSuchMethod(
         Invocation.method(#createCategory, [],
-            {#name: name, #type: type, #icon: icon, #color: color, #groupId: groupId}),
+            {#name: name, #type: type, #icon: icon, #color: color, #groupId: groupId, #visibility: visibility}),
         returnValue: Future.value(
           Right<Failure, Category>(Category(
             id: '',

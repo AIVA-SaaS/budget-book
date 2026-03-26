@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,9 +12,12 @@ import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
-import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/widgets/account_balance_card.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
@@ -119,7 +123,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.message),
-                            backgroundColor: Colors.red,
+                            backgroundColor: Theme.of(context).colorScheme.error,
                           ),
                         );
                       } else if (state is BudgetLoaded &&
@@ -127,7 +131,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.operationError!),
-                            backgroundColor: Colors.red,
+                            backgroundColor: Theme.of(context).colorScheme.error,
                           ),
                         );
                       } else if (state is BudgetLoaded &&
@@ -248,6 +252,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
           ..add(const LoadCurrentWeek());
       },
       child: ListView(
+        key: const PageStorageKey('budget_weekly_list'),
         padding: const EdgeInsets.all(16),
         children: [
           // Current week hero card
@@ -341,15 +346,30 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     .withValues(alpha: 0.7),
               ),
             ),
-            if (currentWeek.groups.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            if (currentWeek.items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildTotalChip(context, '총 예산',
+                      '${numberFormat.format(currentWeek.totalBudget)}원'),
+                  _buildTotalChip(context, '지출',
+                      '${numberFormat.format(currentWeek.totalSpent)}원'),
+                  _buildTotalChip(context, '잔여',
+                      '${numberFormat.format(currentWeek.totalRemaining)}원',
+                      color: currentWeek.totalRemaining >= 0
+                          ? Colors.green.shade700
+                          : Colors.red.shade700),
+                ],
+              ),
+              const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 12),
-              ...currentWeek.groups.map((group) {
-                final progress = (group.usageRate / 100).clamp(0.0, 1.0);
-                final statusColor = group.usageRate > 100
+              ...currentWeek.items.map((item) {
+                final progress = (item.usageRate / 100).clamp(0.0, 1.0);
+                final statusColor = item.usageRate > 100
                     ? Colors.red
-                    : group.usageRate > 80
+                    : item.usageRate > 80
                         ? Colors.orange
                         : Colors.green;
                 return Padding(
@@ -361,14 +381,14 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            group.groupName,
+                            item.displayName,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.onPrimaryContainer,
                             ),
                           ),
                           Text(
-                            '${numberFormat.format(group.spentAmount)}원 / ${numberFormat.format(group.budgetAmount)}원',
+                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                             ),
@@ -413,7 +433,34 @@ class _BudgetListPageState extends State<BudgetListPage> {
           BudgetSummaryCard(summary: state.summary!),
         Expanded(
           child: state.budgets.isEmpty
-              ? _buildEmpty(context)
+              ? ListView(
+                  children: [
+                    const SizedBox(height: 48),
+                    Center(
+                      child: Text(
+                        '이 달에 설정된 예산이 없습니다',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                      ),
+                    ),
+                    BlocProvider<PaymentMethodBloc>.value(
+                      value: getIt<PaymentMethodBloc>(),
+                      child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+                        builder: (context, pmState) {
+                          if (pmState is PaymentMethodInitial) {
+                            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                          }
+                          if (pmState is! PaymentMethodLoaded) {
+                            return const Padding(padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()));
+                          }
+                          return const AccountBalanceCard(showHeader: false);
+                        },
+                      ),
+                    ),
+                  ],
+                )
               : _buildBudgetList(context, state),
         ),
       ],
@@ -423,122 +470,230 @@ class _BudgetListPageState extends State<BudgetListPage> {
   Widget _buildBudgetList(BuildContext context, BudgetLoaded state) {
     final numberFormat = NumberFormat('#,###');
     final summaryItems = state.summary?.items ?? [];
+    final sharedBudgets = state.budgets.where((b) => b.isShared).toList();
+    final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
 
-    return ListView.builder(
-      itemCount: state.budgets.length,
-      itemBuilder: (context, index) {
-        final budget = state.budgets[index];
-        final summaryItem = _findSummaryItem(summaryItems, budget);
-        final usageRate = summaryItem?.usageRate ?? 0.0;
-        final spentAmount = summaryItem?.spentAmount ?? 0;
+    final allItems = <Widget>[];
 
-        return Dismissible(
-          key: Key(budget.id),
-          direction: DismissDirection.endToStart,
-          confirmDismiss: (direction) async {
-            return await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('예산 삭제'),
-                content: Text(
-                  '${budget.category?.name ?? "전체 예산"}을(를) 삭제하시겠습니까?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('취소'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('삭제'),
-                  ),
-                ],
+    // Shared budgets
+    for (final budget in sharedBudgets) {
+      allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+    }
+
+    // Private budgets section
+    if (privateBudgets.isNotEmpty) {
+      allItems.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.visibility_off, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                '나만 보임',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
               ),
-            );
-          },
-          onDismissed: (_) {
-            context.read<BudgetBloc>().add(DeleteBudget(budget.id));
-          },
-          background: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 16),
-            child: const Icon(Icons.delete, color: Colors.white),
+            ],
           ),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: _getCategoryColor(budget.category?.color),
-              child: Icon(
-                _getCategoryIcon(budget.category?.icon),
-                color: Colors.white,
-                size: 20,
+        ),
+      );
+      for (final budget in privateBudgets) {
+        allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+      }
+    }
+
+    // Payment method asset summary at bottom
+    allItems.add(
+      BlocProvider<PaymentMethodBloc>.value(
+        value: getIt<PaymentMethodBloc>(),
+        child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (context, pmState) {
+            if (pmState is PaymentMethodInitial) {
+              getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+            }
+            if (pmState is! PaymentMethodLoaded) {
+              return const Padding(padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()));
+            }
+            return const AccountBalanceCard(showHeader: false);
+          },
+        ),
+      ),
+    );
+
+    return ListView(key: const PageStorageKey('budget_monthly_list'), children: allItems);
+  }
+
+  Widget _buildBudgetTile(
+    BuildContext context,
+    Budget budget,
+    List<BudgetSummaryItem> summaryItems,
+    NumberFormat numberFormat,
+  ) {
+    final summaryItem = _findSummaryItem(summaryItems, budget);
+    final usageRate = summaryItem?.usageRate ?? 0.0;
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+
+    return Dismissible(
+      key: Key(budget.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDeleteConfirmDialog(
+          context,
+          title: '예산 삭제',
+          itemName: budget.targetLabel,
+        );
+      },
+      onDismissed: (_) {
+        context.read<BudgetBloc>().add(DeleteBudget(budget.id));
+      },
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _getCategoryColor(budget.category?.color),
+          child: Icon(
+            _getCategoryIcon(budget.category?.icon),
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Row(
+          children: [
+            if (budget.isPrivate) ...[
+              Icon(
+                Icons.visibility_off,
+                size: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Expanded(child: Text(budget.targetLabel)),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (usageRate.clamp(0.0, 100.0)) / 100.0,
+                minHeight: 6,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                color: _getProgressColor(usageRate),
               ),
             ),
-            title: Text(budget.category?.name ?? '전체 예산'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (usageRate.clamp(0.0, 100.0)) / 100.0,
-                    minHeight: 6,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    color: _getProgressColor(usageRate),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.amount)}원 (${usageRate.toStringAsFixed(1)}%)',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.effectiveMonthlyAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            trailing: Text(
-              '${numberFormat.format(budget.amount)}원',
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${numberFormat.format(budget.effectiveMonthlyAmount)}원',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            onTap: () {
-              final state = context.read<BudgetBloc>().state;
-              final year =
-                  state is BudgetLoaded ? state.year : DateTime.now().year;
-              final month =
-                  state is BudgetLoaded ? state.month : DateTime.now().month;
-              context
-                  .push('/budgets/edit/${budget.id}?year=$year&month=$month');
-            },
-          ),
-        );
-      },
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                final state = context.read<BudgetBloc>().state;
+                final year =
+                    state is BudgetLoaded ? state.year : DateTime.now().year;
+                final month =
+                    state is BudgetLoaded ? state.month : DateTime.now().month;
+                if (value == 'edit') {
+                  context.push(
+                      '/budgets/edit/${budget.id}?year=$year&month=$month');
+                } else if (value == 'delete') {
+                  final confirmed = await showDeleteConfirmDialog(
+                    context,
+                    title: '예산 삭제',
+                    itemName: budget.targetLabel,
+                  );
+                  if (confirmed && context.mounted) {
+                    context
+                        .read<BudgetBloc>()
+                        .add(DeleteBudget(budget.id));
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 18),
+                      SizedBox(width: 8),
+                      Text('수정'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('삭제', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        onTap: () {
+          final state = context.read<BudgetBloc>().state;
+          final year =
+              state is BudgetLoaded ? state.year : DateTime.now().year;
+          final month =
+              state is BudgetLoaded ? state.month : DateTime.now().month;
+          context
+              .push('/budgets/edit/${budget.id}?year=$year&month=$month');
+        },
+      ),
     );
   }
 
   BudgetSummaryItem? _findSummaryItem(
       List<BudgetSummaryItem> items, Budget budget) {
     for (final item in items) {
-      if (budget.category == null && item.category == null) return item;
-      if (budget.category?.id == item.category?.id) return item;
+      // Match by category ID
+      if (budget.category != null && item.category != null &&
+          budget.category!.id == item.category!.id) {
+        return item;
+      }
+      // Match by group ID (group budgets have no category)
+      if (budget.category == null && item.category == null &&
+          budget.groupId != null && item.groupId != null &&
+          budget.groupId == item.groupId) {
+        return item;
+      }
+      // Match total budget (no category, no group)
+      if (budget.category == null && item.category == null &&
+          budget.groupId == null && item.groupId == null) {
+        return item;
+      }
     }
     return null;
   }
 
-  Widget _buildEmpty(BuildContext context) {
-    final state = context.read<BudgetBloc>().state;
-    final year = state is BudgetLoaded ? state.year : DateTime.now().year;
-    final month = state is BudgetLoaded ? state.month : DateTime.now().month;
-    return EmptyStateWidget(
-      icon: Icons.account_balance_wallet,
-      title: '예산이 없습니다',
-      subtitle: '이 달에 설정된 예산이 없습니다',
-      actionLabel: '예산 추가',
-      onAction: () => context.push('/budgets/create?year=$year&month=$month'),
-    );
-  }
+  // _buildEmpty removed: inline empty state used in _buildLoaded
 
   Widget _buildError(BuildContext context) {
     final now = DateTime.now();
@@ -565,6 +720,30 @@ class _BudgetListPageState extends State<BudgetListPage> {
 
   IconData _getCategoryIcon(String? iconName) {
     return resolveIcon(iconName);
+  }
+
+  Widget _buildTotalChip(BuildContext context, String label, String value,
+      {Color? color}) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color:
+                theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color ?? theme.colorScheme.onPrimaryContainer,
+          ),
+        ),
+      ],
+    );
   }
 }
 

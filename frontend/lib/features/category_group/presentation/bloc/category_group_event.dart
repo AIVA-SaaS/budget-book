@@ -16,16 +16,18 @@ class CreateCategoryGroup extends CategoryGroupEvent {
   final String? icon;
   final String? color;
   final String? budgetType;
+  final String visibility;
 
   const CreateCategoryGroup({
     required this.name,
     this.icon,
     this.color,
     this.budgetType,
+    this.visibility = 'SHARED',
   });
 
   @override
-  List<Object?> get props => [name, icon, color, budgetType];
+  List<Object?> get props => [name, icon, color, budgetType, visibility];
 }
 
 class UpdateCategoryGroup extends CategoryGroupEvent {
@@ -56,4 +58,13 @@ class DeleteCategoryGroup extends CategoryGroupEvent {
 
   @override
   List<Object?> get props => [id];
+}
+
+class ReorderCategoryGroups extends CategoryGroupEvent {
+  final List<String> orderedIds;
+
+  const ReorderCategoryGroups(this.orderedIds);
+
+  @override
+  List<Object?> get props => [orderedIds];
 }

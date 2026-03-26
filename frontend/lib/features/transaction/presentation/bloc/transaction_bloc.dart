@@ -1,10 +1,13 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'transaction_event.dart';
 import 'transaction_state.dart';
 
 class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   final TransactionRepository transactionRepository;
+  final StatisticsRepository? statisticsRepository;
 
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
@@ -14,7 +17,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int? _currentAmountMin;
   int? _currentAmountMax;
 
-  TransactionBloc({required this.transactionRepository})
+  TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
     on<LoadTransactions>(_onLoadTransactions);
     on<LoadMoreTransactions>(_onLoadMoreTransactions);
@@ -30,6 +33,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     Emitter<TransactionState> emit,
   ) async {
     try {
+      final previousState = state;
       _currentYear = event.year;
       _currentMonth = event.month;
       _currentKeyword = event.keyword;
@@ -37,9 +41,24 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentPocketId = event.pocketId;
       _currentAmountMin = event.amountMin;
       _currentAmountMax = event.amountMax;
-      emit(const TransactionLoading());
+      // Only show full loading skeleton on initial load, not during search/filter
+      if (previousState is! TransactionLoaded) {
+        emit(const TransactionLoading());
+      }
 
-      final result = await transactionRepository.getTransactions(
+      final hasOnlyPaymentMethodFilter = event.paymentMethodId != null &&
+          event.keyword == null &&
+          event.pocketId == null &&
+          event.amountMin == null &&
+          event.amountMax == null;
+
+      final hasNoFilters = event.keyword == null &&
+          event.paymentMethodId == null &&
+          event.pocketId == null &&
+          event.amountMin == null &&
+          event.amountMax == null;
+
+      final txnFuture = transactionRepository.getTransactions(
         year: event.year,
         month: event.month,
         keyword: event.keyword,
@@ -50,6 +69,72 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         page: 0,
         size: _pageSize,
       );
+
+      // Fetch server totals for full-month or payment-method filtered view
+      int? serverIncome;
+      int? serverExpense;
+
+      if (hasNoFilters && statisticsRepository != null) {
+        final results = await Future.wait([
+          txnFuture,
+          statisticsRepository!.getSummary(year: event.year, month: event.month),
+        ]);
+        final txnResult = results[0] as Either;
+        final summaryResult = results[1] as Either;
+        summaryResult.fold((_) {}, (s) {
+          serverIncome = (s as dynamic).totalIncome as int;
+          serverExpense = (s as dynamic).totalExpense as int;
+        });
+        txnResult.fold(
+          (failure) => emit(TransactionError((failure as dynamic).message as String)),
+          (page) => emit(TransactionLoaded(
+            transactions: ((page as dynamic).content as List).cast(),
+            year: event.year,
+            month: event.month,
+            totalElements: (page as dynamic).totalElements as int,
+            hasMore: !((page as dynamic).last as bool),
+            currentPage: 0,
+            serverTotalIncome: serverIncome,
+            serverTotalExpense: serverExpense,
+          )),
+        );
+        return;
+      }
+
+      if (hasOnlyPaymentMethodFilter && statisticsRepository != null) {
+        final results = await Future.wait([
+          txnFuture,
+          statisticsRepository!.getPaymentMethodStats(year: event.year, month: event.month),
+        ]);
+        final txnResult = results[0] as Either;
+        final pmStatsResult = results[1] as Either;
+        pmStatsResult.fold((_) {}, (statsList) {
+          for (final stat in (statsList as List)) {
+            final pmStat = stat as dynamic;
+            if (pmStat.paymentMethodId == event.paymentMethodId) {
+              serverExpense = pmStat.totalAmount as int;
+              serverIncome = 0;
+              break;
+            }
+          }
+        });
+        txnResult.fold(
+          (failure) => emit(TransactionError((failure as dynamic).message as String)),
+          (page) => emit(TransactionLoaded(
+            transactions: ((page as dynamic).content as List).cast(),
+            year: event.year,
+            month: event.month,
+            totalElements: (page as dynamic).totalElements as int,
+            hasMore: !((page as dynamic).last as bool),
+            currentPage: 0,
+            serverTotalIncome: serverIncome,
+            serverTotalExpense: serverExpense,
+          )),
+        );
+        return;
+      }
+
+      final result = await txnFuture;
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
         (page) => emit(TransactionLoaded(

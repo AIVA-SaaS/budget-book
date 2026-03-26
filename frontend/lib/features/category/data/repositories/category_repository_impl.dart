@@ -73,6 +73,8 @@ class CategoryRepositoryImpl implements CategoryRepository {
       'isDefault': model.isDefault,
       'displayOrder': model.displayOrder,
       'groupId': model.groupId,
+      'visibility': model.visibility,
+      'ownerId': model.ownerId,
       'createdAt': model.createdAt.toIso8601String(),
     };
   }
@@ -84,11 +86,13 @@ class CategoryRepositoryImpl implements CategoryRepository {
     String? icon,
     String? color,
     String? groupId,
+    String visibility = 'SHARED',
   }) async {
     try {
       final data = <String, dynamic>{
         'name': name,
         'type': type,
+        'visibility': visibility,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
         if (groupId != null) 'groupId': groupId,

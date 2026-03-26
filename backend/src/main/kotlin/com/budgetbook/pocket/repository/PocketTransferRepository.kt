@@ -30,4 +30,20 @@ interface PocketTransferRepository : JpaRepository<PocketTransfer, UUID> {
         WHERE t.fromPocket.id = :pocketId
     """)
     fun sumAmountByFromPocketId(@Param("pocketId") pocketId: UUID): Long
+
+    @Query("""
+        SELECT t.toPocket.id, COALESCE(SUM(t.amount), 0)
+        FROM PocketTransfer t
+        WHERE t.toPocket.id IN :pocketIds
+        GROUP BY t.toPocket.id
+    """)
+    fun sumAmountByToPocketIdIn(@Param("pocketIds") pocketIds: Set<UUID>): List<Array<Any>>
+
+    @Query("""
+        SELECT t.fromPocket.id, COALESCE(SUM(t.amount), 0)
+        FROM PocketTransfer t
+        WHERE t.fromPocket.id IN :pocketIds
+        GROUP BY t.fromPocket.id
+    """)
+    fun sumAmountByFromPocketIdIn(@Param("pocketIds") pocketIds: Set<UUID>): List<Array<Any>>
 }

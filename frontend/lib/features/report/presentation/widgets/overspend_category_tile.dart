@@ -1,6 +1,6 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 
 class OverspendCategoryTile extends StatelessWidget {
@@ -11,7 +11,6 @@ class OverspendCategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
     final isOverAverage = category.deviation > 0;
 
     return ListTile(
@@ -29,7 +28,7 @@ class OverspendCategoryTile extends StatelessWidget {
         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        '평균 ${numberFormat.format(category.averageAmount)}원 (${category.transactionCount}건)',
+        '평균 ${CurrencyFormatter.format(category.averageAmount)}원 (${category.transactionCount}건)',
         style: theme.textTheme.bodySmall,
       ),
       trailing: Column(
@@ -37,7 +36,7 @@ class OverspendCategoryTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '${numberFormat.format(category.amount)}원',
+            '${CurrencyFormatter.format(category.amount)}원',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -51,7 +50,7 @@ class OverspendCategoryTile extends StatelessWidget {
                 color: isOverAverage ? Colors.red : Colors.green,
               ),
               Text(
-                '${numberFormat.format(category.deviation.abs())}원',
+                '${CurrencyFormatter.format(category.deviation.abs())}원',
                 style: TextStyle(
                   fontSize: 12,
                   color: isOverAverage ? Colors.red : Colors.green,

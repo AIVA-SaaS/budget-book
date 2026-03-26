@@ -30,6 +30,15 @@ class CoupleInvitationPending extends CoupleState {
   List<Object?> get props => [invitation];
 }
 
+class CoupleInvitationExpired extends CoupleState {
+  final Invitation invitation;
+
+  const CoupleInvitationExpired(this.invitation);
+
+  @override
+  List<Object?> get props => [invitation];
+}
+
 class CoupleLinked extends CoupleState {
   final Couple couple;
 
