@@ -9,6 +9,8 @@ import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
+import com.budgetbook.paymentmethod.dto.CardSettlementMonth
+import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
@@ -16,6 +18,7 @@ import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -27,14 +30,37 @@ class PaymentMethodService(
     private val paymentMethodRepository: PaymentMethodRepository,
     override val coupleResolver: CoupleResolver,
     private val transactionRepository: TransactionRepository,
+    private val transferRepository: TransferRepository,
     private val syncEventPublisher: SyncEventPublisher
 ) : CoupleAwareService {
 
     @Transactional(readOnly = true)
     fun listPaymentMethods(userId: UUID): List<PaymentMethodResponse> {
         val couple = getActiveCouple(userId)
-        return paymentMethodRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
-            .map { it.toResponse() }
+        val methods = paymentMethodRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
+
+        val balanceMap = calculateBalances(couple.id)
+
+        return methods.map { pm ->
+            val balance = if (pm.type != PaymentMethodType.CREDIT) balanceMap[pm.id] ?: 0L else null
+            pm.toResponse(balance)
+        }
+    }
+
+    private fun calculateBalances(coupleId: UUID): Map<UUID, Long> {
+        val txNet = transactionRepository.netAmountByPaymentMethodForCouple(coupleId)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val transferIn = transferRepository.sumAmountByDestinationForCouple(coupleId)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val transferOut = transferRepository.sumAmountBySourceForCouple(coupleId)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val allIds = txNet.keys + transferIn.keys + transferOut.keys
+        return allIds.associateWith { id ->
+            (txNet[id] ?: 0L) + (transferIn[id] ?: 0L) - (transferOut[id] ?: 0L)
+        }
     }
 
     @Transactional
@@ -53,12 +79,15 @@ class PaymentMethodService(
             }
         }
 
+        val linkedBank = resolveLinkedBank(request.linkedBankId, type, couple.id)
+
         val paymentMethod = PaymentMethod(
             couple = couple,
             name = request.name,
             type = type,
             settlementDay = request.settlementDay,
-            closingDay = request.closingDay
+            closingDay = request.closingDay,
+            linkedBank = linkedBank
         )
 
         val saved = paymentMethodRepository.save(paymentMethod)
@@ -83,6 +112,9 @@ class PaymentMethodService(
         request.closingDay?.let { method.closingDay = it }
         request.isActive?.let { method.isActive = it }
         request.displayOrder?.let { method.displayOrder = it }
+        request.linkedBankId?.let { bankId ->
+            method.linkedBank = resolveLinkedBank(bankId, method.type, couple.id)
+        }
 
         val saved = paymentMethodRepository.save(method)
         syncEventPublisher.publish(SyncEvent(
@@ -149,7 +181,8 @@ class PaymentMethodService(
             val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                 paymentMethodId = card.id,
                 startDate = startDate,
-                endDate = endDate
+                endDate = endDate,
+                userId = userId
             )
             val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
             val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
@@ -165,7 +198,66 @@ class PaymentMethodService(
         }
     }
 
-    private fun PaymentMethod.toResponse() = PaymentMethodResponse(
+    @Transactional(readOnly = true)
+    fun getCardSettlementSummary(userId: UUID): CardSettlementSummaryResponse {
+        val couple = getActiveCouple(userId)
+        val now = YearMonth.now()
+        val prev = now.minusMonths(1)
+
+        val creditCards = paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(
+            couple.id, PaymentMethodType.CREDIT
+        )
+
+        fun buildMonth(yearMonth: YearMonth): CardSettlementMonth {
+            val startDate = yearMonth.atDay(1)
+            val endDate = yearMonth.atEndOfMonth()
+            val cards = creditCards.map { card ->
+                val results = transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                    paymentMethodId = card.id,
+                    startDate = startDate,
+                    endDate = endDate,
+                    userId = userId
+                )
+                val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
+                val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
+                CardPendingResponse(
+                    paymentMethod = card.toResponse(),
+                    pendingAmount = totalAmount,
+                    settlementDate = if (card.settlementDay != null) {
+                        LocalDate.of(yearMonth.year, yearMonth.month,
+                            card.settlementDay!!.coerceAtMost(yearMonth.lengthOfMonth()))
+                    } else null,
+                    transactionCount = count
+                )
+            }
+            return CardSettlementMonth(
+                year = yearMonth.year,
+                month = yearMonth.monthValue,
+                totalAmount = cards.sumOf { it.pendingAmount },
+                cards = cards
+            )
+        }
+
+        return CardSettlementSummaryResponse(
+            previousMonth = buildMonth(prev),
+            currentMonth = buildMonth(now)
+        )
+    }
+
+    private fun resolveLinkedBank(linkedBankId: UUID?, type: PaymentMethodType, coupleId: UUID): PaymentMethod? {
+        if (linkedBankId == null) return null
+        if (type != PaymentMethodType.CREDIT) {
+            throw BusinessException("VALIDATION_ERROR", "linkedBankId는 카드(CREDIT) 결제수단에만 설정할 수 있습니다.")
+        }
+        val bank = paymentMethodRepository.findByIdAndCoupleId(linkedBankId, coupleId)
+            ?: throw NotFoundException("PAYMENT_METHOD_NOT_FOUND", "연결 은행 결제수단을 찾을 수 없습니다.")
+        if (bank.type != PaymentMethodType.BANK) {
+            throw BusinessException("VALIDATION_ERROR", "linkedBankId는 BANK 타입의 결제수단이어야 합니다.")
+        }
+        return bank
+    }
+
+    private fun PaymentMethod.toResponse(balance: Long? = null) = PaymentMethodResponse(
         id = id,
         name = name,
         type = type.name,
@@ -174,6 +266,9 @@ class PaymentMethodService(
         isActive = isActive,
         isDefault = isDefault,
         displayOrder = displayOrder,
+        balance = balance,
+        linkedBankId = linkedBank?.id,
+        linkedBankName = linkedBank?.name,
         createdAt = createdAt
     )
 }

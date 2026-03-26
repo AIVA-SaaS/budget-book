@@ -15,6 +15,7 @@ class PaymentMethodBloc
     on<UpdatePaymentMethod>(_onUpdatePaymentMethod);
     on<DeletePaymentMethod>(_onDeletePaymentMethod);
     on<LoadCardPending>(_onLoadCardPending);
+    on<LoadCardSettlementSummary>(_onLoadCardSettlementSummary);
   }
 
   Future<void> _onLoadPaymentMethods(
@@ -26,7 +27,13 @@ class PaymentMethodBloc
       final result = await paymentMethodRepository.getPaymentMethods();
       result.fold(
         (failure) => emit(PaymentMethodError(failure.message)),
-        (methods) => emit(PaymentMethodLoaded(methods)),
+        (methods) {
+          emit(PaymentMethodLoaded(methods));
+          // Auto-load card settlement summary if credit cards exist
+          if (methods.any((pm) => pm.isCredit)) {
+            add(const LoadCardSettlementSummary());
+          }
+        },
       );
     } catch (_) {
       emit(const PaymentMethodError('예기치 않은 오류가 발생했습니다'));
@@ -50,6 +57,7 @@ class PaymentMethodBloc
         type: event.type,
         settlementDay: event.settlementDay,
         closingDay: event.closingDay,
+        linkedBankId: event.linkedBankId,
       );
       result.fold(
         (failure) => emit(PaymentMethodLoaded(
@@ -95,6 +103,8 @@ class PaymentMethodBloc
         closingDay: event.closingDay,
         isActive: event.isActive,
         displayOrder: event.displayOrder,
+        linkedBankId: event.linkedBankId,
+        clearLinkedBank: event.clearLinkedBank,
       );
       result.fold(
         (failure) => emit(PaymentMethodLoaded(
@@ -198,6 +208,47 @@ class PaymentMethodBloc
         emit(PaymentMethodLoaded(
           loaded.paymentMethods,
           cardPendings: loaded.cardPendings,
+          operationError: '예기치 않은 오류가 발생했습니다',
+        ));
+      } else {
+        emit(const PaymentMethodError('예기치 않은 오류가 발생했습니다'));
+      }
+    }
+  }
+
+  Future<void> _onLoadCardSettlementSummary(
+    LoadCardSettlementSummary event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    try {
+      final currentMethods = state is PaymentMethodLoaded
+          ? (state as PaymentMethodLoaded).paymentMethods
+          : <PaymentMethod>[];
+      final currentPendings = state is PaymentMethodLoaded
+          ? (state as PaymentMethodLoaded).cardPendings
+          : null;
+
+      final result =
+          await paymentMethodRepository.getCardSettlementSummary();
+      result.fold(
+        (failure) => emit(PaymentMethodLoaded(
+          currentMethods,
+          cardPendings: currentPendings,
+          operationError: failure.message,
+        )),
+        (summary) => emit(PaymentMethodLoaded(
+          currentMethods,
+          cardPendings: currentPendings,
+          cardSettlementSummary: summary,
+        )),
+      );
+    } catch (_) {
+      if (state is PaymentMethodLoaded) {
+        final loaded = state as PaymentMethodLoaded;
+        emit(PaymentMethodLoaded(
+          loaded.paymentMethods,
+          cardPendings: loaded.cardPendings,
+          cardSettlementSummary: loaded.cardSettlementSummary,
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {

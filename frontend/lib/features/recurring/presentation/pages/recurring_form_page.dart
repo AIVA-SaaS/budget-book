@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
@@ -36,6 +37,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
   int? _dayOfMonth;
   int? _dayOfWeek;
   String? _categoryId;
+  String? _categoryDisplayName;
   String? _paymentMethodId;
   bool _initialized = false;
   bool _isSubmitting = false;
@@ -63,6 +65,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
     _dayOfMonth = recurring.dayOfMonth;
     _dayOfWeek = recurring.dayOfWeek;
     _categoryId = recurring.categoryId;
+    _categoryDisplayName = recurring.categoryName;
     _paymentMethodId = recurring.paymentMethodId;
   }
 
@@ -97,7 +100,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -287,16 +290,9 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               final categories = _type == 'INCOME'
                   ? state.incomeCategories
                   : state.expenseCategories;
-              final selectedName = _categoryId != null
-                  ? categories
-                      .where((c) => c.id == _categoryId)
-                      .map((c) => c.name)
-                      .firstOrNull
-                  : null;
-
               return ItemSelectorField(
                 label: '카테고리 (선택)',
-                selectedLabel: selectedName,
+                selectedLabel: _categoryDisplayName ?? (_categoryId != null ? '(삭제됨)' : null),
                 prefixIcon: Icons.category_outlined,
                 placeholder: '선택 안 함',
                 onTap: () => _showCategorySelectorSheet(context, categories),
@@ -344,32 +340,16 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('반복 거래 삭제'),
-        content: const Text('정말 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<RecurringBloc>().add(
-                    DeleteRecurringTransaction(widget.recurringId!),
-                  );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '반복 거래 삭제',
     );
+    if (confirmed && context.mounted) {
+      context.read<RecurringBloc>().add(
+            DeleteRecurringTransaction(widget.recurringId!),
+          );
+    }
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
@@ -383,11 +363,27 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
         selectedCategoryId: _categoryId,
         categoryType: _type,
         onSelected: (category) {
-          setState(() => _categoryId = category?.id);
+          setState(() {
+            _categoryId = category?.id;
+            _categoryDisplayName = category?.name;
+          });
+        },
+        onSelectedWithGroupName: (category, groupName) {
+          setState(() {
+            _categoryId = category?.id;
+            if (category != null && groupName != null && groupName.isNotEmpty) {
+              _categoryDisplayName = '$groupName > ${category.name}';
+            } else {
+              _categoryDisplayName = category?.name;
+            }
+          });
         },
         onDelete: (id) {
           if (_categoryId == id) {
-            setState(() => _categoryId = null);
+            setState(() {
+              _categoryId = null;
+              _categoryDisplayName = null;
+            });
           }
         },
       ),

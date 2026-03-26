@@ -9,9 +9,14 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/widgets/category_group_form_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/widgets/reorderable_entity_list.dart';
+
+const _virtualGroupId = '00000000-0000-0000-0000-000000000000';
 
 class CategoryGroupPage extends StatelessWidget {
   const CategoryGroupPage({super.key});
+
+  bool _isVirtualGroup(CategoryGroup group) => group.id == _virtualGroupId;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +30,7 @@ class CategoryGroupPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (state is CategoryGroupLoaded &&
@@ -33,7 +38,7 @@ class CategoryGroupPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -68,13 +73,18 @@ class CategoryGroupPage extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        final group = groups[index];
-        return _buildGroupTile(context, group);
+    return ReorderableEntityList<CategoryGroup>(
+      items: groups,
+      onReorder: (oldIndex, newIndex) {
+        final reordered = List<CategoryGroup>.from(groups);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        context.read<CategoryGroupBloc>().add(
+              ReorderCategoryGroups(reordered.map((g) => g.id).toList()),
+            );
       },
+      itemBuilder: (context, group, index) =>
+          _buildGroupTile(context, group),
     );
   }
 
@@ -131,38 +141,39 @@ class CategoryGroupPage extends StatelessWidget {
                     .withValues(alpha: 0.5),
               ),
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showEditGroup(context, group);
-            } else if (value == 'delete') {
-              _showDeleteDialog(context, group);
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('수정'),
+        trailing: _isVirtualGroup(group)
+            ? null
+            : PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditGroup(context, group);
+                  } else if (value == 'delete') {
+                    _showDeleteDialog(context, group);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('수정'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('삭제', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-            if (!group.isDefault)
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('삭제', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-          ],
-        ),
         children: group.categories.isEmpty
             ? [
                 Padding(

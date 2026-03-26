@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -37,12 +38,14 @@ class StatisticsServiceTest : BehaviorSpec({
     Given("a user in an active couple for monthly summary") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-        When("there are income and expense transactions") {
+        When("there are income and expense transactions with default visibility") {
             every {
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any(),
+                    "ALL"
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 5000000L, 10L),
@@ -60,12 +63,67 @@ class StatisticsServiceTest : BehaviorSpec({
             }
         }
 
+        When("visibility is SHARED") {
+            every {
+                transactionRepository.sumByTypeForCouple(
+                    couple.id,
+                    LocalDate.of(2026, 3, 1),
+                    LocalDate.of(2026, 3, 31),
+                    any(),
+                    "SHARED"
+                )
+            } returns listOf(
+                arrayOf(TransactionType.INCOME, 3000000L, 6L),
+                arrayOf(TransactionType.EXPENSE, 2000000L, 20L)
+            )
+
+            val result = service.getMonthlySummary(user1.id, 2026, 3, "SHARED")
+
+            Then("returns shared-only summary") {
+                result.totalIncome shouldBe 3000000L
+                result.totalExpense shouldBe 2000000L
+                result.transactionCount shouldBe 26
+            }
+
+            Then("passes SHARED to repository") {
+                verify {
+                    transactionRepository.sumByTypeForCouple(
+                        couple.id, any(), any(), any(), "SHARED"
+                    )
+                }
+            }
+        }
+
+        When("visibility is PRIVATE") {
+            every {
+                transactionRepository.sumByTypeForCouple(
+                    couple.id,
+                    LocalDate.of(2026, 3, 1),
+                    LocalDate.of(2026, 3, 31),
+                    any(),
+                    "PRIVATE"
+                )
+            } returns listOf(
+                arrayOf(TransactionType.EXPENSE, 500000L, 5L)
+            )
+
+            val result = service.getMonthlySummary(user1.id, 2026, 3, "PRIVATE")
+
+            Then("returns private-only summary") {
+                result.totalIncome shouldBe 0L
+                result.totalExpense shouldBe 500000L
+                result.transactionCount shouldBe 5
+            }
+        }
+
         When("there are no transactions") {
             every {
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any(),
+                    "ALL"
                 )
             } returns emptyList()
 
@@ -77,6 +135,14 @@ class StatisticsServiceTest : BehaviorSpec({
                 result.totalExpense shouldBe 0L
                 result.balance shouldBe 0L
                 result.transactionCount shouldBe 0
+            }
+        }
+
+        When("invalid visibility is provided") {
+            Then("throws BusinessException") {
+                shouldThrow<BusinessException> {
+                    service.getMonthlySummary(user1.id, 2026, 3, "INVALID")
+                }.code shouldBe "VALIDATION_ERROR"
             }
         }
     }
@@ -101,17 +167,19 @@ class StatisticsServiceTest : BehaviorSpec({
         val catId1 = UUID.randomUUID()
         val catId2 = UUID.randomUUID()
 
-        When("there are expense transactions by category") {
+        When("there are expense transactions by category with default visibility") {
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any(),
+                    "ALL"
                 )
             } returns listOf(
-                arrayOf(800000L, 12L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733"),
-                arrayOf(320000L, 8L, catId2, "교통비", com.budgetbook.category.domain.CategoryType.EXPENSE, "directions_car", "#2196F3")
+                arrayOf<Any?>(800000L, 12L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null),
+                arrayOf<Any?>(320000L, 8L, catId2, "교통비", com.budgetbook.category.domain.CategoryType.EXPENSE, "directions_car", "#2196F3", null, null)
             )
 
             val result = service.getCategoryBreakdown(user1.id, 2026, 3, "EXPENSE")
@@ -128,13 +196,45 @@ class StatisticsServiceTest : BehaviorSpec({
             }
         }
 
+        When("visibility is SHARED for category breakdown") {
+            every {
+                transactionRepository.sumByCategoryForCouple(
+                    couple.id,
+                    LocalDate.of(2026, 3, 1),
+                    LocalDate.of(2026, 3, 31),
+                    TransactionType.EXPENSE,
+                    any(),
+                    "SHARED"
+                )
+            } returns listOf(
+                arrayOf<Any?>(600000L, 8L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null)
+            )
+
+            val result = service.getCategoryBreakdown(user1.id, 2026, 3, "EXPENSE", "SHARED")
+
+            Then("returns shared-only category breakdown") {
+                result shouldHaveSize 1
+                result[0].amount shouldBe 600000L
+            }
+
+            Then("passes SHARED to repository") {
+                verify {
+                    transactionRepository.sumByCategoryForCouple(
+                        couple.id, any(), any(), TransactionType.EXPENSE, any(), "SHARED"
+                    )
+                }
+            }
+        }
+
         When("type is null, defaults to EXPENSE") {
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any(),
+                    "ALL"
                 )
             } returns emptyList()
 
@@ -159,7 +259,7 @@ class StatisticsServiceTest : BehaviorSpec({
     Given("a user in an active couple for monthly trend") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-        When("requesting 3 months of trend data") {
+        When("requesting 3 months of trend data with default visibility") {
             val now = YearMonth.now()
             val startMonth = now.minusMonths(2)
 
@@ -167,7 +267,9 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.monthlyTrendForCouple(
                     couple.id,
                     startMonth.atDay(1),
-                    now.atEndOfMonth()
+                    now.atEndOfMonth(),
+                    any(),
+                    "ALL"
                 )
             } returns listOf(
                 arrayOf(startMonth.toString(), "INCOME", 4000000L),
@@ -197,6 +299,40 @@ class StatisticsServiceTest : BehaviorSpec({
             }
         }
 
+        When("requesting trend with SHARED visibility") {
+            val now = YearMonth.now()
+            val startMonth = now.minusMonths(2)
+
+            every {
+                transactionRepository.monthlyTrendForCouple(
+                    couple.id,
+                    startMonth.atDay(1),
+                    now.atEndOfMonth(),
+                    any(),
+                    "SHARED"
+                )
+            } returns listOf(
+                arrayOf(now.toString(), "INCOME", 2000000L),
+                arrayOf(now.toString(), "EXPENSE", 1000000L)
+            )
+
+            val result = service.getMonthlyTrend(user1.id, 3, "SHARED")
+
+            Then("returns trend data filtered by SHARED") {
+                result shouldHaveSize 3
+                result[2].totalIncome shouldBe 2000000L
+                result[2].totalExpense shouldBe 1000000L
+            }
+
+            Then("passes SHARED to repository") {
+                verify {
+                    transactionRepository.monthlyTrendForCouple(
+                        couple.id, any(), any(), any(), "SHARED"
+                    )
+                }
+            }
+        }
+
         When("months parameter exceeds max") {
             val now = YearMonth.now()
             val startMonth = now.minusMonths(23)
@@ -205,7 +341,9 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.monthlyTrendForCouple(
                     couple.id,
                     startMonth.atDay(1),
-                    now.atEndOfMonth()
+                    now.atEndOfMonth(),
+                    any(),
+                    "ALL"
                 )
             } returns emptyList()
 
@@ -213,6 +351,14 @@ class StatisticsServiceTest : BehaviorSpec({
 
             Then("is clamped to 24 months") {
                 result shouldHaveSize 24
+            }
+        }
+
+        When("invalid visibility is provided for trend") {
+            Then("throws BusinessException") {
+                shouldThrow<BusinessException> {
+                    service.getMonthlyTrend(user1.id, 3, "INVALID")
+                }.code shouldBe "VALIDATION_ERROR"
             }
         }
     }

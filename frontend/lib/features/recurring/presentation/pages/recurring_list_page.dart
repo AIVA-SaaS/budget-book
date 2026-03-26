@@ -23,7 +23,7 @@ class RecurringListPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (state is RecurringLoaded &&
@@ -31,7 +31,7 @@ class RecurringListPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -75,6 +75,7 @@ class RecurringListPage extends StatelessWidget {
             .add(const LoadRecurringTransactions());
       },
       child: ListView(
+        key: const PageStorageKey('recurring_list'),
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           if (state.activeTransactions.isNotEmpty) ...[

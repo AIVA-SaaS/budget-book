@@ -1,48 +1,30 @@
 import 'package:equatable/equatable.dart';
-
-class WeeklyGroupSummary extends Equatable {
-  final String groupId;
-  final String groupName;
-  final int budgetAmount;
-  final int spentAmount;
-  final int remainingAmount;
-  final double usageRate;
-
-  const WeeklyGroupSummary({
-    required this.groupId,
-    required this.groupName,
-    required this.budgetAmount,
-    required this.spentAmount,
-    required this.remainingAmount,
-    required this.usageRate,
-  });
-
-  @override
-  List<Object?> get props => [
-        groupId,
-        groupName,
-        budgetAmount,
-        spentAmount,
-        remainingAmount,
-        usageRate,
-      ];
-}
+import 'package:budget_book/features/weekly_budget/domain/entities/weekly_overview.dart';
 
 class CurrentWeekSummary extends Equatable {
   final String yearMonth;
   final int weekNumber;
   final String weekStart;
   final String weekEnd;
-  final List<WeeklyGroupSummary> groups;
+  final List<WeeklyBudgetItem> items;
 
   const CurrentWeekSummary({
     required this.yearMonth,
     required this.weekNumber,
     required this.weekStart,
     required this.weekEnd,
-    required this.groups,
+    required this.items,
   });
 
+  int get totalBudget =>
+      items.fold(0, (sum, item) => sum + item.budgetAmount);
+
+  int get totalSpent =>
+      items.fold(0, (sum, item) => sum + item.spentAmount);
+
+  int get totalRemaining =>
+      items.fold(0, (sum, item) => sum + item.remainingAmount);
+
   @override
-  List<Object?> get props => [yearMonth, weekNumber, weekStart, weekEnd, groups];
+  List<Object?> get props => [yearMonth, weekNumber, weekStart, weekEnd, items];
 }

@@ -134,6 +134,38 @@ class TransactionControllerTest : FunSpec({
         verify(exactly = 1) { transactionService.deleteTransaction(testUserId, txId) }
     }
 
+    test("getSuggestions returns matching descriptions") {
+
+        val suggestions = listOf("점심 식사", "점심 도시락")
+        every { transactionService.getSuggestions(testUserId, "점", 10) } returns suggestions
+
+        val result = controller.getSuggestions(testUserId, "점", 10)
+
+        result.success shouldBe true
+        result.data shouldBe listOf("점심 식사", "점심 도시락")
+    }
+
+    test("getSuggestions with custom limit") {
+
+        val suggestions = listOf("커피")
+        every { transactionService.getSuggestions(testUserId, "커", 5) } returns suggestions
+
+        val result = controller.getSuggestions(testUserId, "커", 5)
+
+        result.success shouldBe true
+        result.data!!.size shouldBe 1
+    }
+
+    test("getSuggestions returns empty list when no matches") {
+
+        every { transactionService.getSuggestions(testUserId, "없는내용", 10) } returns emptyList()
+
+        val result = controller.getSuggestions(testUserId, "없는내용", 10)
+
+        result.success shouldBe true
+        result.data shouldBe emptyList()
+    }
+
     test("exportCsv returns CSV with correct headers") {
 
         val csvContent = "\uFEFF날짜,유형,카테고리,설명,금액,메모,결제수단\n2026-03-01,수입,,월급,3000000,,\n"

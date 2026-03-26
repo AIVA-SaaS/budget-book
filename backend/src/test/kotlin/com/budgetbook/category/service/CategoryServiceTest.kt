@@ -8,6 +8,7 @@ import com.budgetbook.category.dto.CreateCategoryRequest
 import com.budgetbook.category.dto.UpdateCategoryRequest
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -16,6 +17,7 @@ import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.sync.SyncEventPublisher
+import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -37,7 +39,9 @@ class CategoryServiceTest : BehaviorSpec({
     val coupleResolver = mockk<CoupleResolver>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService)
+    val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
+    val transactionRepository = mockk<TransactionRepository>(relaxed = true)
+    val categoryService = CategoryService(categoryRepository, categoryGroupRepository, coupleResolver, syncEventPublisher, redisCacheService, userRepository, transactionRepository)
 
     val user1 = User(
         email = "user1@example.com",
@@ -61,8 +65,8 @@ class CategoryServiceTest : BehaviorSpec({
         val category1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         val category2 = Category(couple = couple, name = "급여", type = CategoryType.INCOME, isDefault = true)
 
-        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category1, category2)
-        every { categoryRepository.findByCoupleIdAndType(couple.id, CategoryType.EXPENSE) } returns listOf(category1)
+        every { categoryRepository.findByCoupleIdAndUserId(couple.id, user1.id) } returns listOf(category1, category2)
+        every { categoryRepository.findByCoupleIdAndTypeAndUserId(couple.id, CategoryType.EXPENSE, user1.id) } returns listOf(category1)
 
         When("listCategories is called without type filter") {
             val result = categoryService.listCategories(user1.id, null)
@@ -203,13 +207,81 @@ class CategoryServiceTest : BehaviorSpec({
 
         val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, isDefault = true)
         every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { categoryRepository.delete(category) } returns Unit
 
         When("deleteCategory is called") {
-            Then("throws BusinessException CANNOT_DELETE_DEFAULT_CATEGORY") {
-                val ex = shouldThrow<BusinessException> {
-                    categoryService.deleteCategory(user1.id, category.id)
+            categoryService.deleteCategory(user1.id, category.id)
+
+            Then("deletes the default category successfully") {
+                verify(exactly = 1) { categoryRepository.delete(category) }
+            }
+        }
+    }
+
+    // --- visibility cascade to transactions ---
+
+    Given("a SHARED category being changed to PRIVATE") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, visibility = Visibility.SHARED)
+        every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { categoryRepository.save(category) } returns category
+
+        When("updateCategory changes visibility to PRIVATE") {
+            val request = UpdateCategoryRequest(visibility = "PRIVATE")
+            categoryService.updateCategory(user1.id, category.id, request)
+
+            Then("cascades PRIVATE visibility to associated transactions") {
+                verify(exactly = 1) {
+                    transactionRepository.updateVisibilityByCategoryId(
+                        categoryId = category.id,
+                        visibility = "PRIVATE",
+                        ownerId = user1.id
+                    )
                 }
-                ex.code shouldBe "CANNOT_DELETE_DEFAULT_CATEGORY"
+            }
+        }
+    }
+
+    Given("a PRIVATE category being changed to SHARED") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val category = Category(couple = couple, name = "용돈", type = CategoryType.EXPENSE, visibility = Visibility.PRIVATE, owner = user1)
+        every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { categoryRepository.save(category) } returns category
+
+        When("updateCategory changes visibility to SHARED") {
+            val request = UpdateCategoryRequest(visibility = "SHARED")
+            categoryService.updateCategory(user1.id, category.id, request)
+
+            Then("cascades SHARED visibility and null owner to associated transactions") {
+                verify(exactly = 1) {
+                    transactionRepository.updateVisibilityByCategoryId(
+                        categoryId = category.id,
+                        visibility = "SHARED",
+                        ownerId = null
+                    )
+                }
+            }
+        }
+    }
+
+    Given("a category whose visibility does not change") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, visibility = Visibility.SHARED)
+        every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { categoryRepository.save(category) } returns category
+
+        When("updateCategory changes only the name") {
+            val request = UpdateCategoryRequest(name = "외식비")
+            categoryService.updateCategory(user1.id, category.id, request)
+
+            Then("does not cascade visibility to transactions") {
+                verify(exactly = 0) {
+                    transactionRepository.updateVisibilityByCategoryId(any(), any(), any())
+                }
             }
         }
     }

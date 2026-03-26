@@ -1,7 +1,9 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -24,6 +26,19 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<LoadDashboard>(_onLoadDashboard);
   }
 
+  Future<int> _getRecentCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Search for any key ending with _dashboard_recent_count
+      final keys = prefs.getKeys().where((k) => k.endsWith('_dashboard_recent_count'));
+      if (keys.isNotEmpty) {
+        final val = prefs.getString(keys.first);
+        if (val != null) return int.tryParse(val) ?? 5;
+      }
+    } catch (_) {}
+    return 5;
+  }
+
   Future<void> _onLoadDashboard(
     LoadDashboard event,
     Emitter<DashboardState> emit,
@@ -40,9 +55,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         transactionRepository.getTransactions(
           year: event.year,
           month: event.month,
-          size: 5,
+          size: await _getRecentCount(),
         ),
         budgetRepository.getBudgetSummary(
+          year: event.year,
+          month: event.month,
+        ),
+        statisticsRepository.getPaymentMethodStats(
           year: event.year,
           month: event.month,
         ),
@@ -54,6 +73,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           futureResults[1] as Either<Failure, PageResponse<Transaction>>;
       final budgetResult =
           futureResults[2] as Either<Failure, BudgetSummary>;
+      final pmStatsResult =
+          futureResults[3] as Either<Failure, List<PaymentMethodStatistics>>;
 
       StatisticsSummary? summary;
       String? summaryError;
@@ -61,6 +82,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       String? transactionsError;
       BudgetSummary? budgetSummary;
       String? budgetError;
+      List<PaymentMethodStatistics> pmStats = [];
 
       summaryResult.fold(
         (failure) => summaryError = failure.message,
@@ -77,12 +99,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         (data) => budgetSummary = data,
       );
 
+      pmStatsResult.fold(
+        (failure) => {}, // silently ignore
+        (data) => pmStats = data,
+      );
+
       emit(DashboardLoaded(
         year: event.year,
         month: event.month,
         summary: summary,
         recentTransactions: recentTransactions,
         budgetSummary: budgetSummary,
+        paymentMethodStats: pmStats,
         summaryError: summaryError,
         transactionsError: transactionsError,
         budgetError: budgetError,

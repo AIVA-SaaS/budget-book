@@ -1,5 +1,7 @@
 package com.budgetbook.category.service
 
+import com.budgetbook.auth.domain.User
+import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.dto.CategoryGroupResponse
@@ -8,6 +10,7 @@ import com.budgetbook.category.dto.CreateCategoryGroupRequest
 import com.budgetbook.category.dto.UpdateCategoryGroupRequest
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -17,6 +20,8 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
+import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transaction.service.TransactionService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -27,17 +32,26 @@ class CategoryGroupService(
     private val categoryRepository: CategoryRepository,
     private val categoryService: CategoryService,
     override val coupleResolver: CoupleResolver,
-    private val syncEventPublisher: SyncEventPublisher
+    private val syncEventPublisher: SyncEventPublisher,
+    private val userRepository: UserRepository,
+    private val transactionRepository: TransactionRepository
 ) : CoupleAwareService {
 
-    @Transactional(readOnly = true)
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
+
+    @Transactional
     fun listCategoryGroups(userId: UUID): List<CategoryGroupResponse> {
         val couple = getActiveCouple(userId)
-        val groups = categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
-        val uncategorized = categoryRepository.findByCoupleIdAndGroupIsNull(couple.id)
+        ensurePrivateGroupExists(couple, userId)
+        val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
+
+        // Batch load all visible categories once, then group by groupId in memory
+        val allCategories = categoryRepository.findByCoupleIdAndUserId(couple.id, userId)
+        val categoriesByGroupId = allCategories.groupBy { it.group?.id }
+        val uncategorized = categoriesByGroupId[null] ?: emptyList()
 
         val result = groups.map { group ->
-            val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+            val categories = categoriesByGroupId[group.id] ?: emptyList()
             group.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
         }.toMutableList()
 
@@ -69,6 +83,13 @@ class CategoryGroupService(
             throw BusinessException("VALIDATION_ERROR", "Invalid budget type: ${request.budgetType}")
         }
 
+        val visibility = TransactionService.parseVisibility(request.visibility)
+
+        val owner = if (visibility == Visibility.PRIVATE) {
+            userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        } else null
+
         val group = CategoryGroup(
             couple = couple,
             name = request.name,
@@ -76,7 +97,9 @@ class CategoryGroupService(
             color = request.color,
             budgetType = budgetType,
             displayOrder = 0,
-            isDefault = false
+            isDefault = false,
+            visibility = visibility,
+            owner = owner
         )
         val saved = categoryGroupRepository.save(group)
         syncEventPublisher.publish(SyncEvent(
@@ -96,6 +119,7 @@ class CategoryGroupService(
             ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
 
         OwnershipValidator.validateOwnership(group.couple.id, couple, "Category group")
+        validatePrivateOwner(group, userId)
 
         request.name?.let { group.name = it }
         request.icon?.let { group.icon = it }
@@ -109,6 +133,43 @@ class CategoryGroupService(
         }
         request.displayOrder?.let { group.displayOrder = it }
 
+        // Handle visibility change with cascade to child categories
+        request.visibility?.let { visStr ->
+            val newVisibility = TransactionService.parseVisibility(visStr)
+            val oldVisibility = group.visibility
+            group.visibility = newVisibility
+            if (newVisibility == Visibility.PRIVATE) {
+                val user = userRepository.findById(userId)
+                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+                group.owner = user
+            } else {
+                group.owner = null
+            }
+
+            // Cascade visibility change to child categories and their transactions
+            if (oldVisibility != newVisibility) {
+                val childCategories = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+                childCategories.forEach { cat ->
+                    cat.visibility = newVisibility
+                    if (newVisibility == Visibility.PRIVATE) {
+                        cat.owner = group.owner
+                    } else {
+                        cat.owner = null
+                    }
+                    categoryRepository.save(cat)
+
+                    // Cascade to transactions via CategoryService's existing logic
+                    val ownerId = if (newVisibility == Visibility.PRIVATE) group.owner?.id else null
+                    transactionRepository.updateVisibilityByCategoryId(
+                        categoryId = cat.id,
+                        visibility = newVisibility.name,
+                        ownerId = ownerId
+                    )
+                }
+                log.info("Cascaded visibility change to {} categories for groupId={}, visibility={}", childCategories.size, group.id, newVisibility)
+            }
+        }
+
         val saved = categoryGroupRepository.save(group)
         syncEventPublisher.publish(SyncEvent(
             type = "CATEGORY_GROUP_UPDATED",
@@ -117,7 +178,7 @@ class CategoryGroupService(
             coupleId = couple.id,
             authorId = userId
         ))
-        val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, saved.id)
+        val categories = categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, saved.id, userId)
         return saved.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
     }
 
@@ -128,10 +189,7 @@ class CategoryGroupService(
             ?: throw NotFoundException("GROUP_NOT_FOUND", "Category group does not exist.")
 
         OwnershipValidator.validateOwnership(group.couple.id, couple, "Category group")
-
-        if (group.isDefault) {
-            throw BusinessException("CANNOT_DELETE_DEFAULT_GROUP", "Default category groups cannot be deleted.")
-        }
+        validatePrivateOwner(group, userId)
 
         // Unassign categories from this group before deleting
         val categories = categoryRepository.findByCoupleIdAndGroupId(couple.id, groupId)
@@ -146,6 +204,42 @@ class CategoryGroupService(
             coupleId = couple.id,
             authorId = userId
         ))
+    }
+
+    @Transactional
+    fun reorderGroups(userId: UUID, orderedIds: List<UUID>): List<CategoryGroupResponse> {
+        val couple = getActiveCouple(userId)
+        val groups = categoryGroupRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
+        val groupMap = groups.associateBy { it.id }
+
+        // Validate all IDs belong to this couple
+        orderedIds.forEach { id ->
+            if (!groupMap.containsKey(id)) {
+                throw NotFoundException("GROUP_NOT_FOUND", "Category group $id does not exist for this couple.")
+            }
+        }
+
+        // Set displayOrder based on orderedIds position
+        orderedIds.forEachIndexed { index, id ->
+            groupMap[id]!!.displayOrder = index
+        }
+
+        categoryGroupRepository.saveAll(groups)
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_GROUP_REORDERED",
+            entityType = "CATEGORY_GROUP",
+            entityId = couple.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+
+        // Return updated list in order
+        val sortedGroups = groups.sortedBy { it.displayOrder }
+        return sortedGroups.map { group ->
+            val categories = categoryRepository.findByCoupleIdAndGroupIdAndUserId(couple.id, group.id, userId)
+            group.toResponse(categories.map { it.run { categoryService.run { toResponse() } } })
+        }
     }
 
     @Transactional
@@ -191,6 +285,46 @@ class CategoryGroupService(
         }
     }
 
+    /**
+     * Ensure a PRIVATE "개인 항목" group exists for the user.
+     * Auto-seeds for existing couples that were created before the visibility feature.
+     */
+    private fun ensurePrivateGroupExists(couple: Couple, userId: UUID) {
+        try {
+            val hasPrivateGroup = categoryGroupRepository
+                .findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, userId)
+                .any { it.visibility == Visibility.PRIVATE && it.owner?.id == userId }
+
+            if (!hasPrivateGroup) {
+                val user = userRepository.findById(userId).orElse(null) ?: return
+                val group = seedPrivateCategoryGroup(couple, user)
+                categoryService.seedPrivateCategories(couple, user, group)
+            }
+        } catch (e: Exception) {
+            // Silently ignore seeding failures (e.g. constraint violations during concurrent access)
+            log.warn("Failed to auto-seed private categories for userId={}: {}", userId, e.message)
+        }
+    }
+
+    /**
+     * Seed a PRIVATE "개인 항목" category group for a user.
+     */
+    @Transactional
+    fun seedPrivateCategoryGroup(couple: Couple, user: User): CategoryGroup {
+        val group = CategoryGroup(
+            couple = couple,
+            name = "개인 항목",
+            icon = "person",
+            color = "#607D8B",
+            budgetType = BudgetType.NONE,
+            displayOrder = 100,
+            isDefault = false,
+            visibility = Visibility.PRIVATE,
+            owner = user
+        )
+        return categoryGroupRepository.save(group)
+    }
+
     private fun CategoryGroup.toResponse(categories: List<CategoryResponse>) = CategoryGroupResponse(
         id = id,
         name = name,
@@ -200,8 +334,16 @@ class CategoryGroupService(
         displayOrder = displayOrder,
         isDefault = isDefault,
         categories = categories,
+        visibility = visibility.name,
+        ownerId = owner?.id,
         createdAt = createdAt
     )
+
+    private fun validatePrivateOwner(group: CategoryGroup, userId: UUID) {
+        if (group.visibility == Visibility.PRIVATE && group.owner?.id != null && group.owner?.id != userId) {
+            throw ForbiddenException("FORBIDDEN", "Only the owner can modify a private category group.")
+        }
+    }
 
     private data class DefaultGroup(
         val name: String,

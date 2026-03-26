@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/storage/secure_storage.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
+import 'package:budget_book/core/websocket/websocket_event.dart';
 import 'package:budget_book/core/websocket/websocket_state.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
 import 'package:budget_book/core/widgets/offline_banner.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
@@ -26,6 +31,27 @@ class MainShellPage extends StatefulWidget {
 
 class _MainShellPageState extends State<MainShellPage> {
   int _previousIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectWebSocketIfAuthenticated();
+  }
+
+  Future<void> _connectWebSocketIfAuthenticated() async {
+    final authState = getIt<AuthBloc>().state;
+    if (authState is AuthAuthenticated && authState.user.coupleId != null) {
+      final token = await getIt<SecureStorageService>().getAccessToken();
+      if (token != null) {
+        getIt<WebSocketBloc>().add(WebSocketConnect(
+          baseUrl: ApiEndpoints.baseUrl,
+          accessToken: token,
+          coupleId: authState.user.coupleId!,
+          currentUserId: authState.user.id,
+        ));
+      }
+    }
+  }
 
   void _onDestinationSelected(int index) {
     final previousIndex = _previousIndex;
@@ -57,7 +83,16 @@ class _MainShellPageState extends State<MainShellPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<AuthBloc, AuthState>(
+      bloc: getIt<AuthBloc>(),
+      listener: (context, state) {
+        if (state is AuthAuthenticated && state.user.coupleId != null) {
+          _connectWebSocketIfAuthenticated();
+        } else if (state is AuthUnauthenticated) {
+          getIt<WebSocketBloc>().add(const WebSocketDisconnect());
+        }
+      },
+      child: Scaffold(
       body: SafeArea(
         bottom: false, // Bottom is handled by NavigationBar
         child: Column(
@@ -65,7 +100,9 @@ class _MainShellPageState extends State<MainShellPage> {
             OfflineBanner(
               connectivityService: getIt<ConnectivityService>(),
             ),
-            const _ConnectionStatusBanner(),
+            _ConnectionStatusBanner(
+              onReconnect: _connectWebSocketIfAuthenticated,
+            ),
             Expanded(child: widget.navigationShell),
           ],
         ),
@@ -101,12 +138,15 @@ class _MainShellPageState extends State<MainShellPage> {
           ),
         ],
       ),
+      ),
     );
   }
 }
 
 class _ConnectionStatusBanner extends StatelessWidget {
-  const _ConnectionStatusBanner();
+  final VoidCallback onReconnect;
+
+  const _ConnectionStatusBanner({required this.onReconnect});
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +161,7 @@ class _ConnectionStatusBanner extends StatelessWidget {
               child: child,
             );
           },
-          child: _buildBanner(context, state.connectionStatus),
+          child: _buildBanner(context, state.connectionStatus, onReconnect),
         );
       },
     );
@@ -130,6 +170,7 @@ class _ConnectionStatusBanner extends StatelessWidget {
   Widget _buildBanner(
     BuildContext context,
     WebSocketConnectionStatus status,
+    VoidCallback onReconnect,
   ) {
     switch (status) {
       case WebSocketConnectionStatus.connected:
@@ -183,6 +224,19 @@ class _ConnectionStatusBanner extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.red.shade900,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onReconnect,
+                child: Text(
+                  '재연결',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red.shade900,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
             ],

@@ -16,6 +16,8 @@ class RecurringTransaction extends Equatable {
   final String? categoryName;
   final String? paymentMethodId;
   final String? paymentMethodName;
+  final String visibility;
+  final String? ownerId;
   final DateTime createdAt;
 
   const RecurringTransaction({
@@ -34,11 +36,15 @@ class RecurringTransaction extends Equatable {
     this.categoryName,
     this.paymentMethodId,
     this.paymentMethodName,
+    this.visibility = 'SHARED',
+    this.ownerId,
     required this.createdAt,
   });
 
   bool get isExpense => type == 'EXPENSE';
   bool get isIncome => type == 'INCOME';
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   String get frequencyLabel => switch (frequency) {
         'DAILY' => '매일',
@@ -65,6 +71,8 @@ class RecurringTransaction extends Equatable {
         categoryName,
         paymentMethodId,
         paymentMethodName,
+        visibility,
+        ownerId,
         createdAt,
       ];
 }

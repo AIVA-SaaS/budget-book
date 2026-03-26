@@ -35,6 +35,8 @@ void main() {
       type: 'EXPENSE',
       icon: 'restaurant',
       color: '#FF5733',
+      groupId: 'group-1',
+      groupName: '생활',
     ),
     type: 'EXPENSE',
     amount: 35000,
@@ -83,7 +85,7 @@ void main() {
       await tester.pumpWidget(createTestWidget());
 
       expect(find.text('점심 식사'), findsOneWidget);
-      expect(find.text('식비'), findsOneWidget);
+      expect(find.text('생활 > 식비'), findsOneWidget);
       expect(find.text('신한카드'), findsOneWidget);
       expect(find.text('생활비'), findsOneWidget);
       expect(find.text('회사 근처 맛집'), findsOneWidget);
@@ -120,7 +122,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('거래 삭제'), findsOneWidget);
-      expect(find.text('정말 이 거래를 삭제하시겠습니까?'), findsOneWidget);
+      expect(find.text('정말 삭제하시겠습니까?'), findsOneWidget);
       expect(find.text('취소'), findsOneWidget);
       expect(find.text('삭제'), findsOneWidget);
     });

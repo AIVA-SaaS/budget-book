@@ -3,6 +3,7 @@ package com.budgetbook.paymentmethod.controller
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
+import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
@@ -57,6 +58,13 @@ class PaymentMethodController(
     ): ResponseEntity<Void> {
         paymentMethodService.deletePaymentMethod(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/card-settlement-summary")
+    fun getCardSettlementSummary(
+        @AuthUser userId: UUID
+    ): ApiResponse<CardSettlementSummaryResponse> {
+        return ApiResponse.ok(paymentMethodService.getCardSettlementSummary(userId))
     }
 
     @GetMapping("/card-pending")

@@ -1,6 +1,6 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 
 class MonthlyTrendTab extends StatelessWidget {
@@ -190,7 +190,7 @@ class MonthlyTrendTab extends StatelessWidget {
             return spots.map((spot) {
               final isIncome = spot.barIndex == 0;
               return LineTooltipItem(
-                '${isIncome ? "수입" : "지출"}: ${NumberFormat('#,###').format((spot.y * 10000).toInt())}원',
+                '${isIncome ? "수입" : "지출"}: ${CurrencyFormatter.format((spot.y * 10000).toInt())}원',
                 TextStyle(
                   color: isIncome ? _incomeColor : _expenseColor,
                   fontWeight: FontWeight.bold,
@@ -205,7 +205,6 @@ class MonthlyTrendTab extends StatelessWidget {
   }
 
   Widget _buildTable(BuildContext context) {
-    final formatter = NumberFormat('#,###');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -241,15 +240,15 @@ class MonthlyTrendTab extends StatelessWidget {
                 children: [
                   _TableCell('${int.parse(month)}월'),
                   _TableCell(
-                    '${formatter.format(t.totalIncome)}원',
+                    '${CurrencyFormatter.format(t.totalIncome)}원',
                     color: _incomeColor,
                   ),
                   _TableCell(
-                    '${formatter.format(t.totalExpense)}원',
+                    '${CurrencyFormatter.format(t.totalExpense)}원',
                     color: _expenseColor,
                   ),
                   _TableCell(
-                    '${formatter.format(t.balance)}원',
+                    '${CurrencyFormatter.format(t.balance)}원',
                     color: const Color(0xFF2196F3),
                   ),
                 ],

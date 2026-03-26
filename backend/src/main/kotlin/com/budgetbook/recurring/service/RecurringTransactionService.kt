@@ -2,6 +2,7 @@ package com.budgetbook.recurring.service
 
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -11,6 +12,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.recurring.domain.Frequency
+import com.budgetbook.transaction.service.TransactionService
 import com.budgetbook.recurring.domain.RecurringTransaction
 import com.budgetbook.recurring.dto.CreateRecurringTransactionRequest
 import com.budgetbook.recurring.dto.RecurringTransactionResponse
@@ -42,7 +44,7 @@ class RecurringTransactionService(
     @Transactional(readOnly = true)
     fun listRecurringTransactions(userId: UUID): List<RecurringTransactionResponse> {
         val couple = getActiveCouple(userId)
-        return recurringRepository.findByCoupleId(couple.id)
+        return recurringRepository.findByCoupleIdAndUserId(couple.id, userId)
             .map { it.toResponse() }
     }
 
@@ -86,6 +88,8 @@ class RecurringTransactionService(
 
         val nextRunDate = calculateInitialNextRunDate(frequency, request.dayOfMonth, request.dayOfWeek)
 
+        val visibility = TransactionService.parseVisibility(request.visibility)
+
         val recurring = RecurringTransaction(
             couple = couple,
             author = user,
@@ -98,7 +102,8 @@ class RecurringTransactionService(
             frequency = frequency,
             dayOfMonth = request.dayOfMonth,
             dayOfWeek = request.dayOfWeek,
-            nextRunDate = nextRunDate
+            nextRunDate = nextRunDate,
+            visibility = visibility
         )
 
         return recurringRepository.save(recurring).toResponse()
@@ -116,10 +121,20 @@ class RecurringTransactionService(
 
         OwnershipValidator.validateOwnership(recurring.couple.id, couple, "Recurring transaction")
 
+        // PRIVATE recurring transactions can only be modified by the author (owner)
+        if (recurring.visibility == Visibility.PRIVATE && recurring.author.id != userId) {
+            throw ForbiddenException("FORBIDDEN", "Only the owner can modify a private recurring transaction.")
+        }
+
         request.amount?.let { recurring.amount = it }
         request.description?.let { recurring.description = it }
         request.memo?.let { recurring.memo = it }
         request.isActive?.let { recurring.isActive = it }
+
+        // Handle visibility change
+        request.visibility?.let { visStr ->
+            recurring.visibility = TransactionService.parseVisibility(visStr)
+        }
 
         request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
@@ -149,6 +164,10 @@ class RecurringTransactionService(
 
         OwnershipValidator.validateOwnership(recurring.couple.id, couple, "Recurring transaction")
 
+        if (recurring.visibility == Visibility.PRIVATE && recurring.author.id != userId) {
+            throw ForbiddenException("FORBIDDEN", "Only the owner can delete a private recurring transaction.")
+        }
+
         recurringRepository.delete(recurring)
     }
 
@@ -161,7 +180,9 @@ class RecurringTransactionService(
 
         for (recurring in dueTransactions) {
             try {
-                // Create actual transaction
+                // Create actual transaction with visibility propagation
+                val txVisibility = recurring.category?.visibility ?: recurring.visibility
+                val txOwner = if (txVisibility == Visibility.PRIVATE) recurring.author else null
                 val transaction = Transaction(
                     couple = recurring.couple,
                     author = recurring.author,
@@ -171,7 +192,9 @@ class RecurringTransactionService(
                     description = recurring.description,
                     memo = recurring.memo,
                     transactionDate = recurring.nextRunDate,
-                    paymentMethod = recurring.paymentMethod
+                    paymentMethod = recurring.paymentMethod,
+                    visibility = txVisibility,
+                    owner = txOwner
                 )
                 transactionRepository.save(transaction)
 

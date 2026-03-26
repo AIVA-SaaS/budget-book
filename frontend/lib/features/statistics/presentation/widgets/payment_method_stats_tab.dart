@@ -1,6 +1,7 @@
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
 class PaymentMethodStatsTab extends StatelessWidget {
@@ -15,7 +16,6 @@ class PaymentMethodStatsTab extends StatelessWidget {
     this.error,
   });
 
-  static final _formatter = NumberFormat('#,###');
 
   static const _colors = [
     Color(0xFF2196F3),
@@ -119,9 +119,14 @@ class PaymentMethodStatsTab extends StatelessWidget {
 
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                context.push('/transactions?paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
                 children: [
                   // Color indicator
                   Container(
@@ -164,7 +169,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '${_formatter.format(stat.totalAmount)}원',
+                        '${CurrencyFormatter.format(stat.totalAmount)}원',
                         style:
                             Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -182,6 +187,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           );
         }),

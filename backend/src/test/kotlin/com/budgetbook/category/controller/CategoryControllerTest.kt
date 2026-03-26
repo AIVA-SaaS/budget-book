@@ -27,8 +27,8 @@ class CategoryControllerTest : FunSpec({
     test("listCategories returns all categories") {
 
         val categories = listOf(
-            CategoryResponse(UUID.randomUUID(), "식비", "EXPENSE", "restaurant", "#FF5733", null, true, 1, Instant.now()),
-            CategoryResponse(UUID.randomUUID(), "급여", "INCOME", "payments", "#4CAF50", null, true, 1, Instant.now())
+            CategoryResponse(UUID.randomUUID(), "식비", "EXPENSE", "restaurant", "#FF5733", null, true, 1, createdAt = Instant.now()),
+            CategoryResponse(UUID.randomUUID(), "급여", "INCOME", "payments", "#4CAF50", null, true, 1, createdAt = Instant.now())
         )
         every { categoryService.listCategories(testUserId, null) } returns categories
 
@@ -41,7 +41,7 @@ class CategoryControllerTest : FunSpec({
     test("listCategories with type filter returns filtered categories") {
 
         val categories = listOf(
-            CategoryResponse(UUID.randomUUID(), "식비", "EXPENSE", "restaurant", "#FF5733", null, true, 1, Instant.now())
+            CategoryResponse(UUID.randomUUID(), "식비", "EXPENSE", "restaurant", "#FF5733", null, true, 1, createdAt = Instant.now())
         )
         every { categoryService.listCategories(testUserId, CategoryType.EXPENSE) } returns categories
 
@@ -63,7 +63,7 @@ class CategoryControllerTest : FunSpec({
     test("createCategory returns 201 with created category") {
 
         val request = CreateCategoryRequest(name = "반려동물", type = "EXPENSE", icon = "pets", color = "#9C27B0")
-        val response = CategoryResponse(UUID.randomUUID(), "반려동물", "EXPENSE", "pets", "#9C27B0", null, false, 0, Instant.now())
+        val response = CategoryResponse(UUID.randomUUID(), "반려동물", "EXPENSE", "pets", "#9C27B0", null, false, 0, createdAt = Instant.now())
         every { categoryService.createCategory(testUserId, request) } returns response
 
         val result = controller.createCategory(testUserId, request)
@@ -76,7 +76,7 @@ class CategoryControllerTest : FunSpec({
 
         val categoryId = UUID.randomUUID()
         val request = UpdateCategoryRequest(name = "식비/외식")
-        val response = CategoryResponse(categoryId, "식비/외식", "EXPENSE", "restaurant", "#FF5733", null, true, 1, Instant.now())
+        val response = CategoryResponse(categoryId, "식비/외식", "EXPENSE", "restaurant", "#FF5733", null, true, 1, createdAt = Instant.now())
         every { categoryService.updateCategory(testUserId, categoryId, request) } returns response
 
         val result = controller.updateCategory(testUserId, categoryId, request)

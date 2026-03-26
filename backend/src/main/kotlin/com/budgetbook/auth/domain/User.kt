@@ -39,5 +39,5 @@ class User(
     var isActive: Boolean = true
 ) : BaseTimeEntity()
 
-enum class AuthProvider { GOOGLE, KAKAO }
+enum class AuthProvider { GOOGLE, KAKAO, SYSTEM }
 enum class UserRole { USER, ADMIN }

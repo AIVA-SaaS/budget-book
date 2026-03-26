@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/features/category/domain/repositories/category_repository.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -13,11 +15,14 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 
 /// Hierarchical category selector: groups -> sub-categories.
 /// Groups are expandable headers, only sub-categories are selectable.
+/// Groups are separated into SHARED and PRIVATE sections.
 class CategoryGroupSelectorSheet extends StatefulWidget {
   final String? selectedCategoryId;
   final String categoryType; // 'INCOME' or 'EXPENSE'
   final ValueChanged<Category?> onSelected;
   final ValueChanged<String>? onDelete;
+  /// Called with (category, groupName) for display purposes.
+  final void Function(Category? category, String? groupName)? onSelectedWithGroupName;
 
   const CategoryGroupSelectorSheet({
     super.key,
@@ -25,6 +30,7 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     required this.categoryType,
     required this.onSelected,
     this.onDelete,
+    this.onSelectedWithGroupName,
   });
 
   @override
@@ -118,9 +124,13 @@ class _CategoryGroupSelectorSheetState
   }
 
   Widget _buildGroupList(BuildContext context, List<CategoryGroup> groups) {
+    final sharedGroups = groups.where((g) => g.isShared).toList();
+    final privateGroups = groups.where((g) => g.isPrivate).toList();
+
     final List<Widget> children = [];
 
-    for (final group in groups) {
+    // Shared section
+    for (final group in sharedGroups) {
       final filteredCategories = group.categories
           .where((c) => c.type == widget.categoryType)
           .toList();
@@ -135,26 +145,100 @@ class _CategoryGroupSelectorSheetState
       ));
     }
 
-    // Add group button
+    // Add shared group button
     children.add(
       ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          child: Icon(
-            Icons.create_new_folder,
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
-          ),
+        dense: true,
+        leading: Icon(
+          Icons.add,
+          size: 18,
+          color: Theme.of(context).colorScheme.primary,
         ),
         title: Text(
-          '+ 그룹 추가',
+          '공유 그룹 추가',
           style: TextStyle(
+            fontSize: 13,
             color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w500,
           ),
         ),
         onTap: () => _showAddGroupDialog(context),
+      ),
+    );
+
+    // Private section
+    if (privateGroups.isNotEmpty || true) {
+      // Always show private section for discoverability
+      children.add(const SizedBox(height: 8));
+      children.add(
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.visibility_off_outlined,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '나만 보임',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const Spacer(),
+              Text(
+                '상대방에게 보이지 않습니다',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+      children.add(const SizedBox(height: 4));
+    }
+
+    // Private groups
+    for (final group in privateGroups) {
+      final filteredCategories = group.categories
+          .where((c) => c.type == widget.categoryType)
+          .toList();
+
+      final isExpanded = _expandedGroupIds.contains(group.id);
+
+      children.add(_buildGroupSection(
+        context,
+        group,
+        filteredCategories,
+        isExpanded,
+      ));
+    }
+
+    // Add private group button
+    children.add(
+      ListTile(
+        dense: true,
+        leading: Icon(
+          Icons.add,
+          size: 18,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        title: Text(
+          '개인 그룹 추가',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
       ),
     );
 
@@ -175,21 +259,21 @@ class _CategoryGroupSelectorSheetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group header — expandable if has sub-categories, auto-expand if empty
+        // Group header — expandable if has sub-categories, selectable if empty
         InkWell(
           onTap: () {
             if (categories.isEmpty) {
-              // Empty group: auto-expand to show "add category" prompt
-              setState(() => _expandedGroupIds.add(group.id));
-            } else {
-              setState(() {
-                if (isExpanded) {
-                  _expandedGroupIds.remove(group.id);
-                } else {
-                  _expandedGroupIds.add(group.id);
-                }
-              });
+              // Empty group: auto-create a category with the group name, then select it
+              _createAndSelectGroupCategory(context, group);
+              return;
             }
+            setState(() {
+              if (isExpanded) {
+                _expandedGroupIds.remove(group.id);
+              } else {
+                _expandedGroupIds.add(group.id);
+              }
+            });
           },
           child: Padding(
             padding:
@@ -200,7 +284,7 @@ class _CategoryGroupSelectorSheetState
                   radius: 16,
                   backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(
-                    Icons.folder,
+                    group.isPrivate ? Icons.visibility_off : Icons.folder,
                     color: color,
                     size: 18,
                   ),
@@ -218,7 +302,7 @@ class _CategoryGroupSelectorSheetState
                       ),
                       if (categories.isEmpty)
                         Text(
-                          '카테고리를 추가하세요',
+                          '탭하여 선택',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context)
                                     .colorScheme
@@ -257,7 +341,7 @@ class _CategoryGroupSelectorSheetState
         ),
         // Expanded sub-categories
         if (isExpanded) ...[
-          ...categories.map((c) => _buildCategoryTile(context, c)),
+          ...categories.map((c) => _buildCategoryTile(context, c, group.name)),
           // Add sub-category button
           Padding(
             padding: const EdgeInsets.only(left: 24),
@@ -284,7 +368,7 @@ class _CategoryGroupSelectorSheetState
     );
   }
 
-  Widget _buildCategoryTile(BuildContext context, Category category) {
+  Widget _buildCategoryTile(BuildContext context, Category category, String groupName) {
     final isSelected = category.id == widget.selectedCategoryId;
     final color = UIHelpers.parseColor(category.color);
 
@@ -321,7 +405,7 @@ class _CategoryGroupSelectorSheetState
                 size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
-            if (!category.isDefault && widget.onDelete != null)
+            if (widget.onDelete != null)
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
@@ -335,22 +419,25 @@ class _CategoryGroupSelectorSheetState
         ),
         onTap: () {
           widget.onSelected(category);
+          widget.onSelectedWithGroupName?.call(category, groupName);
           Navigator.of(context).pop();
         },
       ),
     );
   }
 
-  Future<void> _showAddGroupDialog(BuildContext context) async {
+  Future<void> _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) async {
     _groupNameController.clear();
+    final isPrivate = visibility == 'PRIVATE';
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('그룹 추가'),
+        title: Text(isPrivate ? '개인 그룹 추가' : '그룹 추가'),
         content: TextField(
           controller: _groupNameController,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '그룹 이름',
+            prefixIcon: isPrivate ? const Icon(Icons.lock_outline) : null,
           ),
           autofocus: true,
         ),
@@ -372,7 +459,10 @@ class _CategoryGroupSelectorSheetState
       ),
     );
     if (name != null && context.mounted) {
-      getIt<CategoryGroupBloc>().add(CreateCategoryGroup(name: name));
+      getIt<CategoryGroupBloc>().add(CreateCategoryGroup(
+        name: name,
+        visibility: visibility,
+      ));
     }
   }
 
@@ -412,33 +502,45 @@ class _CategoryGroupSelectorSheetState
         name: name,
         type: widget.categoryType,
         groupId: group.id,
+        visibility: group.visibility,
       ));
     }
   }
 
   Future<void> _confirmDelete(BuildContext context, Category category) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('카테고리 삭제'),
-        content: Text("'${category.name}'을(를) 삭제하시겠습니까?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+    final confirmed = await showDeleteConfirmDialog(
+      context,
+      title: '카테고리 삭제',
+      itemName: category.name,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       widget.onDelete?.call(category.id);
       getIt<CategoryBloc>().add(DeleteCategory(category.id));
     }
   }
 
+  Future<void> _createAndSelectGroupCategory(BuildContext context, CategoryGroup group) async {
+    final repo = getIt<CategoryRepository>();
+    final result = await repo.createCategory(
+      name: group.name,
+      type: widget.categoryType,
+      groupId: group.id,
+      visibility: group.visibility,
+    );
+    result.fold(
+      (failure) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error),
+          );
+        }
+      },
+      (category) {
+        widget.onSelected(category);
+        widget.onSelectedWithGroupName?.call(category, group.name);
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+        if (context.mounted) Navigator.of(context).pop();
+      },
+    );
+  }
 }

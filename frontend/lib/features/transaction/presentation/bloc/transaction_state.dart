@@ -26,6 +26,8 @@ class TransactionLoaded extends TransactionState {
   final bool isLoadingMore;
   final String? operationError;
   final String? operationSuccess;
+  final int? serverTotalIncome;
+  final int? serverTotalExpense;
 
   final String? scrollToDate;
 
@@ -40,13 +42,15 @@ class TransactionLoaded extends TransactionState {
     this.operationError,
     this.operationSuccess,
     this.scrollToDate,
+    this.serverTotalIncome,
+    this.serverTotalExpense,
   });
 
-  int get totalIncome => transactions
+  int get totalIncome => serverTotalIncome ?? transactions
       .where((t) => t.isIncome)
       .fold(0, (sum, t) => sum + t.amount);
 
-  int get totalExpense => transactions
+  int get totalExpense => serverTotalExpense ?? transactions
       .where((t) => t.isExpense)
       .fold(0, (sum, t) => sum + t.amount);
 
@@ -62,7 +66,7 @@ class TransactionLoaded extends TransactionState {
 
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate];
+      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense];
 }
 
 class TransactionError extends TransactionState {

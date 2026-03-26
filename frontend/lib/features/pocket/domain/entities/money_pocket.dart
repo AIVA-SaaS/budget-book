@@ -12,6 +12,8 @@ class MoneyPocket extends Equatable {
   final bool isActive;
   final int? goalAmount;
   final String? targetDate;
+  final String visibility;
+  final String? ownerId;
 
   const MoneyPocket({
     required this.id,
@@ -25,6 +27,8 @@ class MoneyPocket extends Equatable {
     required this.isActive,
     this.goalAmount,
     this.targetDate,
+    this.visibility = 'SHARED',
+    this.ownerId,
   });
 
   bool get isLiving => type == 'LIVING';
@@ -32,6 +36,8 @@ class MoneyPocket extends Equatable {
   bool get isCardPending => type == 'CARD_PENDING';
   bool get isSavings => type == 'SAVINGS';
   bool get isCustom => type == 'CUSTOM';
+  bool get isPrivate => visibility == 'PRIVATE';
+  bool get isShared => visibility == 'SHARED';
 
   /// Returns goal progress as a ratio (0.0 to 1.0+), or null if no goal set.
   double? get goalProgress {
@@ -52,5 +58,7 @@ class MoneyPocket extends Equatable {
         isActive,
         goalAmount,
         targetDate,
+        visibility,
+        ownerId,
       ];
 }

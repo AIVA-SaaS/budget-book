@@ -3,7 +3,7 @@ class ApiEndpoints {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
+    defaultValue: 'http://localhost:8090',
   );
 
   // Auth
@@ -17,15 +17,19 @@ class ApiEndpoints {
   // Couple
   static const String coupleMe = '/api/v1/couples/me';
   static const String coupleInvitations = '/api/v1/couples/invitations';
+  static const String coupleMyInvitation = '/api/v1/couples/invitations/me';
 
   // Transaction
   static const String transactions = '/api/v1/transactions';
+  static const String transactionSuggestions =
+      '/api/v1/transactions/suggestions';
 
   // Category
   static const String categories = '/api/v1/categories';
 
   // Category Group
   static const String categoryGroups = '/api/v1/category-groups';
+  static const String categoryGroupReorder = '/api/v1/category-groups/reorder';
 
   // Budget
   static const String budgets = '/api/v1/budgets';
@@ -39,6 +43,8 @@ class ApiEndpoints {
   static const String paymentMethods = '/api/v1/payment-methods';
   static const String paymentMethodsCardPending =
       '/api/v1/payment-methods/card-pending';
+  static const String paymentMethodsCardSettlementSummary =
+      '/api/v1/payment-methods/card-settlement-summary';
 
   // Weekly Budget
   static const String weeklyBudgets = '/api/v1/budgets/weekly';
@@ -72,6 +78,9 @@ class ApiEndpoints {
   // Statistics - Payment Methods
   static const String statisticsPaymentMethods =
       '/api/v1/statistics/payment-methods';
+
+  // Transfers (payment method to payment method)
+  static const String transfers = '/api/v1/transfers';
 
   // Admin
   static const String adminStats = '/api/v1/admin/stats';

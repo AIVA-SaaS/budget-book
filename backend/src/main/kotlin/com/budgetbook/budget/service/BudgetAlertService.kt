@@ -26,34 +26,49 @@ class BudgetAlertService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
+        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
         if (budgets.isEmpty()) return emptyList()
 
-        // Single aggregation query: GROUP BY category
+        // Single aggregation query: GROUP BY category (with visibility filter)
         val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
-            couple.id, startDate, endDate, TransactionType.EXPENSE
+            couple.id, startDate, endDate, TransactionType.EXPENSE, userId
         )
         val spendingByCategory = categoryExpenseResults.associate { row ->
             (row[2] as UUID) to (row[0] as Long)
         }
 
-        // For total budget (no category), get total expenses
+        // For total budget (no category), get total expenses (with visibility filter)
         val totalExpense = transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = startDate,
             endDate = endDate,
-            type = TransactionType.EXPENSE
+            type = TransactionType.EXPENSE,
+            userId = userId
         )
+
+        // Pre-compute group spending with direct DB aggregation
+        val groupIds = budgets.mapNotNull { it.group?.id }.toSet()
+        val spendingByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
+            val groupResults = transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, startDate, endDate, TransactionType.EXPENSE, groupIds, userId
+            )
+            groupResults.associate { row ->
+                (row[0] as UUID) to (row[1] as Long)
+            }
+        } else {
+            emptyMap()
+        }
 
         return budgets.mapNotNull { budget ->
             val categoryId = budget.category?.id
-            val categoryName = budget.category?.name ?: "Total"
+            val groupId = budget.group?.id
+            val categoryName = budget.category?.name ?: budget.group?.name ?: "Total"
             val budgetAmount = budget.amount
 
-            val spentAmount = if (categoryId != null) {
-                spendingByCategory[categoryId] ?: 0L
-            } else {
-                totalExpense
+            val spentAmount = when {
+                categoryId != null -> spendingByCategory[categoryId] ?: 0L
+                groupId != null -> spendingByGroup[groupId] ?: 0L
+                else -> totalExpense
             }
 
             val percentage = if (budgetAmount > 0) {

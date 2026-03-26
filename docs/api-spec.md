@@ -17,9 +17,10 @@
   - [Logout](#5-logout)
 - [Couple](#couple)
   - [Create Invitation Code](#1-create-invitation-code)
-  - [Accept Invitation](#2-accept-invitation)
-  - [Get My Couple](#3-get-my-couple)
-  - [Dissolve Couple](#4-dissolve-couple)
+  - [Get My Invitation Status](#2-get-my-invitation-status)
+  - [Accept Invitation](#3-accept-invitation)
+  - [Get My Couple](#4-get-my-couple)
+  - [Dissolve Couple](#5-dissolve-couple)
 - [Categories](#categories)
   - [List Categories](#1-list-categories)
   - [Create Category](#2-create-category)
@@ -48,12 +49,14 @@
   - [Create Category Group](#2-create-category-group)
   - [Update Category Group](#3-update-category-group)
   - [Delete Category Group](#4-delete-category-group)
+  - [Reorder Category Groups](#5-reorder-category-groups)
 - [Payment Methods](#payment-methods)
   - [List Payment Methods](#1-list-payment-methods)
   - [Create Payment Method](#2-create-payment-method)
   - [Update Payment Method](#3-update-payment-method)
   - [Delete Payment Method](#4-delete-payment-method)
   - [Card Pending Summary](#5-card-pending-summary)
+  - [Card Settlement Summary](#6-card-settlement-summary)
 - [Weekly Budgets](#weekly-budgets)
   - [Weekly Overview](#1-weekly-overview)
   - [Current Week Summary](#2-current-week-summary)
@@ -77,6 +80,12 @@
 - [Pocket Transfers](#pocket-transfers)
   - [List Pocket Transfers](#1-list-pocket-transfers)
   - [Create Pocket Transfer](#2-create-pocket-transfer)
+- [Transfers](#transfers)
+  - [Create Transfer](#1-create-transfer)
+  - [List Transfers](#2-list-transfers)
+  - [Get Transfer](#3-get-transfer)
+  - [Update Transfer](#4-update-transfer)
+  - [Delete Transfer](#5-delete-transfer)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -467,7 +476,49 @@ Generates a new 8-character invitation code. The previous pending invitation for
 
 ---
 
-### 2. Accept Invitation
+### 2. Get My Invitation Status
+
+Retrieves the most recent invitation issued by the current user. If the invitation is still `PENDING` but the expiry time has passed, the server automatically transitions the status to `EXPIRED` before returning.
+
+| Item        | Value                                          |
+|:------------|:-----------------------------------------------|
+| **Method**  | `GET`                                          |
+| **Path**    | `/api/v1/couples/invitations/me`               |
+| **Auth**    | Required                                       |
+
+**Request Body**: None
+
+**Response `200 OK`**: `ApiResponse<InvitationStatusResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "code": "ABCD1234",
+    "expiresAt": "2026-03-20T12:00:00Z",
+    "status": "PENDING"
+  },
+  "timestamp": "2026-03-19T10:00:00Z"
+}
+```
+
+**DTO fields**
+
+| Field       | Type     | Nullable | Description                                             |
+|:------------|:---------|:--------:|:--------------------------------------------------------|
+| `code`      | `string` | No       | 8-character alphanumeric invitation code                |
+| `expiresAt` | `string` | No       | ISO 8601 expiry timestamp                               |
+| `status`    | `string` | No       | `PENDING` (valid, awaiting acceptance), `EXPIRED` (time elapsed), `ACCEPTED` (already used) |
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `404`  | `INVITATION_NOT_FOUND` | No invitation exists for this user |
+
+---
+
+### 3. Accept Invitation
 
 Accepts an invitation code and links the two users as a couple. Default categories are seeded automatically upon acceptance.
 
@@ -515,7 +566,7 @@ Accepts an invitation code and links the two users as a couple. Default categori
 
 ---
 
-### 3. Get My Couple
+### 4. Get My Couple
 
 Retrieves the current user's couple information including the partner's profile.
 
@@ -561,7 +612,7 @@ Retrieves the current user's couple information including the partner's profile.
 
 ---
 
-### 4. Dissolve Couple
+### 5. Dissolve Couple
 
 Dissolves the current user's couple. All shared data (transactions, categories) is retained but no longer shared.
 
@@ -600,9 +651,12 @@ Retrieves all categories for the caller's couple.
 
 **Query Parameters**
 
-| Parameter | Type     | Required | Description                          |
-|:----------|:---------|:--------:|:-------------------------------------|
-| `type`    | `string` | No       | Filter by type: `INCOME` or `EXPENSE` |
+| Parameter    | Type     | Required | Default | Description                                                        |
+|:-------------|:---------|:--------:|:--------|:-------------------------------------------------------------------|
+| `type`       | `string` | No       | All     | Filter by type: `INCOME` or `EXPENSE`                             |
+| `visibility` | `string` | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
+
+> **Visibility filtering**: `ALL` returns all SHARED categories plus any PRIVATE categories owned by the caller. The caller never receives another member's PRIVATE categories.
 
 **Response `200 OK`**: `ApiResponse<List<CategoryResponse>>`
 
@@ -619,6 +673,7 @@ Retrieves all categories for the caller's couple.
       "groupId": "550e8400-e29b-41d4-a716-446655440060",
       "isDefault": true,
       "displayOrder": 1,
+      "visibility": "SHARED",
       "createdAt": "2024-01-01T12:00:00Z"
     },
     {
@@ -629,6 +684,7 @@ Retrieves all categories for the caller's couple.
       "color": "#4CAF50",
       "isDefault": true,
       "displayOrder": 1,
+      "visibility": "SHARED",
       "createdAt": "2024-01-01T12:00:00Z"
     }
   ],
@@ -656,17 +712,19 @@ Creates a new custom category for the caller's couple.
   "type": "EXPENSE",
   "icon": "pets",
   "color": "#9C27B0",
-  "groupId": "550e8400-e29b-41d4-a716-446655440060"
+  "groupId": "550e8400-e29b-41d4-a716-446655440060",
+  "visibility": "PRIVATE"
 }
 ```
 
-| Field     | Type     | Required | Description                              |
-|:----------|:---------|:--------:|:-----------------------------------------|
-| `name`    | `string` | Yes      | Category name (max 50 chars)             |
-| `type`    | `string` | Yes      | `INCOME` or `EXPENSE`                    |
-| `icon`    | `string` | No       | Material icon name                       |
-| `color`   | `string` | No       | Hex color code (e.g., `#FF5733`)         |
-| `groupId` | `UUID`   | No       | Category group ID (null = uncategorized) |
+| Field        | Type     | Required | Description                                                   |
+|:-------------|:---------|:--------:|:--------------------------------------------------------------|
+| `name`       | `string` | Yes      | Category name (max 50 chars)                                  |
+| `type`       | `string` | Yes      | `INCOME` or `EXPENSE`                                         |
+| `icon`       | `string` | No       | Material icon name                                            |
+| `color`      | `string` | No       | Hex color code (e.g., `#FF5733`)                              |
+| `groupId`    | `UUID`   | No       | Category group ID (null = uncategorized)                      |
+| `visibility` | `string` | No       | `SHARED` (default) or `PRIVATE`. Private categories are only visible to the creator. |
 
 **Response `201 Created`**: `ApiResponse<CategoryResponse>`
 
@@ -682,6 +740,8 @@ Creates a new custom category for the caller's couple.
     "groupId": "550e8400-e29b-41d4-a716-446655440060",
     "isDefault": false,
     "displayOrder": 10,
+    "visibility": "PRIVATE",
+    "ownerId": "550e8400-e29b-41d4-a716-446655440000",
     "createdAt": "2024-01-01T12:00:00Z"
   },
   "timestamp": "2024-01-01T12:00:00Z"
@@ -746,7 +806,7 @@ Updates an existing category. Default categories cannot have their `type` change
 
 ### 4. Delete Category
 
-Deletes a custom category. Default categories cannot be deleted. Transactions with this category will have `category_id` set to null.
+Deletes a category (including default categories). Transactions with this category will have `category_id` set to null.
 
 | Item        | Value                            |
 |:------------|:---------------------------------|
@@ -766,7 +826,6 @@ Deletes a custom category. Default categories cannot be deleted. Transactions wi
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
-| `400`  | `CANNOT_DELETE_DEFAULT_CATEGORY` | Default categories cannot be deleted |
 | `403`  | `FORBIDDEN` | Category belongs to a different couple |
 | `404`  | `CATEGORY_NOT_FOUND` | Category does not exist |
 
@@ -793,14 +852,17 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
 
 **Query Parameters**
 
-| Parameter    | Type      | Required | Default | Description                          |
-|:-------------|:----------|:--------:|:--------|:-------------------------------------|
-| `year`       | `integer` | No       | Current | Filter by year (e.g., `2024`)        |
-| `month`      | `integer` | No       | Current | Filter by month (1–12)               |
-| `type`       | `string`  | No       | All     | `INCOME` or `EXPENSE`                |
-| `categoryId` | `UUID`    | No       | All     | Filter by category                   |
-| `page`       | `integer` | No       | `0`     | Zero-based page number               |
-| `size`       | `integer` | No       | `20`    | Page size (max 100)                  |
+| Parameter    | Type      | Required | Default | Description                                                        |
+|:-------------|:----------|:--------:|:--------|:-------------------------------------------------------------------|
+| `year`       | `integer` | No       | Current | Filter by year (e.g., `2024`)                                     |
+| `month`      | `integer` | No       | Current | Filter by month (1–12)                                            |
+| `type`       | `string`  | No       | All     | `INCOME` or `EXPENSE`                                             |
+| `categoryId` | `UUID`    | No       | All     | Filter by category                                                 |
+| `visibility` | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
+| `page`       | `integer` | No       | `0`     | Zero-based page number                                            |
+| `size`       | `integer` | No       | `20`    | Page size (max 100)                                               |
+
+> **Visibility filtering**: `ALL` returns all SHARED transactions plus PRIVATE transactions owned by the caller. The caller never receives another member's PRIVATE transactions.
 
 **Response `200 OK`**: `ApiResponse<PageResponse<TransactionResponse>>`
 
@@ -832,6 +894,7 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
         "paymentMethodName": "신한카드",
         "paymentMethodType": "CREDIT",
         "settlementDate": "2024-02-15",
+        "visibility": "SHARED",
         "createdAt": "2024-01-15T12:30:00Z",
         "updatedAt": "2024-01-15T12:30:00Z"
       },
@@ -857,6 +920,8 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
         "paymentMethodId": "550e8400-e29b-41d4-a716-446655440033",
         "paymentMethodName": "현금",
         "paymentMethodType": "CASH",
+        "visibility": "PRIVATE",
+        "ownerId": "550e8400-e29b-41d4-a716-446655440000",
         "createdAt": "2024-01-15T14:00:00Z",
         "updatedAt": "2024-01-15T14:00:00Z"
       }
@@ -896,19 +961,21 @@ Creates a new income or expense transaction.
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
   "transactionDate": "2024-01-15",
   "memo": "팀 점심",
-  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031"
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+  "visibility": "SHARED"
 }
 ```
 
-| Field             | Type     | Required | Description                                    |
-|:------------------|:---------|:--------:|:-----------------------------------------------|
-| `type`            | `string` | Yes      | `INCOME` or `EXPENSE`                          |
-| `amount`          | `long`   | Yes      | Amount in KRW (must be > 0)                    |
-| `description`     | `string` | Yes      | Short description (max 255 chars)              |
-| `categoryId`      | `UUID`   | No       | Category ID (must belong to couple)            |
-| `transactionDate` | `string` | Yes      | ISO 8601 date: `YYYY-MM-DD`                    |
-| `memo`            | `string` | No       | Optional longer note                           |
-| `paymentMethodId` | `UUID`   | No       | Payment method ID (must belong to couple)      |
+| Field             | Type     | Required | Description                                                         |
+|:------------------|:---------|:--------:|:--------------------------------------------------------------------|
+| `type`            | `string` | Yes      | `INCOME` or `EXPENSE`                                               |
+| `amount`          | `long`   | Yes      | Amount in KRW (must be > 0)                                         |
+| `description`     | `string` | Yes      | Short description (max 255 chars)                                   |
+| `categoryId`      | `UUID`   | No       | Category ID (must belong to couple)                                 |
+| `transactionDate` | `string` | Yes      | ISO 8601 date: `YYYY-MM-DD`                                         |
+| `memo`            | `string` | No       | Optional longer note                                                |
+| `paymentMethodId` | `UUID`   | No       | Payment method ID (must belong to couple)                           |
+| `visibility`      | `string` | No       | `SHARED` (default) or `PRIVATE`. Private transactions are only visible to the creator. |
 
 **Response `201 Created`**: `ApiResponse<TransactionResponse>`
 
@@ -938,6 +1005,7 @@ Creates a new income or expense transaction.
     "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
     "paymentMethodName": "신한카드",
     "paymentMethodType": "CREDIT",
+    "visibility": "SHARED",
     "createdAt": "2024-01-15T12:30:00Z",
     "updatedAt": "2024-01-15T12:30:00Z"
   },
@@ -1008,18 +1076,20 @@ Updates an existing transaction. Only the author or the partner can update it.
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
   "transactionDate": "2024-01-15",
   "memo": null,
-  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031"
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+  "visibility": "SHARED"
 }
 ```
 
-| Field             | Type     | Required | Description                                    |
-|:------------------|:---------|:--------:|:-----------------------------------------------|
-| `amount`          | `long`   | No       | Updated amount (must be > 0)                   |
-| `description`     | `string` | No       | Updated description (max 255 chars)            |
-| `categoryId`      | `UUID`   | No       | Updated category (null to unset)               |
-| `transactionDate` | `string` | No       | Updated date: `YYYY-MM-DD`                     |
-| `memo`            | `string` | No       | Updated memo (null to clear)                   |
-| `paymentMethodId` | `UUID`   | No       | Updated payment method (null to unset)         |
+| Field             | Type     | Required | Description                                                    |
+|:------------------|:---------|:--------:|:---------------------------------------------------------------|
+| `amount`          | `long`   | No       | Updated amount (must be > 0)                                   |
+| `description`     | `string` | No       | Updated description (max 255 chars)                            |
+| `categoryId`      | `UUID`   | No       | Updated category (null to unset)                               |
+| `transactionDate` | `string` | No       | Updated date: `YYYY-MM-DD`                                     |
+| `memo`            | `string` | No       | Updated memo (null to clear)                                   |
+| `paymentMethodId` | `UUID`   | No       | Updated payment method (null to unset)                         |
+| `visibility`      | `string` | No       | `SHARED` or `PRIVATE`. Only the owner can change this field.   |
 
 **Response `200 OK`**: `ApiResponse<TransactionResponse>`
 
@@ -1028,6 +1098,7 @@ Updates an existing transaction. Only the author or the partner can update it.
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
 | `403`  | `FORBIDDEN` | Transaction belongs to a different couple |
+| `403`  | `PRIVATE_ACCESS_DENIED` | Transaction is PRIVATE and caller is not the owner |
 | `404`  | `TRANSACTION_NOT_FOUND` | Transaction does not exist |
 
 ---
@@ -1070,7 +1141,7 @@ The caller must be in an active couple.
 
 ### 1. Create Budget
 
-Creates a monthly budget for the couple. Set `categoryId` to `null` for a total (uncategorized) monthly budget.
+Creates a monthly budget for the couple. At most one of `categoryId` or `groupId` may be set. If both are `null`, the entry represents the total (uncategorized) monthly budget.
 
 | Item        | Value                        |
 |:------------|:-----------------------------|
@@ -1083,18 +1154,22 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
 ```json
 {
   "categoryId": "550e8400-e29b-41d4-a716-446655440010",
+  "groupId": null,
   "yearMonth": "2026-03",
   "amount": 150000,
-  "budgetPeriod": "MONTHLY"
+  "budgetPeriod": "MONTHLY",
+  "visibility": "SHARED"
 }
 ```
 
-| Field          | Type     | Required | Description                                                            |
-|:---------------|:---------|:--------:|:-----------------------------------------------------------------------|
-| `categoryId`   | `UUID`   | No       | Category ID; `null` = total budget for the month                      |
-| `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                    |
-| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                    |
-| `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                   |
+| Field          | Type     | Required | Description                                                                                          |
+|:---------------|:---------|:--------:|:-----------------------------------------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | No       | Category ID. Mutually exclusive with `groupId`. Both `null` = total budget for the month.            |
+| `groupId`      | `UUID`   | No       | Category group ID. Mutually exclusive with `categoryId`. Both `null` = total budget for the month.   |
+| `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                                                  |
+| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                                                   |
+| `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                                                  |
+| `visibility`   | `string` | No       | `SHARED` (default) or `PRIVATE`. Private budgets are only visible to the creator. Shared and private budgets can coexist for the same category/month (unique constraint applies per visibility scope). |
 
 **Response `201 Created`**: `ApiResponse<BudgetResponse>`
 
@@ -1111,9 +1186,12 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
       "icon": "restaurant",
       "color": "#FF5733"
     },
+    "groupId": null,
+    "groupName": null,
     "yearMonth": "2026-03",
     "amount": 150000,
     "budgetPeriod": "MONTHLY",
+    "visibility": "SHARED",
     "createdAt": "2026-03-01T12:00:00Z",
     "updatedAt": "2026-03-01T12:00:00Z"
   },
@@ -1125,9 +1203,10 @@ Creates a monthly budget for the couple. Set `categoryId` to `null` for a total 
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
-| `400`  | `VALIDATION_ERROR` | Invalid field values |
+| `400`  | `VALIDATION_ERROR` | Invalid field values or both `categoryId` and `groupId` are set |
 | `404`  | `CATEGORY_NOT_FOUND` | Specified category does not exist |
-| `409`  | `DUPLICATE_BUDGET` | Budget for this category and month already exists |
+| `404`  | `GROUP_NOT_FOUND` | Specified category group does not exist |
+| `409`  | `DUPLICATE_BUDGET` | Budget for this category/group, month, and visibility already exists |
 
 ---
 
@@ -1143,10 +1222,11 @@ Retrieves all budgets for the couple for a given month.
 
 **Query Parameters**
 
-| Parameter | Type      | Required | Description              |
-|:----------|:----------|:--------:|:-------------------------|
-| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
-| `month`   | `integer` | Yes      | Target month (1–12)      |
+| Parameter    | Type      | Required | Default | Description                                                        |
+|:-------------|:----------|:--------:|:--------|:-------------------------------------------------------------------|
+| `year`       | `integer` | Yes      | —       | Target year (e.g., `2026`)                                        |
+| `month`      | `integer` | Yes      | —       | Target month (1–12)                                               |
+| `visibility` | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
 
 **Response `200 OK`**: `ApiResponse<List<BudgetResponse>>`
 
@@ -1164,19 +1244,26 @@ Retrieves all budgets for the couple for a given month.
         "icon": "restaurant",
         "color": "#FF5733"
       },
+      "groupId": null,
+      "groupName": null,
       "yearMonth": "2026-03",
       "amount": 150000,
       "budgetPeriod": "MONTHLY",
+      "visibility": "SHARED",
       "createdAt": "2026-03-01T12:00:00Z",
       "updatedAt": "2026-03-01T12:00:00Z"
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440051",
       "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "groupId": "550e8400-e29b-41d4-a716-446655440010",
+      "groupName": "생활비",
       "yearMonth": "2026-03",
       "amount": 800000,
       "budgetPeriod": "WEEKLY",
       "weeklyAmount": 200000,
+      "visibility": "PRIVATE",
+      "ownerId": "550e8400-e29b-41d4-a716-446655440000",
       "createdAt": "2026-03-01T12:00:00Z",
       "updatedAt": "2026-03-01T12:00:00Z"
     }
@@ -1207,17 +1294,23 @@ Updates an existing budget's amount, period type, or weekly amount.
 
 ```json
 {
+  "categoryId": null,
+  "groupId": "550e8400-e29b-41d4-a716-446655440010",
   "amount": 200000,
   "budgetPeriod": "WEEKLY",
-  "weeklyAmount": 50000
+  "weeklyAmount": 50000,
+  "visibility": "SHARED"
 }
 ```
 
 | Field          | Type     | Required | Description                                                                 |
 |:---------------|:---------|:--------:|:----------------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | No       | Category ID. Mutually exclusive with `groupId`. Omit to preserve existing value. |
+| `groupId`      | `UUID`   | No       | Category group ID. Mutually exclusive with `categoryId`. Omit to preserve existing value. |
 | `amount`       | `long`   | Yes      | Updated budget amount (must be > 0)                                         |
 | `budgetPeriod` | `string` | No       | `MONTHLY` or `WEEKLY`. If omitted, existing value is preserved.             |
 | `weeklyAmount` | `long`   | No       | Per-week amount in KRW. Only relevant when `budgetPeriod` is `WEEKLY`. If omitted when switching to `WEEKLY`, it is auto-calculated from `amount`. |
+| `visibility`   | `string` | No       | `SHARED` or `PRIVATE`. Only the owner can change this field.                |
 
 **Response `200 OK`**: `ApiResponse<BudgetResponse>`
 
@@ -1333,10 +1426,11 @@ Returns total income, total expense, balance, and transaction count for a given 
 
 **Query Parameters**
 
-| Parameter | Type      | Required | Description              |
-|:----------|:----------|:--------:|:-------------------------|
-| `year`    | `integer` | Yes      | Target year (e.g., `2026`) |
-| `month`   | `integer` | Yes      | Target month (1–12)      |
+| Parameter    | Type      | Required | Default | Description                                                        |
+|:-------------|:----------|:--------:|:--------|:-------------------------------------------------------------------|
+| `year`       | `integer` | Yes      | —       | Target year (e.g., `2026`)                                        |
+| `month`      | `integer` | Yes      | —       | Target month (1–12)                                               |
+| `visibility` | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE). Determines which transactions are included in the summary totals. |
 
 **Response `200 OK`**: `ApiResponse<StatisticsSummaryResponse>`
 
@@ -1368,11 +1462,12 @@ Returns spending (or income) broken down by category for a given month, sorted b
 
 **Query Parameters**
 
-| Parameter | Type      | Required | Default   | Description                      |
-|:----------|:----------|:--------:|:----------|:---------------------------------|
-| `year`    | `integer` | Yes      | —         | Target year (e.g., `2026`)       |
-| `month`   | `integer` | Yes      | —         | Target month (1–12)              |
-| `type`    | `string`  | No       | `EXPENSE` | `INCOME` or `EXPENSE`            |
+| Parameter    | Type      | Required | Default   | Description                                                        |
+|:-------------|:----------|:--------:|:----------|:-------------------------------------------------------------------|
+| `year`       | `integer` | Yes      | —         | Target year (e.g., `2026`)                                        |
+| `month`      | `integer` | Yes      | —         | Target month (1–12)                                               |
+| `type`       | `string`  | No       | `EXPENSE` | `INCOME` or `EXPENSE`                                             |
+| `visibility` | `string`  | No       | `ALL`     | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
 
 **Response `200 OK`**: `ApiResponse<List<CategoryStatisticsResponse>>`
 
@@ -1540,12 +1635,13 @@ Retrieves all category groups with their nested categories. Includes a virtual "
 
 **Request Body**
 
-| Field        | Type     | Required | Description                            |
-|:-------------|:---------|:--------:|:---------------------------------------|
-| `name`       | `string` | Yes      | Group name (max 50 chars)              |
-| `icon`       | `string` | No       | Material icon name                     |
-| `color`      | `string` | No       | Hex color code                         |
-| `budgetType` | `enum`   | No       | `WEEKLY`, `MONTHLY` (default), `NONE`  |
+| Field        | Type     | Required | Description                                                                  |
+|:-------------|:---------|:--------:|:-----------------------------------------------------------------------------|
+| `name`       | `string` | Yes      | Group name (max 50 chars)                                                    |
+| `icon`       | `string` | No       | Material icon name                                                           |
+| `color`      | `string` | No       | Hex color code                                                               |
+| `budgetType` | `enum`   | No       | `WEEKLY`, `MONTHLY` (default), `NONE`                                        |
+| `visibility` | `string` | No       | `SHARED` (default) or `PRIVATE`. Private groups are only visible to the creator. |
 
 **Response `201 Created`**: `ApiResponse<CategoryGroupResponse>`
 
@@ -1561,13 +1657,14 @@ Retrieves all category groups with their nested categories. Includes a virtual "
 
 **Request Body** (all fields optional)
 
-| Field          | Type      | Description                            |
-|:---------------|:----------|:---------------------------------------|
-| `name`         | `string`  | Group name (max 50 chars)              |
-| `icon`         | `string`  | Material icon name                     |
-| `color`        | `string`  | Hex color code                         |
-| `budgetType`   | `enum`    | `WEEKLY`, `MONTHLY`, or `NONE`         |
-| `displayOrder` | `integer` | Sort order                             |
+| Field          | Type      | Description                                          |
+|:---------------|:----------|:-----------------------------------------------------|
+| `name`         | `string`  | Group name (max 50 chars)                            |
+| `icon`         | `string`  | Material icon name                                   |
+| `color`        | `string`  | Hex color code                                       |
+| `budgetType`   | `enum`    | `WEEKLY`, `MONTHLY`, or `NONE`                       |
+| `displayOrder` | `integer` | Sort order                                           |
+| `visibility`   | `string`  | `SHARED` or `PRIVATE`. Only the owner can change this field. |
 
 **Response `200 OK`**: `ApiResponse<CategoryGroupResponse>`
 
@@ -1575,7 +1672,7 @@ Retrieves all category groups with their nested categories. Includes a virtual "
 
 ### 4. Delete Category Group
 
-Deletes a category group. Categories in the group become uncategorized (group_id set to null). Default groups cannot be deleted.
+Deletes a category group (including default groups). Categories in the group become uncategorized (`group_id` set to null).
 
 | Item        | Value                                |
 |:------------|:-------------------------------------|
@@ -1585,10 +1682,55 @@ Deletes a category group. Categories in the group become uncategorized (group_id
 
 **Response `204 No Content`**
 
-| Status | Error Code                    | Description                          |
-|:-------|:------------------------------|:-------------------------------------|
-| `404`  | `GROUP_NOT_FOUND`             | Category group does not exist        |
-| `400`  | `CANNOT_DELETE_DEFAULT_GROUP`  | Default groups cannot be deleted     |
+| Status | Error Code        | Description                          |
+|:-------|:------------------|:-------------------------------------|
+| `403`  | `FORBIDDEN`       | Group belongs to a different couple  |
+| `404`  | `GROUP_NOT_FOUND` | Category group does not exist        |
+
+---
+
+### 5. Reorder Category Groups
+
+Updates the display order of all category groups for the couple in a single call. All group IDs owned by the couple must be provided; the server rejects partial lists.
+
+| Item        | Value                                     |
+|:------------|:------------------------------------------|
+| **Method**  | `PUT`                                     |
+| **Path**    | `/api/v1/category-groups/reorder`         |
+| **Auth**    | Required                                  |
+
+**Request Body**
+
+```json
+{
+  "orderedIds": [
+    "550e8400-e29b-41d4-a716-446655440010",
+    "550e8400-e29b-41d4-a716-446655440011",
+    "550e8400-e29b-41d4-a716-446655440012"
+  ]
+}
+```
+
+| Field        | Type          | Required | Description                                                           |
+|:-------------|:--------------|:--------:|:----------------------------------------------------------------------|
+| `orderedIds` | `List<UUID>`  | Yes      | Ordered list of all category group IDs. Position in list = new `displayOrder`. |
+
+**Response `200 OK`**: `ApiResponse<void>` (`data` is `null`)
+
+```json
+{
+  "success": true,
+  "data": null,
+  "timestamp": "2026-03-19T12:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                                                        |
+|:-------|:-------------------|:-------------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR` | `orderedIds` is empty or null                                      |
+| `404`  | `GROUP_NOT_FOUND`  | One or more IDs do not belong to the caller's couple               |
 
 ---
 
@@ -1626,6 +1768,9 @@ Retrieves all payment methods for the couple.
       "isActive": true,
       "isDefault": true,
       "displayOrder": 0,
+      "balance": 150000,
+      "linkedBankId": null,
+      "linkedBankName": null,
       "createdAt": "2024-01-01T12:00:00Z"
     },
     {
@@ -1637,6 +1782,9 @@ Retrieves all payment methods for the couple.
       "isActive": true,
       "isDefault": false,
       "displayOrder": 2,
+      "balance": null,
+      "linkedBankId": "550e8400-e29b-41d4-a716-446655440032",
+      "linkedBankName": "신한은행",
       "createdAt": "2024-01-01T12:00:00Z"
     }
   ]
@@ -1655,12 +1803,13 @@ Retrieves all payment methods for the couple.
 
 **Request Body**
 
-| Field           | Type      | Required | Description                              |
-|:----------------|:----------|:--------:|:-----------------------------------------|
-| `name`          | `string`  | Yes      | Payment method name (max 100 chars)      |
-| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, or `CREDIT`             |
-| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)   |
-| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)      |
+| Field           | Type      | Required | Description                                                                                          |
+|:----------------|:----------|:--------:|:-----------------------------------------------------------------------------------------------------|
+| `name`          | `string`  | Yes      | Payment method name (max 100 chars)                                                                  |
+| `type`          | `enum`    | Yes      | `CASH`, `DEBIT`, `CREDIT`, or `BANK`                                                                 |
+| `settlementDay` | `integer` | No       | Card settlement day (1-31, for CREDIT)                                                               |
+| `closingDay`    | `integer` | No       | Card closing day (1-31, for CREDIT)                                                                  |
+| `linkedBankId`  | `UUID`    | No       | ID of a BANK-type payment method in the same couple to link as the settlement bank (CREDIT type only) |
 
 **Response `201 Created`**: `ApiResponse<PaymentMethodResponse>`
 
@@ -1676,13 +1825,14 @@ Retrieves all payment methods for the couple.
 
 **Request Body** (all fields optional)
 
-| Field           | Type      | Description                              |
-|:----------------|:----------|:-----------------------------------------|
-| `name`          | `string`  | Payment method name                      |
-| `settlementDay` | `integer` | Card settlement day (1-31)               |
-| `closingDay`    | `integer` | Card closing day (1-31)                  |
-| `isActive`      | `boolean` | Active status                            |
-| `displayOrder`  | `integer` | Sort order                               |
+| Field           | Type      | Description                                                                                          |
+|:----------------|:----------|:-----------------------------------------------------------------------------------------------------|
+| `name`          | `string`  | Payment method name                                                                                  |
+| `settlementDay` | `integer` | Card settlement day (1-31)                                                                           |
+| `closingDay`    | `integer` | Card closing day (1-31)                                                                              |
+| `isActive`      | `boolean` | Active status                                                                                        |
+| `displayOrder`  | `integer` | Sort order                                                                                           |
+| `linkedBankId`  | `UUID` \| `null` | Set to a BANK-type payment method UUID to link it; pass `null` (PatchValue) to unlink (CREDIT only) |
 
 **Response `200 OK`**: `ApiResponse<PaymentMethodResponse>`
 
@@ -1742,6 +1892,65 @@ Returns unsettled credit card amounts for a given month.
       "transactionCount": 12
     }
   ]
+}
+```
+
+---
+
+### 6. Card Settlement Summary
+
+Returns credit card spending grouped by settlement month for the previous and current calendar months. Used to display how much is due for settlement per card.
+
+> **Note**: CREDIT↔CREDIT transfers (card-to-card) are prohibited. A transfer where both the source and destination payment methods have type `CREDIT` will be rejected with `400 VALIDATION_ERROR`.
+
+| Item        | Value                                                          |
+|:------------|:---------------------------------------------------------------|
+| **Method**  | `GET`                                                          |
+| **Path**    | `/api/v1/payment-methods/card-settlement-summary`             |
+| **Auth**    | Required                                                       |
+
+**Response `200 OK`**: `ApiResponse<CardSettlementSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "previousMonth": {
+      "year": 2026,
+      "month": 2,
+      "totalAmount": 350000,
+      "cards": [
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+          "paymentMethodName": "롯데카드",
+          "amount": 200000,
+          "settlementDate": "2026-02-25",
+          "transactionCount": 15
+        },
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440035",
+          "paymentMethodName": "신한카드",
+          "amount": 150000,
+          "settlementDate": "2026-02-15",
+          "transactionCount": 8
+        }
+      ]
+    },
+    "currentMonth": {
+      "year": 2026,
+      "month": 3,
+      "totalAmount": 420000,
+      "cards": [
+        {
+          "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+          "paymentMethodName": "롯데카드",
+          "amount": 420000,
+          "settlementDate": "2026-03-25",
+          "transactionCount": 22
+        }
+      ]
+    }
+  }
 }
 ```
 
@@ -1912,17 +2121,18 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 **Request Body**
 
-| Field             | Type      | Required | Description                                    |
-|:------------------|:----------|:--------:|:-----------------------------------------------|
-| `type`            | `enum`    | Yes      | `INCOME` or `EXPENSE`                          |
-| `amount`          | `long`    | Yes      | Amount (> 0)                                   |
-| `description`     | `string`  | Yes      | Short description                              |
-| `memo`            | `string`  | No       | Optional note                                  |
-| `categoryId`      | `UUID`    | No       | Category ID                                    |
-| `paymentMethodId` | `UUID`    | No       | Payment method ID                              |
-| `frequency`       | `enum`    | Yes      | `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`      |
-| `dayOfMonth`      | `integer` | No       | Day of month (1-31, required for MONTHLY)      |
-| `dayOfWeek`       | `integer` | No       | Day of week (1=MON..7=SUN, required for WEEKLY)|
+| Field             | Type      | Required | Description                                                         |
+|:------------------|:----------|:--------:|:--------------------------------------------------------------------|
+| `type`            | `enum`    | Yes      | `INCOME` or `EXPENSE`                                               |
+| `amount`          | `long`    | Yes      | Amount (> 0)                                                        |
+| `description`     | `string`  | Yes      | Short description                                                   |
+| `memo`            | `string`  | No       | Optional note                                                       |
+| `categoryId`      | `UUID`    | No       | Category ID                                                         |
+| `paymentMethodId` | `UUID`    | No       | Payment method ID                                                   |
+| `frequency`       | `enum`    | Yes      | `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`                           |
+| `dayOfMonth`      | `integer` | No       | Day of month (1-31, required for MONTHLY)                           |
+| `dayOfWeek`       | `integer` | No       | Day of week (1=MON..7=SUN, required for WEEKLY)                     |
+| `visibility`      | `string`  | No       | `SHARED` (default) or `PRIVATE`. The `author_id` column serves as the owner for private recurring transactions. |
 
 **Response `201 Created`**: `ApiResponse<RecurringTransactionResponse>`
 
@@ -1938,16 +2148,17 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 **Request Body** (all optional)
 
-| Field             | Type      | Description          |
-|:------------------|:----------|:---------------------|
-| `amount`          | `long`    | Amount (> 0)         |
-| `description`     | `string`  | Description          |
-| `memo`            | `string`  | Note                 |
-| `categoryId`      | `UUID`    | Category ID          |
-| `paymentMethodId` | `UUID`    | Payment method ID    |
-| `dayOfMonth`      | `integer` | Day of month         |
-| `dayOfWeek`       | `integer` | Day of week          |
-| `isActive`        | `boolean` | Active/inactive      |
+| Field             | Type      | Description                                                  |
+|:------------------|:----------|:-------------------------------------------------------------|
+| `amount`          | `long`    | Amount (> 0)                                                 |
+| `description`     | `string`  | Description                                                  |
+| `memo`            | `string`  | Note                                                         |
+| `categoryId`      | `UUID`    | Category ID                                                  |
+| `paymentMethodId` | `UUID`    | Payment method ID                                            |
+| `dayOfMonth`      | `integer` | Day of month                                                 |
+| `dayOfWeek`       | `integer` | Day of week                                                  |
+| `isActive`        | `boolean` | Active/inactive                                              |
+| `visibility`      | `string`  | `SHARED` or `PRIVATE`. Only the author can change this field.|
 
 **Response `200 OK`**: `ApiResponse<RecurringTransactionResponse>`
 
@@ -1995,6 +2206,14 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | `code`      | `string` | No       | 8-character alphanumeric code   |
 | `expiresAt` | `string` | No       | ISO 8601 expiry timestamp (24h) |
 
+### InvitationStatusResponse
+
+| Field       | Type     | Nullable | Description                                             |
+|:------------|:---------|:--------:|:--------------------------------------------------------|
+| `code`      | `string` | No       | 8-character alphanumeric invitation code                |
+| `expiresAt` | `string` | No       | ISO 8601 expiry timestamp                               |
+| `status`    | `string` | No       | `PENDING` \| `EXPIRED` \| `ACCEPTED`                   |
+
 ### CoupleResponse
 
 | Field       | Type              | Nullable | Description                         |
@@ -2014,45 +2233,52 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### CategoryResponse
 
-| Field          | Type      | Nullable | Description                          |
-|:---------------|:----------|:--------:|:-------------------------------------|
-| `id`           | `UUID`    | No       | Category unique identifier           |
-| `name`         | `string`  | No       | Category name                        |
-| `type`         | `enum`    | No       | `INCOME` or `EXPENSE`                |
-| `icon`         | `string`  | Yes      | Material icon name                   |
-| `color`        | `string`  | Yes      | Hex color code (e.g., `#FF5733`)     |
-| `isDefault`    | `boolean` | No       | Whether this is a system default     |
-| `displayOrder` | `integer` | No       | Sort order within type group         |
-| `groupId`      | `UUID`    | Yes      | Category group ID (null if ungrouped)|
-| `createdAt`    | `string`  | No       | ISO 8601 timestamp                   |
+| Field          | Type      | Nullable | Description                                                 |
+|:---------------|:----------|:--------:|:------------------------------------------------------------|
+| `id`           | `UUID`    | No       | Category unique identifier                                  |
+| `name`         | `string`  | No       | Category name                                               |
+| `type`         | `enum`    | No       | `INCOME` or `EXPENSE`                                       |
+| `icon`         | `string`  | Yes      | Material icon name                                          |
+| `color`        | `string`  | Yes      | Hex color code (e.g., `#FF5733`)                            |
+| `isDefault`    | `boolean` | No       | Whether this is a system default                            |
+| `displayOrder` | `integer` | No       | Sort order within type group                                |
+| `groupId`      | `UUID`    | Yes      | Category group ID (null if ungrouped)                       |
+| `visibility`   | `string`  | No       | `SHARED` or `PRIVATE`                                       |
+| `ownerId`      | `UUID`    | Yes      | Owner user ID. Present only when `visibility` is `PRIVATE`. |
+| `createdAt`    | `string`  | No       | ISO 8601 timestamp                                          |
 
 ### CategoryGroupResponse
 
-| Field          | Type                    | Nullable | Description                             |
-|:---------------|:------------------------|:--------:|:----------------------------------------|
-| `id`           | `UUID`                  | No       | Category group unique identifier        |
-| `name`         | `string`                | No       | Group name                              |
-| `icon`         | `string`                | Yes      | Material icon name                      |
-| `color`        | `string`                | Yes      | Hex color code                          |
-| `budgetType`   | `enum`                  | No       | `WEEKLY`, `MONTHLY`, or `NONE`          |
-| `displayOrder` | `integer`               | No       | Sort order                              |
-| `isDefault`    | `boolean`               | No       | Whether this is a system default        |
-| `categories`   | `List<CategoryResponse>`| No       | Nested categories in this group         |
-| `createdAt`    | `string`                | No       | ISO 8601 timestamp                      |
+| Field          | Type                    | Nullable | Description                                                 |
+|:---------------|:------------------------|:--------:|:------------------------------------------------------------|
+| `id`           | `UUID`                  | No       | Category group unique identifier                            |
+| `name`         | `string`                | No       | Group name                                                  |
+| `icon`         | `string`                | Yes      | Material icon name                                          |
+| `color`        | `string`                | Yes      | Hex color code                                              |
+| `budgetType`   | `enum`                  | No       | `WEEKLY`, `MONTHLY`, or `NONE`                              |
+| `displayOrder` | `integer`               | No       | Sort order                                                  |
+| `isDefault`    | `boolean`               | No       | Whether this is a system default                            |
+| `categories`   | `List<CategoryResponse>`| No       | Nested categories in this group                             |
+| `visibility`   | `string`                | No       | `SHARED` or `PRIVATE`                                       |
+| `ownerId`      | `UUID`                  | Yes      | Owner user ID. Present only when `visibility` is `PRIVATE`. |
+| `createdAt`    | `string`                | No       | ISO 8601 timestamp                                          |
 
 ### PaymentMethodResponse
 
-| Field           | Type      | Nullable | Description                           |
-|:----------------|:----------|:--------:|:--------------------------------------|
-| `id`            | `UUID`    | No       | Payment method unique identifier      |
-| `name`          | `string`  | No       | Payment method name                   |
-| `type`          | `enum`    | No       | `CASH`, `DEBIT`, or `CREDIT`          |
-| `settlementDay` | `integer` | Yes      | Card settlement day (1-31)            |
-| `closingDay`    | `integer` | Yes      | Card closing day (1-31)               |
-| `isActive`      | `boolean` | No       | Whether this method is active         |
-| `isDefault`     | `boolean` | No       | Whether this is a system default      |
-| `displayOrder`  | `integer` | No       | Sort order                            |
-| `createdAt`     | `string`  | No       | ISO 8601 timestamp                    |
+| Field            | Type      | Nullable | Description                                                                               |
+|:-----------------|:----------|:--------:|:------------------------------------------------------------------------------------------|
+| `id`             | `UUID`    | No       | Payment method unique identifier                                                          |
+| `name`           | `string`  | No       | Payment method name                                                                       |
+| `type`           | `enum`    | No       | `CASH`, `DEBIT`, `CREDIT`, or `BANK`                                                      |
+| `settlementDay`  | `integer` | Yes      | Card settlement day (1-31)                                                                |
+| `closingDay`     | `integer` | Yes      | Card closing day (1-31)                                                                   |
+| `isActive`       | `boolean` | No       | Whether this method is active                                                             |
+| `isDefault`      | `boolean` | No       | Whether this is a system default                                                          |
+| `displayOrder`   | `integer` | No       | Sort order                                                                                |
+| `balance`        | `long`    | Yes      | Computed balance (null for `CREDIT` type). `BANK`/`CASH`/`DEBIT`: income transfers − expense transfers |
+| `linkedBankId`   | `UUID`    | Yes      | ID of the linked BANK-type payment method (only for `CREDIT` type)                       |
+| `linkedBankName` | `string`  | Yes      | Display name of the linked bank (only for `CREDIT` type)                                 |
+| `createdAt`      | `string`  | No       | ISO 8601 timestamp                                                                        |
 
 ### CardPendingResponse
 
@@ -2075,23 +2301,25 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### TransactionResponse
 
-| Field             | Type              | Nullable | Description                      |
-|:------------------|:------------------|:--------:|:---------------------------------|
-| `id`              | `UUID`            | No       | Transaction unique identifier    |
-| `coupleId`        | `UUID`            | No       | Owning couple ID                 |
-| `author`          | `UserSummary`     | No       | User who recorded the transaction|
-| `category`        | `CategorySummary` | Yes      | Category (null if uncategorized) |
-| `type`            | `enum`            | No       | `INCOME` or `EXPENSE`            |
-| `amount`          | `long`            | No       | Amount in KRW (always > 0)       |
-| `description`     | `string`          | No       | Short description                |
-| `memo`            | `string`          | Yes      | Optional longer note             |
-| `transactionDate` | `string`          | No       | ISO 8601 date: `YYYY-MM-DD`      |
-| `paymentMethodId` | `UUID`            | Yes      | Payment method used              |
-| `paymentMethodName` | `string`        | Yes      | Payment method display name      |
-| `paymentMethodType` | `enum`          | Yes      | `CASH`, `DEBIT`, or `CREDIT`     |
-| `settlementDate`  | `string`          | Yes      | Credit card settlement date      |
-| `createdAt`       | `string`          | No       | ISO 8601 timestamp               |
-| `updatedAt`       | `string`          | No       | ISO 8601 timestamp               |
+| Field               | Type              | Nullable | Description                                                 |
+|:--------------------|:------------------|:--------:|:------------------------------------------------------------|
+| `id`                | `UUID`            | No       | Transaction unique identifier                               |
+| `coupleId`          | `UUID`            | No       | Owning couple ID                                            |
+| `author`            | `UserSummary`     | No       | User who recorded the transaction                           |
+| `category`          | `CategorySummary` | Yes      | Category (null if uncategorized)                            |
+| `type`              | `enum`            | No       | `INCOME` or `EXPENSE`                                       |
+| `amount`            | `long`            | No       | Amount in KRW (always > 0)                                  |
+| `description`       | `string`          | No       | Short description                                           |
+| `memo`              | `string`          | Yes      | Optional longer note                                        |
+| `transactionDate`   | `string`          | No       | ISO 8601 date: `YYYY-MM-DD`                                 |
+| `paymentMethodId`   | `UUID`            | Yes      | Payment method used                                         |
+| `paymentMethodName` | `string`          | Yes      | Payment method display name                                 |
+| `paymentMethodType` | `enum`            | Yes      | `CASH`, `DEBIT`, or `CREDIT`                                |
+| `settlementDate`    | `string`          | Yes      | Credit card settlement date                                 |
+| `visibility`        | `string`          | No       | `SHARED` or `PRIVATE`                                       |
+| `ownerId`           | `UUID`            | Yes      | Owner user ID. Present only when `visibility` is `PRIVATE`. |
+| `createdAt`         | `string`          | No       | ISO 8601 timestamp                                          |
+| `updatedAt`         | `string`          | No       | ISO 8601 timestamp                                          |
 
 ### PageResponse\<T\>
 
@@ -2107,17 +2335,21 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### BudgetResponse
 
-| Field          | Type              | Nullable | Description                                                    |
-|:---------------|:------------------|:--------:|:---------------------------------------------------------------|
-| `id`           | `UUID`            | No       | Budget unique identifier                                       |
-| `coupleId`     | `UUID`            | No       | Owning couple ID                                               |
-| `category`     | `CategorySummary` | Yes      | Category (omitted when null — total budget with no category)   |
-| `yearMonth`    | `string`          | No       | Target month in `YYYY-MM` format                               |
-| `amount`       | `long`            | No       | Budget amount in KRW (always > 0)                              |
-| `budgetPeriod` | `string`          | No       | Budget period type: `MONTHLY` or `WEEKLY`                      |
-| `weeklyAmount` | `long`            | Yes      | Per-week amount (omitted unless `budgetPeriod` is `WEEKLY`)    |
-| `createdAt`    | `string`          | No       | ISO 8601 timestamp                                             |
-| `updatedAt`    | `string`          | No       | ISO 8601 timestamp                                             |
+| Field          | Type              | Nullable | Description                                                                           |
+|:---------------|:------------------|:--------:|:--------------------------------------------------------------------------------------|
+| `id`           | `UUID`            | No       | Budget unique identifier                                                              |
+| `coupleId`     | `UUID`            | No       | Owning couple ID                                                                      |
+| `category`     | `CategorySummary` | Yes      | Category (null when budget targets a group or is a total budget with no category)     |
+| `groupId`      | `UUID`            | Yes      | Category group ID (null when budget targets a category or is a total budget)          |
+| `groupName`    | `string`          | Yes      | Category group name (null when `groupId` is null)                                     |
+| `yearMonth`    | `string`          | No       | Target month in `YYYY-MM` format                                                      |
+| `amount`       | `long`            | No       | Budget amount in KRW (always > 0)                                                     |
+| `budgetPeriod` | `string`          | No       | Budget period type: `MONTHLY` or `WEEKLY`                                             |
+| `weeklyAmount` | `long`            | Yes      | Per-week amount (omitted unless `budgetPeriod` is `WEEKLY`)                           |
+| `visibility`   | `string`          | No       | `SHARED` or `PRIVATE`                                                                 |
+| `ownerId`      | `UUID`            | Yes      | Owner user ID. Present only when `visibility` is `PRIVATE`.                           |
+| `createdAt`    | `string`          | No       | ISO 8601 timestamp                                                                    |
+| `updatedAt`    | `string`          | No       | ISO 8601 timestamp                                                                    |
 
 ### BudgetSummaryResponse
 
@@ -2168,17 +2400,19 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### PocketResponse
 
-| Field             | Type      | Nullable | Description                                              |
-|:------------------|:----------|:--------:|:---------------------------------------------------------|
-| `id`              | `UUID`    | No       | Pocket unique identifier                                 |
-| `name`            | `string`  | No       | Pocket display name                                      |
-| `type`            | `enum`    | No       | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
-| `allocatedAmount` | `long`    | No       | Allocated budget in KRW                                  |
-| `balance`         | `long`    | No       | Computed balance: `allocatedAmount + transferIn - transferOut - expense` |
-| `icon`            | `string`  | Yes      | Material icon name                                       |
-| `color`           | `string`  | Yes      | Hex color code (e.g. `#FF5733`)                          |
-| `displayOrder`    | `integer` | No       | Sort order                                               |
-| `isActive`        | `boolean` | No       | Whether this pocket is active                            |
+| Field             | Type      | Nullable | Description                                                                   |
+|:------------------|:----------|:--------:|:------------------------------------------------------------------------------|
+| `id`              | `UUID`    | No       | Pocket unique identifier                                                      |
+| `name`            | `string`  | No       | Pocket display name                                                           |
+| `type`            | `enum`    | No       | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`                       |
+| `allocatedAmount` | `long`    | No       | Allocated budget in KRW                                                       |
+| `balance`         | `long`    | No       | Computed balance: `allocatedAmount + transferIn - transferOut - expense`      |
+| `icon`            | `string`  | Yes      | Material icon name                                                            |
+| `color`           | `string`  | Yes      | Hex color code (e.g. `#FF5733`)                                               |
+| `displayOrder`    | `integer` | No       | Sort order                                                                    |
+| `isActive`        | `boolean` | No       | Whether this pocket is active                                                 |
+| `visibility`      | `string`  | No       | `SHARED` or `PRIVATE`                                                         |
+| `ownerId`         | `UUID`    | Yes      | Owner user ID. Present only when `visibility` is `PRIVATE`.                   |
 
 ### PocketSummaryResponse
 
@@ -2211,6 +2445,79 @@ Abbreviated pocket reference used within transfer responses.
 | `description`  | `string`        | Yes      | Optional transfer note                 |
 | `transferDate` | `string`        | No       | ISO 8601 date: `YYYY-MM-DD`            |
 | `authorId`     | `UUID`          | No       | ID of user who created the transfer    |
+
+### TransferResponse
+
+| Field                        | Type                      | Nullable | Description                                                              |
+|:-----------------------------|:--------------------------|:--------:|:-------------------------------------------------------------------------|
+| `id`                         | `UUID`                    | No       | Transfer unique identifier                                               |
+| `coupleId`                   | `UUID`                    | No       | Owning couple ID                                                         |
+| `author`                     | `UserSummary`             | No       | User who created the transfer                                            |
+| `sourcePaymentMethod`        | `PaymentMethodSummary`    | No       | Source payment method (id, name, type)                                   |
+| `destinationPaymentMethod`   | `PaymentMethodSummary`    | No       | Destination payment method (id, name, type)                              |
+| `amount`                     | `long`                    | No       | Transfer amount in KRW (always > 0)                                      |
+| `description`                | `string`                  | Yes      | Short label for the transfer (max 255)                                   |
+| `memo`                       | `string`                  | Yes      | Optional additional notes                                                |
+| `transferDate`               | `string`                  | No       | ISO 8601 date: `YYYY-MM-DD`                                              |
+| `autoSettlementKey`          | `string`                  | Yes      | Deduplication key for system-generated auto-settlement transfers (null for manual transfers) |
+| `createdAt`                  | `string`                  | No       | ISO 8601 timestamp                                                       |
+
+### PaymentMethodSummary
+
+Abbreviated payment method reference used within transfer responses.
+
+| Field  | Type     | Nullable | Description                          |
+|:-------|:---------|:--------:|:-------------------------------------|
+| `id`   | `UUID`   | No       | Payment method unique identifier     |
+| `name` | `string` | No       | Payment method display name          |
+| `type` | `enum`   | No       | `CASH`, `DEBIT`, `CREDIT`, or `BANK` |
+
+### CardSettlementSummaryResponse
+
+| Field           | Type                         | Nullable | Description                               |
+|:----------------|:-----------------------------|:--------:|:------------------------------------------|
+| `previousMonth` | `CardSettlementMonthSummary` | No       | Settlement data for the previous calendar month |
+| `currentMonth`  | `CardSettlementMonthSummary` | No       | Settlement data for the current calendar month  |
+
+### CardSettlementMonthSummary
+
+| Field         | Type                          | Nullable | Description                              |
+|:--------------|:------------------------------|:--------:|:-----------------------------------------|
+| `year`        | `integer`                     | No       | Year (e.g., 2026)                        |
+| `month`       | `integer`                     | No       | Month 1–12                               |
+| `totalAmount` | `long`                        | No       | Sum of all card spending amounts         |
+| `cards`       | `List<CardSettlementCardItem>`| No       | Per-card breakdown                       |
+
+### CardSettlementCardItem
+
+| Field               | Type      | Nullable | Description                                   |
+|:--------------------|:----------|:--------:|:----------------------------------------------|
+| `paymentMethodId`   | `UUID`    | No       | Credit card payment method ID                 |
+| `paymentMethodName` | `string`  | No       | Credit card display name                      |
+| `amount`            | `long`    | No       | Total spending amount for this card            |
+| `settlementDate`    | `string`  | Yes      | Next settlement date `YYYY-MM-DD` (null if no `settlementDay` configured) |
+| `transactionCount`  | `integer` | No       | Number of transactions for this card          |
+
+### RecurringTransactionResponse
+
+| Field             | Type              | Nullable | Description                                                         |
+|:------------------|:------------------|:--------:|:--------------------------------------------------------------------|
+| `id`              | `UUID`            | No       | Recurring transaction unique identifier                             |
+| `coupleId`        | `UUID`            | No       | Owning couple ID                                                    |
+| `author`          | `UserSummary`     | No       | User who created the recurring entry                                |
+| `category`        | `CategorySummary` | Yes      | Category (null if uncategorized)                                    |
+| `type`            | `enum`            | No       | `INCOME` or `EXPENSE`                                               |
+| `amount`          | `long`            | No       | Amount in KRW (always > 0)                                          |
+| `description`     | `string`          | No       | Short description                                                   |
+| `memo`            | `string`          | Yes      | Optional note                                                       |
+| `paymentMethodId` | `UUID`            | Yes      | Payment method ID                                                   |
+| `frequency`       | `enum`            | No       | `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`                           |
+| `dayOfMonth`      | `integer`         | Yes      | Day of month (applicable for `MONTHLY` frequency)                   |
+| `dayOfWeek`       | `integer`         | Yes      | Day of week (applicable for `WEEKLY` frequency)                     |
+| `isActive`        | `boolean`         | No       | Whether the rule is currently active                                |
+| `visibility`      | `string`          | No       | `SHARED` or `PRIVATE`                                               |
+| `createdAt`       | `string`          | No       | ISO 8601 timestamp                                                  |
+| `updatedAt`       | `string`          | No       | ISO 8601 timestamp                                                  |
 
 ### DistributeResponse
 
@@ -2283,13 +2590,14 @@ Returns all active pockets for the authenticated couple with balance summary.
 
 **Request Body**
 
-| Field             | Type      | Required | Description                                              |
-|:------------------|:----------|:--------:|:---------------------------------------------------------|
-| `name`            | `string`  | Yes      | Pocket display name (max 50 chars)                       |
-| `type`            | `enum`    | Yes      | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
-| `allocatedAmount` | `long`    | Yes      | Allocated budget amount in KRW (>= 0)                    |
-| `icon`            | `string`  | No       | Material icon name                                       |
-| `color`           | `string`  | No       | Hex color code (e.g. `#FF5733`)                          |
+| Field             | Type      | Required | Description                                                                   |
+|:------------------|:----------|:--------:|:------------------------------------------------------------------------------|
+| `name`            | `string`  | Yes      | Pocket display name (max 50 chars)                                            |
+| `type`            | `enum`    | Yes      | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`                       |
+| `allocatedAmount` | `long`    | Yes      | Allocated budget amount in KRW (>= 0)                                         |
+| `icon`            | `string`  | No       | Material icon name                                                            |
+| `color`           | `string`  | No       | Hex color code (e.g. `#FF5733`)                                               |
+| `visibility`      | `string`  | No       | `SHARED` (default) or `PRIVATE`. Private pockets are only visible to the creator. |
 
 **Response `201 Created`**: `ApiResponse<PocketResponse>`
 
@@ -2312,14 +2620,15 @@ Returns all active pockets for the authenticated couple with balance summary.
 
 **Request Body** (all fields optional)
 
-| Field             | Type      | Description                                              |
-|:------------------|:----------|:---------------------------------------------------------|
-| `name`            | `string`  | Pocket display name (max 50 chars)                       |
-| `type`            | `enum`    | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`  |
-| `allocatedAmount` | `long`    | Allocated budget amount in KRW (>= 0)                    |
-| `icon`            | `string`  | Material icon name                                       |
-| `color`           | `string`  | Hex color code                                           |
-| `displayOrder`    | `integer` | Sort order                                               |
+| Field             | Type      | Description                                                      |
+|:------------------|:----------|:-----------------------------------------------------------------|
+| `name`            | `string`  | Pocket display name (max 50 chars)                               |
+| `type`            | `enum`    | `LIVING`, `FIXED`, `CARD_PENDING`, `SAVINGS`, `CUSTOM`          |
+| `allocatedAmount` | `long`    | Allocated budget amount in KRW (>= 0)                            |
+| `icon`            | `string`  | Material icon name                                               |
+| `color`           | `string`  | Hex color code                                                   |
+| `displayOrder`    | `integer` | Sort order                                                       |
+| `visibility`      | `string`  | `SHARED` or `PRIVATE`. Only the owner can change this field.     |
 
 **Response `200 OK`**: `ApiResponse<PocketResponse>`
 
@@ -2534,6 +2843,239 @@ Returns pocket transfer history for the couple. Supports optional filtering.
 | `400`  | `VALIDATION_ERROR`  | Missing required fields, amount <= 0, or same pocket   |
 | `404`  | `POCKET_NOT_FOUND`  | Source or destination pocket does not exist            |
 | `403`  | `FORBIDDEN`         | Pocket belongs to another couple                       |
+
+---
+
+## Transfers
+
+Base path: `/api/v1/transfers`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+Records money moved between payment methods (e.g., bank account to cash withdrawal). Transfers are intentionally excluded from transaction statistics and budget calculations.
+
+---
+
+### 1. Create Transfer
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `POST`                   |
+| **Path**    | `/api/v1/transfers`      |
+| **Auth**    | Required                 |
+| **Returns** | `201 Created`            |
+
+**Request Body**
+
+| Field                        | Type     | Required | Constraints              | Description                               |
+|:-----------------------------|:---------|:--------:|:-------------------------|:------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`   | Yes      | Must differ from dest    | Source payment method ID                  |
+| `destinationPaymentMethodId` | `UUID`   | Yes      | Must differ from source  | Destination payment method ID             |
+| `amount`                     | `long`   | Yes      | min=1, max=999999999     | Transfer amount in KRW                    |
+| `description`                | `string` | No       | max=255                  | Short label for the transfer              |
+| `transferDate`               | `string` | Yes      | `YYYY-MM-DD`             | Date of the transfer                      |
+| `memo`                       | `string` | No       |                          | Optional additional notes                 |
+
+**Request Example**
+
+```json
+{
+  "sourcePaymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+  "destinationPaymentMethodId": "550e8400-e29b-41d4-a716-446655440011",
+  "amount": 100000,
+  "description": "신한→현금 ATM 출금",
+  "transferDate": "2026-03-25",
+  "memo": null
+}
+```
+
+**Response `201 Created`**: `ApiResponse<TransferResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "author": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nickname": "홍길동"
+    },
+    "sourcePaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "신한은행",
+      "type": "BANK"
+    },
+    "destinationPaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440011",
+      "name": "현금",
+      "type": "CASH"
+    },
+    "amount": 100000,
+    "description": "신한→현금 ATM 출금",
+    "memo": null,
+    "transferDate": "2026-03-25",
+    "autoSettlementKey": null,
+    "createdAt": "2026-03-25T10:00:00"
+  },
+  "timestamp": "2026-03-25T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code                    | Description                                              |
+|:------:|:------------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`            | Missing required fields, amount out of range, source == destination, or both source and destination are CREDIT type |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`    | Source or destination payment method does not exist      |
+| `403`  | `FORBIDDEN`                   | Payment method belongs to another couple                 |
+
+---
+
+### 2. List Transfers
+
+Returns transfers for the couple filtered by month.
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `GET`                    |
+| **Path**    | `/api/v1/transfers`      |
+| **Auth**    | Required                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description                             |
+|:----------|:----------|:--------:|:----------------------------------------|
+| `year`    | `integer` | Yes      | Year (e.g., `2026`)                     |
+| `month`   | `integer` | Yes      | Month 1–12 (e.g., `3`)                  |
+
+**Response `200 OK`**: `ApiResponse<List<TransferResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440200",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "author": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "홍길동"
+      },
+      "sourcePaymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "신한은행",
+        "type": "BANK"
+      },
+      "destinationPaymentMethod": {
+        "id": "550e8400-e29b-41d4-a716-446655440011",
+        "name": "현금",
+        "type": "CASH"
+      },
+      "amount": 100000,
+      "description": "신한→현금 ATM 출금",
+      "memo": null,
+      "transferDate": "2026-03-25",
+      "autoSettlementKey": null,
+      "createdAt": "2026-03-25T10:00:00"
+    }
+  ],
+  "timestamp": "2026-03-25T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                        |
+|:------:|:-------------------|:-----------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid year/month      |
+
+---
+
+### 3. Get Transfer
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `GET`                       |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>`
+
+**Error Responses**
+
+| Status | Error Code          | Description                                  |
+|:------:|:--------------------|:---------------------------------------------|
+| `404`  | `TRANSFER_NOT_FOUND`| Transfer does not exist or belongs to another couple |
+
+---
+
+### 4. Update Transfer
+
+All fields are optional (partial update). Omitted fields retain their current values.
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `PUT`                       |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Request Body** (`UpdateTransferRequest` — all fields optional, PatchValue pattern)
+
+| Field                        | Type     | Constraints              | Description                               |
+|:-----------------------------|:---------|:-------------------------|:------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`   | Must differ from dest    | New source payment method ID              |
+| `destinationPaymentMethodId` | `UUID`   | Must differ from source  | New destination payment method ID         |
+| `amount`                     | `long`   | min=1, max=999999999     | New transfer amount in KRW                |
+| `description`                | `string` | max=255                  | New short label (pass `null` to clear)    |
+| `transferDate`               | `string` | `YYYY-MM-DD`             | New transfer date                         |
+| `memo`                       | `string` |                          | New memo (pass `null` to clear)           |
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>`
+
+**Error Responses**
+
+| Status | Error Code                 | Description                                              |
+|:------:|:---------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`         | Invalid field values or source == destination            |
+| `404`  | `TRANSFER_NOT_FOUND`       | Transfer does not exist or belongs to another couple     |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified payment method does not exist                  |
+| `403`  | `FORBIDDEN`                | Payment method belongs to another couple                 |
+
+---
+
+### 5. Delete Transfer
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `DELETE`                    |
+| **Path**    | `/api/v1/transfers/{id}`    |
+| **Auth**    | Required                    |
+| **Returns** | `204 No Content`            |
+
+**Path Parameters**
+
+| Parameter | Type   | Description     |
+|:----------|:-------|:----------------|
+| `id`      | `UUID` | Transfer ID     |
+
+**Error Responses**
+
+| Status | Error Code           | Description                                  |
+|:------:|:---------------------|:---------------------------------------------|
+| `404`  | `TRANSFER_NOT_FOUND` | Transfer does not exist or belongs to another couple |
 
 ---
 
@@ -2752,14 +3294,16 @@ spring:
 | `INVITATION_EXPIRED`              | `410`       | Invitation code has expired                          |
 | `SELF_INVITATION`                 | `400`       | User cannot accept their own invitation              |
 | `CATEGORY_NOT_FOUND`              | `404`       | Requested category does not exist                    |
-| `CANNOT_DELETE_DEFAULT_CATEGORY`  | `400`       | Default (system) categories cannot be deleted        |
 | `TRANSACTION_NOT_FOUND`           | `404`       | Requested transaction does not exist                 |
 | `BUDGET_NOT_FOUND`                | `404`       | Requested budget does not exist                      |
-| `DUPLICATE_BUDGET`                | `409`       | Budget for this category and month already exists    |
+| `DUPLICATE_BUDGET`                | `409`       | Budget for this category/group and month already exists |
 | `GROUP_NOT_FOUND`                 | `404`       | Requested category group does not exist              |
-| `CANNOT_DELETE_DEFAULT_GROUP`     | `400`       | Default category groups cannot be deleted            |
 | `PAYMENT_METHOD_NOT_FOUND`        | `404`       | Requested payment method does not exist              |
 | `CANNOT_DELETE_DEFAULT_PAYMENT_METHOD` | `400`  | Default payment methods cannot be deleted            |
 | `RECURRING_NOT_FOUND`             | `404`       | Requested recurring transaction does not exist       |
 | `POCKET_NOT_FOUND`                | `404`       | Requested money pocket does not exist                |
 | `POCKET_TRANSFER_NOT_FOUND`       | `404`       | Requested pocket transfer does not exist             |
+| `TRANSFER_NOT_FOUND`              | `404`       | Requested transfer does not exist or belongs to another couple |
+| `CREDIT_TO_CREDIT_TRANSFER_FORBIDDEN` | `400`   | Transfer between two CREDIT-type payment methods is not allowed |
+| `LINKED_BANK_NOT_FOUND`           | `404`       | Specified linkedBankId does not exist or is not BANK type |
+| `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |

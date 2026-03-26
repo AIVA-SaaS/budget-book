@@ -7,6 +7,8 @@ class TransactionCategoryModel extends TransactionCategory {
     required super.type,
     super.icon,
     super.color,
+    super.groupId,
+    super.groupName,
   });
 
   factory TransactionCategoryModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,8 @@ class TransactionCategoryModel extends TransactionCategory {
       type: json['type'] as String,
       icon: json['icon'] as String?,
       color: json['color'] as String?,
+      groupId: json['groupId'] as String?,
+      groupName: json['groupName'] as String?,
     );
   }
 }

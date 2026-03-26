@@ -153,6 +153,7 @@ void main() {
         final expectedData = {
           'name': '반려동물',
           'type': 'EXPENSE',
+          'visibility': 'SHARED',
           'icon': 'pets',
           'color': '#9C27B0',
         };
@@ -181,7 +182,7 @@ void main() {
             },
           ),
         );
-        when(mockDataSource.createCategory({'name': '', 'type': 'EXPENSE'}))
+        when(mockDataSource.createCategory({'name': '', 'type': 'EXPENSE', 'visibility': 'SHARED'}))
             .thenAnswer((_) async => throw dioException);
 
         final result = await repository.createCategory(

@@ -5,6 +5,7 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 abstract class BudgetRepository {
   Future<Either<Failure, Budget>> createBudget({
     String? categoryId,
+    String? groupId,
     required String yearMonth,
     required int amount,
     String budgetPeriod = 'MONTHLY',
@@ -30,6 +31,7 @@ abstract class BudgetRepository {
     DateTime? startDate,
     DateTime? endDate,
     String? categoryId,
+    String? groupId,
     String? yearMonth,
   });
 

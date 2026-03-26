@@ -18,11 +18,11 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
   Future<Either<Failure, StatisticsSummary>> getSummary({
     required int year,
     required int month,
+    String visibility = 'ALL',
   }) async {
     try {
       final result = await remoteDataSource.getSummary(
-        year: year,
-        month: month,
+        year: year, month: month, visibility: visibility,
       );
       return Right(result);
     } on DioException catch (e) {
@@ -37,12 +37,11 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
     required int year,
     required int month,
     String type = 'EXPENSE',
+    String visibility = 'ALL',
   }) async {
     try {
       final result = await remoteDataSource.getCategoryBreakdown(
-        year: year,
-        month: month,
-        type: type,
+        year: year, month: month, type: type, visibility: visibility,
       );
       return Right(result);
     } on DioException catch (e) {
@@ -55,9 +54,12 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
   @override
   Future<Either<Failure, List<MonthlyTrend>>> getMonthlyTrend({
     int months = 6,
+    String visibility = 'ALL',
   }) async {
     try {
-      final result = await remoteDataSource.getMonthlyTrend(months: months);
+      final result = await remoteDataSource.getMonthlyTrend(
+        months: months, visibility: visibility,
+      );
       return Right(result);
     } on DioException catch (e) {
       return Left(mapDioError(e, '월별 추이를 불러오지 못했습니다'));
@@ -71,11 +73,11 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       getPaymentMethodStats({
     required int year,
     required int month,
+    String visibility = 'ALL',
   }) async {
     try {
       final result = await remoteDataSource.getPaymentMethodStats(
-        year: year,
-        month: month,
+        year: year, month: month, visibility: visibility,
       );
       return Right(result);
     } on DioException catch (e) {
@@ -84,5 +86,4 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       return const Left(ServerFailure('결제수단별 통계를 불러오지 못했습니다'));
     }
   }
-
 }

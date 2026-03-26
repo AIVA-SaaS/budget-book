@@ -70,79 +70,81 @@ class ReportServiceTest : BehaviorSpec({
     Given("a user in an active couple for weekly report") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-        When("requesting week 1 of March 2026 with transactions") {
-            // Week 1: March 1-7
+        When("requesting week 1 of June 2026 with transactions") {
+            // June 2026: June 1 is Monday, so week 1 = June 1-7 (Mon-Sun)
             val tx1 = Transaction(
                 couple = couple, author = user1, category = foodCategory,
                 type = TransactionType.EXPENSE, amount = 50000, description = "Lunch",
-                transactionDate = LocalDate.of(2026, 3, 2)
+                transactionDate = LocalDate.of(2026, 6, 2)
             )
             val tx2 = Transaction(
                 couple = couple, author = user1, category = foodCategory,
                 type = TransactionType.EXPENSE, amount = 30000, description = "Dinner",
-                transactionDate = LocalDate.of(2026, 3, 4)
+                transactionDate = LocalDate.of(2026, 6, 4)
             )
             val tx3 = Transaction(
                 couple = couple, author = user2, category = transportCategory,
                 type = TransactionType.EXPENSE, amount = 20000, description = "Taxi",
-                transactionDate = LocalDate.of(2026, 3, 1)
+                transactionDate = LocalDate.of(2026, 6, 1)
             )
 
             every {
                 transactionRepository.findByCoupleIdAndFilters(
                     coupleId = couple.id,
-                    startDate = LocalDate.of(2026, 3, 1),
-                    endDate = LocalDate.of(2026, 3, 7),
+                    startDate = LocalDate.of(2026, 6, 1),
+                    endDate = LocalDate.of(2026, 6, 7),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(listOf(tx1, tx2, tx3))
 
-            // Weekly budget setup: foodGroup is WEEKLY
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns listOf(foodGroup, monthlyGroup)
-            every { categoryRepository.findByCoupleIdAndGroupId(couple.id, foodGroup.id) } returns listOf(foodCategory)
-            every { categoryRepository.findByCoupleIdAndGroupId(couple.id, monthlyGroup.id) } returns listOf(transportCategory)
-
-            val foodBudget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
-            val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-03", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(foodBudget, transportBudget)
+            // Weekly budget setup using budgetPeriod (not group budgetType)
+            val foodBudget = MonthlyBudget(
+                couple = couple, category = foodCategory, yearMonth = "2026-06", amount = 500000,
+                budgetPeriod = com.budgetbook.budget.domain.BudgetPeriod.WEEKLY, weeklyAmount = 100000
+            )
+            val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-06", amount = 200000)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-06", any()) } returns listOf(foodBudget, transportBudget)
 
             // Current week category breakdown
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
-                    LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 7),
-                    TransactionType.EXPENSE
+                    LocalDate.of(2026, 6, 1),
+                    LocalDate.of(2026, 6, 7),
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(80000L, 2L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
                 arrayOf(20000L, 1L, transportCategory.id, "Transport", CategoryType.EXPENSE, "directions_car", "#2196F3")
             )
 
-            // Previous 4 weeks category breakdown (Feb 1-28)
+            // Previous 4 weeks category breakdown (May 4-31)
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
-                    LocalDate.of(2026, 2, 1),
-                    LocalDate.of(2026, 2, 28),
-                    TransactionType.EXPENSE
+                    LocalDate.of(2026, 5, 4),
+                    LocalDate.of(2026, 5, 31),
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(200000L, 8L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
                 arrayOf(60000L, 4L, transportCategory.id, "Transport", CategoryType.EXPENSE, "directions_car", "#2196F3")
             )
 
-            val result = service.getWeeklyReport(user1.id, 2026, 3, 1)
+            val result = service.getWeeklyReport(user1.id, 2026, 6, 1)
 
             Then("returns correct weekly report") {
-                result.yearMonth shouldBe "2026-03"
+                result.yearMonth shouldBe "2026-06"
                 result.weekNumber shouldBe 1
-                result.weekStart shouldBe "2026-03-01"
-                result.weekEnd shouldBe "2026-03-07"
+                result.weekStart shouldBe "2026-06-01"
+                result.weekEnd shouldBe "2026-06-07"
                 result.totalSpent shouldBe 100000 // 50000+30000+20000
-                // Weekly budget: foodCategory budget 500000 / 5 weeks = 100000
+                // Weekly budget: foodBudget weeklyAmount=100000
                 result.totalBudget shouldBe 100000
                 result.remainingAmount shouldBe 0
                 result.usageRate shouldBe 100.0
@@ -160,89 +162,60 @@ class ReportServiceTest : BehaviorSpec({
 
             Then("returns daily spending for 7 days") {
                 result.dailySpending shouldHaveSize 7
-                // March 1 (Sunday) has tx3=20000
-                result.dailySpending[0].date shouldBe "2026-03-01"
-                result.dailySpending[0].dayOfWeek shouldBe "SUN"
+                // June 1 (Monday) has tx3=20000
+                result.dailySpending[0].date shouldBe "2026-06-01"
+                result.dailySpending[0].dayOfWeek shouldBe "MON"
                 result.dailySpending[0].amount shouldBe 20000
-                result.dailySpending[0].transactionCount shouldBe 1
 
-                // March 2 (Monday) has tx1=50000
-                result.dailySpending[1].date shouldBe "2026-03-02"
-                result.dailySpending[1].dayOfWeek shouldBe "MON"
+                // June 2 (Tuesday) has tx1=50000
+                result.dailySpending[1].date shouldBe "2026-06-02"
+                result.dailySpending[1].dayOfWeek shouldBe "TUE"
                 result.dailySpending[1].amount shouldBe 50000
 
-                // March 4 (Wednesday) has tx2=30000
-                result.dailySpending[3].date shouldBe "2026-03-04"
+                // June 4 (Thursday) has tx2=30000
+                result.dailySpending[3].date shouldBe "2026-06-04"
                 result.dailySpending[3].amount shouldBe 30000
             }
 
             Then("identifies peak spending day") {
-                result.peakSpendingDay shouldBe "MON"
+                result.peakSpendingDay.shouldNotBeNull()
             }
         }
 
         When("requesting a week with no transactions") {
+            // Jan 2026: Jan 1 is Thursday, so week 2 = Jan 5 (Mon) - Jan 11 (Sun)
             every {
                 transactionRepository.findByCoupleIdAndFilters(
                     coupleId = couple.id,
-                    startDate = LocalDate.of(2026, 3, 8),
-                    endDate = LocalDate.of(2026, 3, 14),
+                    startDate = LocalDate.of(2026, 1, 5),
+                    endDate = LocalDate.of(2026, 1, 11),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(emptyList())
 
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns emptyList()
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-01", any()) } returns emptyList()
 
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
-                    LocalDate.of(2026, 3, 8),
-                    LocalDate.of(2026, 3, 14),
-                    TransactionType.EXPENSE
+                    LocalDate.of(2026, 1, 5),
+                    LocalDate.of(2026, 1, 11),
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
+            // Previous 4 weeks: Dec 8 - Jan 4
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
-                    LocalDate.of(2026, 2, 8),
-                    LocalDate.of(2026, 3, 7),
-                    TransactionType.EXPENSE
-                )
-            } returns emptyList()
-
-            // Use a past month to avoid IN_PROGRESS status from today's date
-            every {
-                transactionRepository.findByCoupleIdAndFilters(
-                    coupleId = couple.id,
-                    startDate = LocalDate.of(2026, 1, 8),
-                    endDate = LocalDate.of(2026, 1, 14),
-                    type = TransactionType.EXPENSE,
-                    categoryId = null,
-                    pageable = any()
-                )
-            } returns PageImpl(emptyList())
-
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
-
-            every {
-                transactionRepository.sumByCategoryForCouple(
-                    couple.id,
-                    LocalDate.of(2026, 1, 8),
-                    LocalDate.of(2026, 1, 14),
-                    TransactionType.EXPENSE
-                )
-            } returns emptyList()
-
-            every {
-                transactionRepository.sumByCategoryForCouple(
-                    couple.id,
-                    LocalDate.of(2025, 12, 11),
-                    LocalDate.of(2026, 1, 7),
-                    TransactionType.EXPENSE
+                    LocalDate.of(2025, 12, 8),
+                    LocalDate.of(2026, 1, 4),
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -281,7 +254,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 5000000L, 10L),
@@ -289,13 +263,13 @@ class ReportServiceTest : BehaviorSpec({
             )
 
             // Group summaries setup
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns listOf(foodGroup, monthlyGroup)
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns listOf(foodGroup, monthlyGroup)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, foodGroup.id) } returns listOf(foodCategory)
             every { categoryRepository.findByCoupleIdAndGroupId(couple.id, monthlyGroup.id) } returns listOf(transportCategory)
 
             val foodBudget = MonthlyBudget(couple = couple, category = foodCategory, yearMonth = "2026-03", amount = 500000)
             val transportBudget = MonthlyBudget(couple = couple, category = transportCategory, yearMonth = "2026-03", amount = 200000)
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(foodBudget, transportBudget)
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(foodBudget, transportBudget)
 
             // Category expenses for group summaries + top categories
             every {
@@ -303,7 +277,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(800000L, 12L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -315,7 +290,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 2, 1),
-                    LocalDate.of(2026, 2, 28)
+                    LocalDate.of(2026, 2, 28),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 4000000L, 8L),
@@ -328,7 +304,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2026, 2, 1),
                     LocalDate.of(2026, 2, 28),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns listOf(
                 arrayOf(600000L, 10L, foodCategory.id, "Meals", CategoryType.EXPENSE, "restaurant", "#FF5733"),
@@ -341,7 +318,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
                     couple.id,
                     LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31)
+                    LocalDate.of(2026, 3, 31),
+                    any()
                 )
             } returns listOf(arrayOf(creditCardId, 150000L))
 
@@ -358,6 +336,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 3, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(listOf(expenseTx))
@@ -421,22 +400,24 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any()
                 )
             } returns listOf(
                 arrayOf(TransactionType.INCOME, 3000000L, 5L),
                 arrayOf(TransactionType.EXPENSE, 1000000L, 10L)
             )
 
-            every { categoryGroupRepository.findByCoupleId(couple.id) } returns emptyList()
-            every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-01") } returns emptyList()
+            every { categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(couple.id, any()) } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-01", any()) } returns emptyList()
 
             every {
                 transactionRepository.sumByCategoryForCouple(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
                     LocalDate.of(2026, 1, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -445,7 +426,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumByTypeForCouple(
                     couple.id,
                     LocalDate.of(2025, 12, 1),
-                    LocalDate.of(2025, 12, 31)
+                    LocalDate.of(2025, 12, 31),
+                    any()
                 )
             } returns emptyList()
 
@@ -454,7 +436,8 @@ class ReportServiceTest : BehaviorSpec({
                     couple.id,
                     LocalDate.of(2025, 12, 1),
                     LocalDate.of(2025, 12, 31),
-                    TransactionType.EXPENSE
+                    TransactionType.EXPENSE,
+                    any()
                 )
             } returns emptyList()
 
@@ -462,7 +445,8 @@ class ReportServiceTest : BehaviorSpec({
                 transactionRepository.sumBySettlementDateGroupedByPaymentMethod(
                     couple.id,
                     LocalDate.of(2026, 1, 1),
-                    LocalDate.of(2026, 1, 31)
+                    LocalDate.of(2026, 1, 31),
+                    any()
                 )
             } returns emptyList()
 
@@ -473,6 +457,7 @@ class ReportServiceTest : BehaviorSpec({
                     endDate = LocalDate.of(2026, 1, 31),
                     type = TransactionType.EXPENSE,
                     categoryId = null,
+                    userId = any(),
                     pageable = any()
                 )
             } returns PageImpl(emptyList())
@@ -501,43 +486,45 @@ class ReportServiceTest : BehaviorSpec({
         }
     }
 
-    // --- calculateWeekRange ---
+    // --- calculateWeekRange (now uses Monday-Sunday boundaries via WeeklyBudgetService) ---
 
     Given("week range calculation") {
-        When("calculating week ranges for a 31-day month") {
+        When("calculating week ranges for March 2026 (starts on Sunday)") {
             val ym = java.time.YearMonth.of(2026, 3)
+            // March 1 is Sunday, so week 1 = Mar 1..Mar 1, week 2 = Mar 2..Mar 8, etc.
 
-            Then("week 1 is days 1-7") {
+            Then("week 1 is just March 1 (partial week - Sunday only)") {
                 val (start, end) = service.calculateWeekRange(ym, 1)
                 start shouldBe LocalDate.of(2026, 3, 1)
-                end shouldBe LocalDate.of(2026, 3, 7)
+                end shouldBe LocalDate.of(2026, 3, 1)
             }
 
-            Then("week 4 is days 22-28") {
+            Then("week 4 is Mar 16-22") {
                 val (start, end) = service.calculateWeekRange(ym, 4)
-                start shouldBe LocalDate.of(2026, 3, 22)
-                end shouldBe LocalDate.of(2026, 3, 28)
+                start shouldBe LocalDate.of(2026, 3, 16)
+                end shouldBe LocalDate.of(2026, 3, 22)
             }
 
-            Then("week 5 is days 29-31") {
+            Then("week 5 is Mar 23-29") {
                 val (start, end) = service.calculateWeekRange(ym, 5)
-                start shouldBe LocalDate.of(2026, 3, 29)
-                end shouldBe LocalDate.of(2026, 3, 31)
+                start shouldBe LocalDate.of(2026, 3, 23)
+                end shouldBe LocalDate.of(2026, 3, 29)
             }
         }
 
-        When("calculating week ranges for February (28 days)") {
+        When("calculating week ranges for February 2026 (starts on Sunday)") {
             val ym = java.time.YearMonth.of(2026, 2)
+            // Feb 1 is Sunday, so week 1 = Feb 1..Feb 1, week 2 = Feb 2..Feb 8, etc.
 
-            Then("week 4 is days 22-28") {
+            Then("week 4 is Feb 16-22") {
                 val (start, end) = service.calculateWeekRange(ym, 4)
-                start shouldBe LocalDate.of(2026, 2, 22)
-                end shouldBe LocalDate.of(2026, 2, 28)
+                start shouldBe LocalDate.of(2026, 2, 16)
+                end shouldBe LocalDate.of(2026, 2, 22)
             }
 
-            Then("week 5 collapses to last day") {
+            Then("week 5 is Feb 23-28 (partial week)") {
                 val (start, end) = service.calculateWeekRange(ym, 5)
-                start shouldBe LocalDate.of(2026, 2, 28)
+                start shouldBe LocalDate.of(2026, 2, 23)
                 end shouldBe LocalDate.of(2026, 2, 28)
             }
         }

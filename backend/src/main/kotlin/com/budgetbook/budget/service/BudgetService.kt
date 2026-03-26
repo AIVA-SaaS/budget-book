@@ -1,5 +1,6 @@
 package com.budgetbook.budget.service
 
+import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.domain.PeriodType
@@ -11,8 +12,9 @@ import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
 import com.budgetbook.budget.dto.toResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
-import com.budgetbook.pocket.repository.MoneyPocketRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.ConflictException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -20,6 +22,7 @@ import com.budgetbook.common.security.OwnershipValidator
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
+import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
@@ -29,6 +32,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @Service
@@ -36,20 +40,42 @@ class BudgetService(
     private val budgetRepository: MonthlyBudgetRepository,
     override val coupleResolver: CoupleResolver,
     private val categoryRepository: CategoryRepository,
+    private val categoryGroupRepository: CategoryGroupRepository,
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher,
-    private val moneyPocketRepository: MoneyPocketRepository
+    private val moneyPocketRepository: MoneyPocketRepository,
+    private val userRepository: UserRepository
 ) : CoupleAwareService {
 
     @Transactional
     fun createBudget(userId: UUID, request: BudgetRequest): BudgetResponse {
         val couple = getActiveCouple(userId)
 
+        // Validate mutual exclusivity of categoryId and groupId
+        if (request.categoryId != null && request.groupId != null) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "categoryId and groupId are mutually exclusive. Provide only one."
+            )
+        }
+
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
             OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             cat
+        }
+
+        val group = request.groupId?.let { gId ->
+            val g = categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+            g
+        }
+
+        // Derive visibility from category/group instead of request
+        val visibility = when {
+            category != null -> category.visibility
+            group != null -> group.visibility
+            else -> Visibility.SHARED
         }
 
         // Validate pocket ownership
@@ -61,8 +87,8 @@ class BudgetService(
             }
         } else null
 
-        if (budgetRepository.existsByCoupleIdAndCategoryIdAndYearMonth(couple.id, request.categoryId, request.yearMonth)) {
-            throw ConflictException("DUPLICATE_BUDGET", "Budget for this category and month already exists.")
+        if (budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, request.categoryId, request.groupId, request.yearMonth)) {
+            throw ConflictException("DUPLICATE_BUDGET", "Budget for this category/group and month already exists.")
         }
 
         val budgetPeriod = try {
@@ -73,7 +99,7 @@ class BudgetService(
             )
         }
 
-        // Resolve periodType: use explicit value, fall back from budgetPeriod for backward compat
+        // Resolve periodType
         val periodType = if (request.periodType != null) {
             try {
                 PeriodType.valueOf(request.periodType)
@@ -83,26 +109,31 @@ class BudgetService(
                 )
             }
         } else {
-            // Backward compat: derive from budgetPeriod
             when (budgetPeriod) {
                 BudgetPeriod.WEEKLY -> PeriodType.WEEKLY
                 BudgetPeriod.MONTHLY -> PeriodType.MONTHLY
             }
         }
 
-        val numberOfWeeks = calculateNumberOfWeeks(request.yearMonth)
         val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
-            request.amount / numberOfWeeks
+            // Use client-provided weeklyAmount (the per-week budget the user intended),
+            // falling back to amount / numberOfWeeks for backward compat
+            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(request.yearMonth))
         } else {
             null
         }
 
-        // Calculate start/end dates
         val (startDate, endDate) = resolveStartEndDates(periodType, request.yearMonth, request.startDate, request.endDate)
+
+        val owner = if (visibility == Visibility.PRIVATE) {
+            userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        } else null
 
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
+            group = group,
             yearMonth = request.yearMonth,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
@@ -110,7 +141,9 @@ class BudgetService(
             periodType = periodType,
             startDate = startDate,
             endDate = endDate,
-            pocket = pocket
+            pocket = pocket,
+            visibility = visibility,
+            owner = owner
         )
 
         val saved = budgetRepository.save(budget)
@@ -128,7 +161,7 @@ class BudgetService(
     fun getBudgetsByMonth(userId: UUID, year: Int, month: Int): List<BudgetResponse> {
         val couple = getActiveCouple(userId)
         val yearMonth = formatYearMonth(year, month)
-        return budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
+        return budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
             .map { it.toResponse() }
     }
 
@@ -139,6 +172,7 @@ class BudgetService(
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
 
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
+        validatePrivateOwner(budget, userId)
 
         // Update category if provided
         request.categoryId?.let { catId ->
@@ -146,6 +180,15 @@ class BudgetService(
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
             OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
             budget.category = cat
+            budget.group = null  // Mutual exclusivity
+        }
+
+        // Update group if provided
+        request.groupId?.let { gId ->
+            val g = categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+            budget.group = g
+            budget.category = null  // Mutual exclusivity
         }
 
         budget.amount = request.amount
@@ -159,15 +202,12 @@ class BudgetService(
                 )
             }
             budget.budgetPeriod = newPeriod
-
-            // Recalculate weeklyAmount based on new period
             budget.weeklyAmount = if (newPeriod == BudgetPeriod.WEEKLY) {
                 request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
             } else {
                 null
             }
         } ?: run {
-            // budgetPeriod not changing, but if it's WEEKLY, update weeklyAmount if provided
             if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
                 budget.weeklyAmount = request.weeklyAmount
                     ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
@@ -188,7 +228,6 @@ class BudgetService(
             budget.startDate = sd
             budget.endDate = ed
         } ?: run {
-            // periodType not changing, but update dates if explicitly provided
             if (request.startDate != null) budget.startDate = request.startDate
             if (request.endDate != null) budget.endDate = request.endDate
         }
@@ -200,6 +239,21 @@ class BudgetService(
             }
             OwnershipValidator.validateOwnership(pocket.couple.id, couple, "Pocket")
             budget.pocket = pocket
+        }
+
+        // Derive visibility from category/group
+        val newVisibility = when {
+            budget.category != null -> budget.category!!.visibility
+            budget.group != null -> budget.group!!.visibility
+            else -> Visibility.SHARED
+        }
+        budget.visibility = newVisibility
+        if (newVisibility == Visibility.PRIVATE) {
+            val user = userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+            budget.owner = user
+        } else {
+            budget.owner = null
         }
 
         val saved = budgetRepository.save(budget)
@@ -220,6 +274,7 @@ class BudgetService(
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
 
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
+        validatePrivateOwner(budget, userId)
 
         budgetRepository.delete(budget)
         syncEventPublisher.publish(SyncEvent(
@@ -239,35 +294,50 @@ class BudgetService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)
+        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
 
-        // Get expense spending aggregated by category using an optimized query
         val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
-            couple.id, startDate, endDate, TransactionType.EXPENSE
+            couple.id, startDate, endDate, TransactionType.EXPENSE, userId
         )
         val spendingByCategory = categoryExpenseResults.associate { row ->
             (row[2] as UUID) to (row[0] as Long)
         }
 
-        // Get total expense amount using SUM query
         val totalSpent = transactionRepository.sumAmountByCoupleIdAndDateRange(
             coupleId = couple.id,
             startDate = startDate,
             endDate = endDate,
-            type = TransactionType.EXPENSE
+            type = TransactionType.EXPENSE,
+            userId = userId
         )
+
+        // Pre-compute group spending with direct DB aggregation (no lazy loading dependency)
+        val groupIds = budgets.mapNotNull { it.group?.id }.toSet()
+        val spendingByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
+            val groupResults = transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, startDate, endDate, TransactionType.EXPENSE, groupIds, userId
+            )
+            groupResults.associate { row ->
+                (row[0] as UUID) to (row[1] as Long)
+            }
+        } else {
+            emptyMap()
+        }
 
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
-            val spentAmount = if (categoryId != null) {
-                spendingByCategory[categoryId] ?: 0L
-            } else {
-                // Total budget: sum all expenses
-                totalSpent
+            val groupId = budget.group?.id
+            val spentAmount = when {
+                categoryId != null -> spendingByCategory[categoryId] ?: 0L
+                groupId != null -> spendingByGroup[groupId] ?: 0L
+                else -> totalSpent
             }
-            val remainingAmount = budget.amount - spentAmount
-            val usageRate = if (budget.amount > 0) {
-                Math.round(spentAmount.toDouble() / budget.amount * 1000.0) / 10.0
+
+            val effectiveBudgetAmount = budget.amount
+
+            val remainingAmount = effectiveBudgetAmount - spentAmount
+            val usageRate = if (effectiveBudgetAmount > 0) {
+                Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
                 0.0
             }
@@ -279,26 +349,38 @@ class BudgetService(
                         name = it.name,
                         type = it.type.name,
                         icon = it.icon,
-                        color = it.color
+                        color = it.color,
+                        groupId = it.group?.id,
+                        groupName = it.group?.name
                     )
                 },
-                budgetAmount = budget.amount,
+                groupId = budget.group?.id,
+                groupName = budget.group?.name,
+                budgetAmount = effectiveBudgetAmount,
                 spentAmount = spentAmount,
                 remainingAmount = remainingAmount,
                 usageRate = usageRate
             )
         }
 
-        // When a "total" budget exists (categoryId=null), use that as totalBudget.
-        // Otherwise, sum only category-specific budgets to avoid double-counting.
-        val totalBudgetEntry = budgets.find { it.category == null }
-        val totalBudget = totalBudgetEntry?.amount
-            ?: budgets.sumOf { it.amount }
+        val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
+        val effectiveTotalBudget: Long
+        val effectiveTotalSpent: Long
+
+        if (totalBudgetEntry != null) {
+            // "전체 예산" exists: use its amount and total spending
+            effectiveTotalBudget = totalBudgetEntry.amount
+            effectiveTotalSpent = totalSpent
+        } else {
+            // No total budget: sum from items only (consistent budget vs spent)
+            effectiveTotalBudget = items.sumOf { it.budgetAmount }
+            effectiveTotalSpent = items.sumOf { it.spentAmount }
+        }
 
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
-            totalBudget = totalBudget,
-            totalSpent = totalSpent,
+            totalBudget = effectiveTotalBudget,
+            totalSpent = effectiveTotalSpent,
             items = items
         )
     }
@@ -316,19 +398,18 @@ class BudgetService(
             )
         }
 
-        val sourceBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, sourceYearMonth)
+        val sourceBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, sourceYearMonth, userId)
         if (sourceBudgets.isEmpty()) {
             throw NotFoundException("BUDGET_NOT_FOUND", "No budgets found for $sourceYearMonth.")
         }
 
-        // Find existing budgets in target month to skip duplicates
-        val existingTargetBudgets = budgetRepository.findByCoupleIdAndYearMonth(couple.id, targetYearMonth)
-        val existingCategoryIds = existingTargetBudgets.map { it.category?.id }.toSet()
+        val existingTargetBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, targetYearMonth, userId)
+        val existingKeys = existingTargetBudgets.map { Pair(it.category?.id, it.group?.id) }.toSet()
 
         val numberOfWeeks = calculateNumberOfWeeks(targetYearMonth)
 
         val newBudgets = sourceBudgets
-            .filter { it.category?.id !in existingCategoryIds }
+            .filter { Pair(it.category?.id, it.group?.id) !in existingKeys }
             .map { source ->
                 val weeklyAmount = if (source.budgetPeriod == BudgetPeriod.WEEKLY) {
                     source.amount / numberOfWeeks
@@ -339,6 +420,7 @@ class BudgetService(
                 MonthlyBudget(
                     couple = couple,
                     category = source.category,
+                    group = source.group,
                     yearMonth = targetYearMonth,
                     amount = source.amount,
                     budgetPeriod = source.budgetPeriod,
@@ -346,7 +428,9 @@ class BudgetService(
                     periodType = source.periodType,
                     startDate = sd,
                     endDate = ed,
-                    pocket = source.pocket
+                    pocket = source.pocket,
+                    visibility = source.visibility,
+                    owner = source.owner
                 )
             }
 
@@ -367,6 +451,12 @@ class BudgetService(
         return saved.map { it.toResponse() }
     }
 
+    private fun validatePrivateOwner(budget: MonthlyBudget, userId: UUID) {
+        if (budget.visibility == Visibility.PRIVATE && budget.owner?.id != null && budget.owner?.id != userId) {
+            throw ForbiddenException("FORBIDDEN", "Only the owner can modify a private budget.")
+        }
+    }
+
     private fun formatYearMonth(year: Int, month: Int): String =
         "%04d-%02d".format(year, month)
 
@@ -383,7 +473,6 @@ class BudgetService(
                 if (requestStartDate != null && requestEndDate != null) {
                     Pair(requestStartDate, requestEndDate)
                 } else {
-                    // Auto-calculate from yearMonth
                     val parts = yearMonth.split("-")
                     val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
                     Pair(ym.atDay(1), ym.atEndOfMonth())

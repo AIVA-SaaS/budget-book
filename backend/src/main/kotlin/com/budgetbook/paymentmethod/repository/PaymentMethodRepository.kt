@@ -12,4 +12,6 @@ interface PaymentMethodRepository : JpaRepository<PaymentMethod, UUID> {
     fun findByCoupleIdAndTypeAndIsActiveTrue(coupleId: UUID, type: PaymentMethodType): List<PaymentMethod>
 
     fun findByCoupleIdAndNameIn(coupleId: UUID, names: List<String>): List<PaymentMethod>
+
+    fun findBySettlementDayAndLinkedBankIsNotNullAndIsActiveTrue(settlementDay: Int): List<PaymentMethod>
 }

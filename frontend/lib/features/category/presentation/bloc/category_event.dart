@@ -22,6 +22,7 @@ class CreateCategory extends CategoryEvent {
   final String? icon;
   final String? color;
   final String? groupId;
+  final String visibility;
 
   const CreateCategory({
     required this.name,
@@ -29,10 +30,11 @@ class CreateCategory extends CategoryEvent {
     this.icon,
     this.color,
     this.groupId,
+    this.visibility = 'SHARED',
   });
 
   @override
-  List<Object?> get props => [name, type, icon, color, groupId];
+  List<Object?> get props => [name, type, icon, color, groupId, visibility];
 }
 
 class UpdateCategory extends CategoryEvent {

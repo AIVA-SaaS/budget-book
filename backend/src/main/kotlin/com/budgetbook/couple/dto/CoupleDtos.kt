@@ -21,3 +21,9 @@ data class UserSummary(
     val nickname: String,
     val profileImageUrl: String?
 )
+
+data class InvitationStatusResponse(
+    val code: String,
+    val expiresAt: Instant,
+    val status: String
+)

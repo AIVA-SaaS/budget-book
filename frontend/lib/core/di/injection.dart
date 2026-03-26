@@ -53,6 +53,10 @@ import 'package:budget_book/features/pocket/data/datasources/pocket_transfer_rem
 import 'package:budget_book/features/pocket/data/repositories/pocket_transfer_repository_impl.dart';
 import 'package:budget_book/features/pocket/domain/repositories/pocket_transfer_repository.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
+import 'package:budget_book/features/transfer/data/datasources/transfer_remote_datasource.dart';
+import 'package:budget_book/features/transfer/data/repositories/transfer_repository_impl.dart';
+import 'package:budget_book/features/transfer/domain/repositories/transfer_repository.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
 import 'package:budget_book/core/websocket/sync_event_handler.dart';
@@ -140,7 +144,8 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<TransactionBloc>(
     () => TransactionBloc(
-        transactionRepository: getIt<TransactionRepository>()),
+        transactionRepository: getIt<TransactionRepository>(),
+        statisticsRepository: getIt<StatisticsRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 
@@ -259,6 +264,20 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<PocketTransferBloc>(
     () => PocketTransferBloc(
         pocketTransferRepository: getIt<PocketTransferRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Transfer feature
+  getIt.registerLazySingleton<TransferRemoteDataSource>(
+    () => TransferRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<TransferRepository>(
+    () => TransferRepositoryImpl(
+        remoteDataSource: getIt<TransferRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<TransferBloc>(
+    () => TransferBloc(
+        transferRepository: getIt<TransferRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 

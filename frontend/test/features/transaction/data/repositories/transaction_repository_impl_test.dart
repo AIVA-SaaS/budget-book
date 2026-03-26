@@ -10,6 +10,7 @@ import 'package:budget_book/features/transaction/data/models/transaction_categor
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
 class MockTransactionRemoteDataSource extends Mock
     implements TransactionRemoteDataSource {
@@ -80,6 +81,13 @@ class MockTransactionRemoteDataSource extends Mock
         Invocation.method(#deleteTransaction, [id]),
         returnValue: Future.value(),
       ) as Future<void>;
+
+  @override
+  Future<List<SuggestionGroup>> getSuggestions(String query) =>
+      super.noSuchMethod(
+        Invocation.method(#getSuggestions, [query]),
+        returnValue: Future.value(<SuggestionGroup>[]),
+      ) as Future<List<SuggestionGroup>>;
 
   static final _dummyModel = TransactionModel(
     id: '',
@@ -395,6 +403,78 @@ void main() {
           result,
           equals(const Left<Failure, void>(
               ServerFailure('Transaction does not exist', null, 404))),
+        );
+      });
+    });
+
+    group('getSuggestions', () {
+      test('returns Right(List<SuggestionGroup>) when datasource succeeds', () async {
+        final suggestions = [
+          const SuggestionGroup(description: '점심 식사', patterns: []),
+          const SuggestionGroup(description: '점심 커피', patterns: []),
+          const SuggestionGroup(description: '점심 도시락', patterns: []),
+        ];
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => suggestions);
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(result.isRight(), isTrue);
+        result.fold(
+          (_) => fail('Expected Right'),
+          (data) => expect(data.length, 3),
+        );
+        verify(mockDataSource.getSuggestions('점심')).called(1);
+      });
+
+      test('returns empty list when no suggestions', () async {
+        when(mockDataSource.getSuggestions('zzz'))
+            .thenAnswer((_) async => <SuggestionGroup>[]);
+
+        final result = await repository.getSuggestions('zzz');
+
+        expect(result.isRight(), isTrue);
+        result.fold(
+          (_) => fail('Expected Right'),
+          (data) => expect(data, isEmpty),
+        );
+      });
+
+      test('returns Left(ServerFailure) on DioException', () async {
+        final dioException = DioException(
+          requestOptions: RequestOptions(
+              path: '/api/v1/transactions/suggestions'),
+          response: Response(
+            requestOptions: RequestOptions(
+                path: '/api/v1/transactions/suggestions'),
+            statusCode: 500,
+            data: {
+              'error': {'message': 'Internal server error'},
+            },
+          ),
+        );
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => throw dioException);
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(
+          result,
+          equals(const Left<Failure, List<String>>(
+              ServerFailure('Internal server error', null, 500))),
+        );
+      });
+
+      test('returns Left(ServerFailure) on generic exception', () async {
+        when(mockDataSource.getSuggestions('점심'))
+            .thenAnswer((_) async => throw Exception('unexpected'));
+
+        final result = await repository.getSuggestions('점심');
+
+        expect(
+          result,
+          equals(const Left<Failure, List<String>>(
+              ServerFailure('Failed to load suggestions'))),
         );
       });
     });

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class CardPendingSummary extends StatelessWidget {
   final List<CardPending> cardPendings;
@@ -9,7 +9,6 @@ class CardPendingSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final numberFormat = NumberFormat('#,###');
     final totalPending =
         cardPendings.fold<int>(0, (sum, cp) => sum + cp.pendingAmount);
 
@@ -37,7 +36,7 @@ class CardPendingSummary extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${numberFormat.format(totalPending)}원',
+              '${CurrencyFormatter.format(totalPending)}원',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.error,
@@ -78,7 +77,7 @@ class CardPendingSummary extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${numberFormat.format(cp.pendingAmount)}원',
+                          '${CurrencyFormatter.format(cp.pendingAmount)}원',
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium

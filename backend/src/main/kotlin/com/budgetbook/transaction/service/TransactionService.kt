@@ -2,6 +2,7 @@ package com.budgetbook.transaction.service
 
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
@@ -91,7 +92,8 @@ class TransactionService(
                 paymentMethodId = paymentMethodId,
                 pocketId = pocketId,
                 amountMin = amountMin,
-                amountMax = amountMax
+                amountMax = amountMax,
+                userId = userId
             )
             transactionRepository.findAll(spec, pageable)
         } else {
@@ -101,6 +103,7 @@ class TransactionService(
                 endDate = endDate,
                 type = transactionType,
                 categoryId = categoryId,
+                userId = userId,
                 pageable = pageable
             )
         }
@@ -135,6 +138,9 @@ class TransactionService(
             cat
         }
 
+        // Visibility is always derived from the category (not from request)
+        val effectiveVisibility = category?.visibility ?: Visibility.SHARED
+
         val paymentMethod = request.paymentMethodId?.let { pmId ->
             val pm = paymentMethodRepository.findById(pmId)
                 .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
@@ -167,7 +173,9 @@ class TransactionService(
             transactionDate = request.transactionDate,
             paymentMethod = paymentMethod,
             settlementDate = settlementDate,
-            pocket = pocket
+            pocket = pocket,
+            visibility = effectiveVisibility,
+            owner = if (effectiveVisibility == Visibility.PRIVATE) user else null
         )
 
         val saved = transactionRepository.save(transaction)
@@ -188,6 +196,7 @@ class TransactionService(
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
         OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
+        validateVisibilityAccess(transaction.visibility, transaction.owner?.id, userId)
 
         return transaction.toResponse()
     }
@@ -199,13 +208,14 @@ class TransactionService(
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
         OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
+        validatePrivateOwner(transaction.visibility, transaction.owner?.id, userId)
 
         request.amount?.let { transaction.amount = it }
         request.description?.let { transaction.description = it }
         request.transactionDate?.let { transaction.transactionDate = it }
         request.memo?.let { transaction.memo = it.value }
 
-        // Handle categoryId with PatchValue: null = absent (no change), PatchValue(null) = clear, PatchValue(uuid) = set
+        // Handle categoryId with PatchValue (before visibility, as category may force PRIVATE)
         request.categoryId?.let { patchValue ->
             val catId = patchValue.value
             if (catId != null) {
@@ -216,6 +226,19 @@ class TransactionService(
             } else {
                 transaction.category = null
             }
+        }
+
+        // Visibility is always derived from the category (not from request)
+        val newVisibility = transaction.category?.visibility ?: Visibility.SHARED
+        transaction.visibility = newVisibility
+        if (newVisibility == Visibility.PRIVATE) {
+            if (transaction.owner == null) {
+                val user = userRepository.findById(userId)
+                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+                transaction.owner = user
+            }
+        } else {
+            transaction.owner = null
         }
 
         // Handle paymentMethodId with PatchValue
@@ -277,6 +300,7 @@ class TransactionService(
             .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
 
         OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
+        validatePrivateOwner(transaction.visibility, transaction.owner?.id, userId)
 
         transactionRepository.delete(transaction)
         syncEventPublisher.publish(SyncEvent(
@@ -332,10 +356,8 @@ class TransactionService(
         val settlementDay = paymentMethod.settlementDay ?: return null
 
         val settlementMonth = if (transactionDate.dayOfMonth <= closingDay) {
-            // Transaction is before or on closing day -> settlement next month
             transactionDate.plusMonths(1)
         } else {
-            // Transaction is after closing day -> settlement month after next
             transactionDate.plusMonths(2)
         }
 
@@ -358,7 +380,9 @@ class TransactionService(
                 name = it.name,
                 type = it.type.name,
                 icon = it.icon,
-                color = it.color
+                color = it.color,
+                groupId = it.group?.id,
+                groupName = it.group?.name
             )
         },
         type = type.name,
@@ -372,7 +396,31 @@ class TransactionService(
         settlementDate = settlementDate?.toString(),
         pocketId = pocket?.id,
         pocketName = pocket?.name,
+        visibility = visibility.name,
+        ownerId = owner?.id,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
+
+    companion object {
+        fun parseVisibility(visibilityStr: String?): Visibility {
+            return when (visibilityStr?.uppercase()) {
+                "PRIVATE" -> Visibility.PRIVATE
+                "SHARED", null -> Visibility.SHARED
+                else -> throw BusinessException("VALIDATION_ERROR", "Invalid visibility: $visibilityStr")
+            }
+        }
+
+        fun validateVisibilityAccess(visibility: Visibility, ownerId: UUID?, currentUserId: UUID) {
+            if (visibility == Visibility.PRIVATE && ownerId != null && ownerId != currentUserId) {
+                throw NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.")
+            }
+        }
+
+        fun validatePrivateOwner(visibility: Visibility, ownerId: UUID?, currentUserId: UUID) {
+            if (visibility == Visibility.PRIVATE && ownerId != null && ownerId != currentUserId) {
+                throw ForbiddenException("FORBIDDEN", "Only the owner can modify a private entity.")
+            }
+        }
+    }
 }

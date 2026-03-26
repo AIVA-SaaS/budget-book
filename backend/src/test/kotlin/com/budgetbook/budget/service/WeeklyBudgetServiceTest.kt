@@ -8,7 +8,6 @@ import com.budgetbook.budget.domain.WeeklyBudgetSnapshot
 import com.budgetbook.budget.domain.WeeklyStatus
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.budget.repository.WeeklyBudgetSnapshotRepository
-import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryGroup
 import com.budgetbook.category.domain.CategoryType
@@ -51,145 +50,262 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
 
     // --- calculateWeekRanges ---
 
-    Given("a month with 31 days (March 2026)") {
+    // March 2026 starts on Sunday, 31 days
+    Given("a month with 31 days (March 2026, starts Sunday)") {
         When("calculateWeekRanges is called") {
             val ranges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 3))
 
-            Then("returns 5 weeks") {
-                ranges.size shouldBe 5
-                ranges[0] shouldBe (LocalDate.of(2026, 3, 1) to LocalDate.of(2026, 3, 7))
-                ranges[1] shouldBe (LocalDate.of(2026, 3, 8) to LocalDate.of(2026, 3, 14))
-                ranges[2] shouldBe (LocalDate.of(2026, 3, 15) to LocalDate.of(2026, 3, 21))
-                ranges[3] shouldBe (LocalDate.of(2026, 3, 22) to LocalDate.of(2026, 3, 28))
-                ranges[4] shouldBe (LocalDate.of(2026, 3, 29) to LocalDate.of(2026, 3, 31))
+            Then("returns 6 weeks with real Mon-Sun boundaries clipped to month") {
+                ranges.size shouldBe 6
+                ranges[0] shouldBe (LocalDate.of(2026, 3, 1) to LocalDate.of(2026, 3, 1))
+                ranges[1] shouldBe (LocalDate.of(2026, 3, 2) to LocalDate.of(2026, 3, 8))
+                ranges[2] shouldBe (LocalDate.of(2026, 3, 9) to LocalDate.of(2026, 3, 15))
+                ranges[3] shouldBe (LocalDate.of(2026, 3, 16) to LocalDate.of(2026, 3, 22))
+                ranges[4] shouldBe (LocalDate.of(2026, 3, 23) to LocalDate.of(2026, 3, 29))
+                ranges[5] shouldBe (LocalDate.of(2026, 3, 30) to LocalDate.of(2026, 3, 31))
             }
         }
     }
 
-    Given("February 2026 (28 days)") {
+    Given("February 2026 (28 days, starts Sunday)") {
         When("calculateWeekRanges is called") {
             val ranges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 2))
 
-            Then("returns 4 weeks exactly") {
-                ranges.size shouldBe 4
-                ranges[0] shouldBe (LocalDate.of(2026, 2, 1) to LocalDate.of(2026, 2, 7))
-                ranges[3] shouldBe (LocalDate.of(2026, 2, 22) to LocalDate.of(2026, 2, 28))
+            Then("returns 5 weeks with month boundary clipping") {
+                ranges.size shouldBe 5
+                ranges[0] shouldBe (LocalDate.of(2026, 2, 1) to LocalDate.of(2026, 2, 1))
+                ranges[1] shouldBe (LocalDate.of(2026, 2, 2) to LocalDate.of(2026, 2, 8))
+                ranges[2] shouldBe (LocalDate.of(2026, 2, 9) to LocalDate.of(2026, 2, 15))
+                ranges[3] shouldBe (LocalDate.of(2026, 2, 16) to LocalDate.of(2026, 2, 22))
+                ranges[4] shouldBe (LocalDate.of(2026, 2, 23) to LocalDate.of(2026, 2, 28))
+            }
+        }
+    }
+
+    Given("April 2026 (30 days, starts Wednesday)") {
+        When("calculateWeekRanges is called") {
+            val ranges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 4))
+
+            Then("returns 5 weeks with correct boundary clipping") {
+                ranges.size shouldBe 5
+                ranges[0] shouldBe (LocalDate.of(2026, 4, 1) to LocalDate.of(2026, 4, 5))
+                ranges[1] shouldBe (LocalDate.of(2026, 4, 6) to LocalDate.of(2026, 4, 12))
+                ranges[2] shouldBe (LocalDate.of(2026, 4, 13) to LocalDate.of(2026, 4, 19))
+                ranges[3] shouldBe (LocalDate.of(2026, 4, 20) to LocalDate.of(2026, 4, 26))
+                ranges[4] shouldBe (LocalDate.of(2026, 4, 27) to LocalDate.of(2026, 4, 30))
+            }
+        }
+    }
+
+    Given("a month starting on Monday (June 2026)") {
+        When("calculateWeekRanges is called") {
+            val ranges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 6))
+
+            Then("first week starts on the 1st with no partial prefix") {
+                ranges.size shouldBe 5
+                ranges[0] shouldBe (LocalDate.of(2026, 6, 1) to LocalDate.of(2026, 6, 7))
+                ranges[4] shouldBe (LocalDate.of(2026, 6, 29) to LocalDate.of(2026, 6, 30))
+            }
+        }
+    }
+
+    // --- calculateProRataBudget ---
+
+    Given("a weekly budget amount of 70000") {
+        When("calculating pro-rata for a full 7-day week") {
+            val result = WeeklyBudgetService.calculateProRataBudget(
+                70000, LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 8)
+            )
+            Then("returns the full weekly amount") {
+                result shouldBe 70000
+            }
+        }
+
+        When("calculating pro-rata for a 1-day partial week") {
+            val result = WeeklyBudgetService.calculateProRataBudget(
+                70000, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 1)
+            )
+            Then("returns 1/7 of the weekly amount") {
+                result shouldBe 10000
+            }
+        }
+
+        When("calculating pro-rata for a 2-day partial week") {
+            val result = WeeklyBudgetService.calculateProRataBudget(
+                70000, LocalDate.of(2026, 3, 30), LocalDate.of(2026, 3, 31)
+            )
+            Then("returns 2/7 of the weekly amount") {
+                result shouldBe 20000
+            }
+        }
+
+        When("calculating pro-rata for a 5-day partial week") {
+            val result = WeeklyBudgetService.calculateProRataBudget(
+                70000, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 5)
+            )
+            Then("returns 5/7 of the weekly amount") {
+                result shouldBe 50000
             }
         }
     }
 
     // --- getWeeklyOverview ---
 
-    Given("budgets exist for a user's couple") {
+    Given("only MONTHLY budgets exist (no WEEKLY)") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val budget = MonthlyBudget(
             couple = couple, yearMonth = "2026-03", amount = 500000,
             budgetPeriod = BudgetPeriod.MONTHLY
         )
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(budget)
-        every { snapshotRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns emptyList()
-
-        // Mock SUM queries for each week (returns 0 for all)
-        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
-            coupleId = couple.id,
-            startDate = any(),
-            endDate = any(),
-            type = TransactionType.EXPENSE
-        ) } returns 0L
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(budget)
 
         When("getWeeklyOverview is called") {
             val result = service.getWeeklyOverview(user1.id, 2026, 3)
 
-            Then("returns overview with 5 weeks for March") {
+            Then("returns overview with empty items since MONTHLY budgets are excluded") {
                 result.yearMonth shouldBe "2026-03"
-                result.weeks.size shouldBe 5
-                result.weeks[0].weekNumber shouldBe 1
-                result.weeks[0].weekStart shouldBe "2026-03-01"
-                result.weeks[0].weekEnd shouldBe "2026-03-07"
-                // 500000 / 5 weeks = 100000 per week
-                result.weeks[0].budgetAmount shouldBe 100000
+                result.weeks.size shouldBe 6
+                result.weeks.forEach { week ->
+                    week.totalBudget shouldBe 0
+                    week.totalSpent shouldBe 0
+                    week.items.size shouldBe 0
+                }
             }
         }
     }
 
-    Given("snapshots already exist") {
+    Given("WEEKLY budgets exist for a user's couple") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-        val snapshot = WeeklyBudgetSnapshot(
-            couple = couple, yearMonth = "2026-03", weekNumber = 1,
-            weekStart = LocalDate.of(2026, 3, 1), weekEnd = LocalDate.of(2026, 3, 7),
-            budgetAmount = 100000, spentAmount = 80000, status = WeeklyStatus.UNDER
+        val category = Category(
+            couple = couple, name = "식비", type = CategoryType.EXPENSE
         )
-        every { snapshotRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(snapshot)
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, "2026-03") } returns listOf(
-            MonthlyBudget(couple = couple, yearMonth = "2026-03", amount = 500000)
+        // weeklyAmount = 70000 means 70000 per full 7-day week
+        val weeklyBudget = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-03",
+            amount = 350000, budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 70000
         )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", any()) } returns listOf(weeklyBudget)
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category)
 
-        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+        // Mock spending per category per week
+        every { transactionRepository.sumAmountGroupedByCategoryId(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
-            type = TransactionType.EXPENSE
-        ) } returns 0L
+            type = TransactionType.EXPENSE,
+            categoryIds = setOf(category.id),
+            userId = any()
+        ) } returns listOf(arrayOf(category.id as Any, 15000L as Any))
 
         When("getWeeklyOverview is called") {
             val result = service.getWeeklyOverview(user1.id, 2026, 3)
 
-            Then("uses existing snapshot for week 1") {
-                result.weeks[0].spentAmount shouldBe 80000
-                result.weeks[0].budgetAmount shouldBe 100000
-                result.weeks[0].status shouldBe "UNDER"
+            Then("returns overview with 6 weeks and per-item breakdown") {
+                result.yearMonth shouldBe "2026-03"
+                result.weeks.size shouldBe 6
+
+                // Week 1 (1 day): pro-rata = 70000 * 1 / 7 = 10000
+                result.weeks[0].weekNumber shouldBe 1
+                result.weeks[0].items.size shouldBe 1
+                result.weeks[0].items[0].budgetId shouldBe weeklyBudget.id
+                result.weeks[0].items[0].categoryName shouldBe "식비"
+                result.weeks[0].items[0].budgetAmount shouldBe 10000
+                result.weeks[0].items[0].spentAmount shouldBe 15000
+                result.weeks[0].totalBudget shouldBe 10000
+                result.weeks[0].totalSpent shouldBe 15000
+                result.weeks[0].totalRemaining shouldBe -5000
+
+                // Week 2 (7 days): pro-rata = 70000 * 7 / 7 = 70000
+                result.weeks[1].items[0].budgetAmount shouldBe 70000
+                result.weeks[1].items[0].spentAmount shouldBe 15000
+                result.weeks[1].totalBudget shouldBe 70000
             }
         }
     }
 
-    // --- getCurrentWeekSummary ---
-
-    Given("weekly groups exist for the couple") {
+    Given("WEEKLY budget with group (not category)") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-        val weeklyGroup = CategoryGroup(
-            couple = couple, name = "생활비", budgetType = BudgetType.WEEKLY
-        )
-        val monthlyGroup = CategoryGroup(
-            couple = couple, name = "고정비", budgetType = BudgetType.MONTHLY
-        )
-        every { categoryGroupRepository.findByCoupleId(couple.id) } returns listOf(weeklyGroup, monthlyGroup)
+        val group = CategoryGroup(couple = couple, name = "생활비")
+        val cat1 = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, group = group)
+        val cat2 = Category(couple = couple, name = "교통비", type = CategoryType.EXPENSE, group = group)
 
-        val category1 = Category(
-            couple = couple, name = "식비", type = CategoryType.EXPENSE,
-            group = weeklyGroup
+        val weeklyBudget = MonthlyBudget(
+            couple = couple, group = group, yearMonth = "2026-06",
+            amount = 280000, budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 70000
         )
-        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category1)
-
-        val today = LocalDate.now()
-        val yearMonth = "%04d-%02d".format(today.year, today.monthValue)
-        val ym = YearMonth.of(today.year, today.monthValue)
-        val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
-
-        val budget = MonthlyBudget(
-            couple = couple, category = category1, yearMonth = yearMonth,
-            amount = 400000, budgetPeriod = BudgetPeriod.WEEKLY,
-            weeklyAmount = 400000L / weekRanges.size
-        )
-        every { budgetRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth) } returns listOf(budget)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-06", any()) } returns listOf(weeklyBudget)
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(cat1, cat2)
 
         every { transactionRepository.sumAmountGroupedByCategoryId(
             coupleId = couple.id,
             startDate = any(),
             endDate = any(),
             type = TransactionType.EXPENSE,
-            categoryIds = setOf(category1.id)
+            categoryIds = setOf(cat1.id, cat2.id),
+            userId = any()
+        ) } returns listOf(
+            arrayOf(cat1.id as Any, 10000L as Any),
+            arrayOf(cat2.id as Any, 5000L as Any)
+        )
+
+        When("getWeeklyOverview is called") {
+            val result = service.getWeeklyOverview(user1.id, 2026, 6)
+
+            Then("sums spending from all categories in the group") {
+                result.weeks.size shouldBe 5
+                // Week 1 (7 days): full week
+                val week1 = result.weeks[0]
+                week1.items.size shouldBe 1
+                week1.items[0].groupName shouldBe "생활비"
+                week1.items[0].budgetAmount shouldBe 70000
+                week1.items[0].spentAmount shouldBe 15000  // 10000 + 5000
+                week1.totalBudget shouldBe 70000
+                week1.totalSpent shouldBe 15000
+            }
+        }
+    }
+
+    // --- getCurrentWeekSummary ---
+
+    Given("WEEKLY budgets exist for current week summary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val category1 = Category(
+            couple = couple, name = "식비", type = CategoryType.EXPENSE
+        )
+        val today = LocalDate.now()
+        val yearMonth = "%04d-%02d".format(today.year, today.monthValue)
+        val ym = YearMonth.of(today.year, today.monthValue)
+        val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
+
+        val weeklyBudget = MonthlyBudget(
+            couple = couple, category = category1, yearMonth = yearMonth,
+            amount = 400000, budgetPeriod = BudgetPeriod.WEEKLY,
+            weeklyAmount = 400000L / weekRanges.size
+        )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, any()) } returns listOf(weeklyBudget)
+        every { categoryRepository.findByCoupleId(couple.id) } returns listOf(category1)
+
+        every { transactionRepository.sumAmountGroupedByCategoryId(
+            coupleId = couple.id,
+            startDate = any(),
+            endDate = any(),
+            type = TransactionType.EXPENSE,
+            categoryIds = setOf(category1.id),
+            userId = any()
         ) } returns listOf(arrayOf(category1.id as Any, 15000L as Any))
 
         When("getCurrentWeekSummary is called") {
             val result = service.getCurrentWeekSummary(user1.id)
 
-            Then("returns summary with only WEEKLY groups") {
-                result.groups.size shouldBe 1
-                result.groups[0].groupName shouldBe "생활비"
-                result.groups[0].spentAmount shouldBe 15000
+            Then("returns summary with per-budget items") {
+                result.items.size shouldBe 1
+                result.items[0].categoryName shouldBe "식비"
+                result.items[0].spentAmount shouldBe 15000
+                result.items[0].budgetId shouldBe weeklyBudget.id
             }
 
             Then("returns correct week info") {
@@ -197,6 +313,27 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
                 result.weekNumber shouldBe (weekRanges.indexOfFirst { (start, end) ->
                     !today.isBefore(start) && !today.isAfter(end)
                 } + 1)
+            }
+        }
+    }
+
+    Given("no WEEKLY budgets for current week") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val today = LocalDate.now()
+        val yearMonth = "%04d-%02d".format(today.year, today.monthValue)
+
+        val monthlyBudget = MonthlyBudget(
+            couple = couple, yearMonth = yearMonth, amount = 500000,
+            budgetPeriod = BudgetPeriod.MONTHLY
+        )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, any()) } returns listOf(monthlyBudget)
+
+        When("getCurrentWeekSummary is called") {
+            val result = service.getCurrentWeekSummary(user1.id)
+
+            Then("returns empty items") {
+                result.items.size shouldBe 0
             }
         }
     }
@@ -221,6 +358,32 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
                     service.getCurrentWeekSummary(user1.id)
                 }
                 ex.code shouldBe "COUPLE_NOT_FOUND"
+            }
+        }
+    }
+
+    // --- Pro-rata sum across all weeks equals approximately the monthly total ---
+
+    Given("verifying pro-rata budget sums approximate the total monthly budget") {
+        When("summing pro-rata budgets for all weeks in March 2026 (31 days)") {
+            val weekRanges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 3))
+            val perWeek = (500000L * 7) / 31
+            val totalProRata = weekRanges.sumOf { (s, e) ->
+                WeeklyBudgetService.calculateProRataBudget(perWeek, s, e)
+            }
+            Then("total pro-rata is close to 500000") {
+                (totalProRata in 499900..500100) shouldBe true
+            }
+        }
+
+        When("summing pro-rata budgets for all weeks in Feb 2026 (28 days)") {
+            val weekRanges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 2))
+            val perWeek = (500000L * 7) / 28
+            val totalProRata = weekRanges.sumOf { (s, e) ->
+                WeeklyBudgetService.calculateProRataBudget(perWeek, s, e)
+            }
+            Then("total pro-rata is close to 500000") {
+                (totalProRata in 499990..500010) shouldBe true
             }
         }
     }

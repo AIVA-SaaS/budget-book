@@ -284,6 +284,79 @@ class CoupleServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getMyInvitation ---
+
+    Given("a user with a PENDING valid invitation") {
+        val invitation = CoupleInvitation(
+            inviter = user1,
+            invitationCode = "PEND1234",
+            expiresAt = Instant.now().plusSeconds(3600)
+        )
+        every { coupleInvitationRepository.findTopByInviterIdOrderByCreatedAtDesc(user1.id) } returns invitation
+
+        When("getMyInvitation is called") {
+            val result = coupleService.getMyInvitation(user1.id)
+
+            Then("returns status PENDING with the invitation code") {
+                result.code shouldBe "PEND1234"
+                result.status shouldBe "PENDING"
+                result.expiresAt shouldBe invitation.expiresAt
+            }
+        }
+    }
+
+    Given("a user with a PENDING but expired invitation") {
+        val invitation = CoupleInvitation(
+            inviter = user1,
+            invitationCode = "EXPR1234",
+            expiresAt = Instant.now().minusSeconds(3600)
+        )
+        every { coupleInvitationRepository.findTopByInviterIdOrderByCreatedAtDesc(user1.id) } returns invitation
+        every { coupleInvitationRepository.save(invitation) } returns invitation
+
+        When("getMyInvitation is called") {
+            val result = coupleService.getMyInvitation(user1.id)
+
+            Then("returns status EXPIRED and updates the DB") {
+                result.code shouldBe "EXPR1234"
+                result.status shouldBe "EXPIRED"
+                invitation.status shouldBe InvitationStatus.EXPIRED
+                verify { coupleInvitationRepository.save(invitation) }
+            }
+        }
+    }
+
+    Given("a user with an ACCEPTED invitation") {
+        val invitation = CoupleInvitation(
+            inviter = user1,
+            invitationCode = "ACPT1234",
+            expiresAt = Instant.now().plusSeconds(3600)
+        ).apply { status = InvitationStatus.ACCEPTED }
+        every { coupleInvitationRepository.findTopByInviterIdOrderByCreatedAtDesc(user1.id) } returns invitation
+
+        When("getMyInvitation is called") {
+            val result = coupleService.getMyInvitation(user1.id)
+
+            Then("returns status ACCEPTED") {
+                result.code shouldBe "ACPT1234"
+                result.status shouldBe "ACCEPTED"
+            }
+        }
+    }
+
+    Given("a user with no invitations") {
+        every { coupleInvitationRepository.findTopByInviterIdOrderByCreatedAtDesc(user1.id) } returns null
+
+        When("getMyInvitation is called") {
+            Then("throws NotFoundException with INVITATION_NOT_FOUND") {
+                val ex = shouldThrow<NotFoundException> {
+                    coupleService.getMyInvitation(user1.id)
+                }
+                ex.code shouldBe "INVITATION_NOT_FOUND"
+            }
+        }
+    }
+
     // --- dissolveCouple ---
 
     Given("a user in an active couple wanting to dissolve") {

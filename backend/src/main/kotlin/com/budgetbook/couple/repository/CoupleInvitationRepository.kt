@@ -12,6 +12,8 @@ interface CoupleInvitationRepository : JpaRepository<CoupleInvitation, UUID> {
 
     fun findByInvitationCode(invitationCode: String): CoupleInvitation?
 
+    fun findTopByInviterIdOrderByCreatedAtDesc(inviterId: UUID): CoupleInvitation?
+
     @Modifying
     @Query("""
         UPDATE CoupleInvitation ci

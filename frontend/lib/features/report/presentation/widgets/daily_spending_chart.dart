@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class DailySpendingChart extends StatelessWidget {
   final List<DailySpending> dailySpending;
@@ -15,7 +15,6 @@ class DailySpendingChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
     final maxAmount = dailySpending.isEmpty
         ? 1
         : dailySpending
@@ -98,7 +97,7 @@ class DailySpendingChart extends StatelessWidget {
                     SizedBox(
                       width: 80,
                       child: Text(
-                        '${numberFormat.format(day.amount)}원',
+                        '${CurrencyFormatter.format(day.amount)}원',
                         textAlign: TextAlign.end,
                         style: TextStyle(
                           fontSize: 12,

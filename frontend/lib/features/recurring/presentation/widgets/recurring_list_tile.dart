@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class RecurringListTile extends StatelessWidget {
   final RecurringTransaction transaction;
@@ -19,35 +20,21 @@ class RecurringListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final numberFormat = NumberFormat('#,###');
     final typeColor = transaction.isExpense ? Colors.red : Colors.blue;
 
     return Dismissible(
       key: Key(transaction.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('반복 거래 삭제'),
-            content: Text("'${transaction.description}' 반복 거래를 삭제하시겠습니까?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('삭제'),
-              ),
-            ],
-          ),
+        final confirmed = await showDeleteConfirmDialog(
+          context,
+          title: '반복 거래 삭제',
+          itemName: transaction.description,
         );
-        if (confirmed == true) {
+        if (confirmed) {
           onDelete?.call();
         }
-        return confirmed ?? false;
+        return confirmed;
       },
       background: Container(
         color: Colors.red,
@@ -67,6 +54,14 @@ class RecurringListTile extends StatelessWidget {
         ),
         title: Row(
           children: [
+            if (transaction.isPrivate) ...[
+              Icon(
+                Icons.visibility_off,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 4),
+            ],
             Flexible(
               child: Text(
                 transaction.description,
@@ -113,7 +108,7 @@ class RecurringListTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${transaction.isExpense ? '-' : '+'}${numberFormat.format(transaction.amount)}원',
+              '${transaction.isExpense ? '-' : '+'}${CurrencyFormatter.format(transaction.amount)}원',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: typeColor,

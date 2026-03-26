@@ -33,7 +33,7 @@ class _CouplePageState extends State<CouplePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         } else if (state is CoupleLinked) {
@@ -55,6 +55,8 @@ class _CouplePageState extends State<CouplePage> {
               CoupleNotLinked() => _buildNotLinked(context),
               CoupleInvitationPending(invitation: final inv) =>
                 _buildInvitationPending(context, inv),
+              CoupleInvitationExpired(invitation: final inv) =>
+                _buildInvitationExpired(context, inv),
               CoupleLinked(couple: final couple) =>
                 _buildLinked(context, couple),
               CoupleError() => _buildNotLinked(context),
@@ -168,7 +170,7 @@ class _CouplePageState extends State<CouplePage> {
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: () {
-              context.read<CoupleBloc>().add(const LoadCouple());
+              context.read<CoupleBloc>().add(const CheckInvitationStatus());
             },
             icon: const Icon(Icons.refresh),
             label: const Text('연결 상태 확인'),
@@ -182,6 +184,105 @@ class _CouplePageState extends State<CouplePage> {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
             child: const Text('새 코드 생성'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInvitationExpired(BuildContext context, dynamic invitation) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          Icon(
+            Icons.timer_off,
+            size: 80,
+            color: Theme.of(context)
+                .colorScheme
+                .error
+                .withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '초대 코드가 만료되었습니다',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 16),
+          // Show expired code (dimmed, strikethrough)
+          Center(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                invitation.code as String,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                      decoration: TextDecoration.lineThrough,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.3),
+                    ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          FilledButton.icon(
+            onPressed: () {
+              context.read<CoupleBloc>().add(const GenerateInvitation());
+            },
+            icon: const Icon(Icons.add_link),
+            label: const Text('새 코드 발급'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 32),
+          // Accept invitation section (connect with partner's code)
+          Text(
+            '초대 코드 입력',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _codeController,
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 8,
+            decoration: const InputDecoration(
+              hintText: '8자리 코드 입력',
+              prefixIcon: Icon(Icons.vpn_key),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () {
+              final code = _codeController.text.trim();
+              if (code.length == 8) {
+                context.read<CoupleBloc>().add(AcceptInvitation(code));
+                _codeController.clear();
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text('코드로 연결'),
           ),
         ],
       ),

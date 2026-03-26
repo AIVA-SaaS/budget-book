@@ -30,6 +30,8 @@ data class TransactionResponse(
     val settlementDate: String? = null,
     val pocketId: UUID? = null,
     val pocketName: String? = null,
+    val visibility: String = "SHARED",
+    val ownerId: UUID? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -39,7 +41,9 @@ data class CategorySummary(
     val name: String,
     val type: String,
     val icon: String?,
-    val color: String?
+    val color: String?,
+    val groupId: UUID? = null,
+    val groupName: String? = null
 )
 
 data class CreateTransactionRequest(
@@ -60,11 +64,14 @@ data class CreateTransactionRequest(
     @field:NotNull
     val transactionDate: LocalDate,
 
+    @field:Size(max = 1000)
     val memo: String? = null,
 
     val paymentMethodId: UUID? = null,
 
-    val pocketId: UUID? = null
+    val pocketId: UUID? = null,
+
+    val visibility: String? = "SHARED"
 )
 
 data class UpdateTransactionRequest(
@@ -87,7 +94,9 @@ data class UpdateTransactionRequest(
     val paymentMethodId: PatchValue<UUID>? = null,
 
     @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
-    val pocketId: PatchValue<UUID>? = null
+    val pocketId: PatchValue<UUID>? = null,
+
+    val visibility: String? = null
 )
 
 data class PageResponse<T>(

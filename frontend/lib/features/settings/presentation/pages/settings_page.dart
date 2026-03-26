@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -22,16 +22,37 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   String? _defaultPaymentMethodId;
   String? _defaultPaymentMethodName;
+  int _recentTransactionCount = 5;
 
   @override
   void initState() {
     super.initState();
     _loadDefaultPaymentMethod();
+    _loadRecentTransactionCount();
+  }
+
+  String? get _coupleId {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.user.coupleId;
+    }
+    return null;
+  }
+
+  Future<void> _loadRecentTransactionCount() async {
+    final coupleId = _coupleId;
+    if (coupleId == null) return;
+    final count = await CouplePrefs.getString(coupleId, 'dashboard_recent_count');
+    if (count != null && mounted) {
+      setState(() => _recentTransactionCount = int.tryParse(count) ?? 5);
+    }
   }
 
   Future<void> _loadDefaultPaymentMethod() async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getString('default_payment_method_id');
+    final coupleId = _coupleId;
+    if (coupleId == null) return;
+
+    final id = await CouplePrefs.getString(coupleId, 'default_payment_method_id');
     if (id != null && mounted) {
       setState(() {
         _defaultPaymentMethodId = id;
@@ -101,13 +122,7 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/asset-management'),
             ),
-            // Category Groups
-            ListTile(
-              leading: const Icon(Icons.folder),
-              title: const Text('카테고리 그룹'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/category-groups'),
-            ),
+            // Category Groups - removed: merged into 자산 관리 카테고리 탭
             // Recurring Transactions
             ListTile(
               leading: const Icon(Icons.repeat),
@@ -154,6 +169,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (match.isNotEmpty) {
                       subtitle = match.first.name;
                       _defaultPaymentMethodName = match.first.name;
+                    } else {
+                      // Stale reference (e.g. from a previous couple) -- clear it
+                      _defaultPaymentMethodId = null;
+                      _defaultPaymentMethodName = null;
+                      final coupleId = _coupleId;
+                      if (coupleId != null) {
+                        CouplePrefs.remove(coupleId, 'default_payment_method_id');
+                      }
                     }
                   } else if (_defaultPaymentMethodName != null) {
                     subtitle = _defaultPaymentMethodName!;
@@ -168,6 +191,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 },
               ),
+            ),
+            // Recent transaction count
+            ListTile(
+              leading: const Icon(Icons.format_list_numbered),
+              title: const Text('홈 최근 거래 수'),
+              subtitle: Text('$_recentTransactionCount개'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showRecentCountDialog(context),
             ),
             // Admin (only visible for ADMIN users)
             BlocBuilder<AuthBloc, AuthState>(
@@ -361,8 +392,10 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           SimpleDialogOption(
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('default_payment_method_id');
+              final coupleId = _coupleId;
+              if (coupleId != null) {
+                await CouplePrefs.remove(coupleId, 'default_payment_method_id');
+              }
               if (mounted) {
                 setState(() {
                   _defaultPaymentMethodId = null;
@@ -390,8 +423,10 @@ class _SettingsPageState extends State<SettingsPage> {
             final isSelected = pm.id == _defaultPaymentMethodId;
             return SimpleDialogOption(
               onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('default_payment_method_id', pm.id);
+                final coupleId = _coupleId;
+                if (coupleId != null) {
+                  await CouplePrefs.setString(coupleId, 'default_payment_method_id', pm.id);
+                }
                 if (mounted) {
                   setState(() {
                     _defaultPaymentMethodId = pm.id;
@@ -417,6 +452,46 @@ class _SettingsPageState extends State<SettingsPage> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  void _showRecentCountDialog(BuildContext context) {
+    const options = [5, 10, 20, 30];
+    showDialog(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('홈 최근 거래 수'),
+        children: options.map((count) {
+          final isSelected = count == _recentTransactionCount;
+          return SimpleDialogOption(
+            onPressed: () async {
+              final coupleId = _coupleId;
+              if (coupleId != null) {
+                await CouplePrefs.setString(
+                    coupleId, 'dashboard_recent_count', count.toString());
+              }
+              if (mounted) {
+                setState(() => _recentTransactionCount = count);
+              }
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Text(count == 30 ? '$count개 (약 1개월)' : '$count개'),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
