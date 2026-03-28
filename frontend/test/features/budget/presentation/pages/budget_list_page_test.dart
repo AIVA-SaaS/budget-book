@@ -10,12 +10,29 @@ import 'package:budget_book/features/budget/presentation/pages/budget_list_page.
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
 
+class MockPaymentMethodBloc
+    extends MockBloc<PaymentMethodEvent, PaymentMethodState>
+    implements PaymentMethodBloc {}
+
+class MockWeeklyBudgetBloc
+    extends MockBloc<WeeklyBudgetEvent, WeeklyBudgetState>
+    implements WeeklyBudgetBloc {}
+
 void main() {
   late MockBudgetBloc mockBudgetBloc;
+  late MockPaymentMethodBloc mockPaymentMethodBloc;
+  late MockWeeklyBudgetBloc mockWeeklyBudgetBloc;
 
   const tCategory = TransactionCategory(
     id: 'cat-1',
@@ -69,6 +86,34 @@ void main() {
 
   setUp(() {
     mockBudgetBloc = MockBudgetBloc();
+
+    mockPaymentMethodBloc = MockPaymentMethodBloc();
+    when(() => mockPaymentMethodBloc.state)
+        .thenReturn(const PaymentMethodInitial());
+
+    mockWeeklyBudgetBloc = MockWeeklyBudgetBloc();
+    when(() => mockWeeklyBudgetBloc.state)
+        .thenReturn(const WeeklyBudgetInitial());
+
+    // Register in GetIt so that getIt<PaymentMethodBloc>() and
+    // getIt<WeeklyBudgetBloc>() calls inside the page find the mocks.
+    if (getIt.isRegistered<PaymentMethodBloc>()) {
+      getIt.unregister<PaymentMethodBloc>();
+    }
+    if (getIt.isRegistered<WeeklyBudgetBloc>()) {
+      getIt.unregister<WeeklyBudgetBloc>();
+    }
+    getIt.registerSingleton<PaymentMethodBloc>(mockPaymentMethodBloc);
+    getIt.registerSingleton<WeeklyBudgetBloc>(mockWeeklyBudgetBloc);
+  });
+
+  tearDown(() {
+    if (getIt.isRegistered<PaymentMethodBloc>()) {
+      getIt.unregister<PaymentMethodBloc>();
+    }
+    if (getIt.isRegistered<WeeklyBudgetBloc>()) {
+      getIt.unregister<WeeklyBudgetBloc>();
+    }
   });
 
   Widget buildTestWidget({BudgetState? initialState}) {

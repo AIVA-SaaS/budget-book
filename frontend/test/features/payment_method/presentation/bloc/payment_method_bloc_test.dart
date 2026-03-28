@@ -202,12 +202,31 @@ void main() {
         build: () {
           when(mockRepository.getPaymentMethods())
               .thenAnswer((_) async => Right(tMethods));
+          // Stub settlement summary since bloc auto-loads it when credit cards exist
+          when(mockRepository.getCardSettlementSummary()).thenAnswer(
+            (_) async => const Right(CardSettlementSummary(
+              previousMonth: CardSettlementMonth(
+                  year: 2026, month: 2, totalAmount: 0, cards: []),
+              currentMonth: CardSettlementMonth(
+                  year: 2026, month: 3, totalAmount: 0, cards: []),
+            )),
+          );
           return bloc;
         },
         act: (bloc) => bloc.add(const LoadPaymentMethods()),
         expect: () => [
           const PaymentMethodLoading(),
           PaymentMethodLoaded(tMethods),
+          // Auto-loaded card settlement summary (triggered by credit cards in list)
+          PaymentMethodLoaded(
+            tMethods,
+            cardSettlementSummary: const CardSettlementSummary(
+              previousMonth: CardSettlementMonth(
+                  year: 2026, month: 2, totalAmount: 0, cards: []),
+              currentMonth: CardSettlementMonth(
+                  year: 2026, month: 3, totalAmount: 0, cards: []),
+            ),
+          ),
         ],
       );
 
