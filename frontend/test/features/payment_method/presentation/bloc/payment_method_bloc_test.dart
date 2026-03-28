@@ -104,6 +104,14 @@ class MockPaymentMethodRepository extends Mock
       ) as Future<Either<Failure, List<CardPending>>>;
 
   @override
+  Future<Either<Failure, void>> reorderPaymentMethods(
+          List<String> orderedIds) =>
+      super.noSuchMethod(
+        Invocation.method(#reorderPaymentMethods, [orderedIds]),
+        returnValue: Future.value(const Right<Failure, void>(null)),
+      ) as Future<Either<Failure, void>>;
+
+  @override
   Future<Either<Failure, CardSettlementSummary>>
       getCardSettlementSummary() =>
           super.noSuchMethod(
@@ -393,6 +401,43 @@ void main() {
           PaymentMethodLoaded(tMethods,
               operationError:
                   'Default payment methods cannot be deleted'),
+        ],
+      );
+    });
+
+    group('ReorderPaymentMethods', () {
+      blocTest<PaymentMethodBloc, PaymentMethodState>(
+        'emits [PaymentMethodLoaded] with reordered methods on success',
+        build: () {
+          when(mockRepository.reorderPaymentMethods(['pm-2', 'pm-1']))
+              .thenAnswer((_) async => const Right(null));
+          return bloc;
+        },
+        seed: () => PaymentMethodLoaded(tMethods),
+        act: (bloc) =>
+            bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
+        expect: () => [
+          PaymentMethodLoaded([tCreditMethod, tCashMethod]),
+        ],
+      );
+
+      blocTest<PaymentMethodBloc, PaymentMethodState>(
+        'rolls back on failure',
+        build: () {
+          when(mockRepository.reorderPaymentMethods(['pm-2', 'pm-1']))
+              .thenAnswer((_) async => const Left(
+                  ServerFailure('Failed to reorder payment methods')));
+          return bloc;
+        },
+        seed: () => PaymentMethodLoaded(tMethods),
+        act: (bloc) =>
+            bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
+        expect: () => [
+          // First: optimistic update
+          PaymentMethodLoaded([tCreditMethod, tCashMethod]),
+          // Then: rollback
+          PaymentMethodLoaded(tMethods,
+              operationError: 'Failed to reorder payment methods'),
         ],
       );
     });

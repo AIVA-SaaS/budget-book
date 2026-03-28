@@ -7,6 +7,7 @@ abstract class CategoryRemoteDataSource {
   Future<CategoryModel> createCategory(Map<String, dynamic> data);
   Future<CategoryModel> updateCategory(String id, Map<String, dynamic> data);
   Future<void> deleteCategory(String id);
+  Future<void> reorderCategories(List<String> orderedIds);
 }
 
 class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
@@ -55,5 +56,13 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<void> deleteCategory(String id) async {
     await apiClient.dio.delete('${ApiEndpoints.categories}/$id');
+  }
+
+  @override
+  Future<void> reorderCategories(List<String> orderedIds) async {
+    await apiClient.dio.put(
+      ApiEndpoints.categoriesReorder,
+      data: {'orderedIds': orderedIds},
+    );
   }
 }

@@ -26,6 +26,7 @@ class ApiEndpoints {
 
   // Category
   static const String categories = '/api/v1/categories';
+  static const String categoriesReorder = '/api/v1/categories/reorder';
 
   // Category Group
   static const String categoryGroups = '/api/v1/category-groups';
@@ -41,6 +42,7 @@ class ApiEndpoints {
 
   // Payment Methods
   static const String paymentMethods = '/api/v1/payment-methods';
+  static const String paymentMethodsReorder = '/api/v1/payment-methods/reorder';
   static const String paymentMethodsCardPending =
       '/api/v1/payment-methods/card-pending';
   static const String paymentMethodsCardSettlementSummary =

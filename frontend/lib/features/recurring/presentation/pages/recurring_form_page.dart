@@ -405,11 +405,13 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                         label: pm.name,
                         leadingIcon: Icons.payment,
                         isDeletable: !pm.isDefault,
+                        displayOrder: pm.displayOrder,
                       ))
                   .toList(),
               selectedId: _paymentMethodId,
               nullLabel: '선택 안 함',
               favoriteType: 'PAYMENT_METHOD',
+              reorderRoute: '/asset-management',
               onSelected: (item) {
                 setState(() => _paymentMethodId = item?.id);
               },

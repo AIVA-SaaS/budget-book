@@ -118,4 +118,17 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
           ServerFailure('Failed to load card settlement summary'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> reorderPaymentMethods(
+      List<String> orderedIds) async {
+    try {
+      await remoteDataSource.reorderPaymentMethods(orderedIds);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to reorder payment methods'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to reorder payment methods'));
+    }
+  }
 }

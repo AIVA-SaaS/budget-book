@@ -66,3 +66,12 @@ class DeleteCategory extends CategoryEvent {
   @override
   List<Object?> get props => [id];
 }
+
+class ReorderCategories extends CategoryEvent {
+  final List<String> orderedIds;
+
+  const ReorderCategories(this.orderedIds);
+
+  @override
+  List<Object?> get props => [orderedIds];
+}
