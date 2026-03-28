@@ -62,6 +62,10 @@ import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.da
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/pages/transfer_list_page.dart';
 import 'package:budget_book/features/transfer/presentation/pages/transfer_form_page.dart';
+import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.dart';
+import 'package:budget_book/features/insurance/presentation/bloc/insurance_event.dart';
+import 'package:budget_book/features/insurance/presentation/pages/insurance_list_page.dart';
+import 'package:budget_book/features/insurance/presentation/pages/insurance_form_page.dart';
 import 'package:budget_book/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_users_page.dart';
@@ -690,6 +694,66 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
           child: TransferFormPage(transferId: transferId),
+        );
+      },
+    ),
+    // Insurances
+    GoRoute(
+      path: '/insurances',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final now = DateTime.now();
+        getIt<InsuranceBloc>()
+          ..add(const LoadInsurances())
+          ..add(LoadInsuranceSummary(year: now.year, month: now.month));
+        return BlocProvider<InsuranceBloc>.value(
+          value: getIt<InsuranceBloc>(),
+          child: const InsuranceListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/insurances/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        getIt<CategoryBloc>().add(const LoadCategories());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<InsuranceBloc>.value(
+              value: getIt<InsuranceBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+          ],
+          child: const InsuranceFormPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/insurances/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final insuranceId = state.pathParameters['id']!;
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        getIt<CategoryBloc>().add(const LoadCategories());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<InsuranceBloc>.value(
+              value: getIt<InsuranceBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+          ],
+          child: InsuranceFormPage(insuranceId: insuranceId),
         );
       },
     ),

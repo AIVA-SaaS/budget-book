@@ -333,7 +333,12 @@ class BudgetService(
                 else -> totalSpent
             }
 
-            val effectiveBudgetAmount = budget.amount
+            val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
+                val weeklyAmt = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
+                weeklyAmt * ym.lengthOfMonth().toLong() / 7
+            } else {
+                budget.amount
+            }
 
             val remainingAmount = effectiveBudgetAmount - spentAmount
             val usageRate = if (effectiveBudgetAmount > 0) {

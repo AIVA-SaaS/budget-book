@@ -840,12 +840,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _selectedCategoryId,
         categoryType: _selectedType,
@@ -876,9 +872,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
     final pmBloc = context.read<PaymentMethodBloc>();
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => BlocProvider<PaymentMethodBloc>.value(
         value: pmBloc,
         child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
@@ -898,6 +893,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                   .toList(),
               selectedId: _selectedPaymentMethodId,
               nullLabel: '선택 안 함',
+              favoriteType: 'PAYMENT_METHOD',
               onSelected: (item) {
                 setState(() {
                   _selectedPaymentMethodId = item?.id;
@@ -920,9 +916,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
     final pocketBloc = context.read<PocketBloc>();
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => BlocProvider<PocketBloc>.value(
         value: pocketBloc,
         child: BlocBuilder<PocketBloc, PocketState>(
@@ -971,6 +966,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           initialDate: _selectedDate,
           firstDate: DateTime(2020),
           lastDate: DateTime(2030, 12, 31),
+          initialEntryMode: DatePickerEntryMode.calendarOnly,
         );
         if (picked != null) {
           setState(() {

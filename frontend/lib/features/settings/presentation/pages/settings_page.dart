@@ -123,6 +123,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => context.push('/asset-management'),
             ),
             // Category Groups - removed: merged into 자산 관리 카테고리 탭
+            // Insurance Management
+            ListTile(
+              leading: const Icon(Icons.shield),
+              title: const Text('보험 관리'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/insurances'),
+            ),
             // Recurring Transactions
             ListTile(
               leading: const Icon(Icons.repeat),

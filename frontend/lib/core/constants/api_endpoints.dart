@@ -82,6 +82,14 @@ class ApiEndpoints {
   // Transfers (payment method to payment method)
   static const String transfers = '/api/v1/transfers';
 
+  // Preferences (Favorites)
+  static const String preferencesFavorites = '/api/v1/preferences/favorites';
+  static const String preferencesFavoritesToggle =
+      '/api/v1/preferences/favorites/toggle';
+
+  // Insurances
+  static const String insurances = '/api/v1/insurances';
+
   // Admin
   static const String adminStats = '/api/v1/admin/stats';
   static const String adminUsers = '/api/v1/admin/users';

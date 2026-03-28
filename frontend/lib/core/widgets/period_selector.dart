@@ -212,6 +212,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                     initialDate: _startDate ?? DateTime.now(),
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _startDate = picked);
@@ -236,6 +237,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                         _endDate ?? _startDate ?? DateTime.now(),
                     firstDate: _startDate ?? DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _endDate = picked);
@@ -286,6 +288,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                             DateTime(_weekYear, _weekMonth),
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2030, 12, 31),
+                        initialEntryMode: DatePickerEntryMode.calendarOnly,
                       );
                       if (picked != null) {
                         setState(() {
@@ -388,6 +391,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                     initialDate: _startDate ?? DateTime.now(),
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() {
@@ -416,6 +420,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                         DateTime.now(),
                     firstDate: _startDate ?? DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() {
