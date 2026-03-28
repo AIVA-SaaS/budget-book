@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
@@ -124,13 +125,11 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
     final initialDate = isStart
         ? (_startDate ?? DateTime.now())
         : (_endDate ?? DateTime.now());
-    final picked = await showDatePicker(
+    final picked = await showCalendarPickerDialog(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2050),
-      locale: const Locale('ko'),
-      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null) {
       setState(() {

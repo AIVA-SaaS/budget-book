@@ -13,6 +13,7 @@ import com.budgetbook.paymentmethod.dto.CardSettlementMonth
 import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
+import com.budgetbook.paymentmethod.dto.ReorderPaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.sync.SyncEvent
@@ -125,6 +126,35 @@ class PaymentMethodService(
             authorId = userId
         ))
         return saved.toResponse()
+    }
+
+    @Transactional
+    fun reorderPaymentMethods(userId: UUID, request: ReorderPaymentMethodRequest) {
+        val couple = getActiveCouple(userId)
+        val methods = paymentMethodRepository.findByCoupleIdOrderByDisplayOrder(couple.id)
+        val methodMap = methods.associateBy { it.id }
+
+        // Validate all IDs belong to this couple
+        request.orderedIds.forEach { id ->
+            if (!methodMap.containsKey(id)) {
+                throw NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Payment method $id does not exist for this couple.")
+            }
+        }
+
+        // Set displayOrder based on orderedIds position
+        request.orderedIds.forEachIndexed { index, id ->
+            methodMap[id]!!.displayOrder = index
+        }
+
+        paymentMethodRepository.saveAll(methods.filter { it.id in request.orderedIds })
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "PAYMENT_METHOD_REORDERED",
+            entityType = "PAYMENT_METHOD",
+            entityId = couple.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
     }
 
     @Transactional

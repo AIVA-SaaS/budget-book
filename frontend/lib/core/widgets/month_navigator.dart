@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 
 /// Shared month navigation widget with prev/next buttons and month picker.
 /// Used across budget, transaction, statistics, and report pages.
@@ -37,12 +38,11 @@ class MonthNavigator extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              final picked = await showDatePicker(
+              final picked = await showCalendarPickerDialog(
                 context: context,
                 initialDate: DateTime(year, month),
                 firstDate: DateTime(2020),
                 lastDate: DateTime(2030, 12, 31),
-                initialEntryMode: DatePickerEntryMode.calendarOnly,
               );
               if (picked != null && context.mounted) {
                 onMonthChanged((year: picked.year, month: picked.month));

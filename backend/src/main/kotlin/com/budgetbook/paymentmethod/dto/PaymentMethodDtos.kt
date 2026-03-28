@@ -52,6 +52,10 @@ data class UpdatePaymentMethodRequest(
     val linkedBankId: UUID? = null
 )
 
+data class ReorderPaymentMethodRequest(
+    val orderedIds: List<UUID>
+)
+
 data class CardPendingResponse(
     val paymentMethod: PaymentMethodResponse,
     val pendingAmount: Long,

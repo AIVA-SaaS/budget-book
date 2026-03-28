@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 
 /// Period type enum for budget period selection.
 enum PeriodType { none, daily, weekly, monthly }
@@ -207,12 +208,11 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           dateFormat: dateFormat,
           onTap: widget.enabled
               ? () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate: _startDate ?? DateTime.now(),
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _startDate = picked);
@@ -231,13 +231,12 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           dateFormat: dateFormat,
           onTap: widget.enabled
               ? () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate:
                         _endDate ?? _startDate ?? DateTime.now(),
                     firstDate: _startDate ?? DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _endDate = picked);
@@ -282,13 +281,12 @@ class _PeriodSelectorState extends State<PeriodSelector> {
             TextButton(
               onPressed: widget.enabled
                   ? () async {
-                      final picked = await showDatePicker(
+                      final picked = await showCalendarPickerDialog(
                         context: context,
                         initialDate:
                             DateTime(_weekYear, _weekMonth),
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2030, 12, 31),
-                        initialEntryMode: DatePickerEntryMode.calendarOnly,
                       );
                       if (picked != null) {
                         setState(() {
@@ -386,12 +384,11 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           dateFormat: dateFormat,
           onTap: widget.enabled
               ? () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate: _startDate ?? DateTime.now(),
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() {
@@ -413,14 +410,13 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           dateFormat: dateFormat,
           onTap: widget.enabled
               ? () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate: _endDate ??
                         _startDate ??
                         DateTime.now(),
                     firstDate: _startDate ?? DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() {

@@ -16,6 +16,7 @@ class PaymentMethodBloc
     on<DeletePaymentMethod>(_onDeletePaymentMethod);
     on<LoadCardPending>(_onLoadCardPending);
     on<LoadCardSettlementSummary>(_onLoadCardSettlementSummary);
+    on<ReorderPaymentMethods>(_onReorderPaymentMethods);
   }
 
   Future<void> _onLoadPaymentMethods(
@@ -254,6 +255,64 @@ class PaymentMethodBloc
       } else {
         emit(const PaymentMethodError('예기치 않은 오류가 발생했습니다'));
       }
+    }
+  }
+
+  Future<void> _onReorderPaymentMethods(
+    ReorderPaymentMethods event,
+    Emitter<PaymentMethodState> emit,
+  ) async {
+    final currentMethods = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).paymentMethods
+        : <PaymentMethod>[];
+    final currentPendings = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).cardPendings
+        : null;
+    final currentSummary = state is PaymentMethodLoaded
+        ? (state as PaymentMethodLoaded).cardSettlementSummary
+        : null;
+
+    // Optimistic update: reorder locally first
+    final reordered = <PaymentMethod>[];
+    for (final id in event.orderedIds) {
+      final pm = currentMethods.where((m) => m.id == id).firstOrNull;
+      if (pm != null) reordered.add(pm);
+    }
+    // Add any methods not in the reorder list
+    for (final pm in currentMethods) {
+      if (!event.orderedIds.contains(pm.id)) reordered.add(pm);
+    }
+    emit(PaymentMethodLoaded(
+      reordered,
+      cardPendings: currentPendings,
+      cardSettlementSummary: currentSummary,
+    ));
+
+    try {
+      final result =
+          await paymentMethodRepository.reorderPaymentMethods(event.orderedIds);
+      result.fold(
+        (failure) {
+          // Rollback on failure
+          emit(PaymentMethodLoaded(
+            currentMethods,
+            cardPendings: currentPendings,
+            cardSettlementSummary: currentSummary,
+            operationError: failure.message,
+          ));
+        },
+        (_) {
+          // Already showing reordered state
+        },
+      );
+    } catch (_) {
+      // Rollback on unexpected error
+      emit(PaymentMethodLoaded(
+        currentMethods,
+        cardPendings: currentPendings,
+        cardSettlementSummary: currentSummary,
+        operationError: '예기치 않은 오류가 발생했습니다',
+      ));
     }
   }
 }

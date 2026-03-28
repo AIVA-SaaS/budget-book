@@ -12,6 +12,7 @@ abstract class PaymentMethodRemoteDataSource {
   Future<void> deletePaymentMethod(String id);
   Future<List<CardPendingModel>> getCardPending(int year, int month);
   Future<CardSettlementSummaryModel> getCardSettlementSummary();
+  Future<void> reorderPaymentMethods(List<String> orderedIds);
 }
 
 class PaymentMethodRemoteDataSourceImpl
@@ -77,6 +78,14 @@ class PaymentMethodRemoteDataSourceImpl
     );
     return CardSettlementSummaryModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<void> reorderPaymentMethods(List<String> orderedIds) async {
+    await apiClient.dio.put(
+      ApiEndpoints.paymentMethodsReorder,
+      data: {'orderedIds': orderedIds},
     );
   }
 }
