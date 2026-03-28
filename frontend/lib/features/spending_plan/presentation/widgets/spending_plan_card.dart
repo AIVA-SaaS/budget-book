@@ -1,0 +1,185 @@
+import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+
+/// Maps spending plan status to Korean label.
+String statusLabel(String status) {
+  switch (status) {
+    case 'PLANNED':
+      return '계획됨';
+    case 'COMPLETED':
+      return '완료';
+    case 'SKIPPED':
+      return '건너뜀';
+    case 'OVERDUE':
+      return '기한초과';
+    default:
+      return status;
+  }
+}
+
+/// Maps spending plan status to icon.
+IconData statusIcon(String status) {
+  switch (status) {
+    case 'PLANNED':
+      return Icons.schedule;
+    case 'COMPLETED':
+      return Icons.check_circle;
+    case 'SKIPPED':
+      return Icons.skip_next;
+    case 'OVERDUE':
+      return Icons.warning;
+    default:
+      return Icons.help_outline;
+  }
+}
+
+/// Maps spending plan status to color.
+Color statusColor(String status) {
+  switch (status) {
+    case 'PLANNED':
+      return Colors.blue;
+    case 'COMPLETED':
+      return Colors.green;
+    case 'SKIPPED':
+      return Colors.grey;
+    case 'OVERDUE':
+      return Colors.red;
+    default:
+      return Colors.grey;
+  }
+}
+
+class SpendingPlanCard extends StatelessWidget {
+  final SpendingPlan plan;
+  final VoidCallback? onTap;
+  final VoidCallback? onComplete;
+  final VoidCallback? onSkip;
+  final VoidCallback? onDelete;
+
+  const SpendingPlanCard({
+    super.key,
+    required this.plan,
+    this.onTap,
+    this.onComplete,
+    this.onSkip,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = statusColor(plan.status);
+    final canAct = plan.status == 'PLANNED' || plan.status == 'OVERDUE';
+
+    return Dismissible(
+      key: Key(plan.id),
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: Colors.green,
+        child: const Icon(Icons.check, color: Colors.white),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Colors.grey,
+        child: const Icon(Icons.skip_next, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        if (!canAct) return false;
+        if (direction == DismissDirection.startToEnd) {
+          onComplete?.call();
+        } else {
+          onSkip?.call();
+        }
+        return false;
+      },
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Icon(statusIcon(plan.status), color: color, size: 20),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                plan.name,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  decoration: plan.status == 'SKIPPED'
+                      ? TextDecoration.lineThrough
+                      : null,
+                  color: plan.status == 'SKIPPED'
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                      : null,
+                ),
+              ),
+            ),
+            if (plan.categoryName != null)
+              Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  plan.categoryName!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: _buildSubtitle(theme),
+        trailing: Text(
+          '${CurrencyFormatter.format(plan.amount)}원',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildSubtitle(ThemeData theme) {
+    if (plan.status == 'COMPLETED' && plan.actualAmount != null) {
+      final variance = plan.variance;
+      final varianceStr = variance != null
+          ? CurrencyFormatter.formatWithSign(variance)
+          : '';
+      return Text(
+        '계획 ${CurrencyFormatter.format(plan.amount)} -> 실제 ${CurrencyFormatter.format(plan.actualAmount!)} ($varianceStr)',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: variance != null && variance < 0
+              ? Colors.green
+              : variance != null && variance > 0
+                  ? Colors.red
+                  : null,
+        ),
+      );
+    }
+
+    final parts = <String>[];
+    if (plan.paymentMethodName != null) {
+      parts.add(plan.paymentMethodName!);
+    }
+    if (plan.isRecurring && plan.frequency != null) {
+      parts.add(plan.frequency == 'WEEKLY' ? '매주 반복' : '매월 반복');
+    }
+    parts.add(statusLabel(plan.status));
+    return Text(
+      parts.join(' | '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}

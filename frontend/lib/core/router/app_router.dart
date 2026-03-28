@@ -67,6 +67,10 @@ import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_event.dart';
 import 'package:budget_book/features/insurance/presentation/pages/insurance_list_page.dart';
 import 'package:budget_book/features/insurance/presentation/pages/insurance_form_page.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_event.dart';
+import 'package:budget_book/features/spending_plan/presentation/pages/spending_plan_list_page.dart';
+import 'package:budget_book/features/spending_plan/presentation/pages/spending_plan_form_page.dart';
 import 'package:budget_book/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_users_page.dart';
@@ -706,6 +710,82 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
           child: TransferFormPage(transferId: transferId),
+        );
+      },
+    ),
+    // Spending Plans
+    GoRoute(
+      path: '/spending-plans',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final now = DateTime.now();
+        final startDate =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+        final lastDay = DateTime(now.year, now.month + 1, 0).day;
+        final endDate =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+        getIt<SpendingPlanBloc>().add(LoadSpendingPlans(
+          startDate: startDate,
+          endDate: endDate,
+        ));
+        return BlocProvider<SpendingPlanBloc>.value(
+          value: getIt<SpendingPlanBloc>(),
+          child: const SpendingPlanListPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/spending-plans/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        final now = DateTime.now();
+        getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<SpendingPlanBloc>.value(
+              value: getIt<SpendingPlanBloc>(),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<BudgetBloc>.value(
+              value: getIt<BudgetBloc>(),
+            ),
+          ],
+          child: const SpendingPlanFormPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/spending-plans/edit/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final planId = state.pathParameters['id']!;
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        final now = DateTime.now();
+        getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<SpendingPlanBloc>.value(
+              value: getIt<SpendingPlanBloc>(),
+            ),
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<BudgetBloc>.value(
+              value: getIt<BudgetBloc>(),
+            ),
+          ],
+          child: SpendingPlanFormPage(planId: planId),
         );
       },
     ),
