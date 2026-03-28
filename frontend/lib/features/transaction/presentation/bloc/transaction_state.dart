@@ -29,6 +29,8 @@ class TransactionLoaded extends TransactionState {
   final int? serverTotalIncome;
   final int? serverTotalExpense;
 
+  final String? scrollToDate;
+
   const TransactionLoaded({
     required this.transactions,
     required this.year,
@@ -39,6 +41,7 @@ class TransactionLoaded extends TransactionState {
     this.isLoadingMore = false,
     this.operationError,
     this.operationSuccess,
+    this.scrollToDate,
     this.serverTotalIncome,
     this.serverTotalExpense,
   });
@@ -63,7 +66,7 @@ class TransactionLoaded extends TransactionState {
 
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, serverTotalIncome, serverTotalExpense];
+      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense];
 }
 
 class TransactionError extends TransactionState {

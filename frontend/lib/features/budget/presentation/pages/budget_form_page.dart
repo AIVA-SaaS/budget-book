@@ -535,9 +535,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
 
   void _showPocketSelectorSheet(
       BuildContext context, List<MoneyPocket> pockets) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => ItemSelectorSheet(
         title: '포켓 선택',
         items: pockets

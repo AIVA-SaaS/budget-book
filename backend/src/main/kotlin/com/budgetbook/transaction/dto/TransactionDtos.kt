@@ -119,3 +119,18 @@ data class CsvImportError(
     val row: Int,
     val reason: String
 )
+
+data class SuggestionResponse(
+    val description: String,
+    val patterns: List<SuggestionPattern>
+)
+
+data class SuggestionPattern(
+    val categoryId: UUID? = null,
+    val categoryName: String? = null,
+    val categoryIcon: String? = null,
+    val categoryColor: String? = null,
+    val paymentMethodId: UUID? = null,
+    val paymentMethodName: String? = null,
+    val count: Long
+)

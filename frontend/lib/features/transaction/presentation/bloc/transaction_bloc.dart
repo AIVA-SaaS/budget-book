@@ -144,6 +144,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           totalElements: page.totalElements,
           hasMore: !page.last,
           currentPage: 0,
+          scrollToDate: event.scrollToDate,
         )),
       );
     } catch (e) {
@@ -256,6 +257,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               pocketId: _currentPocketId,
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
+              scrollToDate: event.transactionDate,
             )),
       );
     } catch (e) {
@@ -302,6 +304,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               pocketId: _currentPocketId,
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
+              scrollToDate: event.transactionDate,
             )),
       );
     } catch (e) {

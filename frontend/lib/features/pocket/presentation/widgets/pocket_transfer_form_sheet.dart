@@ -169,6 +169,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                     initialDate: _selectedDate,
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _selectedDate = picked);

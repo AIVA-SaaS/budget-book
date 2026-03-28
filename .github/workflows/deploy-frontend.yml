@@ -1,119 +1,14 @@
-name: Deploy Frontend
+# DEPRECATED: GitHub Pages deployment replaced by NAS deployment (deploy-nas.yml)
+# Kept for reference. Do not enable.
+
+name: "[DEPRECATED] Deploy Frontend to GitHub Pages"
 
 on:
-  workflow_run:
-    workflows: ["Frontend CI"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:  # Manual only, no auto trigger
 
 jobs:
   deploy:
-    # Only deploy when CI succeeded on main branch
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: false  # Disabled
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Web
-        run: flutter build web --release --base-href=/budget-book/ --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
-
-      - name: Create 404.html for SPA routing
-        run: cp build/web/index.html build/web/404.html
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: frontend/build/web
-          publish_branch: gh-pages
-
-  verify:
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    steps:
-      - name: Wait for GitHub Pages propagation (90s)
-        run: sleep 90
-
-      - name: Verify frontend loads
-        run: |
-          echo "Checking frontend deployment..."
-          for i in $(seq 1 10); do
-            STATUS=$(curl -s -o /tmp/fe-response.html -w "%{http_code}" \
-              --connect-timeout 10 --max-time 30 \
-              https://aiva-saas.github.io/budget-book/ 2>/dev/null || echo "000")
-
-            if [ "$STATUS" = "200" ]; then
-              # Verify it's actually a Flutter app, not a GitHub 404 page
-              if grep -q "flutter" /tmp/fe-response.html 2>/dev/null; then
-                echo "Frontend deployed and serving Flutter app: OK"
-                exit 0
-              else
-                echo "WARNING: Got 200 but doesn't look like Flutter app"
-              fi
-            else
-              echo "Frontend returned $STATUS, retrying in 15s... (attempt $i/10)"
-            fi
-            sleep 15
-          done
-
-          echo "FAILED: Frontend verification did not pass"
-          exit 1
-
-      - name: Check for existing deploy failure issue
-        if: failure()
-        id: check_issue
-        run: |
-          EXISTING=$(gh issue list \
-            --label ci-failure --label deploy \
-            --state open \
-            --json number \
-            --jq 'length')
-          echo "existing_issues=$EXISTING" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Issue on Verification Failure
-        if: failure() && steps.check_issue.outputs.existing_issues == '0'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const title = `[DEPLOY FAIL] Frontend verification failed - ${context.sha.substring(0, 7)}`;
-            const body = [
-              '## Deployment Verification Failure',
-              '',
-              `**Commit:** ${context.sha}`,
-              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              '',
-              '### What happened',
-              'GitHub Pages deploy completed but the deployed site failed verification.',
-              '',
-              '### Action Required',
-              '- [ ] Check GitHub Pages settings',
-              '- [ ] Verify Flutter build output is correct',
-              '- [ ] Fix and redeploy',
-            ].join('\n');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['ci-failure', 'deploy', 'frontend'],
-            });
+      - run: echo "Deprecated - use deploy-nas.yml"

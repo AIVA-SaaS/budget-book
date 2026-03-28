@@ -1,0 +1,194 @@
+name: Deploy to NAS
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  deploy-backend:
+    if: contains(join(github.event.commits.*.modified, ','), 'backend/') || contains(join(github.event.commits.*.added, ','), 'backend/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Backend to NAS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          username: ${{ secrets.NAS_USERNAME }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          script: |
+            export PATH=/usr/local/bin:$PATH
+            cd /volume1/docker/budget-book
+
+            echo "=== Pulling latest code ==="
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Building backend Docker image ==="
+            cd backend
+            docker build -t bb-backend .
+
+            echo "=== Restarting backend container ==="
+            docker stop bb_app || true
+            docker rm bb_app || true
+            docker run -d \
+              --name bb_app \
+              --restart unless-stopped \
+              --add-host=host.docker.internal:host-gateway \
+              -p 8081:8080 \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable \
+              -e DB_HOST=host.docker.internal \
+              -e DB_PORT=5433 \
+              -e DB_NAME=budgetbook \
+              -e DB_USERNAME=budgetbook \
+              -e DB_PASSWORD="${{ secrets.NAS_DB_PASSWORD }}" \
+              -e JWT_SECRET="${{ secrets.NAS_JWT_SECRET }}" \
+              -e FRONTEND_URL=https://aiva-bb.duckdns.org \
+              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              -e REDIS_URL=redis://host.docker.internal:6380 \
+              -e FLYWAY_ENABLED=true \
+              -e SERVER_FORWARD_HEADERS_STRATEGY=framework \
+              -e SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER=X-Forwarded-Proto \
+              bb-backend
+
+            echo "=== Waiting for startup ==="
+            sleep 15
+
+            echo "=== Health check ==="
+            for i in $(seq 1 12); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "Backend is UP!"
+                docker logs --tail 5 bb_app
+                exit 0
+              fi
+              echo "Waiting... ($i/12)"
+              sleep 10
+            done
+            echo "FAILED: Backend did not start"
+            docker logs --tail 30 bb_app
+            exit 1
+
+  deploy-frontend:
+    if: contains(join(github.event.commits.*.modified, ','), 'frontend/') || contains(join(github.event.commits.*.added, ','), 'frontend/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release --dart-define=API_BASE_URL=https://aiva-bb.duckdns.org
+
+      - name: Deploy to NAS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          BUILD_PATH: frontend/build/web
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          username: ${{ secrets.NAS_USERNAME }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          script: |
+            echo "=== Preparing web directory ==="
+            rm -rf /var/services/web_bb/*
+
+      - name: Copy build to NAS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          username: ${{ secrets.NAS_USERNAME }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          source: "frontend/build/web/*"
+          target: "/var/services/web_bb"
+          strip_components: 3
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          username: ${{ secrets.NAS_USERNAME }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          script: |
+            if [ -f /var/services/web_bb/index.html ]; then
+              echo "Frontend deployed successfully!"
+              ls -la /var/services/web_bb/ | head -10
+            else
+              echo "FAILED: index.html not found"
+              exit 1
+            fi
+
+  verify:
+    needs: [deploy-backend, deploy-frontend]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Wait for services to stabilize
+        run: sleep 10
+
+      - name: Verify live site
+        run: |
+          echo "=== Checking https://aiva-bb.duckdns.org ==="
+          STATUS=$(curl -s -o /tmp/site.html -w "%{http_code}" \
+            --connect-timeout 10 --max-time 30 \
+            https://aiva-bb.duckdns.org/ 2>/dev/null || echo "000")
+          echo "Site status: $STATUS"
+
+          if [ "$STATUS" = "200" ]; then
+            if grep -q "flutter" /tmp/site.html 2>/dev/null; then
+              echo "Frontend: OK (Flutter app detected)"
+            fi
+          fi
+
+          echo "=== Checking API health ==="
+          API_STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" \
+            --connect-timeout 10 --max-time 30 \
+            https://aiva-bb.duckdns.org/actuator/health 2>/dev/null || echo "000")
+          echo "API health status: $API_STATUS"
+          cat /tmp/health.json 2>/dev/null || true
+
+      - name: Create Issue on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `[DEPLOY FAIL] NAS deployment failed - ${context.sha.substring(0, 7)}`;
+            const body = [
+              '## NAS Deployment Failure',
+              '',
+              `**Commit:** ${context.sha}`,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              '### Action Required',
+              '- [ ] SSH into NAS and check Docker logs: `docker logs bb_app`',
+              '- [ ] Check nginx: `nginx -t`',
+              '- [ ] Verify DB is running: `docker ps | grep postgres`',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci-failure', 'deploy'],
+            });

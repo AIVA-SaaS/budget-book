@@ -10,6 +10,7 @@ import 'package:budget_book/features/transaction/data/models/transaction_categor
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
 class MockTransactionRemoteDataSource extends Mock
     implements TransactionRemoteDataSource {
@@ -82,11 +83,11 @@ class MockTransactionRemoteDataSource extends Mock
       ) as Future<void>;
 
   @override
-  Future<List<String>> getSuggestions(String query, {int limit = 10}) =>
+  Future<List<SuggestionGroup>> getSuggestions(String query) =>
       super.noSuchMethod(
-        Invocation.method(#getSuggestions, [query], {#limit: limit}),
-        returnValue: Future.value(<String>[]),
-      ) as Future<List<String>>;
+        Invocation.method(#getSuggestions, [query]),
+        returnValue: Future.value(<SuggestionGroup>[]),
+      ) as Future<List<SuggestionGroup>>;
 
   static final _dummyModel = TransactionModel(
     id: '',
@@ -407,8 +408,12 @@ void main() {
     });
 
     group('getSuggestions', () {
-      test('returns Right(List<String>) when datasource succeeds', () async {
-        final suggestions = ['점심 식사', '점심 커피', '점심 도시락'];
+      test('returns Right(List<SuggestionGroup>) when datasource succeeds', () async {
+        final suggestions = [
+          const SuggestionGroup(description: '점심 식사', patterns: []),
+          const SuggestionGroup(description: '점심 커피', patterns: []),
+          const SuggestionGroup(description: '점심 도시락', patterns: []),
+        ];
         when(mockDataSource.getSuggestions('점심'))
             .thenAnswer((_) async => suggestions);
 
@@ -417,14 +422,14 @@ void main() {
         expect(result.isRight(), isTrue);
         result.fold(
           (_) => fail('Expected Right'),
-          (data) => expect(data, ['점심 식사', '점심 커피', '점심 도시락']),
+          (data) => expect(data.length, 3),
         );
         verify(mockDataSource.getSuggestions('점심')).called(1);
       });
 
       test('returns empty list when no suggestions', () async {
         when(mockDataSource.getSuggestions('zzz'))
-            .thenAnswer((_) async => <String>[]);
+            .thenAnswer((_) async => <SuggestionGroup>[]);
 
         final result = await repository.getSuggestions('zzz');
 

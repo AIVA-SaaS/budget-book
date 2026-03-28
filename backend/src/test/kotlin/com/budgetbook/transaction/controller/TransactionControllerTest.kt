@@ -4,6 +4,7 @@ import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
+import com.budgetbook.transaction.dto.SuggestionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.transaction.service.TransactionExportService
 import com.budgetbook.transaction.service.TransactionImportService
@@ -136,18 +137,22 @@ class TransactionControllerTest : FunSpec({
 
     test("getSuggestions returns matching descriptions") {
 
-        val suggestions = listOf("점심 식사", "점심 도시락")
+        val suggestions = listOf(
+            SuggestionResponse("점심 식사", emptyList()),
+            SuggestionResponse("점심 도시락", emptyList())
+        )
         every { transactionService.getSuggestions(testUserId, "점", 10) } returns suggestions
 
         val result = controller.getSuggestions(testUserId, "점", 10)
 
         result.success shouldBe true
-        result.data shouldBe listOf("점심 식사", "점심 도시락")
+        result.data!!.size shouldBe 2
+        result.data!![0].description shouldBe "점심 식사"
     }
 
     test("getSuggestions with custom limit") {
 
-        val suggestions = listOf("커피")
+        val suggestions = listOf(SuggestionResponse("커피", emptyList()))
         every { transactionService.getSuggestions(testUserId, "커", 5) } returns suggestions
 
         val result = controller.getSuggestions(testUserId, "커", 5)

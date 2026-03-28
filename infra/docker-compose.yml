@@ -1,15 +1,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: budgetbook-postgres
+    container_name: db_postgres_bb
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: budgetbook
       POSTGRES_USER: budgetbook
-      POSTGRES_PASSWORD: budgetbook
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-budgetbook}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U budgetbook"]
       interval: 10s
@@ -18,16 +19,54 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: budgetbook-redis
+    container_name: redis_bb
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: bb-backend
+    container_name: bb_app
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/budgetbook?sslmode=disable
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: budgetbook
+      DB_USERNAME: budgetbook
+      DB_PASSWORD: ${DB_PASSWORD:-budgetbook}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: https://aiva-bb.duckdns.org
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      REDIS_URL: redis://redis:6379
+      FLYWAY_ENABLED: "true"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER: X-Forwarded-Proto
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 volumes:
   postgres_data:
