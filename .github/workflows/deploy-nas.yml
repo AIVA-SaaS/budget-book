@@ -105,7 +105,8 @@ jobs:
           port: ${{ secrets.NAS_SSH_PORT }}
           script: |
             echo "=== Preparing web directory ==="
-            rm -rf /var/services/web_bb/*
+            sudo rm -rf /var/services/web_bb/*
+            sudo chown -R admin:users /var/services/web_bb
 
       - name: Copy build to NAS
         uses: appleboy/scp-action@v0.1.7
@@ -126,6 +127,7 @@ jobs:
           key: ${{ secrets.NAS_SSH_KEY }}
           port: ${{ secrets.NAS_SSH_PORT }}
           script: |
+            sudo chown -R admin:users /var/services/web_bb
             if [ -f /var/services/web_bb/index.html ]; then
               echo "Frontend deployed successfully!"
               ls -la /var/services/web_bb/ | head -10
