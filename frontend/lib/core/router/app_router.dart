@@ -50,6 +50,7 @@ import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
+import 'package:budget_book/features/settings/presentation/pages/home_config_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/asset_management_page.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
@@ -315,6 +316,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
+        final tab = state.uri.queryParameters['tab'];
         final copyFrom = state.extra as Transaction?;
         final dateStr = state.uri.queryParameters['date'];
         final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
@@ -339,9 +341,13 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             BlocProvider<PocketBloc>.value(
               value: getIt<PocketBloc>(),
             ),
+            BlocProvider<TransferBloc>.value(
+              value: getIt<TransferBloc>(),
+            ),
           ],
           child: TransactionFormPage(
             initialType: copyFrom?.type ?? type,
+            initialTab: tab,
             copyFrom: copyFrom,
             initialDate: initialDate,
             initialPaymentMethodId: initialPaymentMethodId,
@@ -569,6 +575,12 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/settings/profile-edit',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ProfileEditPage(),
+    ),
+    // Home Config
+    GoRoute(
+      path: '/settings/home-config',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const HomeConfigPage(),
     ),
     // App Info
     GoRoute(

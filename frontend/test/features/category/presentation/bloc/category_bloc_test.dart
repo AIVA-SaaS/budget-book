@@ -79,6 +79,13 @@ class MockCategoryRepository extends Mock implements CategoryRepository {
         Invocation.method(#deleteCategory, [id]),
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
+
+  @override
+  Future<Either<Failure, void>> reorderCategories(List<String> orderedIds) =>
+      super.noSuchMethod(
+        Invocation.method(#reorderCategories, [orderedIds]),
+        returnValue: Future.value(const Right<Failure, void>(null)),
+      ) as Future<Either<Failure, void>>;
 }
 
 void main() {
@@ -314,6 +321,38 @@ void main() {
         expect: () => [
           CategoryLoaded(tCategories,
               operationError: 'Default categories cannot be deleted'),
+        ],
+      );
+    });
+
+    group('ReorderCategories', () {
+      blocTest<CategoryBloc, CategoryState>(
+        'emits [CategoryLoaded] with reordered categories on success',
+        build: () {
+          when(mockRepository.reorderCategories(['cat-2', 'cat-1']))
+              .thenAnswer((_) async => const Right(null));
+          return categoryBloc;
+        },
+        seed: () => CategoryLoaded(tCategories),
+        act: (bloc) => bloc.add(const ReorderCategories(['cat-2', 'cat-1'])),
+        expect: () => [
+          CategoryLoaded([tIncomeCategory, tExpenseCategory]),
+        ],
+      );
+
+      blocTest<CategoryBloc, CategoryState>(
+        'emits [CategoryLoaded with operationError] on failure',
+        build: () {
+          when(mockRepository.reorderCategories(['cat-2', 'cat-1']))
+              .thenAnswer((_) async =>
+                  const Left(ServerFailure('Failed to reorder categories')));
+          return categoryBloc;
+        },
+        seed: () => CategoryLoaded(tCategories),
+        act: (bloc) => bloc.add(const ReorderCategories(['cat-2', 'cat-1'])),
+        expect: () => [
+          CategoryLoaded(tCategories,
+              operationError: 'Failed to reorder categories'),
         ],
       );
     });

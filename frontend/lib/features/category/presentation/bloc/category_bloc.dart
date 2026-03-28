@@ -13,6 +13,7 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
     on<CreateCategory>(_onCreateCategory);
     on<UpdateCategory>(_onUpdateCategory);
     on<DeleteCategory>(_onDeleteCategory);
+    on<ReorderCategories>(_onReorderCategories);
   }
 
   Future<void> _onLoadCategories(
@@ -93,6 +94,37 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
       } else {
         emit(const CategoryError('예기치 않은 오류가 발생했습니다'));
       }
+    }
+  }
+
+  Future<void> _onReorderCategories(
+    ReorderCategories event,
+    Emitter<CategoryState> emit,
+  ) async {
+    final currentCategories =
+        state is CategoryLoaded ? (state as CategoryLoaded).categories : <Category>[];
+    try {
+      final result = await categoryRepository.reorderCategories(event.orderedIds);
+      result.fold(
+        (failure) => emit(CategoryLoaded(currentCategories,
+            operationError: failure.message)),
+        (_) {
+          // Reorder locally to reflect changes immediately
+          final reordered = <Category>[];
+          for (final id in event.orderedIds) {
+            final cat = currentCategories.where((c) => c.id == id).firstOrNull;
+            if (cat != null) reordered.add(cat);
+          }
+          // Add any categories not in the reorder list
+          for (final cat in currentCategories) {
+            if (!event.orderedIds.contains(cat.id)) reordered.add(cat);
+          }
+          emit(CategoryLoaded(reordered));
+        },
+      );
+    } catch (_) {
+      emit(CategoryLoaded(currentCategories,
+          operationError: '예기치 않은 오류가 발생했습니다'));
     }
   }
 

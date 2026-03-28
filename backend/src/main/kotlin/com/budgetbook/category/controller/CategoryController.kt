@@ -3,6 +3,7 @@ package com.budgetbook.category.controller
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.dto.CategoryResponse
 import com.budgetbook.category.dto.CreateCategoryRequest
+import com.budgetbook.category.dto.ReorderCategoryRequest
 import com.budgetbook.category.dto.UpdateCategoryRequest
 import com.budgetbook.category.service.CategoryService
 import com.budgetbook.common.dto.ApiResponse
@@ -48,6 +49,15 @@ class CategoryController(
     ): ResponseEntity<ApiResponse<CategoryResponse>> {
         val result = categoryService.createCategory(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    @PutMapping("/reorder")
+    fun reorderCategories(
+        @AuthUser userId: UUID,
+        @RequestBody request: ReorderCategoryRequest
+    ): ApiResponse<Unit> {
+        categoryService.reorderCategories(userId, request)
+        return ApiResponse.ok()
     }
 
     @PutMapping("/{id}")

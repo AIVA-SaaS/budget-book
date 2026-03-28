@@ -27,4 +27,5 @@ abstract class PaymentMethodRepository {
   Future<Either<Failure, List<CardPending>>> getCardPending(
       int year, int month);
   Future<Either<Failure, CardSettlementSummary>> getCardSettlementSummary();
+  Future<Either<Failure, void>> reorderPaymentMethods(List<String> orderedIds);
 }

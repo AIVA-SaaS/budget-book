@@ -6,6 +6,7 @@ import com.budgetbook.paymentmethod.dto.CardPendingResponse
 import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
+import com.budgetbook.paymentmethod.dto.ReorderPaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.service.PaymentMethodService
 import jakarta.validation.Valid
@@ -40,6 +41,15 @@ class PaymentMethodController(
     ): ResponseEntity<ApiResponse<PaymentMethodResponse>> {
         val result = paymentMethodService.createPaymentMethod(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    @PutMapping("/reorder")
+    fun reorderPaymentMethods(
+        @AuthUser userId: UUID,
+        @RequestBody request: ReorderPaymentMethodRequest
+    ): ApiResponse<Unit> {
+        paymentMethodService.reorderPaymentMethods(userId, request)
+        return ApiResponse.ok()
     }
 
     @PutMapping("/{id}")

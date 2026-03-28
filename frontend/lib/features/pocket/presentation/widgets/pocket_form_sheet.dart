@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 
 class PocketFormSheet extends StatefulWidget {
@@ -238,13 +239,12 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                       )
                     : null,
                 onTap: () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate:
                         _selectedTargetDate ?? DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _selectedTargetDate = picked);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -134,6 +135,20 @@ class _CategoryGroupSelectorSheetState
                     },
                   ),
                 ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.push('/asset-management');
+                      },
+                      child: const Text('순서 관리 >'),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -143,8 +158,10 @@ class _CategoryGroupSelectorSheetState
   }
 
   Widget _buildGroupList(BuildContext context, List<CategoryGroup> groups) {
-    final sharedGroups = groups.where((g) => g.isShared).toList();
-    final privateGroups = groups.where((g) => g.isPrivate).toList();
+    final sharedGroups = groups.where((g) => g.isShared).toList()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    final privateGroups = groups.where((g) => g.isPrivate).toList()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
     // Collect all categories of this type for favorites lookup
     final allCategories = <Category>[];
@@ -222,7 +239,8 @@ class _CategoryGroupSelectorSheetState
         for (final group in sharedGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
-              .toList();
+              .toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
@@ -300,7 +318,8 @@ class _CategoryGroupSelectorSheetState
         for (final group in privateGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
-              .toList();
+              .toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
