@@ -96,6 +96,14 @@
   - [Get Favorites](#1-get-favorites)
   - [Update Favorites](#2-update-favorites)
   - [Toggle Favorite](#3-toggle-favorite)
+- [Spending Plans](#spending-plans)
+  - [List Spending Plans](#1-list-spending-plans)
+  - [Create Spending Plan](#2-create-spending-plan)
+  - [Update Spending Plan](#3-update-spending-plan)
+  - [Delete Spending Plan](#4-delete-spending-plan)
+  - [Complete Spending Plan](#5-complete-spending-plan)
+  - [Skip Spending Plan](#6-skip-spending-plan)
+  - [Spending Plan Suggestions](#7-spending-plan-suggestions)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -3466,6 +3474,363 @@ Returns the updated full favorites list after the toggle.
 
 ---
 
+## Spending Plans
+
+Spending plan management for the couple. A spending plan represents a future intended expense, which can be linked to an actual transaction upon completion. Plans support optional recurrence (`WEEKLY` or `MONTHLY`) and follow the same `SHARED`/`PRIVATE` visibility semantics used by other entities.
+
+---
+
+### 1. List Spending Plans
+
+Returns spending plans for the couple, optionally filtered by date range and status.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `GET`                          |
+| **Path**    | `/api/v1/spending-plans`       |
+| **Auth**    | Required                       |
+
+**Query Parameters**
+
+| Parameter   | Type     | Required | Description                                                            |
+|:------------|:---------|:--------:|:-----------------------------------------------------------------------|
+| `startDate` | `string` | No       | Filter plans with `target_date >= startDate` (`YYYY-MM-DD`)           |
+| `endDate`   | `string` | No       | Filter plans with `target_date <= endDate` (`YYYY-MM-DD`)             |
+| `status`    | `string` | No       | Comma-separated status values: `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE` |
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanListResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "plans": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440400",
+        "name": "봄 옷 구매",
+        "amount": 150000,
+        "targetDate": "2026-03-29",
+        "memo": "백화점 할인 기간",
+        "category": {
+          "id": "550e8400-e29b-41d4-a716-446655440020",
+          "name": "의류",
+          "icon": "👔"
+        },
+        "paymentMethod": {
+          "id": "550e8400-e29b-41d4-a716-446655440010",
+          "name": "현대카드"
+        },
+        "budgetId": null,
+        "linkedTransactionId": null,
+        "status": "PLANNED",
+        "actualAmount": null,
+        "completedDate": null,
+        "isRecurring": false,
+        "frequency": null,
+        "visibility": "SHARED",
+        "authorName": "홍길동",
+        "createdAt": "2026-03-25T10:00:00"
+      }
+    ],
+    "summary": {
+      "totalPlanned": 150000,
+      "totalCompleted": 0,
+      "totalSkipped": 0,
+      "plannedCount": 1,
+      "completedCount": 0,
+      "overdueCount": 0
+    }
+  },
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+**SpendingPlanListResponse Fields**
+
+| Field     | Type                        | Description                              |
+|:----------|:----------------------------|:-----------------------------------------|
+| `plans`   | `SpendingPlanResponse[]`    | List of spending plans                   |
+| `summary` | `SpendingPlanSummary`       | Aggregate totals for the returned plans  |
+
+**SpendingPlanSummary Fields**
+
+| Field            | Type      | Description                                      |
+|:-----------------|:----------|:-------------------------------------------------|
+| `totalPlanned`   | `long`    | Sum of `amount` for plans with status `PLANNED`  |
+| `totalCompleted` | `long`    | Sum of `actualAmount` for `COMPLETED` plans      |
+| `totalSkipped`   | `long`    | Sum of `amount` for plans with status `SKIPPED`  |
+| `plannedCount`   | `integer` | Number of plans with status `PLANNED`            |
+| `completedCount` | `integer` | Number of plans with status `COMPLETED`          |
+| `overdueCount`   | `integer` | Number of plans with status `OVERDUE`            |
+
+**SpendingPlanResponse Fields**
+
+| Field                 | Type               | Description                                                      |
+|:----------------------|:-------------------|:-----------------------------------------------------------------|
+| `id`                  | `UUID`             | Spending plan ID                                                 |
+| `name`                | `string`           | Plan name (max 100 chars)                                        |
+| `amount`              | `long`             | Planned amount in KRW                                            |
+| `targetDate`          | `string`           | Intended spending date (`YYYY-MM-DD`)                            |
+| `memo`                | `string?`          | Optional memo                                                    |
+| `category`            | `CategorySummary?` | Associated category (id, name, icon), or null                    |
+| `paymentMethod`       | `PaymentMethodSummary?` | Associated payment method (id, name), or null               |
+| `budgetId`            | `UUID?`            | Associated monthly budget ID, or null                            |
+| `linkedTransactionId` | `UUID?`            | Transaction linked on completion, or null                        |
+| `status`              | `string`           | One of: `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE`            |
+| `actualAmount`        | `long?`            | Actual amount spent (set on completion), or null                 |
+| `completedDate`       | `string?`          | Date the plan was completed (`YYYY-MM-DD`), or null              |
+| `isRecurring`         | `boolean`          | Whether the plan generates future recurring instances            |
+| `frequency`           | `string?`          | Recurrence frequency: `WEEKLY` or `MONTHLY`, or null            |
+| `visibility`          | `string`           | `SHARED` or `PRIVATE`                                            |
+| `authorName`          | `string`           | Display name of the user who created the plan                    |
+| `createdAt`           | `string`           | ISO-8601 creation timestamp                                      |
+
+---
+
+### 2. Create Spending Plan
+
+Creates a new spending plan for the couple. If `isRecurring` is true, the backend generates the next recurrence instance automatically when this plan is completed or skipped.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `POST`                         |
+| **Path**    | `/api/v1/spending-plans`       |
+| **Auth**    | Required                       |
+
+**Request Body**: `CreateSpendingPlanRequest`
+
+| Field             | Type      | Required | Description                                                       |
+|:------------------|:----------|:--------:|:------------------------------------------------------------------|
+| `name`            | `string`  | Yes      | Plan name (max 100 chars)                                         |
+| `amount`          | `long`    | Yes      | Planned amount in KRW (must be > 0)                               |
+| `targetDate`      | `string`  | Yes      | Intended spending date (`YYYY-MM-DD`)                             |
+| `memo`            | `string?` | No       | Optional memo                                                     |
+| `categoryId`      | `UUID?`   | No       | Category to associate                                             |
+| `paymentMethodId` | `UUID?`   | No       | Payment method to associate                                       |
+| `budgetId`        | `UUID?`   | No       | Monthly budget to associate                                       |
+| `isRecurring`     | `boolean?`| No       | Whether to generate recurring instances (default: `false`)        |
+| `frequency`       | `string?` | No       | Required when `isRecurring` is `true`: `WEEKLY` or `MONTHLY`     |
+| `visibility`      | `string?` | No       | `SHARED` or `PRIVATE` (default: `SHARED`)                        |
+
+**Request Body Example**:
+
+```json
+{
+  "name": "봄 옷 구매",
+  "amount": 150000,
+  "targetDate": "2026-03-29",
+  "memo": "백화점 할인 기간",
+  "categoryId": "550e8400-e29b-41d4-a716-446655440020",
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+  "isRecurring": false,
+  "visibility": "SHARED"
+}
+```
+
+**Response `201 Created`**: `ApiResponse<SpendingPlanResponse>`
+
+**Error Responses**
+
+| Status | Error Code              | Description                                          |
+|:------:|:------------------------|:-----------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`      | Missing required fields or invalid values            |
+| `404`  | `CATEGORY_NOT_FOUND`    | Specified `categoryId` does not exist                |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified `paymentMethodId` does not exist        |
+| `404`  | `BUDGET_NOT_FOUND`      | Specified `budgetId` does not exist                  |
+
+---
+
+### 3. Update Spending Plan
+
+Updates an existing spending plan. All fields are optional; only the provided fields are changed (patch semantics via `PatchValue`).
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `PUT`                              |
+| **Path**    | `/api/v1/spending-plans/{id}`      |
+| **Auth**    | Required                           |
+
+**Path Parameters**
+
+| Parameter | Type   | Description          |
+|:----------|:-------|:---------------------|
+| `id`      | `UUID` | Spending plan ID     |
+
+**Request Body**: `UpdateSpendingPlanRequest` (all fields optional)
+
+| Field             | Type      | Description                                                    |
+|:------------------|:----------|:---------------------------------------------------------------|
+| `name`            | `string?` | Updated plan name (max 100 chars)                              |
+| `amount`          | `long?`   | Updated planned amount in KRW                                  |
+| `targetDate`      | `string?` | Updated target date (`YYYY-MM-DD`)                             |
+| `memo`            | `string?` | Updated memo (pass `null` explicitly to clear)                 |
+| `categoryId`      | `UUID?`   | Updated category (pass `null` explicitly to clear)             |
+| `paymentMethodId` | `UUID?`   | Updated payment method (pass `null` explicitly to clear)       |
+| `budgetId`        | `UUID?`   | Updated budget (pass `null` explicitly to clear)               |
+| `isRecurring`     | `boolean?`| Updated recurrence flag                                        |
+| `frequency`       | `string?` | Updated frequency (`WEEKLY` or `MONTHLY`)                      |
+| `visibility`      | `string?` | Updated visibility (`SHARED` or `PRIVATE`)                     |
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
+
+**Error Responses**
+
+| Status | Error Code                 | Description                                              |
+|:------:|:---------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`         | Invalid field values                                     |
+| `403`  | `PRIVATE_ACCESS_DENIED`    | Plan is `PRIVATE` and caller is not the owner            |
+| `404`  | `SPENDING_PLAN_NOT_FOUND`  | Spending plan does not exist or belongs to another couple |
+| `404`  | `CATEGORY_NOT_FOUND`       | Specified `categoryId` does not exist                    |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified `paymentMethodId` does not exist               |
+
+---
+
+### 4. Delete Spending Plan
+
+Deletes a spending plan. Only the author or either partner (for `SHARED` plans) may delete.
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `DELETE`                           |
+| **Path**    | `/api/v1/spending-plans/{id}`      |
+| **Auth**    | Required                           |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Spending plan ID |
+
+**Response `200 OK`**: `ApiResponse<Unit>`
+
+**Error Responses**
+
+| Status | Error Code                | Description                                               |
+|:------:|:--------------------------|:----------------------------------------------------------|
+| `403`  | `PRIVATE_ACCESS_DENIED`   | Plan is `PRIVATE` and caller is not the owner             |
+| `404`  | `SPENDING_PLAN_NOT_FOUND` | Spending plan does not exist or belongs to another couple |
+
+---
+
+### 5. Complete Spending Plan
+
+Marks a spending plan as `COMPLETED`. Optionally links an existing transaction and records the actual amount spent.
+
+| Item        | Value                                      |
+|:------------|:-------------------------------------------|
+| **Method**  | `PATCH`                                    |
+| **Path**    | `/api/v1/spending-plans/{id}/complete`     |
+| **Auth**    | Required                                   |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Spending plan ID |
+
+**Request Body**: `CompleteSpendingPlanRequest`
+
+| Field                 | Type    | Required | Description                                                                     |
+|:----------------------|:--------|:--------:|:--------------------------------------------------------------------------------|
+| `linkedTransactionId` | `UUID?` | No       | Existing transaction to link to this plan                                       |
+| `actualAmount`        | `long?` | No       | Actual amount spent; defaults to the plan's `amount` if omitted                 |
+
+**Request Body Example**:
+
+```json
+{
+  "linkedTransactionId": "550e8400-e29b-41d4-a716-446655440500",
+  "actualAmount": 143000
+}
+```
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
+
+The returned plan has `status: "COMPLETED"`, `completedDate` set to today, and `actualAmount` populated.
+
+**Error Responses**
+
+| Status | Error Code                | Description                                               |
+|:------:|:--------------------------|:----------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`        | Plan is already completed or skipped                      |
+| `404`  | `SPENDING_PLAN_NOT_FOUND` | Spending plan does not exist or belongs to another couple |
+| `404`  | `TRANSACTION_NOT_FOUND`   | Specified `linkedTransactionId` does not exist            |
+
+---
+
+### 6. Skip Spending Plan
+
+Marks a spending plan as `SKIPPED`. The plan is retained for history but excluded from budget tracking.
+
+| Item        | Value                                   |
+|:------------|:----------------------------------------|
+| **Method**  | `PATCH`                                 |
+| **Path**    | `/api/v1/spending-plans/{id}/skip`      |
+| **Auth**    | Required                                |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Spending plan ID |
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
+
+**Error Responses**
+
+| Status | Error Code                | Description                                               |
+|:------:|:--------------------------|:----------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`        | Plan is already completed or skipped                      |
+| `404`  | `SPENDING_PLAN_NOT_FOUND` | Spending plan does not exist or belongs to another couple |
+
+---
+
+### 7. Spending Plan Suggestions
+
+Returns `PLANNED` spending plans that closely match an incoming transaction (by category and amount proximity), to allow the user to link the transaction to an existing plan at creation time.
+
+| Item        | Value                                   |
+|:------------|:----------------------------------------|
+| **Method**  | `GET`                                   |
+| **Path**    | `/api/v1/spending-plans/suggestions`    |
+| **Auth**    | Required                                |
+
+**Query Parameters**
+
+| Parameter    | Type     | Required | Description                                                    |
+|:-------------|:---------|:--------:|:---------------------------------------------------------------|
+| `categoryId` | `UUID`   | No       | Match plans associated with this category                      |
+| `amount`     | `long`   | No       | Transaction amount used to score plans by amount proximity     |
+| `date`       | `string` | No       | Transaction date (`YYYY-MM-DD`); used to find plans near this date |
+
+**Response `200 OK`**: `ApiResponse<List<SpendingPlanSuggestion>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "planId": "550e8400-e29b-41d4-a716-446655440400",
+      "name": "봄 옷 구매",
+      "plannedAmount": 150000,
+      "matchScore": 0.93
+    }
+  ],
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+**SpendingPlanSuggestion Fields**
+
+| Field           | Type     | Description                                                          |
+|:----------------|:---------|:---------------------------------------------------------------------|
+| `planId`        | `UUID`   | Spending plan ID                                                     |
+| `name`          | `string` | Plan name                                                            |
+| `plannedAmount` | `long`   | Original planned amount in KRW                                       |
+| `matchScore`    | `double` | Relevance score between 0.0 and 1.0 (higher = better match); sorted descending |
+
+---
+
 ## Infrastructure
 
 Health and observability endpoints. Both are publicly accessible (`permitAll()` in `SecurityConfig`) and require no authentication.
@@ -3695,3 +4060,4 @@ spring:
 | `LINKED_BANK_NOT_FOUND`           | `404`       | Specified linkedBankId does not exist or is not BANK type |
 | `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |
 | `INSURANCE_NOT_FOUND`             | `404`       | Requested insurance does not exist or belongs to another couple |
+| `SPENDING_PLAN_NOT_FOUND`         | `404`       | Requested spending plan does not exist or belongs to another couple |
