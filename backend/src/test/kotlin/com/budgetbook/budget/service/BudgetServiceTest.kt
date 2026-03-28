@@ -686,9 +686,11 @@ class BudgetServiceTest : BehaviorSpec({
                 monthly.spentAmount shouldBe 80000
                 val weekly = result.items.find { it.groupId != null }!!
                 weekly.groupName shouldBe "생활비"
-                weekly.budgetAmount shouldBe 200000
+                // WEEKLY pro-rata: weeklyAmount(50000) * 31 days / 7 = 221428
+                weekly.budgetAmount shouldBe 221428
                 weekly.spentAmount shouldBe 40000
-                result.totalBudget shouldBe 500000
+                // totalBudget = monthly(300000) + weekly pro-rata(221428)
+                result.totalBudget shouldBe 521428
                 // No total budget entry → totalSpent = sum of items, not all expenses
                 result.totalSpent shouldBe 120000
             }

@@ -42,6 +42,7 @@ class MonthNavigator extends StatelessWidget {
                 initialDate: DateTime(year, month),
                 firstDate: DateTime(2020),
                 lastDate: DateTime(2030, 12, 31),
+                initialEntryMode: DatePickerEntryMode.calendarOnly,
               );
               if (picked != null && context.mounted) {
                 onMonthChanged((year: picked.year, month: picked.month));

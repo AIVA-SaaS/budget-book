@@ -19,6 +19,12 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 
 class MainShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -36,6 +42,14 @@ class _MainShellPageState extends State<MainShellPage> {
   void initState() {
     super.initState();
     _connectWebSocketIfAuthenticated();
+    _preloadCommonData();
+  }
+
+  void _preloadCommonData() {
+    // Pre-load categories, payment methods, and favorites so selectors open instantly
+    getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+    getIt<FavoritesBloc>().add(const LoadFavorites());
   }
 
   Future<void> _connectWebSocketIfAuthenticated() async {
