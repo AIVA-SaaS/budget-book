@@ -2,11 +2,13 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_author.dart';
@@ -27,6 +29,7 @@ void main() {
   late MockBudgetRepository mockBudgetRepo;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockStatisticsRepo = MockStatisticsRepository();
     mockTransactionRepo = MockTransactionRepository();
     mockBudgetRepo = MockBudgetRepository();
@@ -84,6 +87,10 @@ void main() {
             )).thenAnswer((_) async => Right(testPageResponse));
         when(() => mockBudgetRepo.getBudgetSummary(year: 2026, month: 3))
             .thenAnswer((_) async => const Right(testBudgetSummary));
+        when(() => mockStatisticsRepo.getPaymentMethodStats(
+              year: 2026, month: 3))
+            .thenAnswer(
+                (_) async => const Right(<PaymentMethodStatistics>[]));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -118,6 +125,10 @@ void main() {
         when(() => mockBudgetRepo.getBudgetSummary(year: 2026, month: 3))
             .thenAnswer(
                 (_) async => const Left(ServerFailure('budget error')));
+        when(() => mockStatisticsRepo.getPaymentMethodStats(
+              year: 2026, month: 3))
+            .thenAnswer(
+                (_) async => const Left(ServerFailure('pm stats error')));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -138,7 +149,7 @@ void main() {
     );
 
     blocTest<DashboardBloc, DashboardState>(
-      'loads all three APIs in parallel (Future.wait)',
+      'loads all four APIs in parallel (Future.wait)',
       build: () {
         when(() => mockStatisticsRepo.getSummary(year: 2026, month: 3))
             .thenAnswer((_) async => const Right(testSummary));
@@ -149,6 +160,10 @@ void main() {
             )).thenAnswer((_) async => Right(testPageResponse));
         when(() => mockBudgetRepo.getBudgetSummary(year: 2026, month: 3))
             .thenAnswer((_) async => const Right(testBudgetSummary));
+        when(() => mockStatisticsRepo.getPaymentMethodStats(
+              year: 2026, month: 3))
+            .thenAnswer(
+                (_) async => const Right(<PaymentMethodStatistics>[]));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -167,6 +182,9 @@ void main() {
             )).called(1);
         verify(() =>
                 mockBudgetRepo.getBudgetSummary(year: 2026, month: 3))
+            .called(1);
+        verify(() => mockStatisticsRepo.getPaymentMethodStats(
+              year: 2026, month: 3))
             .called(1);
       },
     );
