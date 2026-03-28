@@ -103,47 +103,35 @@ jobs:
       - name: Build Web
         run: flutter build web --release --dart-define=API_BASE_URL=https://aiva-bb.duckdns.org
 
-      - name: Deploy to NAS via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          BUILD_PATH: frontend/build/web
-        with:
-          host: ${{ secrets.NAS_HOST }}
-          username: ${{ secrets.NAS_USERNAME }}
-          key: ${{ secrets.NAS_SSH_KEY }}
-          port: ${{ secrets.NAS_SSH_PORT }}
-          script: |
-            echo "=== Preparing web directory ==="
-            sudo rm -rf /var/services/web_bb/*
-            sudo chown -R admin:users /var/services/web_bb
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/nas_key
+          chmod 600 ~/.ssh/nas_key
+          ssh-keyscan -p ${{ secrets.NAS_SSH_PORT }} ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Copy build to NAS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.NAS_HOST }}
-          username: ${{ secrets.NAS_USERNAME }}
-          key: ${{ secrets.NAS_SSH_KEY }}
-          port: ${{ secrets.NAS_SSH_PORT }}
-          source: "frontend/build/web/*"
-          target: "/var/services/web_bb"
-          strip_components: 3
+      - name: Package and deploy to NAS
+        run: |
+          cd build/web
+          tar czf /tmp/bb-web.tar.gz .
 
-      - name: Verify deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.NAS_HOST }}
-          username: ${{ secrets.NAS_USERNAME }}
-          key: ${{ secrets.NAS_SSH_KEY }}
-          port: ${{ secrets.NAS_SSH_PORT }}
-          script: |
-            sudo chown -R admin:users /var/services/web_bb
-            if [ -f /var/services/web_bb/index.html ]; then
-              echo "Frontend deployed successfully!"
-              ls -la /var/services/web_bb/ | head -10
-            else
-              echo "FAILED: index.html not found"
-              exit 1
-            fi
+          echo "=== Uploading build ==="
+          scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
+            /tmp/bb-web.tar.gz ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/bb-web.tar.gz
+
+          echo "=== Extracting on NAS ==="
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            "sudo rm -rf /var/services/web_bb/* && \
+             cd /var/services/web_bb && \
+             sudo tar xzf /tmp/bb-web.tar.gz && \
+             sudo chown -R admin:users /var/services/web_bb && \
+             rm /tmp/bb-web.tar.gz"
+
+          echo "=== Verifying ==="
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            "test -f /var/services/web_bb/index.html && echo 'Frontend deployed successfully!' || (echo 'FAILED: index.html not found' && exit 1)"
 
   verify:
     needs: [deploy-backend, deploy-frontend]
