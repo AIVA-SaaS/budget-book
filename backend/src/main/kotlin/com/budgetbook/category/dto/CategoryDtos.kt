@@ -42,3 +42,7 @@ data class UpdateCategoryRequest(
     val groupId: UUID? = null,
     val visibility: String? = null
 )
+
+data class ReorderCategoryRequest(
+    val orderedIds: List<UUID>
+)

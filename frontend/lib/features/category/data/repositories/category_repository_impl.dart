@@ -148,4 +148,16 @@ class CategoryRepositoryImpl implements CategoryRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> reorderCategories(List<String> orderedIds) async {
+    try {
+      await remoteDataSource.reorderCategories(orderedIds);
+      await cacheService?.removeCachedData(_cacheKey);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to reorder categories'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to reorder categories'));
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 
 class PocketTransferFormSheet extends StatefulWidget {
@@ -164,12 +165,11 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
               // Date
               InkWell(
                 onTap: () async {
-                  final picked = await showDatePicker(
+                  final picked = await showCalendarPickerDialog(
                     context: context,
                     initialDate: _selectedDate,
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030, 12, 31),
-                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _selectedDate = picked);

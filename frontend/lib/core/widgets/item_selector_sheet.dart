@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
@@ -12,6 +13,7 @@ class SelectorItem {
   final IconData? leadingIcon;
   final Color? leadingColor;
   final bool isDeletable;
+  final int displayOrder;
 
   const SelectorItem({
     required this.id,
@@ -20,6 +22,7 @@ class SelectorItem {
     this.leadingIcon,
     this.leadingColor,
     this.isDeletable = true,
+    this.displayOrder = 0,
   });
 }
 
@@ -39,6 +42,9 @@ class ItemSelectorSheet extends StatelessWidget {
   /// Set to 'PAYMENT_METHOD' for payment method selectors, or null to disable favorites.
   final String? favoriteType;
 
+  /// Route to navigate for reorder management. If set, shows a "순서 관리" link at the bottom.
+  final String? reorderRoute;
+
   const ItemSelectorSheet({
     super.key,
     required this.title,
@@ -52,10 +58,15 @@ class ItemSelectorSheet extends StatelessWidget {
     this.allowNull = true,
     this.nullLabel = '선택 안 함',
     this.favoriteType,
+    this.reorderRoute,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Sort items by displayOrder
+    final sortedItems = List<SelectorItem>.from(items)
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
     return BlocProvider<FavoritesBloc>.value(
       value: getIt<FavoritesBloc>(),
       child: Dialog(
@@ -100,7 +111,7 @@ class ItemSelectorSheet extends StatelessWidget {
                   builder: (context, favState) {
                     final favIds = _getFavoriteIds(favState);
                     final favoriteItems = favoriteType != null
-                        ? items.where((item) => favIds.contains(item.id)).toList()
+                        ? sortedItems.where((item) => favIds.contains(item.id)).toList()
                         : <SelectorItem>[];
 
                     return ListView(
@@ -162,7 +173,7 @@ class ItemSelectorSheet extends StatelessWidget {
                             },
                           ),
                         // Items
-                        if (items.isEmpty && emptyLabel != null)
+                        if (sortedItems.isEmpty && emptyLabel != null)
                           Padding(
                             padding: const EdgeInsets.all(24),
                             child: Center(
@@ -177,7 +188,7 @@ class ItemSelectorSheet extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ...items.map((item) => _buildItemTile(context, item, favIds)),
+                        ...sortedItems.map((item) => _buildItemTile(context, item, favIds)),
                         // Create option
                         if (onCreate != null) ...[
                           const Divider(height: 1),
@@ -211,6 +222,23 @@ class ItemSelectorSheet extends StatelessWidget {
                   },
                 ),
               ),
+              // Reorder management link
+              if (reorderRoute != null) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.push(reorderRoute!);
+                      },
+                      child: const Text('순서 관리 >'),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

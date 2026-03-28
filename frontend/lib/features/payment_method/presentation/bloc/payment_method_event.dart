@@ -78,3 +78,12 @@ class LoadCardPending extends PaymentMethodEvent {
 class LoadCardSettlementSummary extends PaymentMethodEvent {
   const LoadCardSettlementSummary();
 }
+
+class ReorderPaymentMethods extends PaymentMethodEvent {
+  final List<String> orderedIds;
+
+  const ReorderPaymentMethods(this.orderedIds);
+
+  @override
+  List<Object?> get props => [orderedIds];
+}
