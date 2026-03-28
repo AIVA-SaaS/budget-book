@@ -65,6 +65,10 @@ import 'package:budget_book/features/insurance/data/datasources/insurance_remote
 import 'package:budget_book/features/insurance/data/repositories/insurance_repository_impl.dart';
 import 'package:budget_book/features/insurance/domain/repositories/insurance_repository.dart';
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.dart';
+import 'package:budget_book/features/spending_plan/data/datasources/spending_plan_remote_datasource.dart';
+import 'package:budget_book/features/spending_plan/data/repositories/spending_plan_repository_impl.dart';
+import 'package:budget_book/features/spending_plan/domain/repositories/spending_plan_repository.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
 import 'package:budget_book/features/preference/data/datasources/preference_remote_datasource.dart';
 import 'package:budget_book/features/preference/data/repositories/preference_repository_impl.dart';
 import 'package:budget_book/features/preference/domain/repositories/preference_repository.dart';
@@ -300,6 +304,20 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<InsuranceBloc>(
     () => InsuranceBloc(
         insuranceRepository: getIt<InsuranceRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Spending Plan feature
+  getIt.registerLazySingleton<SpendingPlanRemoteDataSource>(
+    () => SpendingPlanRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<SpendingPlanRepository>(
+    () => SpendingPlanRepositoryImpl(
+        remoteDataSource: getIt<SpendingPlanRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<SpendingPlanBloc>(
+    () => SpendingPlanBloc(
+        spendingPlanRepository: getIt<SpendingPlanRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 
