@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
+import 'package:budget_book/features/home/data/home_config_service.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -16,60 +18,64 @@ import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/widgets/account_balance_card.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
-  void _showAddMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.red.withValues(alpha: 0.15),
-                child: const Icon(Icons.arrow_downward, color: Colors.red),
-              ),
-              title: const Text('지출'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                context.push('/transactions/create?type=EXPENSE');
-              },
-            ),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.green.withValues(alpha: 0.15),
-                child: const Icon(Icons.arrow_upward, color: Colors.green),
-              ),
-              title: const Text('수입'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                context.push('/transactions/create?type=INCOME');
-              },
-            ),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.withValues(alpha: 0.15),
-                child: const Icon(Icons.swap_horiz, color: Colors.blue),
-              ),
-              title: const Text('이체'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                context.push('/transfers/create');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  List<DashboardWidgetConfig> _widgetConfigs = [];
+  final _configService = HomeConfigService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWidgetConfig();
+  }
+
+  Future<void> _loadWidgetConfig() async {
+    final configs = await _configService.loadConfig();
+    configs.sort((a, b) => a.order.compareTo(b.order));
+    if (mounted) {
+      setState(() => _widgetConfigs = configs);
+    }
+  }
+
+  /// Builds the widget card matching [id] using the given dashboard [state].
+  /// Returns null when the widget should be skipped (e.g. no data).
+  Widget? _buildWidgetById(String id, DashboardLoaded state) {
+    switch (id) {
+      case 'monthly_summary':
+        return _SummaryCard(state: state);
+      case 'budget_usage':
+        if (state.budgetSummary == null) return null;
+        return _BudgetUsageCard(budgetSummary: state.budgetSummary!);
+      case 'recent_transactions':
+        return _RecentTransactionsCard(
+          transactions: state.recentTransactions,
+          error: state.transactionsError,
+        );
+      case 'payment_breakdown':
+        if (state.paymentMethodStats.isEmpty) return null;
+        return _PaymentMethodStatsCard(stats: state.paymentMethodStats);
+      case 'asset_balance':
+        return const AccountBalanceCard();
+      case 'private_summary':
+        return _PrivateSummaryCard(
+          recentTransactions: state.recentTransactions,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddMenu(context),
+        onPressed: () => context.push('/transactions/create'),
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),
@@ -102,50 +108,39 @@ class DashboardPage extends StatelessWidget {
           }
 
           if (state is DashboardLoaded) {
+            // Build configurable widget list based on saved order/visibility
+            final enabledWidgets = <Widget>[];
+            for (final config
+                in _widgetConfigs.where((c) => c.enabled)) {
+              final widget = _buildWidgetById(config.id, state);
+              if (widget != null) {
+                if (enabledWidgets.isNotEmpty) {
+                  enabledWidgets.add(const SizedBox(height: 16));
+                }
+                enabledWidgets.add(widget);
+              }
+            }
+
             return RefreshIndicator(
               onRefresh: () async {
                 context.read<DashboardBloc>().add(
                       LoadDashboard(year: state.year, month: state.month),
                     );
+                // Reload widget config in case user changed it
+                await _loadWidgetConfig();
               },
               child: ListView(
                 key: const PageStorageKey('dashboard_list'),
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Announcement banner
+                  // Fixed elements (not configurable)
                   const AnnouncementBanner(),
-                  // Month/Year header with navigation
                   _MonthHeader(year: state.year, month: state.month),
                   const SizedBox(height: 16),
-                  // Quick action buttons
                   const _QuickActions(),
                   const SizedBox(height: 16),
-                  // Summary card
-                  _SummaryCard(state: state),
-                  const SizedBox(height: 16),
-                  // Private summary card
-                  _PrivateSummaryCard(
-                    recentTransactions: state.recentTransactions,
-                  ),
-                  const SizedBox(height: 16),
-                  // Account balance summary
-                  const AccountBalanceCard(),
-                  const SizedBox(height: 16),
-                  // Budget usage card
-                  if (state.budgetSummary != null)
-                    _BudgetUsageCard(budgetSummary: state.budgetSummary!),
-                  if (state.budgetSummary != null) const SizedBox(height: 16),
-                  // Recent transactions
-                  _RecentTransactionsCard(
-                    transactions: state.recentTransactions,
-                    error: state.transactionsError,
-                  ),
-                  const SizedBox(height: 16),
-                  // Payment method spending breakdown
-                  if (state.paymentMethodStats.isNotEmpty)
-                    _PaymentMethodStatsCard(
-                      stats: state.paymentMethodStats,
-                    ),
+                  // Dynamic configurable widgets
+                  ...enabledWidgets,
                 ],
               ),
             );
@@ -226,19 +221,19 @@ class _QuickActions extends StatelessWidget {
           icon: Icons.arrow_downward,
           label: '지출',
           color: Colors.red,
-          onTap: () => context.push('/transactions/create?type=EXPENSE'),
+          onTap: () => context.push('/transactions/create'),
         ),
         _QuickActionButton(
           icon: Icons.arrow_upward,
           label: '수입',
           color: Colors.blue,
-          onTap: () => context.push('/transactions/create?type=INCOME'),
+          onTap: () => context.push('/transactions/create?tab=income'),
         ),
         _QuickActionButton(
           icon: Icons.swap_horiz,
           label: '이체',
           color: Colors.teal,
-          onTap: () => context.push('/transfers/create'),
+          onTap: () => context.push('/transactions/create?tab=transfer'),
         ),
         _QuickActionButton(
           icon: Icons.bar_chart,

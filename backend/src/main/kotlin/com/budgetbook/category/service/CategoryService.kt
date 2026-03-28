@@ -6,6 +6,7 @@ import com.budgetbook.category.domain.Category
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.dto.CategoryResponse
 import com.budgetbook.category.dto.CreateCategoryRequest
+import com.budgetbook.category.dto.ReorderCategoryRequest
 import com.budgetbook.category.dto.UpdateCategoryRequest
 import com.budgetbook.category.repository.CategoryGroupRepository
 import com.budgetbook.category.repository.CategoryRepository
@@ -165,6 +166,36 @@ class CategoryService(
         ))
         evictCategoryCache(couple.id)
         return saved.toResponse()
+    }
+
+    @Transactional
+    fun reorderCategories(userId: UUID, request: ReorderCategoryRequest) {
+        val couple = getActiveCouple(userId)
+        val categories = categoryRepository.findByCoupleId(couple.id)
+        val categoryMap = categories.associateBy { it.id }
+
+        // Validate all IDs belong to this couple
+        request.orderedIds.forEach { id ->
+            if (!categoryMap.containsKey(id)) {
+                throw NotFoundException("CATEGORY_NOT_FOUND", "Category $id does not exist for this couple.")
+            }
+        }
+
+        // Set displayOrder based on orderedIds position
+        request.orderedIds.forEachIndexed { index, id ->
+            categoryMap[id]!!.displayOrder = index
+        }
+
+        categoryRepository.saveAll(categories.filter { it.id in request.orderedIds })
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "CATEGORY_REORDERED",
+            entityType = "CATEGORY",
+            entityId = couple.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        evictCategoryCache(couple.id)
     }
 
     @Transactional

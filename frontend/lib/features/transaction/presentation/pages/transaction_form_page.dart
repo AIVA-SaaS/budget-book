@@ -11,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
@@ -35,6 +36,9 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
 
 class TransactionFormPage extends StatefulWidget {
   /// If editing, pass the transaction ID (from URL path parameter).
@@ -57,6 +61,10 @@ class TransactionFormPage extends StatefulWidget {
   /// Used when adding a transaction from a filtered payment method view.
   final String? initialPaymentMethodId;
 
+  /// Optional initial tab: 'expense' (0), 'income' (1), 'transfer' (2).
+  /// Determines which tab is shown on page load.
+  final String? initialTab;
+
   const TransactionFormPage({
     super.key,
     this.transactionId,
@@ -64,13 +72,15 @@ class TransactionFormPage extends StatefulWidget {
     this.copyFrom,
     this.initialDate,
     this.initialPaymentMethodId,
+    this.initialTab,
   });
 
   @override
   State<TransactionFormPage> createState() => _TransactionFormPageState();
 }
 
-class _TransactionFormPageState extends State<TransactionFormPage> {
+class _TransactionFormPageState extends State<TransactionFormPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   String _amountHint = '';
@@ -99,21 +109,70 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   final FocusNode _paymentMethodFocusNode = FocusNode();
   final FocusNode _pocketFocusNode = FocusNode();
 
+  // Tab controller for expense/income/transfer tabs
+  late final TabController _tabController;
+
+  // Transfer form fields (used when tab index == 2)
+  final _transferFormKey = GlobalKey<FormState>();
+  late final TextEditingController _transferAmountController;
+  late final TextEditingController _transferDescriptionController;
+  late final TextEditingController _transferMemoController;
+  String? _transferSourcePaymentMethodId;
+  String? _transferDestinationPaymentMethodId;
+  late DateTime _transferDate;
+  bool _isTransferSubmitting = false;
+  int _swapCounter = 0;
 
   bool get isEditing => widget.transactionId != null;
+
+  int _resolveInitialTabIndex() {
+    // When editing, determine tab from transaction type (no transfer tab for edit)
+    if (isEditing) {
+      if (widget.initialType == 'INCOME') return 1;
+      return 0;
+    }
+    // From initialTab query parameter
+    switch (widget.initialTab) {
+      case 'income':
+        return 1;
+      case 'transfer':
+        return 2;
+      case 'expense':
+      default:
+        // Also check initialType for backward compatibility
+        if (widget.initialType == 'INCOME') return 1;
+        return 0;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize tab controller (hide transfer tab when editing)
+    final initialIndex = _resolveInitialTabIndex();
+    _tabController = TabController(
+      length: isEditing ? 2 : 3,
+      vsync: this,
+      initialIndex: isEditing ? initialIndex.clamp(0, 1) : initialIndex,
+    );
+    _tabController.addListener(_onTabChanged);
+
     _amountController = TextEditingController();
     _amountController.addListener(_updateAmountHint);
     _descriptionController = TextEditingController();
     _descriptionController.addListener(_onDescriptionChanged);
     _memoController = TextEditingController();
-    _selectedType = (widget.initialType == 'INCOME' || widget.initialType == 'EXPENSE')
-        ? widget.initialType!
+    _selectedType = (initialIndex == 1 || widget.initialType == 'INCOME')
+        ? 'INCOME'
         : 'EXPENSE';
     _selectedDate = widget.initialDate ?? DateTime.now();
+
+    // Initialize transfer form controllers
+    _transferAmountController = TextEditingController();
+    _transferDescriptionController = TextEditingController();
+    _transferMemoController = TextEditingController();
+    _transferDate = widget.initialDate ?? DateTime.now();
 
     if (isEditing) {
       _isLoadingTransaction = true;
@@ -130,6 +189,23 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
       _selectedPocketId = src.pocketId;
     } else {
       _loadDefaultPaymentMethod();
+    }
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {
+        if (_tabController.index == 0) {
+          _selectedType = 'EXPENSE';
+          _selectedCategoryId = null;
+          _selectedCategoryDisplayName = null;
+        } else if (_tabController.index == 1) {
+          _selectedType = 'INCOME';
+          _selectedCategoryId = null;
+          _selectedCategoryDisplayName = null;
+        }
+        // Tab 2 (transfer) doesn't change _selectedType
+      });
     }
   }
 
@@ -270,11 +346,16 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     _descriptionController.removeListener(_onDescriptionChanged);
     _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
     _descriptionController.dispose();
     _memoController.dispose();
+    _transferAmountController.dispose();
+    _transferDescriptionController.dispose();
+    _transferMemoController.dispose();
     _categoryFocusNode.dispose();
     _paymentMethodFocusNode.dispose();
     _pocketFocusNode.dispose();
@@ -300,86 +381,98 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
               onPressed: _isSubmitting ? null : () => _confirmDelete(context),
             ),
         ],
-      ),
-      body: BlocListener<TransactionBloc, TransactionState>(
-        listener: (context, state) {
-          if (state is TransactionLoaded) {
-            final now = DateTime.now();
-            getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
-            if (_continueMode) {
-              _resetFormForContinue();
-            } else if (isEditing) {
-              // After editing, go directly to transactions list
-              // to avoid stale edit page in browser history
-              context.go('/transactions');
-            } else {
-              context.pop();
-            }
-          } else if (state is TransactionError) {
-            setState(() => _isSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          }
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: FocusTraversalGroup(
-            policy: OrderedTraversalPolicy(),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Type toggle
-                  if (isEditing)
-                    ListTile(
-                      leading: Icon(
-                        _selectedType == 'INCOME'
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                        color: _selectedType == 'INCOME'
-                            ? Colors.green
-                            : Colors.red,
-                      ),
-                      title: Text(
-                          _selectedType == 'INCOME' ? '수입' : '지출'),
-                      subtitle: const Text('유형은 수정할 수 없습니다'),
-                      tileColor: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    )
-                  else
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(
-                          value: 'EXPENSE',
-                          label: Text('지출'),
-                          icon: Icon(Icons.arrow_downward),
+        bottom: isEditing
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _selectedType == 'INCOME'
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: _selectedType == 'INCOME'
+                              ? Colors.green
+                              : Colors.red,
+                          size: 20,
                         ),
-                        ButtonSegment(
-                          value: 'INCOME',
-                          label: Text('수입'),
-                          icon: Icon(Icons.arrow_upward),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_selectedType == 'INCOME' ? '수입' : '지출'} (유형 수정 불가)',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.7),
+                              ),
                         ),
                       ],
-                      selected: {_selectedType},
-                      onSelectionChanged: (value) {
-                        setState(() {
-                          _selectedType = value.first;
-                          _selectedCategoryId = null;
-                          _selectedCategoryDisplayName = null;
-                        });
-                      },
                     ),
-                  const SizedBox(height: 24),
+                  ),
+                ),
+              )
+            : TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
+                  Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
+                  Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
+                ],
+              ),
+      ),
+      body: isEditing
+          ? _buildTransactionFormBody(context)
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 0: Expense form
+                _buildTransactionFormBody(context),
+                // Tab 1: Income form
+                _buildTransactionFormBody(context),
+                // Tab 2: Transfer form (embedded)
+                _buildTransferFormBody(context),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildTransactionFormBody(BuildContext context) {
+    return BlocListener<TransactionBloc, TransactionState>(
+      listener: (context, state) {
+        if (state is TransactionLoaded) {
+          final now = DateTime.now();
+          getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+          if (_continueMode) {
+            _resetFormForContinue();
+          } else if (isEditing) {
+            // After editing, go directly to transactions list
+            // to avoid stale edit page in browser history
+            context.go('/transactions');
+          } else {
+            context.pop();
+          }
+        } else if (state is TransactionError) {
+          setState(() => _isSubmitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                   // Date picker
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(0),
@@ -564,6 +657,300 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
               ),
             ),
           ),
+        ),
+    );
+  }
+
+  // ----- Embedded Transfer Form (Tab 2) -----
+
+  Future<void> _selectTransferDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _transferDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      locale: const Locale('ko'),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+    );
+    if (picked != null) {
+      setState(() => _transferDate = picked);
+    }
+  }
+
+  void _submitTransfer() {
+    if (!_transferFormKey.currentState!.validate()) return;
+    if (_transferSourcePaymentMethodId == null ||
+        _transferDestinationPaymentMethodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('출금/입금 결제수단을 모두 선택해주세요')),
+      );
+      return;
+    }
+    if (_transferSourcePaymentMethodId == _transferDestinationPaymentMethodId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('출금/입금 결제수단이 같을 수 없습니다')),
+      );
+      return;
+    }
+
+    // Block CREDIT to CREDIT transfers
+    final pmState = getIt<PaymentMethodBloc>().state;
+    if (pmState is PaymentMethodLoaded) {
+      final source = pmState.activePaymentMethods
+          .where((pm) => pm.id == _transferSourcePaymentMethodId)
+          .firstOrNull;
+      final dest = pmState.activePaymentMethods
+          .where((pm) => pm.id == _transferDestinationPaymentMethodId)
+          .firstOrNull;
+      if (source != null && dest != null && source.isCredit && dest.isCredit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('카드 간 이체는 지원하지 않습니다')),
+        );
+        return;
+      }
+    }
+
+    final amount = CurrencyFormatter.parse(_transferAmountController.text);
+    if (amount == null || amount <= 0) return;
+
+    final description = _transferDescriptionController.text.trim().isEmpty
+        ? null
+        : _transferDescriptionController.text.trim();
+    final memo = _transferMemoController.text.trim().isEmpty
+        ? null
+        : _transferMemoController.text.trim();
+    final dateStr = DateFormat('yyyy-MM-dd').format(_transferDate);
+
+    setState(() => _isTransferSubmitting = true);
+
+    final bloc = context.read<TransferBloc>();
+    bloc.add(CreateTransfer(
+      sourcePaymentMethodId: _transferSourcePaymentMethodId!,
+      destinationPaymentMethodId: _transferDestinationPaymentMethodId!,
+      amount: amount,
+      description: description,
+      transferDate: dateStr,
+      memo: memo,
+    ));
+  }
+
+  Widget _buildTransferFormBody(BuildContext context) {
+    return BlocListener<TransferBloc, TransferState>(
+      listener: (context, state) {
+        if (state is TransferLoaded && _isTransferSubmitting) {
+          if (state.operationError != null) {
+            setState(() => _isTransferSubmitting = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.operationError!),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          } else {
+            final now = DateTime.now();
+            getIt<DashboardBloc>()
+                .add(LoadDashboard(year: now.year, month: now.month));
+            context.pop();
+          }
+        } else if (state is TransferError && _isTransferSubmitting) {
+          setState(() => _isTransferSubmitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      },
+      child: _buildTransferFormContent(context),
+    );
+  }
+
+  Widget _buildTransferFormContent(BuildContext context) {
+    final pmState = getIt<PaymentMethodBloc>().state;
+    final methods = pmState is PaymentMethodLoaded
+        ? pmState.activePaymentMethods
+        : <PaymentMethod>[];
+
+    final selectedDest = methods
+        .where((pm) => pm.id == _transferDestinationPaymentMethodId)
+        .firstOrNull;
+    final selectedSource = methods
+        .where((pm) => pm.id == _transferSourcePaymentMethodId)
+        .firstOrNull;
+    final destIsCredit = selectedDest?.isCredit ?? false;
+    final sourceIsCredit = selectedSource?.isCredit ?? false;
+
+    final sourceMethods = destIsCredit
+        ? methods.where((pm) => !pm.isCredit).toList()
+        : methods;
+    final destMethods = methods
+        .where((pm) => pm.id != _transferSourcePaymentMethodId)
+        .where((pm) => !sourceIsCredit || !pm.isCredit)
+        .toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _transferFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Source payment method
+            DropdownButtonFormField<String>(
+              key: ValueKey('transfer_source_$_swapCounter'),
+              initialValue: _transferSourcePaymentMethodId,
+              decoration: const InputDecoration(
+                labelText: '출금 결제수단',
+                prefixIcon: Icon(Icons.account_balance_wallet),
+              ),
+              isExpanded: true,
+              items: sourceMethods
+                  .map((pm) => DropdownMenuItem(
+                        value: pm.id,
+                        child: Text(pm.name),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _transferSourcePaymentMethodId = value;
+                  final newSource =
+                      methods.where((pm) => pm.id == value).firstOrNull;
+                  if (newSource?.isCredit == true &&
+                      selectedDest?.isCredit == true) {
+                    _transferDestinationPaymentMethodId = null;
+                  }
+                });
+              },
+              validator: (value) =>
+                  value == null ? '출금 결제수단을 선택하세요' : null,
+            ),
+            const SizedBox(height: 8),
+            // Swap button
+            Center(
+              child: IconButton(
+                onPressed: () {
+                  final wouldSwapSourceBeCredit =
+                      selectedDest?.isCredit ?? false;
+                  final wouldSwapDestBeCredit =
+                      selectedSource?.isCredit ?? false;
+                  if (wouldSwapSourceBeCredit && wouldSwapDestBeCredit) return;
+                  setState(() {
+                    final temp = _transferSourcePaymentMethodId;
+                    _transferSourcePaymentMethodId =
+                        _transferDestinationPaymentMethodId;
+                    _transferDestinationPaymentMethodId = temp;
+                    _swapCounter++;
+                  });
+                },
+                icon: const Icon(Icons.swap_vert),
+                tooltip: '출금/입금 교환',
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Destination payment method
+            DropdownButtonFormField<String>(
+              key: ValueKey('transfer_dest_$_swapCounter'),
+              initialValue: _transferDestinationPaymentMethodId,
+              decoration: const InputDecoration(
+                labelText: '입금 결제수단',
+                prefixIcon: Icon(Icons.account_balance),
+              ),
+              isExpanded: true,
+              items: destMethods
+                  .map((pm) => DropdownMenuItem(
+                        value: pm.id,
+                        child: Text(pm.name),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _transferDestinationPaymentMethodId = value;
+                  final newDest =
+                      methods.where((pm) => pm.id == value).firstOrNull;
+                  if (newDest?.isCredit == true &&
+                      selectedSource?.isCredit == true) {
+                    _transferSourcePaymentMethodId = null;
+                    _swapCounter++;
+                  }
+                });
+              },
+              validator: (value) =>
+                  value == null ? '입금 결제수단을 선택하세요' : null,
+            ),
+            const SizedBox(height: 16),
+            // Amount
+            TextFormField(
+              controller: _transferAmountController,
+              decoration: const InputDecoration(
+                labelText: '금액',
+                prefixIcon: Icon(Icons.attach_money),
+                suffixText: '원',
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                CurrencyInputFormatter(),
+              ],
+              validator: (value) {
+                if (value == null || value.isEmpty) return '금액을 입력하세요';
+                final amount = CurrencyFormatter.parse(value);
+                if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+                if (amount > 999999999) {
+                  return '최대 999,999,999원까지 입력 가능합니다';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            // Date
+            InkWell(
+              onTap: _selectTransferDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '이체일',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  DateFormat('yyyy년 M월 d일 (E)', 'ko')
+                      .format(_transferDate),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Description
+            TextFormField(
+              controller: _transferDescriptionController,
+              decoration: const InputDecoration(
+                labelText: '설명 (선택)',
+                prefixIcon: Icon(Icons.description),
+                hintText: '예: ATM 출금',
+              ),
+              maxLength: 255,
+            ),
+            const SizedBox(height: 8),
+            // Memo
+            TextFormField(
+              controller: _transferMemoController,
+              decoration: const InputDecoration(
+                labelText: '메모 (선택)',
+                prefixIcon: Icon(Icons.notes),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 24),
+            // Submit button
+            FilledButton(
+              onPressed: _isTransferSubmitting ? null : _submitTransfer,
+              child: _isTransferSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('저장'),
+            ),
+          ],
         ),
       ),
     );
@@ -889,11 +1276,13 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                         label: pm.name,
                         leadingIcon: Icons.payment,
                         isDeletable: !pm.isDefault,
+                        displayOrder: pm.displayOrder,
                       ))
                   .toList(),
               selectedId: _selectedPaymentMethodId,
               nullLabel: '선택 안 함',
               favoriteType: 'PAYMENT_METHOD',
+              reorderRoute: '/asset-management',
               onSelected: (item) {
                 setState(() {
                   _selectedPaymentMethodId = item?.id;
@@ -961,12 +1350,11 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return InkWell(
       onTap: () async {
-        final picked = await showDatePicker(
+        final picked = await showCalendarPickerDialog(
           context: context,
           initialDate: _selectedDate,
           firstDate: DateTime(2020),
           lastDate: DateTime(2030, 12, 31),
-          initialEntryMode: DatePickerEntryMode.calendarOnly,
         );
         if (picked != null) {
           setState(() {

@@ -21,4 +21,5 @@ abstract class CategoryRepository {
     String? groupId,
   });
   Future<Either<Failure, void>> deleteCategory(String id);
+  Future<Either<Failure, void>> reorderCategories(List<String> orderedIds);
 }
