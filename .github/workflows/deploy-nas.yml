@@ -23,6 +23,9 @@ jobs:
             export PATH=/usr/local/bin:$PATH
             cd /volume1/docker/budget-book
 
+            echo "=== Fixing permissions ==="
+            sudo chown -R admin:users /volume1/docker/budget-book
+
             echo "=== Pulling latest code ==="
             git fetch origin main
             git reset --hard origin/main
@@ -30,6 +33,26 @@ jobs:
             echo "=== Building backend Docker image ==="
             cd backend
             docker build -t bb-backend .
+
+            echo "=== Writing env file ==="
+            cat > /tmp/bb_env << 'ENVEOF'
+            SPRING_PROFILES_ACTIVE=prod
+            SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable
+            DB_HOST=host.docker.internal
+            DB_PORT=5433
+            DB_NAME=budgetbook
+            DB_USERNAME=budgetbook
+            DB_PASSWORD=${{ secrets.NAS_DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.NAS_JWT_SECRET }}
+            FRONTEND_URL=https://aiva-bb.duckdns.org
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            REDIS_URL=redis://host.docker.internal:6380
+            FLYWAY_ENABLED=true
+            SERVER_FORWARD_HEADERS_STRATEGY=framework
+            SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER=X-Forwarded-Proto
+            ENVEOF
+            sed -i 's/^            //' /tmp/bb_env
 
             echo "=== Restarting backend container ==="
             docker stop bb_app || true
@@ -39,21 +62,7 @@ jobs:
               --restart unless-stopped \
               --add-host=host.docker.internal:host-gateway \
               -p 8081:8080 \
-              -e SPRING_PROFILES_ACTIVE=prod \
-              -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable \
-              -e DB_HOST=host.docker.internal \
-              -e DB_PORT=5433 \
-              -e DB_NAME=budgetbook \
-              -e DB_USERNAME=budgetbook \
-              -e DB_PASSWORD="${{ secrets.NAS_DB_PASSWORD }}" \
-              -e JWT_SECRET="${{ secrets.NAS_JWT_SECRET }}" \
-              -e FRONTEND_URL=https://aiva-bb.duckdns.org \
-              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
-              -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-              -e REDIS_URL=redis://host.docker.internal:6380 \
-              -e FLYWAY_ENABLED=true \
-              -e SERVER_FORWARD_HEADERS_STRATEGY=framework \
-              -e SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER=X-Forwarded-Proto \
+              --env-file /tmp/bb_env \
               bb-backend
 
             echo "=== Waiting for startup ==="
