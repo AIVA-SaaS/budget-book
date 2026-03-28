@@ -89,6 +89,9 @@ class ApiEndpoints {
   static const String preferencesFavoritesToggle =
       '/api/v1/preferences/favorites/toggle';
 
+  // Spending Plans
+  static const String spendingPlans = '/api/v1/spending-plans';
+
   // Insurances
   static const String insurances = '/api/v1/insurances';
 
