@@ -33,18 +33,20 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
 
     val bank = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
-    val creditCard = PaymentMethod(
-        couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
-        settlementDay = 25, closingDay = 15, linkedBank = bank
-    )
 
     Given("cards with settlement day matching today") {
-        every { paymentMethodRepository.findBySettlementDayAndLinkedBankIsNotNullAndIsActiveTrue(25) } returns listOf(creditCard)
+        val today = LocalDate.now()
+        val todayDay = today.dayOfMonth
+        val todayCard = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = todayDay, closingDay = 15, linkedBank = bank
+        )
+        every { paymentMethodRepository.findBySettlementDayAndLinkedBankIsNotNullAndIsActiveTrue(todayDay) } returns listOf(todayCard)
 
         When("there is a pending amount > 0") {
             every {
                 transactionRepository.sumByPaymentMethodAndSettlementDateRange(
-                    eq(creditCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
+                    eq(todayCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
                 )
             } returns listOf(arrayOf<Any?>(300000L, 10L))
 
@@ -53,7 +55,7 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
                     authorId = CardAutoSettlementScheduler.SYSTEM_USER_ID,
                     couple = couple,
                     source = bank,
-                    destination = creditCard,
+                    destination = todayCard,
                     amount = 300000L,
                     description = any(),
                     transferDate = any(),
@@ -69,7 +71,7 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
                         authorId = CardAutoSettlementScheduler.SYSTEM_USER_ID,
                         couple = couple,
                         source = bank,
-                        destination = creditCard,
+                        destination = todayCard,
                         amount = 300000L,
                         description = any(),
                         transferDate = any(),
@@ -82,7 +84,7 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
         When("pending amount is zero") {
             every {
                 transactionRepository.sumByPaymentMethodAndSettlementDateRange(
-                    eq(creditCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
+                    eq(todayCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
                 )
             } returns listOf(arrayOf<Any?>(0L, 0L))
 
@@ -98,7 +100,7 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
         When("duplicate settlement key (DataIntegrityViolationException)") {
             every {
                 transactionRepository.sumByPaymentMethodAndSettlementDateRange(
-                    eq(creditCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
+                    eq(todayCard.id), any(), any(), eq(CardAutoSettlementScheduler.SYSTEM_USER_ID)
                 )
             } returns listOf(arrayOf<Any?>(300000L, 10L))
 
@@ -118,7 +120,8 @@ class CardAutoSettlementSchedulerTest : BehaviorSpec({
     }
 
     Given("no cards with matching settlement day") {
-        every { paymentMethodRepository.findBySettlementDayAndLinkedBankIsNotNullAndIsActiveTrue(25) } returns emptyList()
+        val todayDay = LocalDate.now().dayOfMonth
+        every { paymentMethodRepository.findBySettlementDayAndLinkedBankIsNotNullAndIsActiveTrue(todayDay) } returns emptyList()
 
         When("settleCards is called") {
             scheduler.settleCards()
