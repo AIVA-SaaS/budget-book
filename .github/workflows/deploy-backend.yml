@@ -1,121 +1,14 @@
-name: Deploy Backend
+# DEPRECATED: Render deployment replaced by NAS deployment (deploy-nas.yml)
+# Kept for reference. Do not enable.
+
+name: "[DEPRECATED] Deploy Backend to Render"
 
 on:
-  workflow_run:
-    workflows: ["Backend CI"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:  # Manual only, no auto trigger
 
 jobs:
   deploy:
-    # Only deploy when CI succeeded on main branch
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: false  # Disabled
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Render
-        uses: johnbeynon/render-deploy-action@v0.0.8
-        with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
-
-  verify:
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    steps:
-      - name: Wait for Render build (8 min)
-        run: sleep 480
-
-      - name: Verify health endpoint
-        run: |
-          echo "Checking health endpoint..."
-          for i in $(seq 1 15); do
-            STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" \
-              --connect-timeout 10 --max-time 30 \
-              https://budget-book-api.onrender.com/actuator/health 2>/dev/null || echo "000")
-
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check returned 200"
-              cat /tmp/health.json
-              echo ""
-
-              # Check top-level status (details hidden behind auth via show-details: when_authorized)
-              APP_STATUS=$(cat /tmp/health.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
-
-              if [ "$APP_STATUS" = "UP" ]; then
-                echo "Application status: UP - Deployment verified!"
-                exit 0
-              else
-                echo "WARNING: Health returned 200 but status is: $APP_STATUS"
-                echo "Retrying in 20s... (attempt $i/15)"
-              fi
-            else
-              echo "Health check returned $STATUS, retrying in 20s... (attempt $i/15)"
-            fi
-            sleep 20
-          done
-
-          echo "FAILED: Health check did not pass after 5 minutes"
-          exit 1
-
-      - name: Verify OAuth2 endpoints accessible
-        run: |
-          # Check that OAuth2 authorization endpoint returns redirect (not 404/500)
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            --connect-timeout 10 --max-time 15 \
-            https://budget-book-api.onrender.com/oauth2/authorization/google 2>/dev/null || echo "000")
-
-          if [ "$STATUS" = "302" ]; then
-            echo "OAuth2 Google endpoint: OK (302 redirect)"
-          else
-            echo "WARNING: OAuth2 Google endpoint returned $STATUS (expected 302)"
-            echo "This may be due to Render cold start. Skipping as non-critical."
-          fi
-
-      - name: Check for existing deploy failure issue
-        if: failure()
-        id: check_issue
-        run: |
-          EXISTING=$(gh issue list \
-            --label ci-failure --label deploy \
-            --state open \
-            --json number \
-            --jq 'length')
-          echo "existing_issues=$EXISTING" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Issue on Verification Failure
-        if: failure() && steps.check_issue.outputs.existing_issues == '0'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const title = `[DEPLOY FAIL] Backend verification failed - ${context.sha.substring(0, 7)}`;
-            const body = [
-              '## Deployment Verification Failure',
-              '',
-              `**Commit:** ${context.sha}`,
-              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              '',
-              '### What happened',
-              'Render deploy was triggered but post-deploy verification failed.',
-              'Possible causes:',
-              '- Render build timeout (port scan timeout)',
-              '- DB connection failure',
-              '- Flyway migration error',
-              '- Spring Boot startup crash',
-              '',
-              '### Action Required',
-              '- [ ] Check Render dashboard logs',
-              '- [ ] Verify DB env vars are set correctly',
-              '- [ ] Fix and redeploy',
-            ].join('\n');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['ci-failure', 'deploy', 'backend'],
-            });
+      - run: echo "Deprecated - use deploy-nas.yml"
