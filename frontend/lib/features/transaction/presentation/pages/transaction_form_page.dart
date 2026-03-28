@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
@@ -24,6 +25,8 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
+    as tx_entity;
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -42,6 +45,10 @@ class TransactionFormPage extends StatefulWidget {
   /// Used when navigating from dashboard quick actions.
   final String? initialType;
 
+  /// Pre-fill fields from an existing transaction (for copy).
+  /// Date defaults to today; all other fields are copied.
+  final tx_entity.Transaction? copyFrom;
+
   /// Optional initial date for the transaction.
   /// Used when navigating from a date header in the transaction list.
   final DateTime? initialDate;
@@ -54,6 +61,7 @@ class TransactionFormPage extends StatefulWidget {
     super.key,
     this.transactionId,
     this.initialType,
+    this.copyFrom,
     this.initialDate,
     this.initialPaymentMethodId,
   });
@@ -81,14 +89,16 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   String? _categoryError;
   String? _paymentMethodError;
 
-  // Suggestion chips state
-  List<String> _suggestions = [];
+  // Suggestion state
+  List<SuggestionGroup> _suggestions = [];
+  SuggestionGroup? _expandedSuggestion;
   Timer? _debounceTimer;
 
   // FocusNodes for keyboard navigation on selector fields
   final FocusNode _categoryFocusNode = FocusNode();
   final FocusNode _paymentMethodFocusNode = FocusNode();
   final FocusNode _pocketFocusNode = FocusNode();
+
 
   bool get isEditing => widget.transactionId != null;
 
@@ -107,10 +117,18 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
     if (isEditing) {
       _isLoadingTransaction = true;
-      // Load the transaction by ID via the bloc
       _loadTransaction();
+    } else if (widget.copyFrom != null) {
+      // Pre-fill from copied transaction (date defaults to today)
+      final src = widget.copyFrom!;
+      _amountController.text = src.amount.toString();
+      _descriptionController.text = src.description;
+      _memoController.text = src.memo ?? '';
+      _selectedType = src.type;
+      _selectedCategoryId = src.category?.id;
+      _selectedPaymentMethodId = src.paymentMethodId;
+      _selectedPocketId = src.pocketId;
     } else {
-      // Pre-select default payment method for new transactions
       _loadDefaultPaymentMethod();
     }
   }
@@ -195,10 +213,12 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   void _onDescriptionChanged() {
     final text = _descriptionController.text.trim();
     _debounceTimer?.cancel();
-
     if (text.length < 2) {
-      if (_suggestions.isNotEmpty) {
-        setState(() => _suggestions = []);
+      if (_suggestions.isNotEmpty || _expandedSuggestion != null) {
+        setState(() {
+          _suggestions = [];
+          _expandedSuggestion = null;
+        });
       }
       return;
     }
@@ -213,14 +233,26 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     final result = await repo.getSuggestions(query);
     if (!mounted) return;
     result.fold(
-      (_) {
-        // On error, silently clear suggestions
-        setState(() => _suggestions = []);
-      },
-      (suggestions) {
-        setState(() => _suggestions = suggestions);
-      },
+      (_) => setState(() => _suggestions = []),
+      (data) => setState(() {
+        _suggestions = data;
+        _expandedSuggestion = null;
+      }),
     );
+  }
+
+  void _applySuggestionPattern(SuggestionGroup group, SuggestionPattern? pattern) {
+    setState(() {
+      _descriptionController.text = group.description;
+      _descriptionController.selection =
+          TextSelection.collapsed(offset: group.description.length);
+      if (pattern != null) {
+        _selectedCategoryId = pattern.categoryId;
+        _selectedPaymentMethodId = pattern.paymentMethodId;
+      }
+      _suggestions = [];
+      _expandedSuggestion = null;
+    });
   }
 
   void _updateAmountHint() {
@@ -238,9 +270,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _descriptionController.removeListener(_onDescriptionChanged);
     _amountController.removeListener(_updateAmountHint);
     _amountController.dispose();
-    _descriptionController.removeListener(_onDescriptionChanged);
     _descriptionController.dispose();
     _memoController.dispose();
     _categoryFocusNode.dispose();
@@ -399,23 +431,9 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                       },
                     ),
                   ),
+                  // Suggestion chips (rich - with category/payment method patterns)
                   if (_suggestions.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: _suggestions.map((s) => ActionChip(
-                          label: Text(s),
-                          onPressed: () {
-                            _descriptionController.text = s;
-                            _descriptionController.selection =
-                                TextSelection.collapsed(offset: s.length);
-                            setState(() => _suggestions = []);
-                          },
-                        )).toList(),
-                      ),
-                    ),
+                    _buildSuggestionArea(context),
                   const SizedBox(height: 16),
                   // Category picker with keyboard support
                   FocusTraversalOrder(
@@ -551,6 +569,106 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
     );
   }
 
+  Widget _buildSuggestionArea(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Suggestion chips (description only)
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: _suggestions.map((sg) {
+              final isExpanded = _expandedSuggestion == sg;
+              return ActionChip(
+                label: Text(sg.description),
+                avatar: isExpanded
+                    ? const Icon(Icons.expand_less, size: 18)
+                    : null,
+                onPressed: () {
+                  if (isExpanded) {
+                    // Collapse: apply description only (empty pattern)
+                    _applySuggestionPattern(sg, null);
+                  } else {
+                    setState(() => _expandedSuggestion = sg);
+                  }
+                },
+              );
+            }).toList(),
+          ),
+          // Expanded patterns for selected suggestion
+          if (_expandedSuggestion != null) ...[
+            const SizedBox(height: 8),
+            // First option: description only, no pre-fill
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _applySuggestionPattern(_expandedSuggestion!, null),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '내용만 입력 (카테고리·결제수단 직접 선택)',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Grouped patterns sorted by count
+            ..._expandedSuggestion!.patterns.map((p) {
+              final label = [
+                p.categoryName,
+                p.paymentMethodName,
+              ].where((s) => s != null).join(' · ');
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _applySuggestionPattern(_expandedSuggestion!, p),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label.isEmpty ? '미분류' : label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${p.count}회',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
   /// Wraps a selector field with Focus + KeyboardListener so that
   /// Enter/Space activates the bottom sheet selector.
   Widget _buildKeyboardActivatableField({
@@ -611,6 +729,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
         : <MoneyPocket>[];
     _showPocketSelectorSheet(context, pockets);
   }
+
 
   Widget _buildCategoryPicker(BuildContext context) {
     return BlocBuilder<CategoryBloc, CategoryState>(
@@ -721,12 +840,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _selectedCategoryId,
         categoryType: _selectedType,
@@ -757,9 +872,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
     final pmBloc = context.read<PaymentMethodBloc>();
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => BlocProvider<PaymentMethodBloc>.value(
         value: pmBloc,
         child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
@@ -779,6 +893,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
                   .toList(),
               selectedId: _selectedPaymentMethodId,
               nullLabel: '선택 안 함',
+              favoriteType: 'PAYMENT_METHOD',
               onSelected: (item) {
                 setState(() {
                   _selectedPaymentMethodId = item?.id;
@@ -801,9 +916,8 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
 
   void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
     final pocketBloc = context.read<PocketBloc>();
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => BlocProvider<PocketBloc>.value(
         value: pocketBloc,
         child: BlocBuilder<PocketBloc, PocketState>(
@@ -852,6 +966,7 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
           initialDate: _selectedDate,
           firstDate: DateTime(2020),
           lastDate: DateTime(2030, 12, 31),
+          initialEntryMode: DatePickerEntryMode.calendarOnly,
         );
         if (picked != null) {
           setState(() {

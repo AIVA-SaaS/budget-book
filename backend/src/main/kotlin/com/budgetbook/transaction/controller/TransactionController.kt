@@ -96,8 +96,8 @@ class TransactionController(
     fun getSuggestions(
         @AuthUser userId: UUID,
         @RequestParam q: String,
-        @RequestParam(defaultValue = "10") limit: Int
-    ): ApiResponse<List<String>> {
+        @RequestParam(defaultValue = "5") limit: Int
+    ): ApiResponse<List<com.budgetbook.transaction.dto.SuggestionResponse>> {
         return ApiResponse.ok(transactionService.getSuggestions(userId, q, limit))
     }
 

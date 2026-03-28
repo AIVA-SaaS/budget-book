@@ -23,6 +23,19 @@ class TransactionDetailPage extends StatelessWidget {
         title: const Text('거래 상세'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: '복사',
+            onPressed: () {
+              final state = context.read<TransactionBloc>().state;
+              if (state is TransactionLoaded) {
+                final txn = _findTransaction(state);
+                if (txn != null) {
+                  context.push('/transactions/create', extra: txn);
+                }
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
             tooltip: '수정',
             onPressed: () =>

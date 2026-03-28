@@ -42,6 +42,7 @@ class TransactionListPage extends StatefulWidget {
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _dateKeys = {};
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
   bool _isSearching = false;
@@ -379,6 +380,58 @@ class _TransactionListPageState extends State<TransactionListPage> {
     );
   }
 
+  void _showAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_downward, color: Colors.red),
+              ),
+              title: const Text('지출'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final pmParam = _filterPaymentMethodId != null
+                    ? '&paymentMethodId=$_filterPaymentMethodId'
+                    : '';
+                context.push('/transactions/create?type=EXPENSE$pmParam');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_upward, color: Colors.green),
+              ),
+              title: const Text('수입'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final pmParam = _filterPaymentMethodId != null
+                    ? '&paymentMethodId=$_filterPaymentMethodId'
+                    : '';
+                context.push('/transactions/create?type=INCOME$pmParam');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue.withValues(alpha: 0.15),
+                child: const Icon(Icons.swap_horiz, color: Colors.blue),
+              ),
+              title: const Text('이체'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/transfers/create');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -453,12 +506,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final pmParam = _filterPaymentMethodId != null
-              ? '?paymentMethodId=$_filterPaymentMethodId'
-              : '';
-          context.push('/transactions/create$pmParam');
-        },
+        onPressed: () => _showAddMenu(context),
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),
@@ -553,6 +601,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final grouped = state.groupedByDate;
     final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
+    // Scroll to target date after build
+    if (state.scrollToDate != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToDate(state.scrollToDate!, sortedDates);
+      });
+    }
+
     // Calculate running totals in display order (newest date first, within date same order as displayed)
     // Accumulate from the bottom of the list (oldest) upward
     final flatTransactions = <Transaction>[];
@@ -604,7 +659,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
           }
           final date = sortedDates[index];
           final transactions = grouped[date]!;
+          final dateKey = _dateKeys.putIfAbsent(date, () => GlobalKey());
           return Column(
+            key: dateKey,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DateHeader(
@@ -655,6 +712,17 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
     );
+  }
+
+  void _scrollToDate(String targetDate, List<String> sortedDates) {
+    final key = _dateKeys[targetDate];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Widget _buildEmpty(BuildContext context) {

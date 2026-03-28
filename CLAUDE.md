@@ -6,11 +6,11 @@
 
 ## Tech Stack
 - **BE**: Kotlin + Spring Boot 3.x + Kotest + Gradle (Kotlin DSL)
-- **DB**: PostgreSQL (Supabase) + Redis (Upstash)
+- **DB**: PostgreSQL 16 (Synology NAS Docker) + Redis 7 (NAS Docker)
 - **FE/App**: Flutter 3.x (웹+모바일 통합, BLoC 패턴)
 - **Auth**: OAuth2 소셜 로그인 (Google, Kakao)
-- **Hosting**: Render (BE) + Supabase (DB) + Vercel (Flutter Web)
-- **CI/CD**: GitHub Actions
+- **Hosting**: Synology NAS (Docker BE + nginx FE) — https://aiva-bb.duckdns.org
+- **CI/CD**: GitHub Actions → SSH deploy to NAS
 
 ## Monorepo Structure
 - `backend/` - Kotlin Spring Boot API 서버
@@ -126,11 +126,12 @@ When running in agent team mode:
 - Feature → develop: CI 통과 + Code Review 필수
 - develop → main: 릴리즈 단위, 모든 CI 통과 필수
 
-## Deployment
-- **main 머지 시 자동 배포**:
-  - `backend/**` 변경 → Render 자동 배포 (deploy-backend.yml)
-  - `frontend/**` 변경 → Vercel 자동 배포 (deploy-frontend.yml)
-- 배포 확인: BE `/actuator/health`, FE Vercel 프리뷰 URL
+## Deployment (Synology NAS)
+- **main 머지 시 자동 배포** (`deploy-nas.yml`):
+  - `backend/**` 변경 → SSH로 NAS에서 git pull + docker build + docker run
+  - `frontend/**` 변경 → GitHub runner에서 Flutter build → SCP로 NAS에 전송
+- 배포 URL: https://aiva-bb.duckdns.org
+- 배포 확인: BE `https://aiva-bb.duckdns.org/actuator/health`, FE 사이트 접속
 
 ## CI Failure Recovery (Automated)
 - CI 실패 시 GitHub Issue가 자동 생성됨 (label: `ci-failure`)

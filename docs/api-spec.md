@@ -86,6 +86,16 @@
   - [Get Transfer](#3-get-transfer)
   - [Update Transfer](#4-update-transfer)
   - [Delete Transfer](#5-delete-transfer)
+- [Insurances](#insurances)
+  - [List Insurances](#1-list-insurances)
+  - [Create Insurance](#2-create-insurance)
+  - [Update Insurance](#3-update-insurance)
+  - [Delete Insurance](#4-delete-insurance)
+  - [Insurance Summary](#5-insurance-summary)
+- [Preferences (Favorites)](#preferences-favorites)
+  - [Get Favorites](#1-get-favorites)
+  - [Update Favorites](#2-update-favorites)
+  - [Toggle Favorite](#3-toggle-favorite)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -3079,6 +3089,383 @@ All fields are optional (partial update). Omitted fields retain their current va
 
 ---
 
+## Insurances
+
+Insurance policy management for the couple. Each insurance record tracks a recurring premium payment. The `visibility` field follows the same `SHARED`/`PRIVATE` semantics used across other entities.
+
+---
+
+### 1. List Insurances
+
+Returns all insurance records for the couple, optionally filtered by active status.
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `GET`                    |
+| **Path**    | `/api/v1/insurances`     |
+| **Auth**    | Required                 |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description                                             |
+|:----------|:----------|:--------:|:--------------------------------------------------------|
+| `active`  | `boolean` | No       | When `true`, returns only active insurances. Omit for all. |
+
+**Response `200 OK`**: `ApiResponse<List<InsuranceResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440300",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "userId": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "삼성생명 종신보험",
+      "insurer": "삼성생명",
+      "insuranceType": "LIFE",
+      "premiumAmount": 150000,
+      "paymentDay": 25,
+      "paymentCycle": "MONTHLY",
+      "paymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+      "categoryId": "550e8400-e29b-41d4-a716-446655440020",
+      "startDate": "2023-01-01",
+      "endDate": null,
+      "memo": "종신 보험",
+      "isActive": true,
+      "visibility": "SHARED",
+      "ownerId": null,
+      "createdAt": "2026-03-01T10:00:00",
+      "updatedAt": "2026-03-01T10:00:00"
+    }
+  ],
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+---
+
+### 2. Create Insurance
+
+Registers a new insurance policy for the couple.
+
+| Item        | Value                    |
+|:------------|:-------------------------|
+| **Method**  | `POST`                   |
+| **Path**    | `/api/v1/insurances`     |
+| **Auth**    | Required                 |
+
+**Request Body**: `InsuranceRequest`
+
+| Field               | Type      | Required | Description                                                             |
+|:--------------------|:----------|:--------:|:------------------------------------------------------------------------|
+| `name`              | `string`  | Yes      | Insurance policy name (max 100 chars)                                   |
+| `insurer`           | `string`  | No       | Insurance company name (max 100 chars)                                  |
+| `insuranceType`     | `string`  | Yes      | One of: `LIFE`, `HEALTH`, `CAR`, `FIRE`, `ACCIDENT`, `OTHER`           |
+| `premiumAmount`     | `long`    | Yes      | Monthly (or per-cycle) premium in KRW, must be > 0                     |
+| `paymentDay`        | `integer` | No       | Day of month for payment (1–31)                                         |
+| `paymentCycle`      | `string`  | No       | One of: `MONTHLY`, `QUARTERLY`, `SEMI_ANNUAL`, `YEARLY` (default: `MONTHLY`) |
+| `paymentMethodId`   | `UUID`    | No       | Payment method used for premium deduction                               |
+| `categoryId`        | `UUID`    | No       | Category to assign this insurance expense to                            |
+| `startDate`         | `string`  | No       | Policy start date (`YYYY-MM-DD`)                                        |
+| `endDate`           | `string`  | No       | Policy end date (`YYYY-MM-DD`), null if open-ended                      |
+| `memo`              | `string`  | No       | Free-text memo                                                          |
+| `visibility`        | `string`  | No       | `SHARED` or `PRIVATE` (default: `SHARED`)                              |
+
+**Request Body Example**:
+
+```json
+{
+  "name": "삼성생명 종신보험",
+  "insurer": "삼성생명",
+  "insuranceType": "LIFE",
+  "premiumAmount": 150000,
+  "paymentDay": 25,
+  "paymentCycle": "MONTHLY",
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+  "categoryId": "550e8400-e29b-41d4-a716-446655440020",
+  "startDate": "2023-01-01",
+  "memo": "종신 보험",
+  "visibility": "SHARED"
+}
+```
+
+**Response `201 Created`**: `ApiResponse<InsuranceResponse>`
+
+**Error Responses**
+
+| Status | Error Code             | Description                                      |
+|:------:|:-----------------------|:-------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`     | Missing required fields or invalid enum value    |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified paymentMethodId does not exist     |
+| `404`  | `CATEGORY_NOT_FOUND`   | Specified categoryId does not exist              |
+
+---
+
+### 3. Update Insurance
+
+Updates an existing insurance record. All fields are optional; only provided fields are updated.
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `PUT`                         |
+| **Path**    | `/api/v1/insurances/{id}`     |
+| **Auth**    | Required                      |
+
+**Path Parameters**
+
+| Parameter | Type   | Description    |
+|:----------|:-------|:---------------|
+| `id`      | `UUID` | Insurance ID   |
+
+**Request Body**: `InsuranceUpdateRequest`
+
+All fields are optional (use `PatchValue<T>` semantics — explicitly sending `null` clears a nullable field):
+
+| Field               | Type      | Description                                                             |
+|:--------------------|:----------|:------------------------------------------------------------------------|
+| `name`              | `string`  | Insurance policy name (max 100 chars)                                   |
+| `insurer`           | `string`  | Insurance company name (max 100 chars), nullable                        |
+| `insuranceType`     | `string`  | One of: `LIFE`, `HEALTH`, `CAR`, `FIRE`, `ACCIDENT`, `OTHER`           |
+| `premiumAmount`     | `long`    | Premium amount in KRW, must be > 0                                      |
+| `paymentDay`        | `integer` | Day of month for payment (1–31), nullable                               |
+| `paymentCycle`      | `string`  | One of: `MONTHLY`, `QUARTERLY`, `SEMI_ANNUAL`, `YEARLY`                |
+| `paymentMethodId`   | `UUID`    | Payment method ID, nullable                                             |
+| `categoryId`        | `UUID`    | Category ID, nullable                                                   |
+| `startDate`         | `string`  | Policy start date (`YYYY-MM-DD`), nullable                              |
+| `endDate`           | `string`  | Policy end date (`YYYY-MM-DD`), nullable                                |
+| `memo`              | `string`  | Free-text memo, nullable                                                |
+| `isActive`          | `boolean` | Set to `false` to deactivate the policy                                 |
+| `visibility`        | `string`  | `SHARED` or `PRIVATE`                                                   |
+
+**Response `200 OK`**: `ApiResponse<InsuranceResponse>`
+
+**Error Responses**
+
+| Status | Error Code               | Description                                         |
+|:------:|:-------------------------|:----------------------------------------------------|
+| `404`  | `INSURANCE_NOT_FOUND`    | Insurance does not exist or belongs to another couple |
+| `400`  | `VALIDATION_ERROR`       | Invalid field value                                 |
+| `403`  | `PRIVATE_ACCESS_DENIED`  | Insurance is PRIVATE and caller is not the owner    |
+
+---
+
+### 4. Delete Insurance
+
+Deletes an insurance record permanently.
+
+| Item        | Value                         |
+|:------------|:------------------------------|
+| **Method**  | `DELETE`                      |
+| **Path**    | `/api/v1/insurances/{id}`     |
+| **Auth**    | Required                      |
+
+**Path Parameters**
+
+| Parameter | Type   | Description    |
+|:----------|:-------|:---------------|
+| `id`      | `UUID` | Insurance ID   |
+
+**Response `200 OK`**: `ApiResponse<Unit>`
+
+**Error Responses**
+
+| Status | Error Code              | Description                                         |
+|:------:|:------------------------|:----------------------------------------------------|
+| `404`  | `INSURANCE_NOT_FOUND`   | Insurance does not exist or belongs to another couple |
+| `403`  | `PRIVATE_ACCESS_DENIED` | Insurance is PRIVATE and caller is not the owner    |
+
+---
+
+### 5. Insurance Summary
+
+Returns a monthly summary of insurance premiums, accounting for each policy's payment cycle. Only active insurances are included in the totals.
+
+| Item        | Value                           |
+|:------------|:--------------------------------|
+| **Method**  | `GET`                           |
+| **Path**    | `/api/v1/insurances/summary`    |
+| **Auth**    | Required                        |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description          |
+|:----------|:----------|:--------:|:---------------------|
+| `year`    | `integer` | Yes      | Year (e.g., `2026`)  |
+| `month`   | `integer` | Yes      | Month 1–12           |
+
+**Response `200 OK`**: `ApiResponse<InsuranceSummaryResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "month": 3,
+    "totalPremium": 350000,
+    "activeCount": 3,
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440300",
+        "name": "삼성생명 종신보험",
+        "insuranceType": "LIFE",
+        "premiumAmount": 150000,
+        "paymentCycle": "MONTHLY",
+        "paymentDay": 25,
+        "isActive": true
+      }
+    ]
+  },
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+**InsuranceSummaryResponse Fields**
+
+| Field          | Type      | Description                                              |
+|:---------------|:----------|:---------------------------------------------------------|
+| `year`         | `integer` | Queried year                                             |
+| `month`        | `integer` | Queried month                                            |
+| `totalPremium` | `long`    | Sum of premiums due in the given month (cycle-adjusted)  |
+| `activeCount`  | `integer` | Number of active insurance policies                      |
+| `items`        | `array`   | List of summary items per policy                         |
+
+**Error Responses**
+
+| Status | Error Code         | Description                     |
+|:------:|:-------------------|:--------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid year/month   |
+
+---
+
+## Preferences (Favorites)
+
+Couple-level preferences for quickly accessing frequently used categories and payment methods. The favorites list is shared across both partners (one record per couple stored in `couple_preferences`).
+
+---
+
+### 1. Get Favorites
+
+Returns the current favorites for the authenticated user's couple.
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `GET`                              |
+| **Path**    | `/api/v1/preferences/favorites`    |
+| **Auth**    | Required                           |
+
+**Response `200 OK`**: `ApiResponse<FavoritesResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "categoryIds": [
+      "550e8400-e29b-41d4-a716-446655440020",
+      "550e8400-e29b-41d4-a716-446655440021"
+    ],
+    "paymentMethodIds": [
+      "550e8400-e29b-41d4-a716-446655440010"
+    ]
+  },
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+**FavoritesResponse Fields**
+
+| Field              | Type         | Description                                   |
+|:-------------------|:-------------|:----------------------------------------------|
+| `categoryIds`      | `UUID[]`     | Ordered list of favorite category IDs         |
+| `paymentMethodIds` | `UUID[]`     | Ordered list of favorite payment method IDs   |
+
+> If no preferences record exists yet for the couple, returns empty arrays.
+
+---
+
+### 2. Update Favorites
+
+Replaces the entire favorites list for the couple. Use this for bulk updates (e.g., drag-and-drop reordering).
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `PUT`                              |
+| **Path**    | `/api/v1/preferences/favorites`    |
+| **Auth**    | Required                           |
+
+**Request Body**: `FavoritesRequest`
+
+| Field              | Type     | Required | Description                                      |
+|:-------------------|:---------|:--------:|:-------------------------------------------------|
+| `categoryIds`      | `UUID[]` | Yes      | Full ordered list of favorite category IDs       |
+| `paymentMethodIds` | `UUID[]` | Yes      | Full ordered list of favorite payment method IDs |
+
+**Request Body Example**:
+
+```json
+{
+  "categoryIds": [
+    "550e8400-e29b-41d4-a716-446655440020",
+    "550e8400-e29b-41d4-a716-446655440021"
+  ],
+  "paymentMethodIds": [
+    "550e8400-e29b-41d4-a716-446655440010"
+  ]
+}
+```
+
+**Response `200 OK`**: `ApiResponse<FavoritesResponse>`
+
+**Error Responses**
+
+| Status | Error Code         | Description                                           |
+|:------:|:-------------------|:------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR` | Non-UUID values in arrays                             |
+| `404`  | `COUPLE_NOT_FOUND` | Authenticated user is not in an active couple         |
+
+---
+
+### 3. Toggle Favorite
+
+Adds or removes a single item from the favorites list. If the item is already a favorite, it is removed; otherwise it is added.
+
+| Item        | Value                                      |
+|:------------|:-------------------------------------------|
+| **Method**  | `POST`                                     |
+| **Path**    | `/api/v1/preferences/favorites/toggle`     |
+| **Auth**    | Required                                   |
+
+**Request Body**: `FavoriteToggleRequest`
+
+| Field    | Type     | Required | Description                                    |
+|:---------|:---------|:--------:|:-----------------------------------------------|
+| `type`   | `string` | Yes      | `CATEGORY` or `PAYMENT_METHOD`                 |
+| `itemId` | `UUID`   | Yes      | ID of the category or payment method to toggle |
+
+**Request Body Example**:
+
+```json
+{
+  "type": "CATEGORY",
+  "itemId": "550e8400-e29b-41d4-a716-446655440022"
+}
+```
+
+**Response `200 OK`**: `ApiResponse<FavoritesResponse>`
+
+Returns the updated full favorites list after the toggle.
+
+**Error Responses**
+
+| Status | Error Code             | Description                                           |
+|:------:|:-----------------------|:------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`     | Missing fields or invalid `type` value                |
+| `404`  | `COUPLE_NOT_FOUND`     | Authenticated user is not in an active couple         |
+| `404`  | `CATEGORY_NOT_FOUND`   | Specified category does not exist (for CATEGORY type) |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified payment method does not exist           |
+
+---
+
 ## Infrastructure
 
 Health and observability endpoints. Both are publicly accessible (`permitAll()` in `SecurityConfig`) and require no authentication.
@@ -3307,3 +3694,4 @@ spring:
 | `CREDIT_TO_CREDIT_TRANSFER_FORBIDDEN` | `400`   | Transfer between two CREDIT-type payment methods is not allowed |
 | `LINKED_BANK_NOT_FOUND`           | `404`       | Specified linkedBankId does not exist or is not BANK type |
 | `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |
+| `INSURANCE_NOT_FOUND`             | `404`       | Requested insurance does not exist or belongs to another couple |

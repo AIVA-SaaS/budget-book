@@ -436,20 +436,24 @@ class TransactionServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("matching descriptions exist") {
-            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 10) } returns listOf("점심 식사", "점심 도시락")
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, 3L),
+                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, 1L)
+            )
 
-            val result = service.getSuggestions(user1.id, "점", 10)
+            val result = service.getSuggestions(user1.id, "점심", 10)
 
-            Then("returns matching descriptions") {
+            Then("returns matching descriptions as SuggestionResponse") {
                 result.size shouldBe 2
-                result shouldBe listOf("점심 식사", "점심 도시락")
+                result[0].description shouldBe "점심 식사"
+                result[1].description shouldBe "점심 도시락"
             }
         }
 
         When("no matching descriptions exist") {
-            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "없는", user1.id, 10) } returns emptyList()
+            every { transactionRepository.findSuggestionPatterns(couple.id, "없는것") } returns emptyList()
 
-            val result = service.getSuggestions(user1.id, "없는", 10)
+            val result = service.getSuggestions(user1.id, "없는것", 10)
 
             Then("returns empty list") {
                 result shouldBe emptyList()
@@ -457,24 +461,37 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("limit exceeds max") {
-            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) } returns listOf("점심")
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+                arrayOf<Any?>("점심", null, null, null, null, null, null, 1L)
+            )
 
-            val result = service.getSuggestions(user1.id, "점", 100)
+            val result = service.getSuggestions(user1.id, "점심", 100)
 
-            Then("clamps limit to 50") {
-                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 50) }
-                result shouldBe listOf("점심")
+            Then("clamps limit to 20") {
+                result.size shouldBe 1
+                result[0].description shouldBe "점심"
             }
         }
 
         When("limit is zero or negative") {
-            every { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) } returns listOf("점심")
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, 5L),
+                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, 2L)
+            )
 
-            val result = service.getSuggestions(user1.id, "점", 0)
+            val result = service.getSuggestions(user1.id, "점심", 0)
 
-            Then("clamps limit to 1") {
-                verify(exactly = 1) { transactionRepository.findDistinctDescriptionsByQuery(couple.id, "점", user1.id, 1) }
-                result shouldBe listOf("점심")
+            Then("clamps limit to 1 and returns only one result") {
+                result.size shouldBe 1
+                result[0].description shouldBe "점심 식사"
+            }
+        }
+
+        When("query is shorter than 2 characters") {
+            val result = service.getSuggestions(user1.id, "점", 10)
+
+            Then("returns empty list without querying") {
+                result shouldBe emptyList()
             }
         }
     }

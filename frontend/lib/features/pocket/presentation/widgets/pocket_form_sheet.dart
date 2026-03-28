@@ -244,6 +244,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                         _selectedTargetDate ?? DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime(2030, 12, 31),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
                   );
                   if (picked != null) {
                     setState(() => _selectedTargetDate = picked);
