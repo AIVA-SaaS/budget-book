@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   deploy-backend:
-    if: contains(join(github.event.commits.*.modified, ','), 'backend/') || contains(join(github.event.commits.*.added, ','), 'backend/')
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Backend to NAS
@@ -76,7 +75,6 @@ jobs:
             exit 1
 
   deploy-frontend:
-    if: contains(join(github.event.commits.*.modified, ','), 'frontend/') || contains(join(github.event.commits.*.added, ','), 'frontend/')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -138,7 +136,7 @@ jobs:
 
   verify:
     needs: [deploy-backend, deploy-frontend]
-    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
+    if: always() && (needs.deploy-backend.result != 'failure' || needs.deploy-frontend.result != 'failure')
     runs-on: ubuntu-latest
     permissions:
       issues: write
