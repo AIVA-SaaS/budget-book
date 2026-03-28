@@ -104,6 +104,8 @@ void main() {
               type: 'EXPENSE',
               icon: 'restaurant',
               color: '#FF5733',
+              groupId: 'g1',
+              groupName: '식비',
             ),
             amount: 800000,
             percentage: 25.0,
@@ -116,9 +118,10 @@ void main() {
       await tester.tap(find.text('카테고리별'));
       await tester.pumpAndSettle();
 
+      // In group view (default), shows group name and aggregated stats
       expect(find.text('식비'), findsOneWidget);
       expect(find.textContaining('800,000원'), findsOneWidget);
-      expect(find.text('25.0% (12건)'), findsOneWidget);
+      expect(find.text('100.0% (12건)'), findsOneWidget);
     });
 
     testWidgets('shows monthly trend tab when tapped', (tester) async {
