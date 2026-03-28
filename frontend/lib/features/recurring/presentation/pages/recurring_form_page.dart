@@ -353,12 +353,8 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-      ),
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _categoryId,
         categoryType: _type,
@@ -392,9 +388,8 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
 
   void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
     final pmBloc = context.read<PaymentMethodBloc>();
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (_) => BlocProvider<PaymentMethodBloc>.value(
         value: pmBloc,
         child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
@@ -414,6 +409,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                   .toList(),
               selectedId: _paymentMethodId,
               nullLabel: '선택 안 함',
+              favoriteType: 'PAYMENT_METHOD',
               onSelected: (item) {
                 setState(() => _paymentMethodId = item?.id);
               },

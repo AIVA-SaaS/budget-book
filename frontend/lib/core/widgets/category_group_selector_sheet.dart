@@ -12,6 +12,9 @@ import 'package:budget_book/features/category_group/domain/entities/category_gro
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
 
 /// Hierarchical category selector: groups -> sub-categories.
 /// Groups are expandable headers, only sub-categories are selectable.
@@ -47,7 +50,10 @@ class _CategoryGroupSelectorSheetState
   @override
   void initState() {
     super.initState();
-    getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+    final bloc = getIt<CategoryGroupBloc>();
+    if (bloc.state is! CategoryGroupLoaded) {
+      bloc.add(const LoadCategoryGroups());
+    }
   }
 
   @override
@@ -67,6 +73,9 @@ class _CategoryGroupSelectorSheetState
         BlocProvider<CategoryBloc>.value(
           value: getIt<CategoryBloc>(),
         ),
+        BlocProvider<FavoritesBloc>.value(
+          value: getIt<FavoritesBloc>(),
+        ),
       ],
       child: BlocListener<CategoryBloc, CategoryState>(
         listener: (context, state) {
@@ -75,48 +84,58 @@ class _CategoryGroupSelectorSheetState
             getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
           }
         },
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  '카테고리 선택',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+        child: Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '카테고리 선택',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(context).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: BlocBuilder<CategoryGroupBloc, CategoryGroupState>(
-                  builder: (context, state) {
-                    if (state is! CategoryGroupLoaded) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    return _buildGroupList(context, state.groups);
-                  },
+                const Divider(height: 1),
+                Flexible(
+                  child: BlocBuilder<CategoryGroupBloc, CategoryGroupState>(
+                    builder: (context, state) {
+                      if (state is! CategoryGroupLoaded) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      return _buildGroupList(context, state.groups);
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -127,124 +146,198 @@ class _CategoryGroupSelectorSheetState
     final sharedGroups = groups.where((g) => g.isShared).toList();
     final privateGroups = groups.where((g) => g.isPrivate).toList();
 
-    final List<Widget> children = [];
-
-    // Shared section
-    for (final group in sharedGroups) {
-      final filteredCategories = group.categories
-          .where((c) => c.type == widget.categoryType)
-          .toList();
-
-      final isExpanded = _expandedGroupIds.contains(group.id);
-
-      children.add(_buildGroupSection(
-        context,
-        group,
-        filteredCategories,
-        isExpanded,
-      ));
+    // Collect all categories of this type for favorites lookup
+    final allCategories = <Category>[];
+    for (final group in groups) {
+      allCategories.addAll(
+        group.categories.where((c) => c.type == widget.categoryType),
+      );
     }
 
-    // Add shared group button
-    children.add(
-      ListTile(
-        dense: true,
-        leading: Icon(
-          Icons.add,
-          size: 18,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        title: Text(
-          '공유 그룹 추가',
-          style: TextStyle(
-            fontSize: 13,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
-        onTap: () => _showAddGroupDialog(context),
-      ),
-    );
+    return BlocBuilder<FavoritesBloc, FavoritesState>(
+      builder: (context, favState) {
+        final favCategoryIds = favState is FavoritesLoaded
+            ? favState.favorites.categoryIds
+            : <String>[];
 
-    // Private section
-    if (privateGroups.isNotEmpty || true) {
-      // Always show private section for discoverability
-      children.add(const SizedBox(height: 8));
-      children.add(
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8),
+        // Build the favorites section categories
+        final favoriteCategories = allCategories
+            .where((c) => favCategoryIds.contains(c.id))
+            .toList();
+
+        final List<Widget> children = [];
+
+        // Favorites section at the top
+        if (favoriteCategories.isNotEmpty) {
+          children.add(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.star, size: 16, color: Colors.amber),
+                  const SizedBox(width: 6),
+                  Text(
+                    '즐겨찾기',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          );
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: favoriteCategories.map((cat) {
+                  // Find group name for display
+                  String? groupName;
+                  for (final g in groups) {
+                    if (g.categories.any((c) => c.id == cat.id)) {
+                      groupName = g.name;
+                      break;
+                    }
+                  }
+                  return ActionChip(
+                    label: Text(cat.name),
+                    avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                    onPressed: () {
+                      widget.onSelected(cat);
+                      widget.onSelectedWithGroupName?.call(cat, groupName);
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+          children.add(const Divider());
+        }
+
+        // Shared section
+        for (final group in sharedGroups) {
+          final filteredCategories = group.categories
+              .where((c) => c.type == widget.categoryType)
+              .toList();
+
+          final isExpanded = _expandedGroupIds.contains(group.id);
+
+          children.add(_buildGroupSection(
+            context,
+            group,
+            filteredCategories,
+            isExpanded,
+            favCategoryIds,
+          ));
+        }
+
+        // Add shared group button
+        children.add(
+          ListTile(
+            dense: true,
+            leading: Icon(
+              Icons.add,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: Text(
+              '공유 그룹 추가',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            onTap: () => _showAddGroupDialog(context),
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.visibility_off_outlined,
-                size: 16,
+        );
+
+        // Private section
+        if (privateGroups.isNotEmpty || true) {
+          // Always show private section for discoverability
+          children.add(const SizedBox(height: 8));
+          children.add(
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.visibility_off_outlined,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '나만 보임',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '상대방에게 보이지 않습니다',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          );
+          children.add(const SizedBox(height: 4));
+        }
+
+        // Private groups
+        for (final group in privateGroups) {
+          final filteredCategories = group.categories
+              .where((c) => c.type == widget.categoryType)
+              .toList();
+
+          final isExpanded = _expandedGroupIds.contains(group.id);
+
+          children.add(_buildGroupSection(
+            context,
+            group,
+            filteredCategories,
+            isExpanded,
+            favCategoryIds,
+          ));
+        }
+
+        // Add private group button
+        children.add(
+          ListTile(
+            dense: true,
+            leading: Icon(
+              Icons.add,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            title: Text(
+              '개인 그룹 추가',
+              style: TextStyle(
+                fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
-              Text(
-                '나만 보임',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const Spacer(),
-              Text(
-                '상대방에게 보이지 않습니다',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-              ),
-            ],
+            ),
+            onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
           ),
-        ),
-      );
-      children.add(const SizedBox(height: 4));
-    }
+        );
 
-    // Private groups
-    for (final group in privateGroups) {
-      final filteredCategories = group.categories
-          .where((c) => c.type == widget.categoryType)
-          .toList();
-
-      final isExpanded = _expandedGroupIds.contains(group.id);
-
-      children.add(_buildGroupSection(
-        context,
-        group,
-        filteredCategories,
-        isExpanded,
-      ));
-    }
-
-    // Add private group button
-    children.add(
-      ListTile(
-        dense: true,
-        leading: Icon(
-          Icons.add,
-          size: 18,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        title: Text(
-          '개인 그룹 추가',
-          style: TextStyle(
-            fontSize: 13,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
-      ),
-    );
-
-    return ListView(
-      shrinkWrap: true,
-      children: children,
+        return ListView(
+          shrinkWrap: true,
+          children: children,
+        );
+      },
     );
   }
 
@@ -253,6 +346,7 @@ class _CategoryGroupSelectorSheetState
     CategoryGroup group,
     List<Category> categories,
     bool isExpanded,
+    List<String> favCategoryIds,
   ) {
     final color = UIHelpers.parseColor(group.color);
 
@@ -341,7 +435,7 @@ class _CategoryGroupSelectorSheetState
         ),
         // Expanded sub-categories
         if (isExpanded) ...[
-          ...categories.map((c) => _buildCategoryTile(context, c, group.name)),
+          ...categories.map((c) => _buildCategoryTile(context, c, group.name, favCategoryIds)),
           // Add sub-category button
           Padding(
             padding: const EdgeInsets.only(left: 24),
@@ -368,9 +462,15 @@ class _CategoryGroupSelectorSheetState
     );
   }
 
-  Widget _buildCategoryTile(BuildContext context, Category category, String groupName) {
+  Widget _buildCategoryTile(
+    BuildContext context,
+    Category category,
+    String groupName,
+    List<String> favCategoryIds,
+  ) {
     final isSelected = category.id == widget.selectedCategoryId;
     final color = UIHelpers.parseColor(category.color);
+    final isFavorite = favCategoryIds.contains(category.id);
 
     return Padding(
       padding: const EdgeInsets.only(left: 24),
@@ -399,6 +499,23 @@ class _CategoryGroupSelectorSheetState
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Favorite star toggle
+            GestureDetector(
+              onTap: () {
+                getIt<FavoritesBloc>().add(ToggleFavorite(
+                  type: 'CATEGORY',
+                  itemId: category.id,
+                ));
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  isFavorite ? Icons.star : Icons.star_outline,
+                  size: 18,
+                  color: isFavorite ? Colors.amber : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+              ),
+            ),
             if (isSelected)
               Icon(
                 Icons.check,

@@ -89,6 +89,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       locale: const Locale('ko'),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);

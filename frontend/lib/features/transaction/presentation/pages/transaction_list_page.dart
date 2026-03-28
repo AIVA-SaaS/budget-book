@@ -380,6 +380,58 @@ class _TransactionListPageState extends State<TransactionListPage> {
     );
   }
 
+  void _showAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_downward, color: Colors.red),
+              ),
+              title: const Text('지출'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final pmParam = _filterPaymentMethodId != null
+                    ? '&paymentMethodId=$_filterPaymentMethodId'
+                    : '';
+                context.push('/transactions/create?type=EXPENSE$pmParam');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_upward, color: Colors.green),
+              ),
+              title: const Text('수입'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final pmParam = _filterPaymentMethodId != null
+                    ? '&paymentMethodId=$_filterPaymentMethodId'
+                    : '';
+                context.push('/transactions/create?type=INCOME$pmParam');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue.withValues(alpha: 0.15),
+                child: const Icon(Icons.swap_horiz, color: Colors.blue),
+              ),
+              title: const Text('이체'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/transfers/create');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -454,12 +506,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final pmParam = _filterPaymentMethodId != null
-              ? '?paymentMethodId=$_filterPaymentMethodId'
-              : '';
-          context.push('/transactions/create$pmParam');
-        },
+        onPressed: () => _showAddMenu(context),
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),

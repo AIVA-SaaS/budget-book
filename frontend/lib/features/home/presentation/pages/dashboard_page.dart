@@ -19,11 +19,57 @@ import 'package:budget_book/features/statistics/domain/entities/payment_method_s
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
+  void _showAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_downward, color: Colors.red),
+              ),
+              title: const Text('지출'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/transactions/create?type=EXPENSE');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.withValues(alpha: 0.15),
+                child: const Icon(Icons.arrow_upward, color: Colors.green),
+              ),
+              title: const Text('수입'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/transactions/create?type=INCOME');
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue.withValues(alpha: 0.15),
+                child: const Icon(Icons.swap_horiz, color: Colors.blue),
+              ),
+              title: const Text('이체'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/transfers/create');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/transactions/create'),
+        onPressed: () => _showAddMenu(context),
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),
@@ -187,6 +233,12 @@ class _QuickActions extends StatelessWidget {
           label: '수입',
           color: Colors.blue,
           onTap: () => context.push('/transactions/create?type=INCOME'),
+        ),
+        _QuickActionButton(
+          icon: Icons.swap_horiz,
+          label: '이체',
+          color: Colors.teal,
+          onTap: () => context.push('/transfers/create'),
         ),
         _QuickActionButton(
           icon: Icons.bar_chart,

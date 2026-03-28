@@ -61,6 +61,14 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/core/websocket/websocket_service.dart';
 import 'package:budget_book/core/websocket/sync_event_handler.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
+import 'package:budget_book/features/insurance/data/datasources/insurance_remote_datasource.dart';
+import 'package:budget_book/features/insurance/data/repositories/insurance_repository_impl.dart';
+import 'package:budget_book/features/insurance/domain/repositories/insurance_repository.dart';
+import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.dart';
+import 'package:budget_book/features/preference/data/datasources/preference_remote_datasource.dart';
+import 'package:budget_book/features/preference/data/repositories/preference_repository_impl.dart';
+import 'package:budget_book/features/preference/domain/repositories/preference_repository.dart';
+import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
 import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
@@ -281,6 +289,20 @@ Future<void> configureDependencies() async {
     dispose: (bloc) => bloc.close(),
   );
 
+  // Insurance feature
+  getIt.registerLazySingleton<InsuranceRemoteDataSource>(
+    () => InsuranceRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<InsuranceRepository>(
+    () => InsuranceRepositoryImpl(
+        remoteDataSource: getIt<InsuranceRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<InsuranceBloc>(
+    () => InsuranceBloc(
+        insuranceRepository: getIt<InsuranceRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
   // WebSocket / Real-time sync
   getIt.registerLazySingleton<WebSocketService>(
     () => WebSocketService(),
@@ -294,6 +316,20 @@ Future<void> configureDependencies() async {
       webSocketService: getIt<WebSocketService>(),
       syncEventHandler: getIt<SyncEventHandler>(),
     ),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Preference (Favorites) feature
+  getIt.registerLazySingleton<PreferenceRemoteDataSource>(
+    () => PreferenceRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<PreferenceRepository>(
+    () => PreferenceRepositoryImpl(
+        remoteDataSource: getIt<PreferenceRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<FavoritesBloc>(
+    () => FavoritesBloc(
+        preferenceRepository: getIt<PreferenceRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 
