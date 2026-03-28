@@ -664,13 +664,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   // ----- Embedded Transfer Form (Tab 2) -----
 
   Future<void> _selectTransferDate() async {
-    final picked = await showDatePicker(
+    final picked = await showCalendarPickerDialog(
       context: context,
       initialDate: _transferDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      locale: const Locale('ko'),
-      initialEntryMode: DatePickerEntryMode.calendarOnly,
+      lastDate: DateTime(2030, 12, 31),
     );
     if (picked != null) {
       setState(() => _transferDate = picked);
@@ -790,12 +788,51 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         .toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: Form(
         key: _transferFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Date (matches expense/income form order)
+            InkWell(
+              onTap: _selectTransferDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '이체일',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  DateFormat('yyyy년 M월 d일 (E)', 'ko')
+                      .format(_transferDate),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Amount
+            TextFormField(
+              controller: _transferAmountController,
+              decoration: const InputDecoration(
+                labelText: '금액',
+                prefixIcon: Icon(Icons.payments),
+                suffixText: '원',
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                CurrencyInputFormatter(),
+              ],
+              validator: (value) {
+                if (value == null || value.isEmpty) return '금액을 입력하세요';
+                final amount = CurrencyFormatter.parse(value);
+                if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+                if (amount > 999999999) {
+                  return '최대 999,999,999원까지 입력 가능합니다';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
             // Source payment method
             DropdownButtonFormField<String>(
               key: ValueKey('transfer_source_$_swapCounter'),
@@ -879,50 +916,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   value == null ? '입금 결제수단을 선택하세요' : null,
             ),
             const SizedBox(height: 16),
-            // Amount
-            TextFormField(
-              controller: _transferAmountController,
-              decoration: const InputDecoration(
-                labelText: '금액',
-                prefixIcon: Icon(Icons.attach_money),
-                suffixText: '원',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                CurrencyInputFormatter(),
-              ],
-              validator: (value) {
-                if (value == null || value.isEmpty) return '금액을 입력하세요';
-                final amount = CurrencyFormatter.parse(value);
-                if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
-                if (amount > 999999999) {
-                  return '최대 999,999,999원까지 입력 가능합니다';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            // Date
-            InkWell(
-              onTap: _selectTransferDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '이체일',
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  DateFormat('yyyy년 M월 d일 (E)', 'ko')
-                      .format(_transferDate),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             // Description
             TextFormField(
               controller: _transferDescriptionController,
               decoration: const InputDecoration(
-                labelText: '설명 (선택)',
+                labelText: '내용 (선택)',
                 prefixIcon: Icon(Icons.description),
                 hintText: '예: ATM 출금',
               ),
