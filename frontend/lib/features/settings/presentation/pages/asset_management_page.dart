@@ -171,8 +171,10 @@ class _CategoryTab extends StatelessWidget {
           if (state is! CategoryGroupLoaded) {
             return const Center(child: CircularProgressIndicator());
           }
-          final sharedGroups = state.groups.where((g) => g.isShared).toList();
-          final privateGroups = state.groups.where((g) => g.isPrivate).toList();
+          final sharedGroups = state.groups.where((g) => g.isShared).toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          final privateGroups = state.groups.where((g) => g.isPrivate).toList()
+            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
           if (state.groups.isEmpty) {
             return const EmptyStateWidget(
@@ -273,6 +275,8 @@ class _CategoryTab extends StatelessWidget {
   Widget _buildGroupSection(BuildContext context, CategoryGroup group) {
     final color = UIHelpers.parseColor(group.color);
     final isVirtual = group.id == _virtualGroupId;
+    final sortedCategories = List<Category>.from(group.categories)
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,8 +363,8 @@ class _CategoryTab extends StatelessWidget {
             ],
           ),
         ),
-        // Sub-categories
-        if (group.categories.isEmpty)
+        // Sub-categories (with reorder arrows)
+        if (sortedCategories.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 52, bottom: 8),
             child: Text(
@@ -374,17 +378,74 @@ class _CategoryTab extends StatelessWidget {
             ),
           )
         else
-          ...group.categories.map((c) => Padding(
-                padding: const EdgeInsets.only(left: 20),
-                child: CategoryListTile(
-                  category: c,
-                  onEdit: () => _showEditCategory(context, c),
-                  onDelete: () => _showDeleteCategoryDialog(context, c),
-                ),
-              )),
+          ...sortedCategories.asMap().entries.map((entry) {
+            final index = entry.key;
+            final c = entry.value;
+            return Padding(
+              key: ValueKey(c.id),
+              padding: const EdgeInsets.only(left: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CategoryListTile(
+                      category: c,
+                      onEdit: () => _showEditCategory(context, c),
+                      onDelete: () => _showDeleteCategoryDialog(context, c),
+                    ),
+                  ),
+                  if (sortedCategories.length > 1)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (index > 0)
+                          InkWell(
+                            onTap: () => _reorderCategory(
+                              context, sortedCategories, index, index - 1),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.arrow_upward, size: 16,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 24, height: 24),
+                        if (index < sortedCategories.length - 1)
+                          InkWell(
+                            onTap: () => _reorderCategory(
+                              context, sortedCategories, index, index + 1),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.arrow_downward, size: 16,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 24, height: 24),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          }),
         const Divider(height: 1, indent: 16, endIndent: 16),
       ],
     );
+  }
+
+  void _reorderCategory(
+    BuildContext context,
+    List<Category> categories,
+    int oldIndex,
+    int newIndex,
+  ) {
+    final reordered = List<Category>.from(categories);
+    final item = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, item);
+    getIt<CategoryBloc>().add(
+      ReorderCategories(reordered.map((c) => c.id).toList()),
+    );
+    // Reload groups to reflect new order
+    getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
   }
 
   void _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) {
@@ -582,7 +643,8 @@ class _PaymentMethodTab extends StatelessWidget {
         if (state is! PaymentMethodLoaded) {
           return const Center(child: CircularProgressIndicator());
         }
-        final methods = state.paymentMethods;
+        final methods = List<PaymentMethod>.from(state.paymentMethods)
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
         if (methods.isEmpty) {
           return const EmptyStateWidget(
@@ -592,11 +654,58 @@ class _PaymentMethodTab extends StatelessWidget {
           );
         }
 
-        return ListView.builder(
+        return ReorderableListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: methods.length,
-          itemBuilder: (context, index) =>
-              _buildPaymentMethodTile(context, methods[index]),
+          onReorder: (oldIndex, newIndex) {
+            if (newIndex > oldIndex) newIndex -= 1;
+            final reordered = List<PaymentMethod>.from(methods);
+            final item = reordered.removeAt(oldIndex);
+            reordered.insert(newIndex, item);
+            context.read<PaymentMethodBloc>().add(
+              ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
+            );
+          },
+          proxyDecorator: (child, index, animation) {
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) {
+                final elevation = Tween<double>(begin: 0, end: 4).evaluate(animation);
+                return Material(
+                  elevation: elevation,
+                  color: Colors.transparent,
+                  shadowColor: Theme.of(context).shadowColor,
+                  borderRadius: BorderRadius.circular(12),
+                  child: child,
+                );
+              },
+              child: child,
+            );
+          },
+          itemBuilder: (context, index) {
+            final method = methods[index];
+            return Row(
+              key: ValueKey(method.id),
+              children: [
+                Expanded(
+                  child: _buildPaymentMethodTile(context, method),
+                ),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Icon(
+                      Icons.drag_handle,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );

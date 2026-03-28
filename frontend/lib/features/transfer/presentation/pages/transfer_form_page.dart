@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
@@ -83,13 +84,11 @@ class _TransferFormPageState extends State<TransferFormPage> {
   }
 
   Future<void> _selectDate() async {
-    final picked = await showDatePicker(
+    final picked = await showCalendarPickerDialog(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      locale: const Locale('ko'),
-      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);

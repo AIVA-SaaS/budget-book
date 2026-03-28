@@ -207,6 +207,14 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _showRecentCountDialog(context),
             ),
+            // Home widget config
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize),
+              title: const Text('홈 화면 구성'),
+              subtitle: const Text('위젯 순서 및 표시 설정'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/home-config'),
+            ),
             // Admin (only visible for ADMIN users)
             BlocBuilder<AuthBloc, AuthState>(
               builder: (context, state) {
