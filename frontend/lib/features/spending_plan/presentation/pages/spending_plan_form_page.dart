@@ -11,6 +11,10 @@ import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
+import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
@@ -81,6 +85,16 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     _tagInputController = TextEditingController();
 
     _isWishlistMode = widget.isWishlist;
+
+    // Ensure categories and payment methods are loaded for selectors
+    final cgBloc = getIt<CategoryGroupBloc>();
+    if (cgBloc.state is! CategoryGroupLoaded) {
+      cgBloc.add(const LoadCategoryGroups());
+    }
+    final pmBloc = getIt<PaymentMethodBloc>();
+    if (pmBloc.state is PaymentMethodInitial) {
+      pmBloc.add(const LoadPaymentMethods());
+    }
 
     if (isEditing) {
       _loadExistingPlan();
@@ -688,15 +702,18 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   .map((e) => SelectorItem(
                         id: e.$2.id,
                         label: e.$2.name,
-                        leadingIcon: Icons.payment,
+                        leadingIcon: paymentMethodTypeIcon(e.$2.type),
+                        leadingColor: paymentMethodTypeColor(e.$2.type),
                         isDeletable: !e.$2.isDefault,
                         displayOrder: e.$1,
+                        group: e.$2.type,
                       ))
                   .toList(),
               selectedId: _paymentMethodId,
               nullLabel: '선택 안 함',
               favoriteType: 'PAYMENT_METHOD',
               reorderRoute: '/asset-management',
+              groupLabels: paymentMethodGroupLabels,
               onSelected: (item) {
                 setState(() {
                   _paymentMethodId = item?.id;
