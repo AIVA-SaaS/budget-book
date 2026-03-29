@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+/// Group labels for payment method types, used in selector sheet section headers.
+const paymentMethodGroupLabels = <String, String>{
+  'CASH': '현금',
+  'BANK': '은행',
+  'DEBIT': '체크카드',
+  'CREDIT': '신용카드',
+};
+
 /// Returns a Korean label for the given payment method type.
 String paymentMethodTypeLabel(String type) {
   return switch (type) {

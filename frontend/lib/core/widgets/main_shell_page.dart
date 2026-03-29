@@ -191,33 +191,8 @@ class _ConnectionStatusBanner extends StatelessWidget {
         // Don't show anything when connected to avoid clutter
         return const SizedBox.shrink(key: ValueKey('connected'));
       case WebSocketConnectionStatus.reconnecting:
-        return Container(
-          key: const ValueKey('reconnecting'),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: Colors.orange.shade100,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '연결 중...',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.orange.shade900,
-                ),
-              ),
-            ],
-          ),
-        );
+        // Silent background reconnection - don't bother user
+        return const SizedBox.shrink(key: ValueKey('reconnecting'));
       case WebSocketConnectionStatus.disconnected:
         return Container(
           key: const ValueKey('disconnected'),

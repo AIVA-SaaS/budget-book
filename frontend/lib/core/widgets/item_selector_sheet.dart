@@ -15,6 +15,9 @@ class SelectorItem {
   final bool isDeletable;
   final int displayOrder;
 
+  /// Optional group key for section headers (e.g. payment method type).
+  final String? group;
+
   const SelectorItem({
     required this.id,
     required this.label,
@@ -23,6 +26,7 @@ class SelectorItem {
     this.leadingColor,
     this.isDeletable = true,
     this.displayOrder = 0,
+    this.group,
   });
 }
 
@@ -45,6 +49,11 @@ class ItemSelectorSheet extends StatelessWidget {
   /// Route to navigate for reorder management. If set, shows a "순서 관리" link at the bottom.
   final String? reorderRoute;
 
+  /// Optional map from group key to display label for section headers.
+  /// When provided and items have [SelectorItem.group] set, items are grouped
+  /// with a header label between each group.
+  final Map<String, String>? groupLabels;
+
   const ItemSelectorSheet({
     super.key,
     required this.title,
@@ -59,6 +68,7 @@ class ItemSelectorSheet extends StatelessWidget {
     this.nullLabel = '선택 안 함',
     this.favoriteType,
     this.reorderRoute,
+    this.groupLabels,
   });
 
   @override
@@ -188,7 +198,7 @@ class ItemSelectorSheet extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ...sortedItems.map((item) => _buildItemTile(context, item, favIds)),
+                        ..._buildGroupedItems(context, sortedItems, favIds),
                         // Create option
                         if (onCreate != null) ...[
                           const Divider(height: 1),
@@ -244,6 +254,41 @@ class ItemSelectorSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Builds the list of item tiles, inserting section headers when [groupLabels]
+  /// is provided and items have a [SelectorItem.group] value.
+  List<Widget> _buildGroupedItems(
+    BuildContext context,
+    List<SelectorItem> sortedItems,
+    List<String> favIds,
+  ) {
+    if (groupLabels == null || groupLabels!.isEmpty) {
+      return sortedItems.map((item) => _buildItemTile(context, item, favIds)).toList();
+    }
+
+    final widgets = <Widget>[];
+    String? lastGroup;
+    for (final item in sortedItems) {
+      if (item.group != null && item.group != lastGroup) {
+        final label = groupLabels![item.group] ?? item.group!;
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+        );
+        lastGroup = item.group;
+      }
+      widgets.add(_buildItemTile(context, item, favIds));
+    }
+    return widgets;
   }
 
   List<String> _getFavoriteIds(FavoritesState state) {
