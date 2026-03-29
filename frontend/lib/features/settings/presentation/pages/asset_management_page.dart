@@ -223,6 +223,7 @@ class _CategoryTab extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
                   ),
+                  const SizedBox(height: 88),
                 ],
               ),
             ),
@@ -749,7 +750,7 @@ class _PaymentMethodTab extends StatelessWidget {
         // For reorder we need original method indices
         // The ReorderableListView operates on the full list including headers
         return ReorderableListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.only(top: 8, bottom: 88),
           itemCount: itemsWithHeaders.length,
           buildDefaultDragHandles: false,
           onReorder: (oldIndex, newIndex) {
@@ -1056,7 +1057,7 @@ class _PocketTab extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
           itemCount: pockets.length,
           itemBuilder: (context, index) =>
               _buildPocketTile(context, pockets[index]),
