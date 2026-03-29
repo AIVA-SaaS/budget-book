@@ -12,8 +12,11 @@ import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.spendingplan.domain.SpendingPlan
+import com.budgetbook.spendingplan.domain.SpendingPlanPriority
 import com.budgetbook.spendingplan.domain.SpendingPlanStatus
+import com.budgetbook.spendingplan.dto.AssignSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
+import com.budgetbook.spendingplan.dto.CompleteWithTransactionRequest
 import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
@@ -22,6 +25,8 @@ import com.budgetbook.spendingplan.dto.SpendingPlanSummary
 import com.budgetbook.spendingplan.dto.UpdateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.toResponse
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
+import com.budgetbook.transaction.domain.Transaction
+import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -102,16 +107,34 @@ class SpendingPlanService(
             }
         } ?: Visibility.SHARED
 
+        // Determine status: if no targetDate provided, status is WISHLIST
+        val status = if (request.targetDate == null) {
+            SpendingPlanStatus.WISHLIST
+        } else {
+            SpendingPlanStatus.PLANNED
+        }
+
+        // For PLANNED status, amount is required
+        if (status == SpendingPlanStatus.PLANNED && (request.amount == null || request.amount < 1)) {
+            throw BusinessException("VALIDATION_ERROR", "amount is required and must be >= 1 for PLANNED status.")
+        }
+
         val plan = SpendingPlan(
             couple = couple,
             author = user,
             name = request.name,
-            amount = request.amount,
+            amount = request.amount ?: 0,
             targetDate = request.targetDate,
             memo = request.memo,
             category = category,
             paymentMethod = paymentMethod,
             budget = budget,
+            status = status,
+            priority = request.priority ?: SpendingPlanPriority.MEDIUM,
+            estimatedMin = request.estimatedMin,
+            estimatedMax = request.estimatedMax,
+            tags = request.tags?.joinToString(","),
+            weekNumber = request.weekNumber,
             isRecurring = request.isRecurring,
             frequency = request.frequency,
             visibility = visibility,
@@ -177,6 +200,24 @@ class SpendingPlanService(
             }
         }
 
+        request.priority?.let { plan.priority = it }
+
+        request.estimatedMin?.let { patchValue ->
+            plan.estimatedMin = patchValue.value
+        }
+
+        request.estimatedMax?.let { patchValue ->
+            plan.estimatedMax = patchValue.value
+        }
+
+        request.tags?.let { patchValue ->
+            plan.tags = patchValue.value?.joinToString(",")
+        }
+
+        request.weekNumber?.let { patchValue ->
+            plan.weekNumber = patchValue.value
+        }
+
         return spendingPlanRepository.save(plan).toResponse()
     }
 
@@ -224,6 +265,80 @@ class SpendingPlanService(
         }
 
         plan.status = SpendingPlanStatus.SKIPPED
+
+        return spendingPlanRepository.save(plan).toResponse()
+    }
+
+    @Transactional
+    fun assignPlan(userId: UUID, planId: UUID, request: AssignSpendingPlanRequest): SpendingPlanResponse {
+        val couple = getActiveCouple(userId)
+        val plan = findPlanWithAccess(planId, couple.id, userId)
+
+        if (plan.status != SpendingPlanStatus.WISHLIST) {
+            throw BusinessException("INVALID_STATUS", "Only WISHLIST plans can be assigned.")
+        }
+
+        plan.targetDate = request.targetDate
+        plan.status = SpendingPlanStatus.PLANNED
+        request.weekNumber?.let { plan.weekNumber = it }
+
+        request.budgetId?.let { budgetId ->
+            val budget = monthlyBudgetRepository.findById(budgetId)
+                .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Specified budgetId does not exist.") }
+                .also { OwnershipValidator.validateOwnership(it.couple.id, couple, "Budget") }
+            plan.budget = budget
+        }
+
+        return spendingPlanRepository.save(plan).toResponse()
+    }
+
+    @Transactional(readOnly = true)
+    fun getWishlist(userId: UUID): List<SpendingPlanResponse> {
+        val couple = getActiveCouple(userId)
+        val plans = spendingPlanRepository.findWishlistByCoupleId(couple.id, userId)
+        return plans.map { it.toResponse() }
+    }
+
+    @Transactional
+    fun completeWithTransaction(userId: UUID, planId: UUID, request: CompleteWithTransactionRequest): SpendingPlanResponse {
+        val couple = getActiveCouple(userId)
+        val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        if (plan.status != SpendingPlanStatus.PLANNED && plan.status != SpendingPlanStatus.OVERDUE && plan.status != SpendingPlanStatus.WISHLIST) {
+            throw BusinessException("INVALID_STATUS", "Only WISHLIST, PLANNED or OVERDUE plans can be completed.")
+        }
+
+        val category = request.categoryId?.let { catId ->
+            categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified categoryId does not exist.") }
+        } ?: plan.category
+
+        val paymentMethod = request.paymentMethodId?.let { pmId ->
+            paymentMethodRepository.findById(pmId)
+                .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified paymentMethodId does not exist.") }
+                .also { OwnershipValidator.validateOwnership(it.couple.id, couple, "Payment method") }
+        } ?: plan.paymentMethod
+
+        val transaction = Transaction(
+            couple = couple,
+            author = user,
+            category = category,
+            type = TransactionType.EXPENSE,
+            amount = request.amount,
+            description = request.description ?: plan.name,
+            transactionDate = request.transactionDate,
+            paymentMethod = paymentMethod,
+            visibility = plan.visibility,
+            owner = plan.owner
+        )
+        transactionRepository.save(transaction)
+
+        plan.linkedTransaction = transaction
+        plan.status = SpendingPlanStatus.COMPLETED
+        plan.actualAmount = request.amount
+        plan.completedDate = request.transactionDate
 
         return spendingPlanRepository.save(plan).toResponse()
     }
@@ -281,9 +396,13 @@ class SpendingPlanService(
         var completedCount = 0
         var skippedCount = 0
         var overdueCount = 0
+        var wishlistCount = 0
 
         for (plan in plans) {
             when (plan.status) {
+                SpendingPlanStatus.WISHLIST -> {
+                    wishlistCount++
+                }
                 SpendingPlanStatus.PLANNED -> {
                     totalPlanned += plan.amount
                     plannedCount++
@@ -310,7 +429,8 @@ class SpendingPlanService(
             plannedCount = plannedCount,
             completedCount = completedCount,
             skippedCount = skippedCount,
-            overdueCount = overdueCount
+            overdueCount = overdueCount,
+            wishlistCount = wishlistCount
         )
     }
 
@@ -341,7 +461,8 @@ class SpendingPlanService(
         }
 
         // Date proximity (30% weight) - within 3 days
-        val daysDiff = abs(ChronoUnit.DAYS.between(plan.targetDate, date))
+        val targetDate = plan.targetDate ?: return Pair(score, reasons)
+        val daysDiff = abs(ChronoUnit.DAYS.between(targetDate, date))
         if (daysDiff <= 3) {
             val dateScore = 0.3 * (1 - daysDiff / 3.0)
             score += dateScore

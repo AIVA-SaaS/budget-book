@@ -5,13 +5,13 @@ import com.budgetbook.common.dto.StringPatchValueDeserializer
 import com.budgetbook.common.dto.UUIDPatchValueDeserializer
 import com.budgetbook.spendingplan.domain.SpendingPlan
 import com.budgetbook.spendingplan.domain.SpendingPlanFrequency
+import com.budgetbook.spendingplan.domain.SpendingPlanPriority
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.time.LocalDate
@@ -24,12 +24,10 @@ data class CreateSpendingPlanRequest(
     @field:Size(max = 100)
     val name: String,
 
-    @field:NotNull
-    @field:Min(1)
-    val amount: Long,
+    @field:Min(0)
+    val amount: Long? = null,
 
-    @field:NotNull
-    val targetDate: LocalDate,
+    val targetDate: LocalDate? = null,
 
     val memo: String? = null,
     val categoryId: UUID? = null,
@@ -37,7 +35,12 @@ data class CreateSpendingPlanRequest(
     val budgetId: UUID? = null,
     val isRecurring: Boolean = false,
     val frequency: SpendingPlanFrequency? = null,
-    val visibility: String? = null
+    val visibility: String? = null,
+    val priority: SpendingPlanPriority? = null,
+    val estimatedMin: Long? = null,
+    val estimatedMax: Long? = null,
+    val tags: List<String>? = null,
+    val weekNumber: Int? = null
 )
 
 // ── Update Request (PatchValue semantics) ──
@@ -68,7 +71,21 @@ data class UpdateSpendingPlanRequest(
     @JsonDeserialize(using = SpendingPlanFrequencyPatchValueDeserializer::class)
     val frequency: PatchValue<SpendingPlanFrequency>? = null,
 
-    val visibility: String? = null
+    val visibility: String? = null,
+
+    val priority: SpendingPlanPriority? = null,
+
+    @JsonDeserialize(using = LongPatchValueDeserializer::class)
+    val estimatedMin: PatchValue<Long>? = null,
+
+    @JsonDeserialize(using = LongPatchValueDeserializer::class)
+    val estimatedMax: PatchValue<Long>? = null,
+
+    @JsonDeserialize(using = StringListPatchValueDeserializer::class)
+    val tags: PatchValue<List<String>>? = null,
+
+    @JsonDeserialize(using = IntPatchValueDeserializer::class)
+    val weekNumber: PatchValue<Int>? = null
 )
 
 // ── Complete Request ──
@@ -77,6 +94,24 @@ data class CompleteSpendingPlanRequest(
     val linkedTransactionId: UUID? = null,
     val actualAmount: Long? = null,
     val completedDate: LocalDate? = null
+)
+
+// ── Assign Request (WISHLIST → PLANNED) ──
+
+data class AssignSpendingPlanRequest(
+    val targetDate: LocalDate,
+    val weekNumber: Int? = null,
+    val budgetId: UUID? = null
+)
+
+// ── Complete with Transaction Request ──
+
+data class CompleteWithTransactionRequest(
+    val amount: Long,
+    val description: String? = null,
+    val categoryId: UUID? = null,
+    val paymentMethodId: UUID? = null,
+    val transactionDate: LocalDate
 )
 
 // ── Response ──
@@ -88,7 +123,7 @@ data class SpendingPlanResponse(
     val authorNickname: String?,
     val name: String,
     val amount: Long,
-    val targetDate: LocalDate,
+    val targetDate: LocalDate?,
     val memo: String?,
     val category: CategorySummary?,
     val paymentMethod: PaymentMethodSummary?,
@@ -104,6 +139,11 @@ data class SpendingPlanResponse(
     val recurringSourceId: UUID?,
     val visibility: String,
     val ownerId: UUID?,
+    val priority: String,
+    val estimatedMin: Long?,
+    val estimatedMax: Long?,
+    val tags: List<String>?,
+    val weekNumber: Int?,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -133,7 +173,8 @@ data class SpendingPlanSummary(
     val plannedCount: Int,
     val completedCount: Int,
     val skippedCount: Int,
-    val overdueCount: Int
+    val overdueCount: Int,
+    val wishlistCount: Int
 )
 
 // ── Suggestion Response ──
@@ -183,12 +224,17 @@ fun SpendingPlan.toResponse(): SpendingPlanResponse {
         recurringSourceId = recurringSource?.id,
         visibility = visibility.name,
         ownerId = owner?.id,
+        priority = priority.name,
+        estimatedMin = estimatedMin,
+        estimatedMax = estimatedMax,
+        tags = tags?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() },
+        weekNumber = weekNumber,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
 }
 
-// ── Custom PatchValue deserializer ──
+// ── Custom PatchValue deserializers ──
 
 class SpendingPlanFrequencyPatchValueDeserializer : JsonDeserializer<PatchValue<SpendingPlanFrequency>>() {
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<SpendingPlanFrequency> {
@@ -197,6 +243,37 @@ class SpendingPlanFrequencyPatchValueDeserializer : JsonDeserializer<PatchValue<
     }
 
     override fun getNullValue(ctxt: DeserializationContext): PatchValue<SpendingPlanFrequency> {
+        return PatchValue(null)
+    }
+}
+
+class LongPatchValueDeserializer : JsonDeserializer<PatchValue<Long>>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<Long> {
+        return PatchValue(p.longValue)
+    }
+
+    override fun getNullValue(ctxt: DeserializationContext): PatchValue<Long> {
+        return PatchValue(null)
+    }
+}
+
+class IntPatchValueDeserializer : JsonDeserializer<PatchValue<Int>>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<Int> {
+        return PatchValue(p.intValue)
+    }
+
+    override fun getNullValue(ctxt: DeserializationContext): PatchValue<Int> {
+        return PatchValue(null)
+    }
+}
+
+class StringListPatchValueDeserializer : JsonDeserializer<PatchValue<List<String>>>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<List<String>> {
+        val list: List<String> = p.readValueAs(object : com.fasterxml.jackson.core.type.TypeReference<List<String>>() {})
+        return PatchValue(list)
+    }
+
+    override fun getNullValue(ctxt: DeserializationContext): PatchValue<List<String>> {
         return PatchValue(null)
     }
 }

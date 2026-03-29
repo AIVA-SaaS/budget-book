@@ -37,6 +37,24 @@ abstract class SpendingPlanRemoteDataSource {
     int? amount,
     String? date,
   });
+
+  Future<List<SpendingPlanModel>> getWishlist();
+
+  Future<SpendingPlanModel> assignPlan(
+    String id, {
+    required String targetDate,
+    int? weekNumber,
+    String? budgetId,
+  });
+
+  Future<SpendingPlanModel> completeWithTransaction(
+    String id, {
+    required int amount,
+    required String transactionDate,
+    String? description,
+    String? categoryId,
+    String? paymentMethodId,
+  });
 }
 
 class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
@@ -144,5 +162,63 @@ class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
         .map((e) =>
             SpendingPlanSuggestionModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<List<SpendingPlanModel>> getWishlist() async {
+    final response = await apiClient.dio.get(
+      '${ApiEndpoints.spendingPlans}/wishlist',
+    );
+
+    final data = response.data['data'] as List<dynamic>;
+    return data
+        .map((e) => SpendingPlanModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<SpendingPlanModel> assignPlan(
+    String id, {
+    required String targetDate,
+    int? weekNumber,
+    String? budgetId,
+  }) async {
+    final data = <String, dynamic>{
+      'targetDate': targetDate,
+      if (weekNumber != null) 'weekNumber': weekNumber,
+      if (budgetId != null) 'budgetId': budgetId,
+    };
+    final response = await apiClient.dio.patch(
+      '${ApiEndpoints.spendingPlans}/$id/assign',
+      data: data,
+    );
+    return SpendingPlanModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<SpendingPlanModel> completeWithTransaction(
+    String id, {
+    required int amount,
+    required String transactionDate,
+    String? description,
+    String? categoryId,
+    String? paymentMethodId,
+  }) async {
+    final data = <String, dynamic>{
+      'amount': amount,
+      'transactionDate': transactionDate,
+      if (description != null) 'description': description,
+      if (categoryId != null) 'categoryId': categoryId,
+      if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+    };
+    final response = await apiClient.dio.patch(
+      '${ApiEndpoints.spendingPlans}/$id/complete-with-transaction',
+      data: data,
+    );
+    return SpendingPlanModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
   }
 }

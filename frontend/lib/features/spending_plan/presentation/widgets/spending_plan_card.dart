@@ -5,6 +5,8 @@ import 'package:budget_book/features/spending_plan/domain/entities/spending_plan
 /// Maps spending plan status to Korean label.
 String statusLabel(String status) {
   switch (status) {
+    case 'WISHLIST':
+      return '구매 목록';
     case 'PLANNED':
       return '계획됨';
     case 'COMPLETED':
@@ -21,6 +23,8 @@ String statusLabel(String status) {
 /// Maps spending plan status to icon.
 IconData statusIcon(String status) {
   switch (status) {
+    case 'WISHLIST':
+      return Icons.shopping_cart;
     case 'PLANNED':
       return Icons.schedule;
     case 'COMPLETED':
@@ -37,6 +41,8 @@ IconData statusIcon(String status) {
 /// Maps spending plan status to color.
 Color statusColor(String status) {
   switch (status) {
+    case 'WISHLIST':
+      return Colors.purple;
     case 'PLANNED':
       return Colors.blue;
     case 'COMPLETED':
@@ -47,6 +53,34 @@ Color statusColor(String status) {
       return Colors.red;
     default:
       return Colors.grey;
+  }
+}
+
+/// Maps priority to color.
+Color priorityColor(String priority) {
+  switch (priority) {
+    case 'HIGH':
+      return Colors.red;
+    case 'MEDIUM':
+      return Colors.orange;
+    case 'LOW':
+      return Colors.blue;
+    default:
+      return Colors.grey;
+  }
+}
+
+/// Maps priority to Korean label.
+String priorityLabel(String priority) {
+  switch (priority) {
+    case 'HIGH':
+      return '높음';
+    case 'MEDIUM':
+      return '보통';
+    case 'LOW':
+      return '낮음';
+    default:
+      return priority;
   }
 }
 

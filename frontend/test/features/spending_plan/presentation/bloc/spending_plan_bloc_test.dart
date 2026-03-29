@@ -39,6 +39,11 @@ class MockSpendingPlanRepository extends Mock
     bool isRecurring = false,
     String? frequency,
     String visibility = 'SHARED',
+    String? status,
+    String? priority,
+    int? estimatedMin,
+    int? estimatedMax,
+    String? tags,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createSpendingPlan, [], {
@@ -52,6 +57,11 @@ class MockSpendingPlanRepository extends Mock
           #isRecurring: isRecurring,
           #frequency: frequency,
           #visibility: visibility,
+          #status: status,
+          #priority: priority,
+          #estimatedMin: estimatedMin,
+          #estimatedMax: estimatedMax,
+          #tags: tags,
         }),
         returnValue: Future.value(
           const Right<Failure, SpendingPlan>(_dummyPlan),
@@ -147,6 +157,57 @@ class MockSpendingPlanRepository extends Mock
           const Right<Failure, List<SpendingPlanSuggestion>>([]),
         ),
       ) as Future<Either<Failure, List<SpendingPlanSuggestion>>>;
+
+  @override
+  Future<Either<Failure, List<SpendingPlan>>> getWishlist() =>
+      super.noSuchMethod(
+        Invocation.method(#getWishlist, []),
+        returnValue: Future.value(
+          const Right<Failure, List<SpendingPlan>>([]),
+        ),
+      ) as Future<Either<Failure, List<SpendingPlan>>>;
+
+  @override
+  Future<Either<Failure, SpendingPlan>> assignPlan({
+    required String id,
+    required String targetDate,
+    int? weekNumber,
+    String? budgetId,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(#assignPlan, [], {
+          #id: id,
+          #targetDate: targetDate,
+          #weekNumber: weekNumber,
+          #budgetId: budgetId,
+        }),
+        returnValue: Future.value(
+          const Right<Failure, SpendingPlan>(_dummyPlan),
+        ),
+      ) as Future<Either<Failure, SpendingPlan>>;
+
+  @override
+  Future<Either<Failure, SpendingPlan>> completeWithTransaction({
+    required String id,
+    required int amount,
+    required String transactionDate,
+    String? description,
+    String? categoryId,
+    String? paymentMethodId,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(#completeWithTransaction, [], {
+          #id: id,
+          #amount: amount,
+          #transactionDate: transactionDate,
+          #description: description,
+          #categoryId: categoryId,
+          #paymentMethodId: paymentMethodId,
+        }),
+        returnValue: Future.value(
+          const Right<Failure, SpendingPlan>(_dummyPlan),
+        ),
+      ) as Future<Either<Failure, SpendingPlan>>;
 }
 
 const _emptySummary = SpendingPlanSummary(
@@ -437,6 +498,79 @@ void main() {
     });
   });
 
+    group('LoadWishlist', () {
+      const tWishlistItem = SpendingPlan(
+        id: 'wl1',
+        name: '에어팟 프로',
+        amount: 350000,
+        status: 'WISHLIST',
+        priority: 'HIGH',
+        estimatedMin: 300000,
+        estimatedMax: 380000,
+        tags: ['전자기기', '선물'],
+        isRecurring: false,
+        visibility: 'SHARED',
+        authorName: '사용자',
+        createdAt: '2026-03-25T12:00:00Z',
+      );
+
+      blocTest<SpendingPlanBloc, SpendingPlanState>(
+        'emits Loaded with wishlist on success when already loaded',
+        build: () {
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right([tWishlistItem]));
+          return bloc;
+        },
+        seed: () =>
+            const SpendingPlanLoaded(plans: tPlans, summary: tSummary),
+        act: (bloc) => bloc.add(const LoadWishlist()),
+        expect: () => [
+          const SpendingPlanLoaded(
+            plans: tPlans,
+            summary: tSummary,
+            wishlist: [tWishlistItem],
+          ),
+        ],
+      );
+
+      blocTest<SpendingPlanBloc, SpendingPlanState>(
+        'emits Loaded with empty plans when not yet loaded',
+        build: () {
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right([tWishlistItem]));
+          return bloc;
+        },
+        act: (bloc) => bloc.add(const LoadWishlist()),
+        expect: () => [
+          const SpendingPlanLoaded(
+            plans: [],
+            summary: _emptySummary,
+            wishlist: [tWishlistItem],
+          ),
+        ],
+      );
+
+      blocTest<SpendingPlanBloc, SpendingPlanState>(
+        'emits operationError on failure when loaded',
+        build: () {
+          when(mockRepository.getWishlist()).thenAnswer(
+              (_) async =>
+                  const Left(ServerFailure('구매 목록을 불러오지 못했습니다')));
+          return bloc;
+        },
+        seed: () =>
+            const SpendingPlanLoaded(plans: tPlans, summary: tSummary),
+        act: (bloc) => bloc.add(const LoadWishlist()),
+        expect: () => [
+          const SpendingPlanLoaded(
+            plans: tPlans,
+            summary: tSummary,
+            operationError: '구매 목록을 불러오지 못했습니다',
+          ),
+        ],
+      );
+    });
+
   group('SpendingPlanLoaded helpers', () {
     test('groupedByDate groups plans by date', () {
       const state = SpendingPlanLoaded(plans: tPlans, summary: tSummary);
@@ -452,6 +586,37 @@ void main() {
       expect(state.completedPlans.length, 1);
       expect(state.skippedPlans.length, 0);
       expect(state.overduePlans.length, 0);
+    });
+
+    test('wishlistByPriority groups by priority order', () {
+      const wlHigh = SpendingPlan(
+        id: 'wlh', name: 'high', amount: 0,
+        status: 'WISHLIST', priority: 'HIGH',
+        isRecurring: false, visibility: 'SHARED',
+        authorName: '', createdAt: '',
+      );
+      const wlMed = SpendingPlan(
+        id: 'wlm', name: 'med', amount: 0,
+        status: 'WISHLIST', priority: 'MEDIUM',
+        isRecurring: false, visibility: 'SHARED',
+        authorName: '', createdAt: '',
+      );
+      const wlLow = SpendingPlan(
+        id: 'wll', name: 'low', amount: 0,
+        status: 'WISHLIST', priority: 'LOW',
+        isRecurring: false, visibility: 'SHARED',
+        authorName: '', createdAt: '',
+      );
+      const state = SpendingPlanLoaded(
+        plans: tPlans,
+        summary: tSummary,
+        wishlist: [wlMed, wlHigh, wlLow],
+      );
+      final grouped = state.wishlistByPriority;
+      expect(grouped.keys.toList(), ['HIGH', 'MEDIUM', 'LOW']);
+      expect(grouped['HIGH']!.length, 1);
+      expect(grouped['MEDIUM']!.length, 1);
+      expect(grouped['LOW']!.length, 1);
     });
   });
 
@@ -476,6 +641,61 @@ void main() {
         createdAt: '2026-03-25T12:00:00Z',
       );
       expect(tPlan1, equals(copy));
+    });
+
+    test('isWishlist returns true for WISHLIST status', () {
+      const wishlist = SpendingPlan(
+        id: 'wl1',
+        name: 'test',
+        amount: 0,
+        status: 'WISHLIST',
+        isRecurring: false,
+        visibility: 'SHARED',
+        authorName: '',
+        createdAt: '',
+      );
+      expect(wishlist.isWishlist, true);
+      expect(tPlan1.isWishlist, false);
+    });
+
+    test('priceRangeText formats correctly', () {
+      const withRange = SpendingPlan(
+        id: 'wl1',
+        name: 'test',
+        amount: 0,
+        status: 'WISHLIST',
+        estimatedMin: 300000,
+        estimatedMax: 380000,
+        isRecurring: false,
+        visibility: 'SHARED',
+        authorName: '',
+        createdAt: '',
+      );
+      expect(withRange.priceRangeText, '300,000~380,000원');
+
+      const withAmount = SpendingPlan(
+        id: 'wl2',
+        name: 'test',
+        amount: 150000,
+        status: 'WISHLIST',
+        isRecurring: false,
+        visibility: 'SHARED',
+        authorName: '',
+        createdAt: '',
+      );
+      expect(withAmount.priceRangeText, '150,000원');
+
+      const noPrice = SpendingPlan(
+        id: 'wl3',
+        name: 'test',
+        amount: 0,
+        status: 'WISHLIST',
+        isRecurring: false,
+        visibility: 'SHARED',
+        authorName: '',
+        createdAt: '',
+      );
+      expect(noPrice.priceRangeText, '미정');
     });
   });
 
