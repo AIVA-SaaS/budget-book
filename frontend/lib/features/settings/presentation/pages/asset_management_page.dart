@@ -190,35 +190,89 @@ class _CategoryTab extends StatelessWidget {
                 getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
               }
             },
-            child: ListView(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                // Shared groups
-                ...sharedGroups.map((g) => _buildGroupSection(context, g)),
-                // Add shared group button
-                _buildAddButton(
-                  context,
-                  icon: Icons.create_new_folder,
-                  label: '공유 그룹 추가',
-                  onTap: () => _showAddGroupDialog(context),
-                ),
-                // Private section
-                const SizedBox(height: 8),
-                _buildPrivateSectionHeader(context),
-                ...privateGroups.map((g) => _buildGroupSection(context, g)),
-                // Add private group button
-                _buildAddButton(
-                  context,
-                  icon: Icons.add,
-                  label: '개인 그룹 추가',
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
-                ),
-              ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Shared groups - reorderable
+                  _buildReorderableGroupSection(
+                    context,
+                    groups: sharedGroups,
+                  ),
+                  // Add shared group button
+                  _buildAddButton(
+                    context,
+                    icon: Icons.create_new_folder,
+                    label: '공유 그룹 추가',
+                    onTap: () => _showAddGroupDialog(context),
+                  ),
+                  // Private section
+                  const SizedBox(height: 8),
+                  _buildPrivateSectionHeader(context),
+                  // Private groups - reorderable
+                  _buildReorderableGroupSection(
+                    context,
+                    groups: privateGroups,
+                  ),
+                  // Add private group button
+                  _buildAddButton(
+                    context,
+                    icon: Icons.add,
+                    label: '개인 그룹 추가',
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildReorderableGroupSection(
+    BuildContext context, {
+    required List<CategoryGroup> groups,
+  }) {
+    if (groups.isEmpty) return const SizedBox.shrink();
+
+    return ReorderableListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final elevation =
+                Tween<double>(begin: 0, end: 4).evaluate(animation);
+            return Material(
+              elevation: elevation,
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              shadowColor: Theme.of(context).shadowColor,
+              borderRadius: BorderRadius.circular(8),
+              child: child,
+            );
+          },
+          child: child,
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) newIndex--;
+        final reordered = List<CategoryGroup>.from(groups);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        getIt<CategoryGroupBloc>().add(
+          ReorderCategoryGroups(reordered.map((g) => g.id).toList()),
+        );
+      },
+      children: [
+        for (int i = 0; i < groups.length; i++)
+          _buildGroupSection(context, groups[i], groupIndex: i,
+              key: ValueKey(groups[i].id)),
+      ],
     );
   }
 
@@ -272,20 +326,38 @@ class _CategoryTab extends StatelessWidget {
     );
   }
 
-  Widget _buildGroupSection(BuildContext context, CategoryGroup group) {
+  Widget _buildGroupSection(BuildContext context, CategoryGroup group,
+      {int groupIndex = 0, Key? key}) {
     final color = UIHelpers.parseColor(group.color);
     final isVirtual = group.id == _virtualGroupId;
     final sortedCategories = List<Category>.from(group.categories)
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
     return Column(
+      key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group header with edit/delete
+        // Group header with drag handle and edit/delete
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
           child: Row(
             children: [
+              // Drag handle for group reorder
+              ReorderableDragStartListener(
+                index: groupIndex,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Icon(
+                    Icons.drag_handle,
+                    size: 20,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               CircleAvatar(
                 radius: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
@@ -363,7 +435,7 @@ class _CategoryTab extends StatelessWidget {
             ],
           ),
         ),
-        // Sub-categories (with reorder arrows)
+        // Sub-categories (with drag handle reorder)
         if (sortedCategories.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 52, bottom: 8),
@@ -378,74 +450,83 @@ class _CategoryTab extends StatelessWidget {
             ),
           )
         else
-          ...sortedCategories.asMap().entries.map((entry) {
-            final index = entry.key;
-            final c = entry.value;
-            return Padding(
-              key: ValueKey(c.id),
-              padding: const EdgeInsets.only(left: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CategoryListTile(
-                      category: c,
-                      onEdit: () => _showEditCategory(context, c),
-                      onDelete: () => _showDeleteCategoryDialog(context, c),
-                    ),
-                  ),
-                  if (sortedCategories.length > 1)
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (index > 0)
-                          InkWell(
-                            onTap: () => _reorderCategory(
-                              context, sortedCategories, index, index - 1),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(Icons.arrow_upward, size: 16,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 24, height: 24),
-                        if (index < sortedCategories.length - 1)
-                          InkWell(
-                            onTap: () => _reorderCategory(
-                              context, sortedCategories, index, index + 1),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(Icons.arrow_downward, size: 16,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 24, height: 24),
-                      ],
-                    ),
-                ],
-              ),
-            );
-          }),
+          _buildReorderableCategoryList(context, sortedCategories),
         const Divider(height: 1, indent: 16, endIndent: 16),
       ],
     );
   }
 
-  void _reorderCategory(
+  Widget _buildReorderableCategoryList(
     BuildContext context,
-    List<Category> categories,
-    int oldIndex,
-    int newIndex,
+    List<Category> sortedCategories,
   ) {
-    final reordered = List<Category>.from(categories);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    getIt<CategoryBloc>().add(
-      ReorderCategories(reordered.map((c) => c.id).toList()),
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final elevation =
+                Tween<double>(begin: 0, end: 3).evaluate(animation);
+            return Material(
+              elevation: elevation,
+              color: Theme.of(context).colorScheme.surface,
+              shadowColor: Theme.of(context).shadowColor,
+              child: child,
+            );
+          },
+          child: child,
+        );
+      },
+      itemCount: sortedCategories.length,
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) newIndex--;
+        final reordered = List<Category>.from(sortedCategories);
+        final item = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, item);
+        getIt<CategoryBloc>().add(
+          ReorderCategories(reordered.map((c) => c.id).toList()),
+        );
+        // Reload groups to reflect new order
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+      },
+      itemBuilder: (context, index) {
+        final c = sortedCategories[index];
+        return Padding(
+          key: ValueKey(c.id),
+          padding: const EdgeInsets.only(left: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: CategoryListTile(
+                  category: c,
+                  onEdit: () => _showEditCategory(context, c),
+                  onDelete: () => _showDeleteCategoryDialog(context, c),
+                ),
+              ),
+              if (sortedCategories.length > 1)
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Icon(
+                      Icons.drag_handle,
+                      size: 20,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
-    // Reload groups to reflect new order
-    getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
   }
 
   void _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) {
