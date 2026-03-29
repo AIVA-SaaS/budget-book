@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
 import 'package:budget_book/features/spending_plan/domain/repositories/spending_plan_repository.dart';
 import 'spending_plan_event.dart';
 import 'spending_plan_state.dart';
@@ -18,6 +19,9 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
     on<DeleteSpendingPlan>(_onDeleteSpendingPlan);
     on<CompletePlan>(_onCompletePlan);
     on<SkipPlan>(_onSkipPlan);
+    on<LoadWishlist>(_onLoadWishlist);
+    on<AssignPlan>(_onAssignPlan);
+    on<CompleteWithTransaction>(_onCompleteWithTransaction);
   }
 
   Future<void> _onLoadSpendingPlans(
@@ -63,6 +67,11 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
         isRecurring: event.isRecurring,
         frequency: event.frequency,
         visibility: event.visibility,
+        status: event.status,
+        priority: event.priority,
+        estimatedMin: event.estimatedMin,
+        estimatedMax: event.estimatedMax,
+        tags: event.tags,
       );
       result.fold(
         (failure) {
@@ -227,6 +236,133 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
             emit(SpendingPlanLoaded(
               plans: currentState.plans,
               summary: currentState.summary,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(SpendingPlanError(failure.message));
+          }
+        },
+        (_) => add(LoadSpendingPlans(
+          startDate: _lastStartDate,
+          endDate: _lastEndDate,
+          status: _lastStatus,
+        )),
+      );
+    } catch (e) {
+      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onLoadWishlist(
+    LoadWishlist event,
+    Emitter<SpendingPlanState> emit,
+  ) async {
+    try {
+      final currentState = state;
+      final result = await spendingPlanRepository.getWishlist();
+      result.fold(
+        (failure) {
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: currentState.wishlist,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(SpendingPlanError(failure.message));
+          }
+        },
+        (wishlist) {
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: wishlist,
+            ));
+          } else {
+            // No plans loaded yet; emit with empty plans/summary
+            emit(SpendingPlanLoaded(
+              plans: const [],
+              summary: const SpendingPlanSummary(
+                totalPlanned: 0,
+                totalCompleted: 0,
+                totalSkipped: 0,
+                plannedCount: 0,
+                completedCount: 0,
+                overdueCount: 0,
+              ),
+              wishlist: wishlist,
+            ));
+          }
+        },
+      );
+    } catch (e) {
+      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onAssignPlan(
+    AssignPlan event,
+    Emitter<SpendingPlanState> emit,
+  ) async {
+    try {
+      final result = await spendingPlanRepository.assignPlan(
+        id: event.planId,
+        targetDate: event.targetDate,
+        weekNumber: event.weekNumber,
+        budgetId: event.budgetId,
+      );
+      result.fold(
+        (failure) {
+          final currentState = state;
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: currentState.wishlist,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(SpendingPlanError(failure.message));
+          }
+        },
+        (_) {
+          // Reload both plans and wishlist
+          add(const LoadWishlist());
+          add(LoadSpendingPlans(
+            startDate: _lastStartDate,
+            endDate: _lastEndDate,
+            status: _lastStatus,
+          ));
+        },
+      );
+    } catch (e) {
+      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onCompleteWithTransaction(
+    CompleteWithTransaction event,
+    Emitter<SpendingPlanState> emit,
+  ) async {
+    try {
+      final result = await spendingPlanRepository.completeWithTransaction(
+        id: event.planId,
+        amount: event.amount,
+        transactionDate: event.transactionDate,
+        description: event.description,
+        categoryId: event.categoryId,
+        paymentMethodId: event.paymentMethodId,
+      );
+      result.fold(
+        (failure) {
+          final currentState = state;
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: currentState.wishlist,
               operationError: failure.message,
             ));
           } else {

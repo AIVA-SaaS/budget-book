@@ -29,6 +29,11 @@ class CreateSpendingPlan extends SpendingPlanEvent {
   final bool isRecurring;
   final String? frequency;
   final String visibility;
+  final String? status; // WISHLIST or PLANNED (default)
+  final String? priority; // HIGH, MEDIUM, LOW
+  final int? estimatedMin;
+  final int? estimatedMax;
+  final String? tags; // comma-separated
 
   const CreateSpendingPlan({
     required this.name,
@@ -41,6 +46,11 @@ class CreateSpendingPlan extends SpendingPlanEvent {
     this.isRecurring = false,
     this.frequency,
     this.visibility = 'SHARED',
+    this.status,
+    this.priority,
+    this.estimatedMin,
+    this.estimatedMax,
+    this.tags,
   });
 
   @override
@@ -55,6 +65,11 @@ class CreateSpendingPlan extends SpendingPlanEvent {
         isRecurring,
         frequency,
         visibility,
+        status,
+        priority,
+        estimatedMin,
+        estimatedMax,
+        tags,
       ];
 }
 
@@ -147,4 +162,53 @@ class SkipPlan extends SpendingPlanEvent {
 
   @override
   List<Object?> get props => [id];
+}
+
+class LoadWishlist extends SpendingPlanEvent {
+  const LoadWishlist();
+}
+
+class AssignPlan extends SpendingPlanEvent {
+  final String planId;
+  final String targetDate;
+  final int? weekNumber;
+  final String? budgetId;
+
+  const AssignPlan({
+    required this.planId,
+    required this.targetDate,
+    this.weekNumber,
+    this.budgetId,
+  });
+
+  @override
+  List<Object?> get props => [planId, targetDate, weekNumber, budgetId];
+}
+
+class CompleteWithTransaction extends SpendingPlanEvent {
+  final String planId;
+  final int amount;
+  final String transactionDate;
+  final String? description;
+  final String? categoryId;
+  final String? paymentMethodId;
+
+  const CompleteWithTransaction({
+    required this.planId,
+    required this.amount,
+    required this.transactionDate,
+    this.description,
+    this.categoryId,
+    this.paymentMethodId,
+  });
+
+  @override
+  List<Object?> get props => [
+        planId,
+        amount,
+        transactionDate,
+        description,
+        categoryId,
+        paymentMethodId,
+      ];
 }

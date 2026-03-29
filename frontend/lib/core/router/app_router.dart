@@ -757,7 +757,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               value: getIt<BudgetBloc>(),
             ),
           ],
-          child: const SpendingPlanFormPage(),
+          child: SpendingPlanFormPage(
+            isWishlist: state.uri.queryParameters['wishlist'] == 'true',
+          ),
         );
       },
     ),

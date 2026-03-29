@@ -40,8 +40,8 @@ class SpendingPlan(
     @Column(nullable = false)
     var amount: Long,
 
-    @Column(name = "target_date", nullable = false)
-    var targetDate: LocalDate,
+    @Column(name = "target_date")
+    var targetDate: LocalDate? = null,
 
     var memo: String? = null,
 
@@ -64,6 +64,21 @@ class SpendingPlan(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     var status: SpendingPlanStatus = SpendingPlanStatus.PLANNED,
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10, nullable = false)
+    var priority: SpendingPlanPriority = SpendingPlanPriority.MEDIUM,
+
+    @Column(name = "estimated_min")
+    var estimatedMin: Long? = null,
+
+    @Column(name = "estimated_max")
+    var estimatedMax: Long? = null,
+
+    var tags: String? = null,
+
+    @Column(name = "week_number")
+    var weekNumber: Int? = null,
 
     @Column(name = "actual_amount")
     var actualAmount: Long? = null,
