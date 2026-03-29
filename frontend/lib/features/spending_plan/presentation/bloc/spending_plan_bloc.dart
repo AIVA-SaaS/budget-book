@@ -32,10 +32,6 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
       _lastStartDate = event.startDate;
       _lastEndDate = event.endDate;
       _lastStatus = event.status;
-      final currentState = state;
-      final previousWishlist = currentState is SpendingPlanLoaded
-          ? currentState.wishlist
-          : null;
       emit(const SpendingPlanLoading());
 
       final result = await spendingPlanRepository.getSpendingPlans(
@@ -43,12 +39,20 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
         endDate: event.endDate,
         status: event.status,
       );
+
+      // Always load wishlist together with plans to avoid partial state
+      final wishlistResult = await spendingPlanRepository.getWishlist();
+      final wishlist = wishlistResult.fold(
+        (_) => <SpendingPlan>[],
+        (list) => list,
+      );
+
       result.fold(
         (failure) => emit(SpendingPlanError(failure.message)),
         (response) => emit(SpendingPlanLoaded(
           plans: response.plans,
           summary: response.summary,
-          wishlist: previousWishlist,
+          wishlist: wishlist,
         )),
       );
     } catch (e) {
