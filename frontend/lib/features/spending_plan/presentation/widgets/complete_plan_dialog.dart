@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
+import 'package:budget_book/core/widgets/item_selector_sheet.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
 
 /// Result from the complete plan dialog.
@@ -56,6 +61,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   late DateTime _transactionDate;
   bool _createTransaction = true;
   String? _categoryId;
+  String? _categoryDisplayName;
   String? _paymentMethodId;
 
   @override
@@ -68,6 +74,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
         ? DateTime.tryParse(widget.plan.targetDate!) ?? DateTime.now()
         : DateTime.now();
     _categoryId = widget.plan.categoryId;
+    _categoryDisplayName = widget.plan.categoryName;
     _paymentMethodId = widget.plan.paymentMethodId;
   }
 
@@ -113,6 +120,114 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
       categoryId: _categoryId,
       paymentMethodId: _paymentMethodId,
     ));
+  }
+
+  void _showCategorySelectorSheet() {
+    showDialog(
+      context: context,
+      builder: (_) => CategoryGroupSelectorSheet(
+        selectedCategoryId: _categoryId,
+        categoryType: 'EXPENSE',
+        onSelected: (category) {
+          setState(() {
+            _categoryId = category?.id;
+            _categoryDisplayName = null;
+          });
+        },
+        onSelectedWithGroupName: (category, groupName) {
+          setState(() {
+            _categoryId = category?.id;
+            if (category != null && groupName != null && groupName.isNotEmpty) {
+              _categoryDisplayName = '$groupName > ${category.name}';
+            } else {
+              _categoryDisplayName = category?.name;
+            }
+          });
+        },
+        onDelete: (id) {
+          if (_categoryId == id) {
+            setState(() {
+              _categoryId = null;
+              _categoryDisplayName = null;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  void _showPaymentMethodSelectorSheet() {
+    final pmBloc = getIt<PaymentMethodBloc>();
+    showDialog(
+      context: context,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: pmBloc,
+        child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (sheetContext, pmState) {
+            final liveMethods = pmState is PaymentMethodLoaded
+                ? pmState.activePaymentMethods
+                : _methods;
+            return ItemSelectorSheet(
+              title: '결제수단 선택',
+              items: liveMethods
+                  .indexed
+                  .map((e) => SelectorItem(
+                        id: e.$2.id,
+                        label: e.$2.name,
+                        leadingIcon: Icons.payment,
+                        isDeletable: !e.$2.isDefault,
+                        displayOrder: e.$1,
+                      ))
+                  .toList(),
+              selectedId: _paymentMethodId,
+              nullLabel: '선택 안 함',
+              favoriteType: 'PAYMENT_METHOD',
+              reorderRoute: '/asset-management',
+              onSelected: (item) {
+                setState(() {
+                  _paymentMethodId = item?.id;
+                });
+              },
+              onDelete: (id) {
+                pmBloc.add(DeletePaymentMethod(id));
+                if (_paymentMethodId == id) {
+                  setState(() => _paymentMethodId = null);
+                }
+              },
+              onCreate: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+                    value: pmBloc,
+                    child: PaymentMethodFormSheet(
+                      onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+                        pmBloc.add(CreatePaymentMethod(
+                          name: name,
+                          type: type,
+                          settlementDay: settlementDay,
+                          closingDay: closingDay,
+                          linkedBankId: linkedBankId,
+                        ));
+                      },
+                    ),
+                  ),
+                );
+              },
+              createLabel: '+ 새 결제수단',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String? get _paymentMethodDisplayName {
+    if (_paymentMethodId == null) return null;
+    return _methods
+        .where((pm) => pm.id == _paymentMethodId)
+        .map((pm) => pm.name)
+        .firstOrNull;
   }
 
   @override
@@ -185,52 +300,25 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
 
             if (_createTransaction) ...[
               const SizedBox(height: 8),
-              // Payment method
-              if (_methods.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  initialValue: _paymentMethodId,
-                  decoration: const InputDecoration(
-                    labelText: '결제수단',
-                    prefixIcon: Icon(Icons.credit_card),
-                    isDense: true,
-                  ),
-                  isExpanded: true,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('선택 안 함'),
-                    ),
-                    ..._methods.map((pm) => DropdownMenuItem(
-                          value: pm.id,
-                          child: Text(pm.name),
-                        )),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _paymentMethodId = value),
-                ),
+              // Payment method selector
+              ItemSelectorField(
+                label: '결제수단',
+                selectedLabel: _paymentMethodDisplayName,
+                prefixIcon: Icons.credit_card,
+                placeholder: '선택 안 함',
+                onTap: _showPaymentMethodSelectorSheet,
+              ),
               const SizedBox(height: 8),
-              // Category
-              if (_categories.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  initialValue: _categoryId,
-                  decoration: const InputDecoration(
-                    labelText: '카테고리',
-                    prefixIcon: Icon(Icons.label),
-                    isDense: true,
-                  ),
-                  isExpanded: true,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('선택 안 함'),
-                    ),
-                    ..._categories.map((cat) => DropdownMenuItem(
-                          value: cat.id,
-                          child: Text(cat.name),
-                        )),
-                  ],
-                  onChanged: (value) => setState(() => _categoryId = value),
-                ),
+              // Category selector
+              ItemSelectorField(
+                label: '카테고리',
+                selectedLabel: _categoryDisplayName ?? (_categoryId != null
+                    ? _categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
+                    : null),
+                prefixIcon: Icons.category,
+                placeholder: '선택 안 함',
+                onTap: _showCategorySelectorSheet,
+              ),
             ],
           ],
         ),
