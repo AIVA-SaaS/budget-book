@@ -101,6 +101,7 @@ class PocketPage extends StatelessWidget {
                 onDelete: () => _showDeleteDialog(context, pocket),
               ),
             )),
+        const SizedBox(height: 88),
       ],
     );
   }

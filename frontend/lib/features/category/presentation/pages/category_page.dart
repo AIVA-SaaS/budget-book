@@ -98,8 +98,9 @@ class CategoryPage extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: categories.length,
+      itemCount: categories.length + 1,
       itemBuilder: (context, index) {
+        if (index == categories.length) return const SizedBox(height: 88);
         final category = categories[index];
         return CategoryListTile(
           category: category,

@@ -303,6 +303,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 ),
               ),
             ),
+          const SizedBox(height: 88),
         ],
       ),
     );
@@ -459,6 +460,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 88),
                   ],
                 )
               : _buildBudgetList(context, state),
@@ -524,6 +526,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
       ),
     );
 
+    allItems.add(const SizedBox(height: 88));
     return ListView(key: const PageStorageKey('budget_monthly_list'), children: allItems);
   }
 

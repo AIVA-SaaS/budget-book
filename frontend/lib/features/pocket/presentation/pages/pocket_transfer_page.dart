@@ -89,8 +89,9 @@ class PocketTransferPage extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: transfers.length,
+      itemCount: transfers.length + 1,
       itemBuilder: (context, index) {
+        if (index == transfers.length) return const SizedBox(height: 88);
         final transfer = transfers[index];
         return _buildTransferTile(context, transfer);
       },
