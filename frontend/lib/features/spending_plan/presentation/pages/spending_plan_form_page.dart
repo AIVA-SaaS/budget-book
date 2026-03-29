@@ -22,6 +22,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
@@ -86,7 +87,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
 
     _isWishlistMode = widget.isWishlist;
 
-    // Ensure categories and payment methods are loaded for selectors
+    // Ensure categories, payment methods, and budgets are loaded for selectors
     final cgBloc = getIt<CategoryGroupBloc>();
     if (cgBloc.state is! CategoryGroupLoaded) {
       cgBloc.add(const LoadCategoryGroups());
@@ -94,6 +95,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     final pmBloc = getIt<PaymentMethodBloc>();
     if (pmBloc.state is PaymentMethodInitial) {
       pmBloc.add(const LoadPaymentMethods());
+    }
+    final budgetBloc = getIt<BudgetBloc>();
+    if (budgetBloc.state is! BudgetLoaded) {
+      final now = DateTime.now();
+      budgetBloc.add(LoadBudgets(year: now.year, month: now.month));
     }
 
     if (isEditing) {
@@ -343,49 +349,28 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Plan name (required)
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              labelText: _isWishlistMode ? '항목명 *' : '계획명 *',
-              prefixIcon: Icon(_isWishlistMode
-                  ? Icons.shopping_cart
-                  : Icons.event_note),
-              hintText: _isWishlistMode
-                  ? '예: 에어팟 프로'
-                  : '예: 코스트코 장보기',
-            ),
-            maxLength: 100,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return _isWishlistMode ? '항목명을 입력하세요' : '계획명을 입력하세요';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-
           if (_isWishlistMode) ...[
-            // Priority selector
-            Text(
-              '우선순위',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: 8),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'HIGH', label: Text('높음')),
-                ButtonSegment(value: 'MEDIUM', label: Text('보통')),
-                ButtonSegment(value: 'LOW', label: Text('낮음')),
-              ],
-              selected: {_priority},
-              onSelectionChanged: (selection) {
-                setState(() => _priority = selection.first);
+            // WISHLIST mode order: 계획명 -> 예상금액(범위) -> 카테고리 -> 우선순위 -> 태그 -> 메모
+
+            // 1. Plan name (required)
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: '항목명 *',
+                prefixIcon: Icon(Icons.shopping_cart),
+                hintText: '예: 에어팟 프로',
+              ),
+              maxLength: 100,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '항목명을 입력하세요';
+                }
+                return null;
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Price range fields
+            // 2. Price range fields
             Row(
               children: [
                 Expanded(
@@ -441,7 +426,38 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // Tags input
+            // 3. Category selector
+            ItemSelectorField(
+              label: '카테고리',
+              selectedLabel: _categoryDisplayName ?? (_categoryId != null
+                  ? categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
+                  : null),
+              prefixIcon: Icons.category,
+              placeholder: '선택 안 함',
+              onTap: () => _showCategorySelectorSheet(context),
+            ),
+            const SizedBox(height: 16),
+
+            // 4. Priority selector
+            Text(
+              '우선순위',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'HIGH', label: Text('높음')),
+                ButtonSegment(value: 'MEDIUM', label: Text('보통')),
+                ButtonSegment(value: 'LOW', label: Text('낮음')),
+              ],
+              selected: {_priority},
+              onSelectionChanged: (selection) {
+                setState(() => _priority = selection.first);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // 5. Tags input
             Row(
               children: [
                 Expanded(
@@ -476,8 +492,36 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               ),
             ],
             const SizedBox(height: 16),
+
+            // 6. Memo
+            TextFormField(
+              controller: _memoController,
+              decoration: const InputDecoration(
+                labelText: '메모',
+                prefixIcon: Icon(Icons.notes),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
           ] else ...[
-            // Regular plan mode: Amount (required)
+            // Regular PLAN mode order: 목표일 -> 금액 -> 계획명 -> 카테고리 -> 결제수단 -> 예산연결 -> 메모
+
+            // 1. Target date
+            InkWell(
+              onTap: _selectTargetDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '목표일 *',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  DateFormat('yyyy년 M월 d일', 'ko').format(_targetDate),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 2. Amount (required)
             TextFormField(
               controller: _amountController,
               decoration: const InputDecoration(
@@ -500,47 +544,50 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               },
             ),
             const SizedBox(height: 16),
-            // Target date
-            InkWell(
-              onTap: _selectTargetDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '목표일 *',
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  DateFormat('yyyy년 M월 d일', 'ko').format(_targetDate),
-                ),
+
+            // 3. Plan name (required)
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: '계획명 *',
+                prefixIcon: Icon(Icons.event_note),
+                hintText: '예: 코스트코 장보기',
               ),
+              maxLength: 100,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '계획명을 입력하세요';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+
+            // 4. Category selector
+            ItemSelectorField(
+              label: '카테고리',
+              selectedLabel: _categoryDisplayName ?? (_categoryId != null
+                  ? categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
+                  : null),
+              prefixIcon: Icons.category,
+              placeholder: '선택 안 함',
+              onTap: () => _showCategorySelectorSheet(context),
             ),
             const SizedBox(height: 16),
-          ],
 
-          // Category selector
-          ItemSelectorField(
-            label: '카테고리',
-            selectedLabel: _categoryDisplayName ?? (_categoryId != null
-                ? categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
-                : null),
-            prefixIcon: Icons.category,
-            placeholder: '선택 안 함',
-            onTap: () => _showCategorySelectorSheet(context),
-          ),
-          const SizedBox(height: 16),
-          // Payment method selector
-          ItemSelectorField(
-            label: '결제수단',
-            selectedLabel: _paymentMethodId != null
-                ? methods.where((pm) => pm.id == _paymentMethodId).map((pm) => pm.name).firstOrNull
-                : null,
-            prefixIcon: Icons.credit_card,
-            placeholder: '선택 안 함',
-            onTap: () => _showPaymentMethodSelectorSheet(context, methods),
-          ),
-          const SizedBox(height: 16),
+            // 5. Payment method selector
+            ItemSelectorField(
+              label: '결제수단',
+              selectedLabel: _paymentMethodId != null
+                  ? methods.where((pm) => pm.id == _paymentMethodId).map((pm) => pm.name).firstOrNull
+                  : null,
+              prefixIcon: Icons.credit_card,
+              placeholder: '선택 안 함',
+              onTap: () => _showPaymentMethodSelectorSheet(context, methods),
+            ),
+            const SizedBox(height: 16),
 
-          if (!_isWishlistMode) ...[
-            // Budget link dropdown
+            // 6. Budget link dropdown
             DropdownButtonFormField<String>(
               initialValue: _budgetId,
               decoration: const InputDecoration(
@@ -567,20 +614,18 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               },
             ),
             const SizedBox(height: 16),
-          ],
 
-          // Memo
-          TextFormField(
-            controller: _memoController,
-            decoration: const InputDecoration(
-              labelText: '메모',
-              prefixIcon: Icon(Icons.notes),
+            // 7. Memo
+            TextFormField(
+              controller: _memoController,
+              decoration: const InputDecoration(
+                labelText: '메모',
+                prefixIcon: Icon(Icons.notes),
+              ),
+              maxLines: 2,
             ),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          if (!_isWishlistMode) ...[
             // Recurring toggle
             SwitchListTile(
               title: const Text('반복 설정'),
@@ -617,7 +662,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             const SizedBox(height: 16),
           ],
 
-          // Visibility
+          // Visibility (common to both modes)
           DropdownButtonFormField<String>(
             initialValue: _visibility,
             decoration: const InputDecoration(
@@ -704,7 +749,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                         label: e.$2.name,
                         leadingIcon: paymentMethodTypeIcon(e.$2.type),
                         leadingColor: paymentMethodTypeColor(e.$2.type),
-                        isDeletable: !e.$2.isDefault,
+                        isDeletable: true,
                         displayOrder: e.$1,
                         group: e.$2.type,
                       ))

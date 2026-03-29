@@ -4,6 +4,7 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
+import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
@@ -44,6 +45,17 @@ class _AssignPlanDialog extends StatefulWidget {
 class _AssignPlanDialogState extends State<_AssignPlanDialog> {
   DateTime? _selectedDate;
   String? _budgetId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure budgets are loaded for the budget selector
+    final budgetBloc = getIt<BudgetBloc>();
+    if (budgetBloc.state is! BudgetLoaded) {
+      final now = DateTime.now();
+      budgetBloc.add(LoadBudgets(year: now.year, month: now.month));
+    }
+  }
 
   List<Budget> get _budgets {
     final budgetState = getIt<BudgetBloc>().state;

@@ -735,14 +735,54 @@ class _PaymentMethodTab extends StatelessWidget {
           );
         }
 
+        // Build a flat list with type group headers inserted
+        final itemsWithHeaders = <_PaymentMethodListItem>[];
+        String? lastType;
+        for (final method in methods) {
+          if (method.type != lastType) {
+            itemsWithHeaders.add(_PaymentMethodListItem.header(method.type));
+            lastType = method.type;
+          }
+          itemsWithHeaders.add(_PaymentMethodListItem.method(method));
+        }
+
+        // For reorder we need original method indices
+        // The ReorderableListView operates on the full list including headers
         return ReorderableListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: methods.length,
+          itemCount: itemsWithHeaders.length,
+          buildDefaultDragHandles: false,
           onReorder: (oldIndex, newIndex) {
-            if (newIndex > oldIndex) newIndex -= 1;
+            // Ignore if dragging a header
+            if (itemsWithHeaders[oldIndex].isHeader) return;
+
+            // Convert visual indices to method-only indices
+            int methodOldIndex = 0;
+            int methodNewIndex = 0;
+            int methodCount = 0;
+            for (int i = 0; i < itemsWithHeaders.length; i++) {
+              if (!itemsWithHeaders[i].isHeader) {
+                if (i == oldIndex) methodOldIndex = methodCount;
+                if (i == newIndex) methodNewIndex = methodCount;
+                methodCount++;
+              } else {
+                if (i == newIndex) {
+                  // Dropped on a header — use the next method index
+                  methodNewIndex = methodCount;
+                }
+              }
+            }
+
+            if (newIndex > oldIndex) {
+              // When moving down, account for removal shifting
+              // But since we mapped to method indices, adjust accordingly
+            }
+            if (methodOldIndex == methodNewIndex) return;
+
             final reordered = List<PaymentMethod>.from(methods);
-            final item = reordered.removeAt(oldIndex);
-            reordered.insert(newIndex, item);
+            if (methodNewIndex > methodOldIndex) methodNewIndex--;
+            final item = reordered.removeAt(methodOldIndex);
+            reordered.insert(methodNewIndex, item);
             context.read<PaymentMethodBloc>().add(
               ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
             );
@@ -764,7 +804,35 @@ class _PaymentMethodTab extends StatelessWidget {
             );
           },
           itemBuilder: (context, index) {
-            final method = methods[index];
+            final listItem = itemsWithHeaders[index];
+
+            if (listItem.isHeader) {
+              final typeLabel = paymentMethodGroupLabels[listItem.type] ?? listItem.type!;
+              final typeColor = paymentMethodTypeColor(listItem.type!);
+              return Container(
+                key: ValueKey('header_${listItem.type}'),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      paymentMethodTypeIcon(listItem.type!),
+                      size: 16,
+                      color: typeColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      typeLabel,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: typeColor,
+                          ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final method = listItem.paymentMethod!;
             return Row(
               key: ValueKey(method.id),
               children: [
@@ -882,21 +950,20 @@ class _PaymentMethodTab extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!method.isDefault)
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.error),
-                      const SizedBox(width: 8),
-                      Text('삭제',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.error)),
-                    ],
-                  ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.error),
+                    const SizedBox(width: 8),
+                    Text('삭제',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
+                  ],
                 ),
+              ),
             ],
           ),
         ],
@@ -929,12 +996,14 @@ class _PaymentMethodTab extends StatelessWidget {
   }
 
   void _showDeleteDialog(BuildContext context, PaymentMethod method) {
+    final warningText = method.isDefault
+        ? "'${method.name}'은(는) 기본 결제수단입니다. 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다."
+        : "'${method.name}' 결제수단을 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다.";
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('결제수단 삭제'),
-        content: Text(
-            "'${method.name}' 결제수단을 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다."),
+        content: Text(warningText),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -1137,4 +1206,23 @@ class _PocketTab extends StatelessWidget {
     );
   }
 
+}
+
+/// Helper class for mixed list of headers and payment methods.
+class _PaymentMethodListItem {
+  final bool isHeader;
+  final String? type;
+  final PaymentMethod? paymentMethod;
+
+  const _PaymentMethodListItem._({
+    required this.isHeader,
+    this.type,
+    this.paymentMethod,
+  });
+
+  factory _PaymentMethodListItem.header(String type) =>
+      _PaymentMethodListItem._(isHeader: true, type: type);
+
+  factory _PaymentMethodListItem.method(PaymentMethod method) =>
+      _PaymentMethodListItem._(isHeader: false, paymentMethod: method, type: method.type);
 }
