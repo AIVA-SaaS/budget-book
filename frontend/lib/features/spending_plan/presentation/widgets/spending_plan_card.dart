@@ -178,6 +178,58 @@ class SpendingPlanCard extends StatelessWidget {
           ),
         ),
         onTap: onTap,
+        onLongPress: onDelete != null
+            ? () => _showOptionsMenu(context)
+            : null,
+      ),
+    );
+  }
+
+  void _showOptionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onTap != null)
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('수정'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onTap?.call();
+                },
+              ),
+            if (onComplete != null && (plan.status == 'PLANNED' || plan.status == 'OVERDUE'))
+              ListTile(
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: const Text('완료'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onComplete?.call();
+                },
+              ),
+            if (onSkip != null && (plan.status == 'PLANNED' || plan.status == 'OVERDUE'))
+              ListTile(
+                leading: const Icon(Icons.skip_next, color: Colors.grey),
+                title: const Text('건너뛰기'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onSkip?.call();
+                },
+              ),
+            if (onDelete != null)
+              ListTile(
+                leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                title: Text('삭제', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onDelete?.call();
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
