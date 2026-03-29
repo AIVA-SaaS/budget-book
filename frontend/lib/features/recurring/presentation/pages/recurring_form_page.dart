@@ -11,6 +11,7 @@ import 'package:budget_book/features/category/presentation/bloc/category_state.d
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
@@ -404,15 +405,18 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                   .map((e) => SelectorItem(
                         id: e.$2.id,
                         label: e.$2.name,
-                        leadingIcon: Icons.payment,
+                        leadingIcon: paymentMethodTypeIcon(e.$2.type),
+                        leadingColor: paymentMethodTypeColor(e.$2.type),
                         isDeletable: !e.$2.isDefault,
                         displayOrder: e.$1,
+                        group: e.$2.type,
                       ))
                   .toList(),
               selectedId: _paymentMethodId,
               nullLabel: '선택 안 함',
               favoriteType: 'PAYMENT_METHOD',
               reorderRoute: '/asset-management',
+              groupLabels: paymentMethodGroupLabels,
               onSelected: (item) {
                 setState(() => _paymentMethodId = item?.id);
               },

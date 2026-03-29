@@ -238,18 +238,10 @@ class _QuickActions extends StatelessWidget {
           onTap: () => context.push('/transactions/create?tab=transfer'),
         ),
         _QuickActionButton(
-          icon: Icons.bar_chart,
-          label: '통계',
+          icon: Icons.event_note,
+          label: '계획',
           color: Colors.purple,
-          onTap: () {
-            // Navigate to statistics tab (index 3)
-            final shell = StatefulNavigationShell.maybeOf(context);
-            if (shell != null) {
-              shell.goBranch(3);
-            } else {
-              context.go('/statistics');
-            }
-          },
+          onTap: () => context.push('/spending-plans'),
         ),
         _QuickActionButton(
           icon: Icons.settings,
