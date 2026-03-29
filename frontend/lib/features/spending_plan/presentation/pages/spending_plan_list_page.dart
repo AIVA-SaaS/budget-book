@@ -213,8 +213,9 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
 
     return ListView.builder(
       key: const PageStorageKey('spending_plan_list'),
-      itemCount: dates.length,
+      itemCount: dates.length + 1,
       itemBuilder: (context, index) {
+        if (index == dates.length) return const SizedBox(height: 88);
         final dateStr = dates[index];
         final plans = grouped[dateStr]!;
         return Column(
@@ -359,8 +360,9 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
 
     return ListView.builder(
       key: const PageStorageKey('wishlist_list'),
-      itemCount: priorities.length,
+      itemCount: priorities.length + 1,
       itemBuilder: (context, index) {
+        if (index == priorities.length) return const SizedBox(height: 88);
         final priority = priorities[index];
         final items = grouped[priority]!;
         return Column(

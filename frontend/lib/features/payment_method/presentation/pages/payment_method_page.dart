@@ -118,6 +118,7 @@ class PaymentMethodPage extends StatelessWidget {
           ),
         // Payment method list
         ...methods.map((pm) => _buildPaymentMethodTile(context, pm)),
+        const SizedBox(height: 88),
       ],
     );
   }

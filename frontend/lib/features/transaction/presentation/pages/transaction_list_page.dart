@@ -602,9 +602,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
       child: ListView.builder(
         controller: _scrollController,
         key: const PageStorageKey('transaction_list'),
-        itemCount: itemCount,
+        itemCount: itemCount + 1, // +1 for FAB padding
         itemBuilder: (context, index) {
-          // Last item is loading indicator
+          // Last item is FAB bottom padding
+          if (index == itemCount) return const SizedBox(height: 88);
+          // Loading indicator
           if (index >= sortedDates.length) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),

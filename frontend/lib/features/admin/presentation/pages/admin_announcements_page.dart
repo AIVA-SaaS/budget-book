@@ -203,8 +203,11 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                           ],
                         )
                       : ListView.builder(
-                          itemCount: _announcements.length,
+                          itemCount: _announcements.length + 1,
                           itemBuilder: (context, index) {
+                            if (index == _announcements.length) {
+                              return const SizedBox(height: 88);
+                            }
                             final ann = _announcements[index];
                             return Card(
                               margin: const EdgeInsets.symmetric(

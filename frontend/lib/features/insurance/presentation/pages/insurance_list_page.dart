@@ -200,8 +200,9 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
 
     return ListView.builder(
       key: const PageStorageKey('insurance_list'),
-      itemCount: sortedTypes.length,
+      itemCount: sortedTypes.length + 1,
       itemBuilder: (context, index) {
+        if (index == sortedTypes.length) return const SizedBox(height: 88);
         final type = sortedTypes[index];
         final items = grouped[type]!;
         return Column(

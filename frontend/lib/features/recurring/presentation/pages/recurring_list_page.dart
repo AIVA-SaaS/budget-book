@@ -140,6 +140,7 @@ class RecurringListPage extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 88),
         ],
       ),
     );
