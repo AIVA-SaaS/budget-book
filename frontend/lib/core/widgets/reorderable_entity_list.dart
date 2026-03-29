@@ -9,6 +9,7 @@ class ReorderableEntityList<T> extends StatelessWidget {
   final Widget Function(BuildContext context, T item, int index) itemBuilder;
   final void Function(int oldIndex, int newIndex) onReorder;
   final bool enabled;
+  final EdgeInsets? padding;
 
   const ReorderableEntityList({
     super.key,
@@ -16,13 +17,16 @@ class ReorderableEntityList<T> extends StatelessWidget {
     required this.itemBuilder,
     required this.onReorder,
     this.enabled = true,
+    this.padding,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectivePadding = padding ?? const EdgeInsets.symmetric(vertical: 8);
+
     if (!enabled) {
       return ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: effectivePadding,
         itemCount: items.length,
         itemBuilder: (context, index) =>
             itemBuilder(context, items[index], index),
@@ -30,7 +34,7 @@ class ReorderableEntityList<T> extends StatelessWidget {
     }
 
     return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: effectivePadding,
       itemCount: items.length,
       onReorder: _handleReorder,
       proxyDecorator: _proxyDecorator,

@@ -151,6 +151,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 16),
                   // Dynamic configurable widgets
                   ...enabledWidgets,
+                  const SizedBox(height: 88),
                 ],
               ),
             );

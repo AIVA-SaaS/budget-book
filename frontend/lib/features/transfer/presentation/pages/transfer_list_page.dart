@@ -119,8 +119,9 @@ class TransferListPage extends StatelessWidget {
 
     return ListView.builder(
       key: const PageStorageKey('transfer_list'),
-      itemCount: sortedDates.length,
+      itemCount: sortedDates.length + 1,
       itemBuilder: (context, index) {
+        if (index == sortedDates.length) return const SizedBox(height: 88);
         final date = sortedDates[index];
         final transfers = grouped[date]!;
         return Column(

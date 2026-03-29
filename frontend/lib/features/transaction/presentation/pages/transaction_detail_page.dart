@@ -117,7 +117,7 @@ class TransactionDetailPage extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
       children: [
         // Amount card
         Card(

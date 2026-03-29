@@ -75,6 +75,7 @@ class CategoryGroupPage extends StatelessWidget {
 
     return ReorderableEntityList<CategoryGroup>(
       items: groups,
+      padding: const EdgeInsets.only(top: 8, bottom: 88),
       onReorder: (oldIndex, newIndex) {
         final reordered = List<CategoryGroup>.from(groups);
         final item = reordered.removeAt(oldIndex);
