@@ -19,12 +19,14 @@ class SpendingPlanLoading extends SpendingPlanState {
 class SpendingPlanLoaded extends SpendingPlanState {
   final List<SpendingPlan> plans;
   final SpendingPlanSummary summary;
+  final List<SpendingPlan>? wishlist;
   final String? operationError;
   final String? operationSuccess;
 
   const SpendingPlanLoaded({
     required this.plans,
     required this.summary,
+    this.wishlist,
     this.operationError,
     this.operationSuccess,
   });
@@ -33,7 +35,8 @@ class SpendingPlanLoaded extends SpendingPlanState {
   Map<String, List<SpendingPlan>> get groupedByDate {
     final grouped = <String, List<SpendingPlan>>{};
     for (final plan in plans) {
-      grouped.putIfAbsent(plan.targetDate, () => []).add(plan);
+      if (plan.targetDate == null) continue;
+      grouped.putIfAbsent(plan.targetDate!, () => []).add(plan);
     }
     // Sort dates ascending
     final sortedKeys = grouped.keys.toList()..sort();
@@ -52,8 +55,25 @@ class SpendingPlanLoaded extends SpendingPlanState {
   List<SpendingPlan> get overduePlans =>
       plans.where((p) => p.status == 'OVERDUE').toList();
 
+  /// Group wishlist items by priority: HIGH -> MEDIUM -> LOW.
+  Map<String, List<SpendingPlan>> get wishlistByPriority {
+    final items = wishlist ?? [];
+    final grouped = <String, List<SpendingPlan>>{};
+    for (final plan in items) {
+      grouped.putIfAbsent(plan.priority, () => []).add(plan);
+    }
+    // Return in priority order
+    final result = <String, List<SpendingPlan>>{};
+    for (final priority in ['HIGH', 'MEDIUM', 'LOW']) {
+      if (grouped.containsKey(priority)) {
+        result[priority] = grouped[priority]!;
+      }
+    }
+    return result;
+  }
+
   @override
-  List<Object?> get props => [plans, summary, operationError, operationSuccess];
+  List<Object?> get props => [plans, summary, wishlist, operationError, operationSuccess];
 }
 
 class SpendingPlanError extends SpendingPlanState {

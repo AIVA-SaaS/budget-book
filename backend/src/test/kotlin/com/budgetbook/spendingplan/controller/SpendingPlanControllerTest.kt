@@ -50,6 +50,11 @@ class SpendingPlanControllerTest : FunSpec({
         recurringSourceId = null,
         visibility = "SHARED",
         ownerId = null,
+        priority = "MEDIUM",
+        estimatedMin = null,
+        estimatedMax = null,
+        tags = null,
+        weekNumber = null,
         createdAt = Instant.now(),
         updatedAt = Instant.now()
     )
@@ -63,7 +68,8 @@ class SpendingPlanControllerTest : FunSpec({
             plannedCount = 1,
             completedCount = 0,
             skippedCount = 0,
-            overdueCount = 0
+            overdueCount = 0,
+            wishlistCount = 0
         )
     )
 

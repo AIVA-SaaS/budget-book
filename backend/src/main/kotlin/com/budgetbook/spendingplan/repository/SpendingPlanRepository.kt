@@ -66,4 +66,23 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
     ): List<SpendingPlan>
 
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): SpendingPlan?
+
+    @Query("""
+        SELECT sp FROM SpendingPlan sp
+        LEFT JOIN FETCH sp.category c
+        LEFT JOIN FETCH c.group
+        LEFT JOIN FETCH sp.author
+        WHERE sp.couple.id = :coupleId
+        AND sp.status = com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST
+        AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        ORDER BY CASE sp.priority
+            WHEN com.budgetbook.spendingplan.domain.SpendingPlanPriority.HIGH THEN 0
+            WHEN com.budgetbook.spendingplan.domain.SpendingPlanPriority.MEDIUM THEN 1
+            WHEN com.budgetbook.spendingplan.domain.SpendingPlanPriority.LOW THEN 2
+            END, sp.createdAt DESC
+    """)
+    fun findWishlistByCoupleId(
+        @Param("coupleId") coupleId: UUID,
+        @Param("userId") userId: UUID
+    ): List<SpendingPlan>
 }

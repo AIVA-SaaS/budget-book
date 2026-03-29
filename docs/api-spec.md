@@ -104,6 +104,9 @@
   - [Complete Spending Plan](#5-complete-spending-plan)
   - [Skip Spending Plan](#6-skip-spending-plan)
   - [Spending Plan Suggestions](#7-spending-plan-suggestions)
+  - [List Wishlist](#8-list-wishlist)
+  - [Assign Spending Plan](#9-assign-spending-plan)
+  - [Complete with Transaction](#10-complete-with-transaction)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -3478,6 +3481,8 @@ Returns the updated full favorites list after the toggle.
 
 Spending plan management for the couple. A spending plan represents a future intended expense, which can be linked to an actual transaction upon completion. Plans support optional recurrence (`WEEKLY` or `MONTHLY`) and follow the same `SHARED`/`PRIVATE` visibility semantics used by other entities.
 
+A plan with `status: "WISHLIST"` represents an unprioritized purchase idea that has no fixed date. Wishlist items may be promoted to `PLANNED` via the assign endpoint, which sets a `targetDate` and optionally a `weekNumber` and `budgetId`.
+
 ---
 
 ### 1. List Spending Plans
@@ -3494,9 +3499,9 @@ Returns spending plans for the couple, optionally filtered by date range and sta
 
 | Parameter   | Type     | Required | Description                                                            |
 |:------------|:---------|:--------:|:-----------------------------------------------------------------------|
-| `startDate` | `string` | No       | Filter plans with `target_date >= startDate` (`YYYY-MM-DD`)           |
-| `endDate`   | `string` | No       | Filter plans with `target_date <= endDate` (`YYYY-MM-DD`)             |
-| `status`    | `string` | No       | Comma-separated status values: `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE` |
+| `startDate` | `string` | No       | Filter plans with `target_date >= startDate` (`YYYY-MM-DD`); ignored for WISHLIST plans |
+| `endDate`   | `string` | No       | Filter plans with `target_date <= endDate` (`YYYY-MM-DD`); ignored for WISHLIST plans   |
+| `status`    | `string` | No       | Comma-separated status values: `WISHLIST`, `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE` |
 
 **Response `200 OK`**: `ApiResponse<SpendingPlanListResponse>`
 
@@ -3529,6 +3534,11 @@ Returns spending plans for the couple, optionally filtered by date range and sta
         "frequency": null,
         "visibility": "SHARED",
         "authorName": "홍길동",
+        "priority": "MEDIUM",
+        "estimatedMin": null,
+        "estimatedMax": null,
+        "tags": null,
+        "weekNumber": null,
         "createdAt": "2026-03-25T10:00:00"
       }
     ],
@@ -3565,25 +3575,30 @@ Returns spending plans for the couple, optionally filtered by date range and sta
 
 **SpendingPlanResponse Fields**
 
-| Field                 | Type               | Description                                                      |
-|:----------------------|:-------------------|:-----------------------------------------------------------------|
-| `id`                  | `UUID`             | Spending plan ID                                                 |
-| `name`                | `string`           | Plan name (max 100 chars)                                        |
-| `amount`              | `long`             | Planned amount in KRW                                            |
-| `targetDate`          | `string`           | Intended spending date (`YYYY-MM-DD`)                            |
-| `memo`                | `string?`          | Optional memo                                                    |
-| `category`            | `CategorySummary?` | Associated category (id, name, icon), or null                    |
-| `paymentMethod`       | `PaymentMethodSummary?` | Associated payment method (id, name), or null               |
-| `budgetId`            | `UUID?`            | Associated monthly budget ID, or null                            |
-| `linkedTransactionId` | `UUID?`            | Transaction linked on completion, or null                        |
-| `status`              | `string`           | One of: `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE`            |
-| `actualAmount`        | `long?`            | Actual amount spent (set on completion), or null                 |
-| `completedDate`       | `string?`          | Date the plan was completed (`YYYY-MM-DD`), or null              |
-| `isRecurring`         | `boolean`          | Whether the plan generates future recurring instances            |
-| `frequency`           | `string?`          | Recurrence frequency: `WEEKLY` or `MONTHLY`, or null            |
-| `visibility`          | `string`           | `SHARED` or `PRIVATE`                                            |
-| `authorName`          | `string`           | Display name of the user who created the plan                    |
-| `createdAt`           | `string`           | ISO-8601 creation timestamp                                      |
+| Field                 | Type               | Description                                                                    |
+|:----------------------|:-------------------|:-------------------------------------------------------------------------------|
+| `id`                  | `UUID`             | Spending plan ID                                                               |
+| `name`                | `string`           | Plan name (max 100 chars)                                                      |
+| `amount`              | `long`             | Planned amount in KRW                                                          |
+| `targetDate`          | `string?`          | Intended spending date (`YYYY-MM-DD`); null for `WISHLIST` plans               |
+| `memo`                | `string?`          | Optional memo                                                                  |
+| `category`            | `CategorySummary?` | Associated category (id, name, icon), or null                                  |
+| `paymentMethod`       | `PaymentMethodSummary?` | Associated payment method (id, name), or null                             |
+| `budgetId`            | `UUID?`            | Associated monthly budget ID, or null                                          |
+| `linkedTransactionId` | `UUID?`            | Transaction linked on completion, or null                                      |
+| `status`              | `string`           | One of: `WISHLIST`, `PLANNED`, `COMPLETED`, `SKIPPED`, `OVERDUE`              |
+| `actualAmount`        | `long?`            | Actual amount spent (set on completion), or null                               |
+| `completedDate`       | `string?`          | Date the plan was completed (`YYYY-MM-DD`), or null                            |
+| `isRecurring`         | `boolean`          | Whether the plan generates future recurring instances                          |
+| `frequency`           | `string?`          | Recurrence frequency: `WEEKLY` or `MONTHLY`, or null                          |
+| `visibility`          | `string`           | `SHARED` or `PRIVATE`                                                          |
+| `authorName`          | `string`           | Display name of the user who created the plan                                  |
+| `priority`            | `string`           | Priority level: `HIGH`, `MEDIUM`, or `LOW` (default: `MEDIUM`)                |
+| `estimatedMin`        | `long?`            | Lower bound of estimated price range in KRW, or null                          |
+| `estimatedMax`        | `long?`            | Upper bound of estimated price range in KRW, or null                          |
+| `tags`                | `string?`          | Comma-separated tag string (e.g. `"여행,생일"`), or null                       |
+| `weekNumber`          | `integer?`         | Week-of-month assignment (1–6) used for weekly scheduling, or null             |
+| `createdAt`           | `string`           | ISO-8601 creation timestamp                                                    |
 
 ---
 
@@ -3599,18 +3614,24 @@ Creates a new spending plan for the couple. If `isRecurring` is true, the backen
 
 **Request Body**: `CreateSpendingPlanRequest`
 
-| Field             | Type      | Required | Description                                                       |
-|:------------------|:----------|:--------:|:------------------------------------------------------------------|
-| `name`            | `string`  | Yes      | Plan name (max 100 chars)                                         |
-| `amount`          | `long`    | Yes      | Planned amount in KRW (must be > 0)                               |
-| `targetDate`      | `string`  | Yes      | Intended spending date (`YYYY-MM-DD`)                             |
-| `memo`            | `string?` | No       | Optional memo                                                     |
-| `categoryId`      | `UUID?`   | No       | Category to associate                                             |
-| `paymentMethodId` | `UUID?`   | No       | Payment method to associate                                       |
-| `budgetId`        | `UUID?`   | No       | Monthly budget to associate                                       |
-| `isRecurring`     | `boolean?`| No       | Whether to generate recurring instances (default: `false`)        |
-| `frequency`       | `string?` | No       | Required when `isRecurring` is `true`: `WEEKLY` or `MONTHLY`     |
-| `visibility`      | `string?` | No       | `SHARED` or `PRIVATE` (default: `SHARED`)                        |
+| Field             | Type      | Required | Description                                                                              |
+|:------------------|:----------|:--------:|:-----------------------------------------------------------------------------------------|
+| `name`            | `string`  | Yes      | Plan name (max 100 chars)                                                                |
+| `amount`          | `long`    | Yes      | Planned amount in KRW (must be > 0)                                                      |
+| `status`          | `string?` | No       | Initial status: `WISHLIST` or `PLANNED` (default: `PLANNED`)                             |
+| `targetDate`      | `string?` | No       | Intended spending date (`YYYY-MM-DD`); required when `status` is `PLANNED`               |
+| `memo`            | `string?` | No       | Optional memo                                                                            |
+| `categoryId`      | `UUID?`   | No       | Category to associate                                                                    |
+| `paymentMethodId` | `UUID?`   | No       | Payment method to associate                                                              |
+| `budgetId`        | `UUID?`   | No       | Monthly budget to associate                                                              |
+| `isRecurring`     | `boolean?`| No       | Whether to generate recurring instances (default: `false`)                               |
+| `frequency`       | `string?` | No       | Required when `isRecurring` is `true`: `WEEKLY` or `MONTHLY`                            |
+| `visibility`      | `string?` | No       | `SHARED` or `PRIVATE` (default: `SHARED`)                                               |
+| `priority`        | `string?` | No       | `HIGH`, `MEDIUM`, or `LOW` (default: `MEDIUM`)                                          |
+| `estimatedMin`    | `long?`   | No       | Lower bound of estimated price range in KRW                                              |
+| `estimatedMax`    | `long?`   | No       | Upper bound of estimated price range in KRW                                              |
+| `tags`            | `string?` | No       | Comma-separated tag string (e.g. `"여행,생일"`)                                          |
+| `weekNumber`      | `integer?`| No       | Week-of-month assignment (1–6)                                                           |
 
 **Request Body Example**:
 
@@ -3618,12 +3639,18 @@ Creates a new spending plan for the couple. If `isRecurring` is true, the backen
 {
   "name": "봄 옷 구매",
   "amount": 150000,
+  "status": "PLANNED",
   "targetDate": "2026-03-29",
   "memo": "백화점 할인 기간",
   "categoryId": "550e8400-e29b-41d4-a716-446655440020",
   "paymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
   "isRecurring": false,
-  "visibility": "SHARED"
+  "visibility": "SHARED",
+  "priority": "MEDIUM",
+  "estimatedMin": null,
+  "estimatedMax": null,
+  "tags": null,
+  "weekNumber": null
 }
 ```
 
@@ -3658,18 +3685,23 @@ Updates an existing spending plan. All fields are optional; only the provided fi
 
 **Request Body**: `UpdateSpendingPlanRequest` (all fields optional)
 
-| Field             | Type      | Description                                                    |
-|:------------------|:----------|:---------------------------------------------------------------|
-| `name`            | `string?` | Updated plan name (max 100 chars)                              |
-| `amount`          | `long?`   | Updated planned amount in KRW                                  |
-| `targetDate`      | `string?` | Updated target date (`YYYY-MM-DD`)                             |
-| `memo`            | `string?` | Updated memo (pass `null` explicitly to clear)                 |
-| `categoryId`      | `UUID?`   | Updated category (pass `null` explicitly to clear)             |
-| `paymentMethodId` | `UUID?`   | Updated payment method (pass `null` explicitly to clear)       |
-| `budgetId`        | `UUID?`   | Updated budget (pass `null` explicitly to clear)               |
-| `isRecurring`     | `boolean?`| Updated recurrence flag                                        |
-| `frequency`       | `string?` | Updated frequency (`WEEKLY` or `MONTHLY`)                      |
-| `visibility`      | `string?` | Updated visibility (`SHARED` or `PRIVATE`)                     |
+| Field             | Type      | Description                                                                    |
+|:------------------|:----------|:-------------------------------------------------------------------------------|
+| `name`            | `string?` | Updated plan name (max 100 chars)                                              |
+| `amount`          | `long?`   | Updated planned amount in KRW                                                  |
+| `targetDate`      | `string?` | Updated target date (`YYYY-MM-DD`; pass `null` explicitly to clear for WISHLIST) |
+| `memo`            | `string?` | Updated memo (pass `null` explicitly to clear)                                 |
+| `categoryId`      | `UUID?`   | Updated category (pass `null` explicitly to clear)                             |
+| `paymentMethodId` | `UUID?`   | Updated payment method (pass `null` explicitly to clear)                       |
+| `budgetId`        | `UUID?`   | Updated budget (pass `null` explicitly to clear)                               |
+| `isRecurring`     | `boolean?`| Updated recurrence flag                                                        |
+| `frequency`       | `string?` | Updated frequency (`WEEKLY` or `MONTHLY`)                                      |
+| `visibility`      | `string?` | Updated visibility (`SHARED` or `PRIVATE`)                                     |
+| `priority`        | `string?` | Updated priority: `HIGH`, `MEDIUM`, or `LOW`                                   |
+| `estimatedMin`    | `long?`   | Updated lower bound of estimated price range (pass `null` to clear)            |
+| `estimatedMax`    | `long?`   | Updated upper bound of estimated price range (pass `null` to clear)            |
+| `tags`            | `string?` | Updated comma-separated tag string (pass `null` to clear)                      |
+| `weekNumber`      | `integer?`| Updated week-of-month assignment 1–6 (pass `null` to clear)                   |
 
 **Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
 
@@ -3828,6 +3860,162 @@ Returns `PLANNED` spending plans that closely match an incoming transaction (by 
 | `name`          | `string` | Plan name                                                            |
 | `plannedAmount` | `long`   | Original planned amount in KRW                                       |
 | `matchScore`    | `double` | Relevance score between 0.0 and 1.0 (higher = better match); sorted descending |
+
+---
+
+### 8. List Wishlist
+
+Returns all spending plans with `status: "WISHLIST"` for the couple, sorted by priority descending (`HIGH` first) then by creation date descending.
+
+| Item        | Value                                   |
+|:------------|:----------------------------------------|
+| **Method**  | `GET`                                   |
+| **Path**    | `/api/v1/spending-plans/wishlist`       |
+| **Auth**    | Required                                |
+
+**Response `200 OK`**: `ApiResponse<List<SpendingPlanResponse>>`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440401",
+      "name": "에어팟 프로",
+      "amount": 350000,
+      "targetDate": null,
+      "memo": "할인할 때 구매",
+      "category": null,
+      "paymentMethod": null,
+      "budgetId": null,
+      "linkedTransactionId": null,
+      "status": "WISHLIST",
+      "actualAmount": null,
+      "completedDate": null,
+      "isRecurring": false,
+      "frequency": null,
+      "visibility": "SHARED",
+      "authorName": "홍길동",
+      "priority": "HIGH",
+      "estimatedMin": 300000,
+      "estimatedMax": 380000,
+      "tags": "전자기기,선물",
+      "weekNumber": null,
+      "createdAt": "2026-03-25T10:00:00"
+    }
+  ],
+  "timestamp": "2026-03-28T10:00:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                                        |
+|:------:|:-------------------|:---------------------------------------------------|
+| `404`  | `COUPLE_NOT_FOUND` | Authenticated user is not in an active couple      |
+
+---
+
+### 9. Assign Spending Plan
+
+Promotes a `WISHLIST` plan to `PLANNED` by assigning a target date. Optionally assigns a week number and monthly budget. Only plans with `status: "WISHLIST"` may be assigned; other statuses return `INVALID_STATUS`.
+
+| Item        | Value                                        |
+|:------------|:---------------------------------------------|
+| **Method**  | `PATCH`                                      |
+| **Path**    | `/api/v1/spending-plans/{id}/assign`         |
+| **Auth**    | Required                                     |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Spending plan ID |
+
+**Request Body**: `AssignSpendingPlanRequest`
+
+| Field        | Type      | Required | Description                                                           |
+|:-------------|:----------|:--------:|:----------------------------------------------------------------------|
+| `targetDate` | `string`  | Yes      | Date to schedule the plan (`YYYY-MM-DD`)                              |
+| `weekNumber` | `integer?`| No       | Week-of-month assignment (1–6)                                        |
+| `budgetId`   | `UUID?`   | No       | Monthly budget to associate with the plan                             |
+
+**Request Body Example**:
+
+```json
+{
+  "targetDate": "2026-04-10",
+  "weekNumber": 2,
+  "budgetId": "550e8400-e29b-41d4-a716-446655440300"
+}
+```
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
+
+The returned plan has `status: "PLANNED"`, `targetDate` set to the provided value, and `weekNumber`/`budgetId` updated if supplied.
+
+**Error Responses**
+
+| Status | Error Code                | Description                                                   |
+|:------:|:--------------------------|:--------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`        | Missing required `targetDate` or invalid `weekNumber` value   |
+| `400`  | `INVALID_STATUS`          | Plan status is not `WISHLIST`; only wishlist items can be assigned |
+| `404`  | `SPENDING_PLAN_NOT_FOUND` | Spending plan does not exist or belongs to another couple     |
+| `404`  | `BUDGET_NOT_FOUND`        | Specified `budgetId` does not exist                           |
+
+---
+
+### 10. Complete with Transaction
+
+Marks a spending plan as `COMPLETED` and simultaneously creates a new `EXPENSE` transaction linked to the plan. This is a convenience endpoint that avoids requiring a separate transaction creation step. The created transaction is automatically linked to the plan via `linkedTransactionId`.
+
+| Item        | Value                                                      |
+|:------------|:-----------------------------------------------------------|
+| **Method**  | `PATCH`                                                    |
+| **Path**    | `/api/v1/spending-plans/{id}/complete-with-transaction`    |
+| **Auth**    | Required                                                   |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Spending plan ID |
+
+**Request Body**: `CompleteWithTransactionRequest`
+
+| Field             | Type      | Required | Description                                                            |
+|:------------------|:----------|:--------:|:-----------------------------------------------------------------------|
+| `amount`          | `long`    | Yes      | Actual amount spent in KRW (must be > 0); used as both `actualAmount` on the plan and the transaction amount |
+| `transactionDate` | `string`  | Yes      | Date of the transaction (`YYYY-MM-DD`)                                 |
+| `description`     | `string?` | No       | Transaction description; defaults to the plan name if omitted          |
+| `categoryId`      | `UUID?`   | No       | Category for the new transaction; defaults to the plan's category if omitted |
+| `paymentMethodId` | `UUID?`   | No       | Payment method for the new transaction; defaults to the plan's payment method if omitted |
+
+**Request Body Example**:
+
+```json
+{
+  "amount": 143000,
+  "transactionDate": "2026-04-10",
+  "description": "에어팟 프로 구매",
+  "categoryId": "550e8400-e29b-41d4-a716-446655440020",
+  "paymentMethodId": "550e8400-e29b-41d4-a716-446655440010"
+}
+```
+
+**Response `200 OK`**: `ApiResponse<SpendingPlanResponse>`
+
+The returned plan has `status: "COMPLETED"`, `completedDate` set to `transactionDate`, `actualAmount` set to `amount`, and `linkedTransactionId` pointing to the newly created transaction.
+
+**Error Responses**
+
+| Status | Error Code                | Description                                                        |
+|:------:|:--------------------------|:-------------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`        | Missing required fields or invalid values                          |
+| `400`  | `INVALID_STATUS`          | Plan is already `COMPLETED` or `SKIPPED`                           |
+| `404`  | `SPENDING_PLAN_NOT_FOUND` | Spending plan does not exist or belongs to another couple          |
+| `404`  | `CATEGORY_NOT_FOUND`      | Specified `categoryId` does not exist                              |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`| Specified `paymentMethodId` does not exist                         |
 
 ---
 
@@ -4061,3 +4249,4 @@ spring:
 | `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |
 | `INSURANCE_NOT_FOUND`             | `404`       | Requested insurance does not exist or belongs to another couple |
 | `SPENDING_PLAN_NOT_FOUND`         | `404`       | Requested spending plan does not exist or belongs to another couple |
+| `INVALID_STATUS`                  | `400`       | The operation is not permitted for the plan's current status        |

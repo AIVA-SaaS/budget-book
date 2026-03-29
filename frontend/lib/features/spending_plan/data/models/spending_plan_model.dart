@@ -5,7 +5,7 @@ class SpendingPlanModel extends SpendingPlan {
     required super.id,
     required super.name,
     required super.amount,
-    required super.targetDate,
+    super.targetDate,
     super.memo,
     super.categoryId,
     super.categoryName,
@@ -22,6 +22,11 @@ class SpendingPlanModel extends SpendingPlan {
     required super.visibility,
     required super.authorName,
     required super.createdAt,
+    super.priority,
+    super.estimatedMin,
+    super.estimatedMax,
+    super.tags,
+    super.weekNumber,
   });
 
   factory SpendingPlanModel.fromJson(Map<String, dynamic> json) {
@@ -29,11 +34,21 @@ class SpendingPlanModel extends SpendingPlan {
     final category = json['category'] as Map<String, dynamic>?;
     final paymentMethod = json['paymentMethod'] as Map<String, dynamic>?;
 
+    // Tags can come as comma-separated string or list
+    List<String> parseTags(dynamic raw) {
+      if (raw == null) return [];
+      if (raw is List) return raw.map((e) => e.toString()).toList();
+      if (raw is String && raw.isNotEmpty) {
+        return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+      return [];
+    }
+
     return SpendingPlanModel(
       id: json['id'] as String,
       name: json['name'] as String,
-      amount: json['amount'] as int,
-      targetDate: json['targetDate'] as String,
+      amount: json['amount'] as int? ?? 0,
+      targetDate: json['targetDate'] as String?,
       memo: json['memo'] as String?,
       categoryId: category?['id'] as String? ?? json['categoryId'] as String?,
       categoryName: category?['name'] as String? ?? json['categoryName'] as String?,
@@ -54,6 +69,11 @@ class SpendingPlanModel extends SpendingPlan {
       visibility: json['visibility'] as String? ?? 'SHARED',
       authorName: json['authorName'] as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
+      priority: json['priority'] as String? ?? 'MEDIUM',
+      estimatedMin: json['estimatedMin'] as int?,
+      estimatedMax: json['estimatedMax'] as int?,
+      tags: parseTags(json['tags']),
+      weekNumber: json['weekNumber'] as int?,
     );
   }
 }
