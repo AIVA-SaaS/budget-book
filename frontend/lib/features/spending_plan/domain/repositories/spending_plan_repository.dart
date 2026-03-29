@@ -31,6 +31,11 @@ abstract class SpendingPlanRepository {
     bool isRecurring = false,
     String? frequency,
     String visibility = 'SHARED',
+    String? status,
+    String? priority,
+    int? estimatedMin,
+    int? estimatedMax,
+    String? tags,
   });
 
   Future<Either<Failure, SpendingPlan>> updateSpendingPlan({
@@ -66,5 +71,23 @@ abstract class SpendingPlanRepository {
     String? categoryId,
     int? amount,
     String? date,
+  });
+
+  Future<Either<Failure, List<SpendingPlan>>> getWishlist();
+
+  Future<Either<Failure, SpendingPlan>> assignPlan({
+    required String id,
+    required String targetDate,
+    int? weekNumber,
+    String? budgetId,
+  });
+
+  Future<Either<Failure, SpendingPlan>> completeWithTransaction({
+    required String id,
+    required int amount,
+    required String transactionDate,
+    String? description,
+    String? categoryId,
+    String? paymentMethodId,
   });
 }

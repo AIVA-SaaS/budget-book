@@ -3,7 +3,9 @@ package com.budgetbook.spendingplan.controller
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.spendingplan.domain.SpendingPlanStatus
+import com.budgetbook.spendingplan.dto.AssignSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
+import com.budgetbook.spendingplan.dto.CompleteWithTransactionRequest
 import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
@@ -52,6 +54,25 @@ class SpendingPlanController(
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
+    // Static path mappings BEFORE /{id} to avoid path conflict
+    @GetMapping("/wishlist")
+    fun getWishlist(
+        @AuthUser userId: UUID
+    ): ApiResponse<List<SpendingPlanResponse>> {
+        return ApiResponse.ok(spendingPlanService.getWishlist(userId))
+    }
+
+    @GetMapping("/suggestions")
+    fun getSuggestions(
+        @AuthUser userId: UUID,
+        @RequestParam(required = false) categoryId: UUID?,
+        @RequestParam amount: Long,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate
+    ): ApiResponse<List<SpendingPlanSuggestion>> {
+        return ApiResponse.ok(spendingPlanService.getSuggestions(userId, categoryId, amount, date))
+    }
+
+    // Dynamic path mappings with /{id}
     @PutMapping("/{id}")
     fun updatePlan(
         @AuthUser userId: UUID,
@@ -89,13 +110,21 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.skipPlan(userId, id))
     }
 
-    @GetMapping("/suggestions")
-    fun getSuggestions(
+    @PatchMapping("/{id}/assign")
+    fun assignPlan(
         @AuthUser userId: UUID,
-        @RequestParam(required = false) categoryId: UUID?,
-        @RequestParam amount: Long,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate
-    ): ApiResponse<List<SpendingPlanSuggestion>> {
-        return ApiResponse.ok(spendingPlanService.getSuggestions(userId, categoryId, amount, date))
+        @PathVariable id: UUID,
+        @RequestBody request: AssignSpendingPlanRequest
+    ): ApiResponse<SpendingPlanResponse> {
+        return ApiResponse.ok(spendingPlanService.assignPlan(userId, id, request))
+    }
+
+    @PatchMapping("/{id}/complete-with-transaction")
+    fun completeWithTransaction(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID,
+        @RequestBody request: CompleteWithTransactionRequest
+    ): ApiResponse<SpendingPlanResponse> {
+        return ApiResponse.ok(spendingPlanService.completeWithTransaction(userId, id, request))
     }
 }

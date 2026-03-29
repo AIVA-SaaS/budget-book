@@ -113,14 +113,21 @@ void main() {
       expect(config.order, 0);
     });
 
-    test('defaultDashboardWidgets has 6 items', () {
-      expect(defaultDashboardWidgets.length, 6);
+    test('defaultDashboardWidgets has 7 items', () {
+      expect(defaultDashboardWidgets.length, 7);
     });
 
     test('defaultDashboardWidgets has asset_balance disabled', () {
       final assetBalance =
           defaultDashboardWidgets.firstWhere((c) => c.id == 'asset_balance');
       expect(assetBalance.enabled, false);
+    });
+
+    test('defaultDashboardWidgets has wishlist disabled', () {
+      final wishlist =
+          defaultDashboardWidgets.firstWhere((c) => c.id == 'wishlist');
+      expect(wishlist.enabled, false);
+      expect(wishlist.order, 6);
     });
 
     test('defaultDashboardWidgets orders are sequential', () {

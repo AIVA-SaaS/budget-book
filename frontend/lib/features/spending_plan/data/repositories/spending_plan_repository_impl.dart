@@ -46,19 +46,30 @@ class SpendingPlanRepositoryImpl implements SpendingPlanRepository {
     bool isRecurring = false,
     String? frequency,
     String visibility = 'SHARED',
+    String? status,
+    String? priority,
+    int? estimatedMin,
+    int? estimatedMax,
+    String? tags,
   }) async {
     try {
       final data = <String, dynamic>{
         'name': name,
         'amount': amount,
-        'targetDate': targetDate,
         'isRecurring': isRecurring,
         'visibility': visibility,
+        if (status != null) 'status': status,
+        // targetDate is required for PLANNED but not for WISHLIST
+        if (status != 'WISHLIST' && targetDate.isNotEmpty) 'targetDate': targetDate,
         if (memo != null) 'memo': memo,
         if (categoryId != null) 'categoryId': categoryId,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
         if (budgetId != null) 'budgetId': budgetId,
         if (frequency != null) 'frequency': frequency,
+        if (priority != null) 'priority': priority,
+        if (estimatedMin != null) 'estimatedMin': estimatedMin,
+        if (estimatedMax != null) 'estimatedMax': estimatedMax,
+        if (tags != null) 'tags': tags,
       };
       final result = await remoteDataSource.createSpendingPlan(data);
       return Right(result);
@@ -186,6 +197,66 @@ class SpendingPlanRepositoryImpl implements SpendingPlanRepository {
       return Left(mapDioError(e, '계획 제안을 불러오지 못했습니다'));
     } catch (e) {
       return const Left(ServerFailure('계획 제안을 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<SpendingPlan>>> getWishlist() async {
+    try {
+      final result = await remoteDataSource.getWishlist();
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '구매 목록을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('구매 목록을 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SpendingPlan>> assignPlan({
+    required String id,
+    required String targetDate,
+    int? weekNumber,
+    String? budgetId,
+  }) async {
+    try {
+      final result = await remoteDataSource.assignPlan(
+        id,
+        targetDate: targetDate,
+        weekNumber: weekNumber,
+        budgetId: budgetId,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '계획 배정에 실패했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('계획 배정에 실패했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SpendingPlan>> completeWithTransaction({
+    required String id,
+    required int amount,
+    required String transactionDate,
+    String? description,
+    String? categoryId,
+    String? paymentMethodId,
+  }) async {
+    try {
+      final result = await remoteDataSource.completeWithTransaction(
+        id,
+        amount: amount,
+        transactionDate: transactionDate,
+        description: description,
+        categoryId: categoryId,
+        paymentMethodId: paymentMethodId,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '계획 완료 처리에 실패했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('계획 완료 처리에 실패했습니다'));
     }
   }
 }

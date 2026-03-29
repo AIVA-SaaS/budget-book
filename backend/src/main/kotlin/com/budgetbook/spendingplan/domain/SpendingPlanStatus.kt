@@ -1,5 +1,5 @@
 package com.budgetbook.spendingplan.domain
 
 enum class SpendingPlanStatus {
-    PLANNED, COMPLETED, SKIPPED, OVERDUE
+    WISHLIST, PLANNED, COMPLETED, SKIPPED, OVERDUE
 }

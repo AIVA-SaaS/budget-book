@@ -66,6 +66,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return _PrivateSummaryCard(
           recentTransactions: state.recentTransactions,
         );
+      case 'wishlist':
+        return const _WishlistPreviewCard();
       default:
         return const SizedBox.shrink();
     }
@@ -873,6 +875,54 @@ class _PaymentMethodStatsCard extends StatelessWidget {
               );
             }),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Simple dashboard card showing a wishlist shortcut.
+class _WishlistPreviewCard extends StatelessWidget {
+  const _WishlistPreviewCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => GoRouter.of(context).push('/spending-plans'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.purple.withValues(alpha: 0.12),
+                child: const Icon(Icons.shopping_cart, color: Colors.purple),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '\uad6c\ub9e4 \ubaa9\ub85d',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '\uc0ac\uace0 \uc2f6\uc740 \uac83\ub4e4\uc744 \uad00\ub9ac\ud558\uc138\uc694',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
         ),
       ),
     );
