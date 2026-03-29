@@ -31,8 +31,28 @@ class PaymentMethodLoaded extends PaymentMethodState {
     this.operationError,
   });
 
+  static int _typeOrder(String type) {
+    switch (type) {
+      case 'CASH':
+        return 0;
+      case 'BANK':
+        return 1;
+      case 'DEBIT':
+        return 2;
+      case 'CREDIT':
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
   List<PaymentMethod> get activePaymentMethods =>
-      paymentMethods.where((pm) => pm.isActive).toList();
+      paymentMethods.where((pm) => pm.isActive).toList()
+        ..sort((a, b) {
+          final typeCompare = _typeOrder(a.type).compareTo(_typeOrder(b.type));
+          if (typeCompare != 0) return typeCompare;
+          return a.displayOrder.compareTo(b.displayOrder);
+        });
 
   List<PaymentMethod> get creditCards =>
       paymentMethods.where((pm) => pm.isCredit).toList();

@@ -400,12 +400,13 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
             return ItemSelectorSheet(
               title: '결제수단 선택',
               items: liveMethods
-                  .map((pm) => SelectorItem(
-                        id: pm.id,
-                        label: pm.name,
+                  .indexed
+                  .map((e) => SelectorItem(
+                        id: e.$2.id,
+                        label: e.$2.name,
                         leadingIcon: Icons.payment,
-                        isDeletable: !pm.isDefault,
-                        displayOrder: pm.displayOrder,
+                        isDeletable: !e.$2.isDefault,
+                        displayOrder: e.$1,
                       ))
                   .toList(),
               selectedId: _paymentMethodId,
