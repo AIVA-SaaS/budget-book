@@ -746,14 +746,14 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           OutlinedButton.icon(
             onPressed: () async {
               final result = await showAssignPlanDialog(context, plan);
-              if (result != null && mounted) {
+              if (result != null && context.mounted) {
                 getIt<SpendingPlanBloc>().add(AssignPlan(
                   planId: plan.id,
                   targetDate: result.targetDate,
                   weekNumber: result.weekNumber,
                   budgetId: result.budgetId,
                 ));
-                if (mounted) context.pop();
+                context.pop();
               }
             },
             icon: const Icon(Icons.calendar_month),
@@ -764,12 +764,12 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           OutlinedButton.icon(
             onPressed: () async {
               final result = await showCompletePlanDialog(context, plan);
-              if (result != null && mounted) {
+              if (result != null && context.mounted) {
                 if (result.createTransaction) {
                   getIt<SpendingPlanBloc>().add(CompleteWithTransaction(
                     planId: plan.id,
                     amount: result.actualAmount,
-                    transactionDate: result.transactionDate!,
+                    transactionDate: result.transactionDate,
                     description: plan.name,
                     categoryId: result.categoryId,
                     paymentMethodId: result.paymentMethodId,
@@ -780,7 +780,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                     actualAmount: result.actualAmount,
                   ));
                 }
-                if (mounted) context.pop();
+                context.pop();
               }
             },
             icon: const Icon(Icons.check_circle, color: Colors.green),
