@@ -12,6 +12,8 @@ import 'package:budget_book/features/spending_plan/presentation/bloc/spending_pl
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_state.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/spending_plan_card.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/spending_plan_summary_card.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
 
 class SpendingPlanListPage extends StatefulWidget {
   const SpendingPlanListPage({super.key});
@@ -20,10 +22,12 @@ class SpendingPlanListPage extends StatefulWidget {
   State<SpendingPlanListPage> createState() => _SpendingPlanListPageState();
 }
 
-class _SpendingPlanListPageState extends State<SpendingPlanListPage> {
+class _SpendingPlanListPageState extends State<SpendingPlanListPage>
+    with SingleTickerProviderStateMixin {
   int _year = DateTime.now().year;
   int _month = DateTime.now().month;
   String? _statusFilter;
+  late final TabController _tabController;
 
   static const _filterOptions = <(String?, String)>[
     (null, '전체'),
@@ -36,7 +40,24 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadPlans();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == 1) {
+      // Wishlist tab selected — load wishlist
+      context.read<SpendingPlanBloc>().add(const LoadWishlist());
+    }
   }
 
   void _loadPlans() {
@@ -56,44 +77,69 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('지출 계획'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: '계획됨'),
+            Tab(text: '구매 목록'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Month navigator
-          MonthNavigator(
-            year: _year,
-            month: _month,
-            onMonthChanged: (val) {
-              setState(() {
-                _year = val.year;
-                _month = val.month;
-              });
-              _loadPlans();
-            },
-          ),
-          // Filter chips
-          _buildFilterChips(),
-          // Content
-          Expanded(
-            child: BlocConsumer<SpendingPlanBloc, SpendingPlanState>(
-              listener: _onStateChange,
-              builder: (context, state) {
-                return switch (state) {
-                  SpendingPlanInitial() || SpendingPlanLoading() =>
-                    const SkeletonLoader(itemCount: 5),
-                  SpendingPlanLoaded() => _buildLoaded(context, state),
-                  SpendingPlanError() => _buildError(context),
-                };
-              },
-            ),
-          ),
+          _buildPlansTab(),
+          _buildWishlistTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/spending-plans/create'),
-        tooltip: '계획 추가',
+        onPressed: () {
+          if (_tabController.index == 1) {
+            context.push('/spending-plans/create?wishlist=true');
+          } else {
+            context.push('/spending-plans/create');
+          }
+        },
+        tooltip: _tabController.index == 1 ? '구매 목록 추가' : '계획 추가',
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  // ---------- Tab 0: Plans ----------
+
+  Widget _buildPlansTab() {
+    return Column(
+      children: [
+        // Month navigator
+        MonthNavigator(
+          year: _year,
+          month: _month,
+          onMonthChanged: (val) {
+            setState(() {
+              _year = val.year;
+              _month = val.month;
+            });
+            _loadPlans();
+          },
+        ),
+        // Filter chips
+        _buildFilterChips(),
+        // Content
+        Expanded(
+          child: BlocConsumer<SpendingPlanBloc, SpendingPlanState>(
+            listener: _onStateChange,
+            builder: (context, state) {
+              return switch (state) {
+                SpendingPlanInitial() || SpendingPlanLoading() =>
+                  const SkeletonLoader(itemCount: 5),
+                SpendingPlanLoaded() => _buildLoaded(context, state),
+                SpendingPlanError() => _buildError(context),
+              };
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -189,53 +235,26 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage> {
     );
   }
 
-  void _showCompleteDialog(BuildContext context, SpendingPlan plan) {
-    final amountController = TextEditingController(
-      text: '${plan.amount}',
-    );
+  void _showCompleteDialog(BuildContext context, SpendingPlan plan) async {
+    final result = await showCompletePlanDialog(context, plan);
+    if (result == null || !context.mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('계획 완료'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('\'${plan.name}\'을(를) 완료 처리합니다.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              decoration: const InputDecoration(
-                labelText: '실제 사용 금액',
-                suffixText: '원',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              final actualAmount = int.tryParse(
-                  amountController.text.replaceAll(',', ''));
-              context.read<SpendingPlanBloc>().add(CompletePlan(
-                    id: plan.id,
-                    actualAmount: actualAmount,
-                  ));
-            },
-            child: const Text('완료'),
-          ),
-        ],
-      ),
-    );
-    // Dispose controller after dialog closes
-    amountController.dispose();
+    final bloc = context.read<SpendingPlanBloc>();
+    if (result.createTransaction) {
+      bloc.add(CompleteWithTransaction(
+        planId: plan.id,
+        amount: result.actualAmount,
+        transactionDate: result.transactionDate,
+        description: result.description,
+        categoryId: result.categoryId,
+        paymentMethodId: result.paymentMethodId,
+      ));
+    } else {
+      bloc.add(CompletePlan(
+        id: plan.id,
+        actualAmount: result.actualAmount,
+      ));
+    }
   }
 
   void _confirmSkip(BuildContext context, SpendingPlan plan) {
@@ -306,7 +325,74 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage> {
       showHomeButton: true,
     );
   }
+
+  // ---------- Tab 1: Wishlist ----------
+
+  Widget _buildWishlistTab() {
+    return BlocBuilder<SpendingPlanBloc, SpendingPlanState>(
+      builder: (context, state) {
+        if (state is SpendingPlanLoaded) {
+          final wishlist = state.wishlist;
+          if (wishlist == null) {
+            // Not yet loaded
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (wishlist.isEmpty) {
+            return EmptyStateWidget(
+              icon: Icons.shopping_cart_outlined,
+              title: '구매 목록이 비어있습니다',
+              subtitle: '사고 싶은 것을 구매 목록에 추가해보세요',
+              actionLabel: '구매 목록 추가',
+              onAction: () => context.push('/spending-plans/create?wishlist=true'),
+            );
+          }
+          return _buildWishlistGrouped(context, state);
+        }
+        return const SkeletonLoader(itemCount: 3);
+      },
+    );
+  }
+
+  Widget _buildWishlistGrouped(BuildContext context, SpendingPlanLoaded state) {
+    final grouped = state.wishlistByPriority;
+    final priorities = grouped.keys.toList();
+
+    return ListView.builder(
+      key: const PageStorageKey('wishlist_list'),
+      itemCount: priorities.length,
+      itemBuilder: (context, index) {
+        final priority = priorities[index];
+        final items = grouped[priority]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _PriorityHeader(priority: priority),
+            ...items.map((plan) => _WishlistItemCard(
+                  plan: plan,
+                  onTap: () => context.push('/spending-plans/edit/${plan.id}'),
+                  onAssign: () => _showAssignDialog(context, plan),
+                  onSkip: () => _confirmSkip(context, plan),
+                )),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAssignDialog(BuildContext context, SpendingPlan plan) async {
+    final result = await showAssignPlanDialog(context, plan);
+    if (result == null || !context.mounted) return;
+
+    context.read<SpendingPlanBloc>().add(AssignPlan(
+          planId: plan.id,
+          targetDate: result.targetDate,
+          weekNumber: result.weekNumber,
+          budgetId: result.budgetId,
+        ));
+  }
 }
+
+// ---------- Helper widgets ----------
 
 class _DateHeader extends StatelessWidget {
   final String dateStr;
@@ -345,6 +431,173 @@ class _DateHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PriorityHeader extends StatelessWidget {
+  final String priority;
+
+  const _PriorityHeader({required this.priority});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = priorityColor(priority);
+    final label = priorityLabel(priority);
+
+    String emoji;
+    switch (priority) {
+      case 'HIGH':
+        emoji = '\u{1F534}'; // red circle
+        break;
+      case 'MEDIUM':
+        emoji = '\u{1F7E1}'; // yellow circle
+        break;
+      case 'LOW':
+        emoji = '\u{1F535}'; // blue circle
+        break;
+      default:
+        emoji = '';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: color.withValues(alpha: 0.08),
+      child: Text(
+        '$emoji $label',
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _WishlistItemCard extends StatelessWidget {
+  final SpendingPlan plan;
+  final VoidCallback? onTap;
+  final VoidCallback? onAssign;
+  final VoidCallback? onSkip;
+
+  const _WishlistItemCard({
+    required this.plan,
+    this.onTap,
+    this.onAssign,
+    this.onSkip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pColor = priorityColor(plan.priority);
+
+    return Dismissible(
+      key: Key('wishlist_${plan.id}'),
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: Colors.blue,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_month, color: Colors.white),
+            SizedBox(width: 4),
+            Text('배정', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Colors.grey,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('건너뛰기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            SizedBox(width: 4),
+            Icon(Icons.skip_next, color: Colors.white),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          onAssign?.call();
+        } else {
+          onSkip?.call();
+        }
+        return false;
+      },
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: pColor.withValues(alpha: 0.15),
+          child: Icon(Icons.shopping_cart, color: pColor, size: 20),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                plan.name,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (plan.categoryName != null)
+              Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  plan.categoryName!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (plan.tags.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: plan.tags.map((tag) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      tag,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ),
+          ],
+        ),
+        trailing: Text(
+          plan.priceRangeText,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: pColor,
+          ),
+        ),
+        onTap: onTap,
       ),
     );
   }

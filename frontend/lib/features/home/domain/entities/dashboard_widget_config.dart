@@ -86,4 +86,11 @@ const defaultDashboardWidgets = [
     enabled: true,
     order: 5,
   ),
+  DashboardWidgetConfig(
+    id: 'wishlist',
+    name: '\uad6c\ub9e4 \ubaa9\ub85d',
+    icon: 'shopping_cart',
+    enabled: false,
+    order: 6,
+  ),
 ];
