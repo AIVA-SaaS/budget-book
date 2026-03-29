@@ -17,6 +17,10 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/widgets/account_balance_card.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_event.dart';
+import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_state.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -571,100 +575,6 @@ class _BudgetUsageCardState extends State<_BudgetUsageCard> {
   }
 }
 
-class _PrivateSummaryCard extends StatelessWidget {
-  final List<Transaction> recentTransactions;
-
-  const _PrivateSummaryCard({required this.recentTransactions});
-
-  @override
-  Widget build(BuildContext context) {
-    final privateTxns = recentTransactions.where((t) => t.isPrivate).toList();
-    if (privateTxns.isEmpty) return const SizedBox.shrink();
-
-    final formatter = NumberFormat('#,###');
-    final privateExpense = privateTxns
-        .where((t) => t.isExpense)
-        .fold(0, (sum, t) => sum + t.amount);
-    final privateIncome = privateTxns
-        .where((t) => t.isIncome)
-        .fold(0, (sum, t) => sum + t.amount);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.visibility_off, size: 18),
-                const SizedBox(width: 6),
-                Text(
-                  '나만 보임',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        '개인 지출',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.6),
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${formatter.format(privateExpense)}원',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        '개인 수입',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.6),
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${formatter.format(privateIncome)}원',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _RecentTransactionsCard extends StatelessWidget {
   final List<Transaction> transactions;
   final String? error;
@@ -877,50 +787,179 @@ class _PaymentMethodStatsCard extends StatelessWidget {
   }
 }
 
-/// Simple dashboard card showing a wishlist shortcut.
-class _WishlistPreviewCard extends StatelessWidget {
-  const _WishlistPreviewCard();
+/// Dashboard card showing spending plan and wishlist preview with actual data.
+class _SpendingPlansPreviewCard extends StatefulWidget {
+  const _SpendingPlansPreviewCard();
+
+  @override
+  State<_SpendingPlansPreviewCard> createState() =>
+      _SpendingPlansPreviewCardState();
+}
+
+class _SpendingPlansPreviewCardState extends State<_SpendingPlansPreviewCard> {
+  @override
+  void initState() {
+    super.initState();
+    final bloc = getIt<SpendingPlanBloc>();
+    if (bloc.state is! SpendingPlanLoaded) {
+      final now = DateTime.now();
+      bloc.add(LoadSpendingPlans(
+        startDate:
+            DateTime(now.year, now.month, 1).toIso8601String().substring(0, 10),
+        endDate: DateTime(now.year, now.month + 1, 0)
+            .toIso8601String()
+            .substring(0, 10),
+      ));
+      bloc.add(const LoadWishlist());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => GoRouter.of(context).push('/spending-plans'),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.purple.withValues(alpha: 0.12),
-                child: const Icon(Icons.shopping_cart, color: Colors.purple),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    final numberFormat = NumberFormat('#,###');
+
+    return BlocBuilder<SpendingPlanBloc, SpendingPlanState>(
+      bloc: getIt<SpendingPlanBloc>(),
+      builder: (context, state) {
+        if (state is! SpendingPlanLoaded) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        final planned = state.plans
+            .where((p) => p.status == 'PLANNED')
+            .take(3)
+            .toList();
+        final wishlist = (state.wishlist ?? []).take(3).toList();
+
+        if (planned.isEmpty && wishlist.isEmpty) {
+          return Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => GoRouter.of(context).push('/spending-plans'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
                   children: [
-                    Text(
-                      '\uad6c\ub9e4 \ubaa9\ub85d',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    CircleAvatar(
+                      backgroundColor: Colors.purple.withValues(alpha: 0.12),
+                      child: const Icon(Icons.event_note,
+                          color: Colors.purple),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '지출 계획',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '지출 계획을 추가하세요',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      '\uc0ac\uace0 \uc2f6\uc740 \uac83\ub4e4\uc744 \uad00\ub9ac\ud558\uc138\uc694',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
+                    const Icon(Icons.chevron_right),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
-            ],
+            ),
+          );
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with title + "더보기" link
+                Row(
+                  children: [
+                    const Icon(Icons.event_note, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      '지출 계획',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () =>
+                          GoRouter.of(context).push('/spending-plans'),
+                      child: const Text('더보기'),
+                    ),
+                  ],
+                ),
+                // Planned section (if any)
+                if (planned.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                    child: Text(
+                      '계획됨',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  ...planned.map((p) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(p.name, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(p.targetDate ?? ''),
+                        trailing: Text(
+                          '${numberFormat.format(p.amount)}원',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )),
+                ],
+                // Wishlist section (if any)
+                if (wishlist.isNotEmpty) ...[
+                  if (planned.isNotEmpty) const Divider(),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 4),
+                    child: Text(
+                      '구매 목록',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: Colors.purple,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  ...wishlist.map((w) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(w.name, overflow: TextOverflow.ellipsis),
+                        trailing: Text(
+                          w.priceRangeText,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )),
+                ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
