@@ -22,8 +22,13 @@ import 'package:budget_book/features/spending_plan/presentation/bloc/spending_pl
 
 class SpendingPlanFormPage extends StatefulWidget {
   final String? planId;
+  final bool isWishlist;
 
-  const SpendingPlanFormPage({super.key, this.planId});
+  const SpendingPlanFormPage({
+    super.key,
+    this.planId,
+    this.isWishlist = false,
+  });
 
   @override
   State<SpendingPlanFormPage> createState() => _SpendingPlanFormPageState();
@@ -34,6 +39,9 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _amountController;
   late final TextEditingController _memoController;
+  late final TextEditingController _estimatedMinController;
+  late final TextEditingController _estimatedMaxController;
+  late final TextEditingController _tagInputController;
 
   DateTime _targetDate = DateTime.now();
   String? _categoryId;
@@ -44,6 +52,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
   String _visibility = 'SHARED';
   bool _isSubmitting = false;
   SpendingPlan? _existingPlan;
+
+  // Wishlist-specific fields
+  late bool _isWishlistMode;
+  String _priority = 'MEDIUM';
+  List<String> _tags = [];
 
   bool get isEditing => widget.planId != null;
 
@@ -58,6 +71,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     _nameController = TextEditingController();
     _amountController = TextEditingController();
     _memoController = TextEditingController();
+    _estimatedMinController = TextEditingController();
+    _estimatedMaxController = TextEditingController();
+    _tagInputController = TextEditingController();
+
+    _isWishlistMode = widget.isWishlist;
 
     if (isEditing) {
       _loadExistingPlan();
@@ -68,8 +86,12 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     final bloc = context.read<SpendingPlanBloc>();
     final state = bloc.state;
     if (state is SpendingPlanLoaded) {
-      final plan = state.plans
+      // Search in both plans and wishlist
+      SpendingPlan? plan = state.plans
           .where((p) => p.id == widget.planId)
+          .firstOrNull;
+      plan ??= state.wishlist
+          ?.where((p) => p.id == widget.planId)
           .firstOrNull;
       if (plan != null) {
         _populateForm(plan);
@@ -80,15 +102,28 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
   void _populateForm(SpendingPlan plan) {
     _existingPlan = plan;
     _nameController.text = plan.name;
-    _amountController.text = CurrencyFormatter.format(plan.amount);
+    _amountController.text = plan.amount > 0
+        ? CurrencyFormatter.format(plan.amount)
+        : '';
     _memoController.text = plan.memo ?? '';
-    _targetDate = DateTime.tryParse(plan.targetDate) ?? DateTime.now();
+    _targetDate = plan.targetDate != null
+        ? DateTime.tryParse(plan.targetDate!) ?? DateTime.now()
+        : DateTime.now();
     _categoryId = plan.categoryId;
     _paymentMethodId = plan.paymentMethodId;
     _budgetId = plan.budgetId;
     _isRecurring = plan.isRecurring;
     _frequency = plan.frequency;
     _visibility = plan.visibility;
+    _isWishlistMode = plan.isWishlist;
+    _priority = plan.priority;
+    _tags = List.from(plan.tags);
+    if (plan.estimatedMin != null) {
+      _estimatedMinController.text = CurrencyFormatter.format(plan.estimatedMin!);
+    }
+    if (plan.estimatedMax != null) {
+      _estimatedMaxController.text = CurrencyFormatter.format(plan.estimatedMax!);
+    }
   }
 
   @override
@@ -96,6 +131,9 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     _nameController.dispose();
     _amountController.dispose();
     _memoController.dispose();
+    _estimatedMinController.dispose();
+    _estimatedMaxController.dispose();
+    _tagInputController.dispose();
     super.dispose();
   }
 
@@ -111,20 +149,84 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
     }
   }
 
+  void _addTag() {
+    final tag = _tagInputController.text.trim();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
+      setState(() {
+        _tags.add(tag);
+        _tagInputController.clear();
+      });
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() => _tags.remove(tag));
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-
-    final amount = CurrencyFormatter.parse(_amountController.text);
-    if (amount == null || amount <= 0) return;
 
     final name = _nameController.text.trim();
     final memo =
         _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
-    final targetDateStr = DateFormat('yyyy-MM-dd').format(_targetDate);
 
     setState(() => _isSubmitting = true);
 
     final bloc = context.read<SpendingPlanBloc>();
+
+    if (_isWishlistMode) {
+      _submitWishlist(bloc, name, memo);
+    } else {
+      _submitPlan(bloc, name, memo);
+    }
+  }
+
+  void _submitWishlist(SpendingPlanBloc bloc, String name, String? memo) {
+    // For wishlist: amount can be 0 if only estimated range is provided
+    final amount = CurrencyFormatter.parse(_amountController.text) ?? 0;
+    final estimatedMin = CurrencyFormatter.parse(_estimatedMinController.text);
+    final estimatedMax = CurrencyFormatter.parse(_estimatedMaxController.text);
+    final tagsStr = _tags.isNotEmpty ? _tags.join(',') : null;
+
+    if (isEditing) {
+      final old = _existingPlan;
+      bloc.add(UpdateSpendingPlan(
+        id: widget.planId!,
+        name: name,
+        amount: amount,
+        memo: memo,
+        clearMemo: memo == null && old?.memo != null,
+        categoryId: _categoryId,
+        clearCategoryId: _categoryId == null && old?.categoryId != null,
+        paymentMethodId: _paymentMethodId,
+        clearPaymentMethodId: _paymentMethodId == null && old?.paymentMethodId != null,
+        budgetId: _budgetId,
+        clearBudgetId: _budgetId == null && old?.budgetId != null,
+        visibility: _visibility,
+      ));
+    } else {
+      bloc.add(CreateSpendingPlan(
+        name: name,
+        amount: amount,
+        targetDate: '',
+        status: 'WISHLIST',
+        priority: _priority,
+        estimatedMin: estimatedMin,
+        estimatedMax: estimatedMax,
+        tags: tagsStr,
+        memo: memo,
+        categoryId: _categoryId,
+        paymentMethodId: _paymentMethodId,
+        visibility: _visibility,
+      ));
+    }
+  }
+
+  void _submitPlan(SpendingPlanBloc bloc, String name, String? memo) {
+    final amount = CurrencyFormatter.parse(_amountController.text);
+    if (amount == null || amount <= 0) return;
+
+    final targetDateStr = DateFormat('yyyy-MM-dd').format(_targetDate);
 
     if (isEditing) {
       final old = _existingPlan;
@@ -191,7 +293,9 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(isEditing ? '계획 수정' : '계획 추가'),
+          title: Text(_isWishlistMode
+              ? (isEditing ? '구매 목록 수정' : '구매 목록 추가')
+              : (isEditing ? '계획 수정' : '계획 추가')),
         ),
         body: _buildForm(context),
       ),
@@ -222,54 +326,176 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           // Plan name (required)
           TextFormField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '계획명 *',
-              prefixIcon: Icon(Icons.event_note),
-              hintText: '예: 코스트코 장보기',
+            decoration: InputDecoration(
+              labelText: _isWishlistMode ? '항목명 *' : '계획명 *',
+              prefixIcon: Icon(_isWishlistMode
+                  ? Icons.shopping_cart
+                  : Icons.event_note),
+              hintText: _isWishlistMode
+                  ? '예: 에어팟 프로'
+                  : '예: 코스트코 장보기',
             ),
             maxLength: 100,
             validator: (value) {
-              if (value == null || value.trim().isEmpty) return '계획명을 입력하세요';
+              if (value == null || value.trim().isEmpty) {
+                return _isWishlistMode ? '항목명을 입력하세요' : '계획명을 입력하세요';
+              }
               return null;
             },
           ),
           const SizedBox(height: 12),
-          // Amount (required)
-          TextFormField(
-            controller: _amountController,
-            decoration: const InputDecoration(
-              labelText: '금액 *',
-              prefixIcon: Icon(Icons.attach_money),
-              suffixText: '원',
+
+          if (_isWishlistMode) ...[
+            // Priority selector
+            Text(
+              '우선순위',
+              style: Theme.of(context).textTheme.labelLarge,
             ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              CurrencyInputFormatter(),
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) return '금액을 입력하세요';
-              final amount = CurrencyFormatter.parse(value);
-              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
-              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          // Target date
-          InkWell(
-            onTap: _selectTargetDate,
-            child: InputDecorator(
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'HIGH', label: Text('높음')),
+                ButtonSegment(value: 'MEDIUM', label: Text('보통')),
+                ButtonSegment(value: 'LOW', label: Text('낮음')),
+              ],
+              selected: {_priority},
+              onSelectionChanged: (selection) {
+                setState(() => _priority = selection.first);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Price range fields
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _estimatedMinController,
+                    decoration: const InputDecoration(
+                      labelText: '예상 최소 금액',
+                      suffixText: '원',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      CurrencyInputFormatter(),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('~'),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _estimatedMaxController,
+                    decoration: const InputDecoration(
+                      labelText: '예상 최대 금액',
+                      suffixText: '원',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      CurrencyInputFormatter(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Or single amount
+            TextFormField(
+              controller: _amountController,
               decoration: const InputDecoration(
-                labelText: '목표일 *',
-                prefixIcon: Icon(Icons.calendar_today),
+                labelText: '예상 금액 (단일)',
+                prefixIcon: Icon(Icons.attach_money),
+                suffixText: '원',
+                helperText: '최소/최대를 입력하면 생략 가능',
               ),
-              child: Text(
-                DateFormat('yyyy년 M월 d일', 'ko').format(_targetDate),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                CurrencyInputFormatter(),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tags input
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tagInputController,
+                    decoration: const InputDecoration(
+                      labelText: '태그 추가',
+                      prefixIcon: Icon(Icons.tag),
+                      hintText: '태그 입력 후 추가',
+                    ),
+                    onSubmitted: (_) => _addTag(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _addTag,
+                  icon: const Icon(Icons.add_circle),
+                  tooltip: '태그 추가',
+                ),
+              ],
+            ),
+            if (_tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _tags.map((tag) => Chip(
+                  label: Text(tag),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () => _removeTag(tag),
+                )).toList(),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ] else ...[
+            // Regular plan mode: Amount (required)
+            TextFormField(
+              controller: _amountController,
+              decoration: const InputDecoration(
+                labelText: '금액 *',
+                prefixIcon: Icon(Icons.attach_money),
+                suffixText: '원',
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                CurrencyInputFormatter(),
+              ],
+              validator: (value) {
+                if (_isWishlistMode) return null;
+                if (value == null || value.isEmpty) return '금액을 입력하세요';
+                final amount = CurrencyFormatter.parse(value);
+                if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+                if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            // Target date
+            InkWell(
+              onTap: _selectTargetDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '목표일 *',
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  DateFormat('yyyy년 M월 d일', 'ko').format(_targetDate),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
+
           // Category dropdown
           DropdownButtonFormField<String>(
             initialValue: _categoryId,
@@ -316,33 +542,37 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             },
           ),
           const SizedBox(height: 16),
-          // Budget link dropdown
-          DropdownButtonFormField<String>(
-            initialValue: _budgetId,
-            decoration: const InputDecoration(
-              labelText: '예산 연결',
-              prefixIcon: Icon(Icons.account_balance_wallet),
-            ),
-            isExpanded: true,
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('선택 안 함'),
+
+          if (!_isWishlistMode) ...[
+            // Budget link dropdown
+            DropdownButtonFormField<String>(
+              initialValue: _budgetId,
+              decoration: const InputDecoration(
+                labelText: '예산 연결',
+                prefixIcon: Icon(Icons.account_balance_wallet),
               ),
-              ...budgets.map((b) => DropdownMenuItem(
-                    value: b.id,
-                    child: Text(
-                      b.category?.name != null
-                          ? '${b.category!.name} (${CurrencyFormatter.format(b.amount)}원)'
-                          : '${b.yearMonth} (${CurrencyFormatter.format(b.amount)}원)',
-                    ),
-                  )),
-            ],
-            onChanged: (value) {
-              setState(() => _budgetId = value);
-            },
-          ),
-          const SizedBox(height: 16),
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('선택 안 함'),
+                ),
+                ...budgets.map((b) => DropdownMenuItem(
+                      value: b.id,
+                      child: Text(
+                        b.category?.name != null
+                            ? '${b.category!.name} (${CurrencyFormatter.format(b.amount)}원)'
+                            : '${b.yearMonth} (${CurrencyFormatter.format(b.amount)}원)',
+                      ),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() => _budgetId = value);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Memo
           TextFormField(
             controller: _memoController,
@@ -353,40 +583,44 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             maxLines: 2,
           ),
           const SizedBox(height: 16),
-          // Recurring toggle
-          SwitchListTile(
-            title: const Text('반복 설정'),
-            subtitle: const Text('주간 또는 월간 반복'),
-            value: _isRecurring,
-            onChanged: (value) {
-              setState(() {
-                _isRecurring = value;
-                if (!value) _frequency = null;
-                if (value && _frequency == null) _frequency = 'MONTHLY';
-              });
-            },
-          ),
-          if (_isRecurring) ...[
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _frequency ?? 'MONTHLY',
-              decoration: const InputDecoration(
-                labelText: '반복 주기',
-                prefixIcon: Icon(Icons.repeat),
-              ),
-              isExpanded: true,
-              items: _frequencyOptions
-                  .map((e) => DropdownMenuItem(
-                        value: e.$1,
-                        child: Text(e.$2),
-                      ))
-                  .toList(),
+
+          if (!_isWishlistMode) ...[
+            // Recurring toggle
+            SwitchListTile(
+              title: const Text('반복 설정'),
+              subtitle: const Text('주간 또는 월간 반복'),
+              value: _isRecurring,
               onChanged: (value) {
-                if (value != null) setState(() => _frequency = value);
+                setState(() {
+                  _isRecurring = value;
+                  if (!value) _frequency = null;
+                  if (value && _frequency == null) _frequency = 'MONTHLY';
+                });
               },
             ),
+            if (_isRecurring) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _frequency ?? 'MONTHLY',
+                decoration: const InputDecoration(
+                  labelText: '반복 주기',
+                  prefixIcon: Icon(Icons.repeat),
+                ),
+                isExpanded: true,
+                items: _frequencyOptions
+                    .map((e) => DropdownMenuItem(
+                          value: e.$1,
+                          child: Text(e.$2),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _frequency = value);
+                },
+              ),
+            ],
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
+
           // Visibility
           DropdownButtonFormField<String>(
             initialValue: _visibility,
