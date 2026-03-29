@@ -28,6 +28,9 @@ import 'package:budget_book/features/spending_plan/domain/entities/spending_plan
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_event.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_state.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/spending_plan_card.dart';
 
 class SpendingPlanFormPage extends StatefulWidget {
   final String? planId;
@@ -690,8 +693,121 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   )
                 : Text(isEditing ? '수정' : '저장'),
           ),
+          // Status action buttons (edit mode only)
+          if (isEditing && _existingPlan != null) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              '상태 변경',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            _buildStatusActions(context),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusActions(BuildContext context) {
+    final plan = _existingPlan!;
+    final status = plan.status;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Current status display
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: statusColor(status).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(statusIcon(status), color: statusColor(status), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                '현재 상태: ${statusLabel(status)}',
+                style: TextStyle(
+                  color: statusColor(status),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // WISHLIST → assign (날짜 배정)
+        if (status == 'WISHLIST')
+          OutlinedButton.icon(
+            onPressed: () async {
+              final result = await showAssignPlanDialog(context, plan);
+              if (result != null && mounted) {
+                getIt<SpendingPlanBloc>().add(AssignPlan(
+                  planId: plan.id,
+                  targetDate: result.targetDate,
+                  weekNumber: result.weekNumber,
+                  budgetId: result.budgetId,
+                ));
+                if (mounted) context.pop();
+              }
+            },
+            icon: const Icon(Icons.calendar_month),
+            label: const Text('날짜 배정 (계획됨으로 전환)'),
+          ),
+        // PLANNED/OVERDUE → complete
+        if (status == 'PLANNED' || status == 'OVERDUE') ...[
+          OutlinedButton.icon(
+            onPressed: () async {
+              final result = await showCompletePlanDialog(context, plan);
+              if (result != null && mounted) {
+                if (result.createTransaction) {
+                  getIt<SpendingPlanBloc>().add(CompleteWithTransaction(
+                    planId: plan.id,
+                    amount: result.actualAmount,
+                    transactionDate: result.transactionDate!,
+                    description: plan.name,
+                    categoryId: result.categoryId,
+                    paymentMethodId: result.paymentMethodId,
+                  ));
+                } else {
+                  getIt<SpendingPlanBloc>().add(CompletePlan(
+                    id: plan.id,
+                    actualAmount: result.actualAmount,
+                  ));
+                }
+                if (mounted) context.pop();
+              }
+            },
+            icon: const Icon(Icons.check_circle, color: Colors.green),
+            label: const Text('완료 처리'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () {
+              getIt<SpendingPlanBloc>().add(SkipPlan(plan.id));
+              context.pop();
+            },
+            icon: const Icon(Icons.skip_next, color: Colors.grey),
+            label: const Text('건너뛰기'),
+          ),
+        ],
+        // COMPLETED/SKIPPED → info only
+        if (status == 'COMPLETED' || status == 'SKIPPED')
+          Text(
+            status == 'COMPLETED'
+                ? '이미 완료된 계획입니다.'
+                : '건너뛴 계획입니다.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+          ),
+        const SizedBox(height: 88), // FAB padding
+      ],
     );
   }
 
