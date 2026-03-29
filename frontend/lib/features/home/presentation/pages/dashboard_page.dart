@@ -63,11 +63,15 @@ class _DashboardPageState extends State<DashboardPage> {
       case 'asset_balance':
         return const AccountBalanceCard();
       case 'private_summary':
-        return _PrivateSummaryCard(
-          recentTransactions: state.recentTransactions,
-        );
+        final privateTransactions = state.recentTransactions
+            .where((t) => t.visibility == 'PRIVATE')
+            .toList();
+        if (privateTransactions.isEmpty) return null;
+        return _PrivateSummaryCard(transactions: privateTransactions);
+      case 'spending_plans':
+        return const _SpendingPlansPreviewCard();
       case 'wishlist':
-        return const _WishlistPreviewCard();
+        return const _SpendingPlansPreviewCard();
       default:
         return const SizedBox.shrink();
     }
@@ -916,6 +920,97 @@ class _WishlistPreviewCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PrivateSummaryCard extends StatelessWidget {
+  final List<Transaction> transactions;
+
+  const _PrivateSummaryCard({required this.transactions});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final numberFormat = NumberFormat('#,###');
+    final totalExpense = transactions
+        .where((t) => t.type == 'EXPENSE')
+        .fold<int>(0, (sum, t) => sum + t.amount);
+    final totalIncome = transactions
+        .where((t) => t.type == 'INCOME')
+        .fold<int>(0, (sum, t) => sum + t.amount);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lock, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  '개인 거래 요약',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${transactions.length}건',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (totalIncome > 0)
+              _buildRow(context, '수입', '${numberFormat.format(totalIncome)}원', Colors.blue),
+            if (totalExpense > 0)
+              _buildRow(context, '지출', '${numberFormat.format(totalExpense)}원', Colors.red),
+            if (transactions.length <= 3) ...[
+              const Divider(height: 16),
+              ...transactions.map((t) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            t.description,
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${t.type == 'EXPENSE' ? '-' : '+'}${numberFormat.format(t.amount)}원',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: t.type == 'EXPENSE' ? Colors.red : Colors.blue,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
