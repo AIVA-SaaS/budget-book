@@ -325,6 +325,14 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           title: Text(_isWishlistMode
               ? (isEditing ? '구매 목록 수정' : '구매 목록 추가')
               : (isEditing ? '계획 수정' : '계획 추가')),
+          actions: [
+            if (isEditing)
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                tooltip: '삭제',
+                onPressed: () => _confirmDelete(context),
+              ),
+          ],
         ),
         body: _buildForm(context),
       ),
@@ -707,6 +715,31 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             const SizedBox(height: 8),
             _buildStatusActions(context),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제'),
+        content: Text("'${_nameController.text}'을(를) 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              getIt<SpendingPlanBloc>().add(DeleteSpendingPlan(widget.planId!));
+              context.pop();
+            },
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
