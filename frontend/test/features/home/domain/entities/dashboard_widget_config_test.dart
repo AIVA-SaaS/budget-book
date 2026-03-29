@@ -123,11 +123,11 @@ void main() {
       expect(assetBalance.enabled, false);
     });
 
-    test('defaultDashboardWidgets has wishlist disabled', () {
-      final wishlist =
-          defaultDashboardWidgets.firstWhere((c) => c.id == 'wishlist');
-      expect(wishlist.enabled, false);
-      expect(wishlist.order, 6);
+    test('defaultDashboardWidgets has spending_plans disabled', () {
+      final spendingPlans =
+          defaultDashboardWidgets.firstWhere((c) => c.id == 'spending_plans');
+      expect(spendingPlans.enabled, false);
+      expect(spendingPlans.order, 6);
     });
 
     test('defaultDashboardWidgets orders are sequential', () {

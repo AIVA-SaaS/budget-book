@@ -126,9 +126,7 @@ class PaymentMethodPage extends StatelessWidget {
       BuildContext context, PaymentMethod method) {
     return Dismissible(
       key: Key(method.id),
-      direction: method.isDefault
-          ? DismissDirection.none
-          : DismissDirection.endToStart,
+      direction: DismissDirection.endToStart,
       confirmDismiss: (_) => _showDeleteDialog(context, method),
       background: Container(
         color: Theme.of(context).colorScheme.error,
@@ -219,20 +217,19 @@ class PaymentMethodPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (!method.isDefault)
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline, size: 20,
-                            color: Theme.of(context).colorScheme.error),
-                        const SizedBox(width: 8),
-                        Text('삭제',
-                            style: TextStyle(
-                                color: Theme.of(context).colorScheme.error)),
-                      ],
-                    ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 20,
+                          color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 8),
+                      Text('삭제',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
+                    ],
                   ),
+                ),
               ],
             ),
           ],
@@ -428,12 +425,14 @@ class PaymentMethodPage extends StatelessWidget {
 
   Future<bool> _showDeleteDialog(
       BuildContext context, PaymentMethod method) async {
+    final warningText = method.isDefault
+        ? "'${method.name}'은(는) 기본 결제수단입니다. 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다."
+        : "'${method.name}' 결제수단을 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다.";
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('결제수단 삭제'),
-        content:
-            Text("'${method.name}' 결제수단을 삭제하시겠습니까?\n이 결제수단을 사용한 거래 기록은 유지됩니다."),
+        content: Text(warningText),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),

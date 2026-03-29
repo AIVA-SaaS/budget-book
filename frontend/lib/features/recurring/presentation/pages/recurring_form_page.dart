@@ -407,7 +407,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                         label: e.$2.name,
                         leadingIcon: paymentMethodTypeIcon(e.$2.type),
                         leadingColor: paymentMethodTypeColor(e.$2.type),
-                        isDeletable: !e.$2.isDefault,
+                        isDeletable: true,
                         displayOrder: e.$1,
                         group: e.$2.type,
                       ))
