@@ -598,32 +598,41 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // 6. Budget link dropdown
-            DropdownButtonFormField<String>(
-              initialValue: _budgetId,
-              decoration: const InputDecoration(
-                labelText: '예산 연결',
-                prefixIcon: Icon(Icons.account_balance_wallet),
-              ),
-              isExpanded: true,
-              items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('선택 안 함'),
+            // 6. Budget link dropdown — filter by target date's month, show label + effective amount
+            Builder(builder: (context) {
+              // Filter budgets to match the target date's month
+              final targetMonth = '${_targetDate.year}-${_targetDate.month.toString().padLeft(2, '0')}';
+              final filteredBudgets = budgets.where((b) => b.yearMonth == targetMonth).toList();
+
+              return DropdownButtonFormField<String>(
+                key: ValueKey(targetMonth),
+                initialValue: filteredBudgets.any((b) => b.id == _budgetId) ? _budgetId : null,
+                decoration: InputDecoration(
+                  labelText: '예산 연결',
+                  prefixIcon: const Icon(Icons.account_balance_wallet),
+                  helperText: '${_targetDate.month}월 예산 ${filteredBudgets.length}개',
                 ),
-                ...budgets.map((b) => DropdownMenuItem(
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('선택 안 함'),
+                  ),
+                  ...filteredBudgets.map((b) {
+                    final label = b.targetLabel;
+                    final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
+                    final period = b.budgetPeriod == 'WEEKLY' ? ' (주간)' : '';
+                    return DropdownMenuItem(
                       value: b.id,
-                      child: Text(
-                        b.category?.name != null
-                            ? '${b.category!.name} (${CurrencyFormatter.format(b.amount)}원)'
-                            : '${b.yearMonth} (${CurrencyFormatter.format(b.amount)}원)',
-                      ),
-                    )),
-              ],
-              onChanged: (value) {
-                setState(() => _budgetId = value);
-              },
-            ),
+                      child: Text('$label — $amount원$period'),
+                    );
+                  }),
+                ],
+                onChanged: (value) {
+                  setState(() => _budgetId = value);
+                },
+              );
+            }),
             const SizedBox(height: 16),
 
             // 7. Memo
