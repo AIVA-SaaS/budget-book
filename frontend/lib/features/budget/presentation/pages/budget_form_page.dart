@@ -352,12 +352,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   }
 
   void _showCategorySelectorSheet(BuildContext context) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-      ),
       builder: (_) => MultiBlocProvider(
         providers: [
           BlocProvider<CategoryGroupBloc>.value(
