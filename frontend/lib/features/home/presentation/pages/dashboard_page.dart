@@ -74,8 +74,6 @@ class _DashboardPageState extends State<DashboardPage> {
         return _PrivateSummaryCard(transactions: privateTransactions);
       case 'spending_plans':
         return const _SpendingPlansPreviewCard();
-      case 'wishlist':
-        return const _SpendingPlansPreviewCard();
       default:
         return const SizedBox.shrink();
     }

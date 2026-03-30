@@ -24,6 +24,10 @@ class HomeConfigService {
               DashboardWidgetConfig.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      // Remove widgets that no longer exist in defaults (e.g. renamed 'wishlist' → 'spending_plans')
+      final defaultIds = defaultDashboardWidgets.map((d) => d.id).toSet();
+      saved.removeWhere((c) => !defaultIds.contains(c.id));
+
       // Merge: append any new default widgets not present in the saved list.
       final savedIds = saved.map((c) => c.id).toSet();
       int nextOrder = saved.isEmpty
