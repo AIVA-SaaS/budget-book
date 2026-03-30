@@ -303,6 +303,8 @@ void main() {
             startDate: '2026-03-01',
             endDate: '2026-03-31',
           )).thenAnswer((_) async => const Right(tListResponse));
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right(<SpendingPlan>[]));
           return bloc;
         },
         act: (bloc) => bloc.add(const LoadSpendingPlans(
@@ -311,7 +313,8 @@ void main() {
         )),
         expect: () => [
           const SpendingPlanLoading(),
-          const SpendingPlanLoaded(plans: tPlans, summary: tSummary),
+          const SpendingPlanLoaded(
+              plans: tPlans, summary: tSummary, wishlist: []),
         ],
       );
 
@@ -326,6 +329,8 @@ void main() {
                 plans: [tPlan1],
                 summary: tSummary,
               )));
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right(<SpendingPlan>[]));
           return bloc;
         },
         act: (bloc) => bloc.add(const LoadSpendingPlans(
@@ -335,16 +340,19 @@ void main() {
         )),
         expect: () => [
           const SpendingPlanLoading(),
-          const SpendingPlanLoaded(plans: [tPlan1], summary: tSummary),
+          const SpendingPlanLoaded(
+              plans: [tPlan1], summary: tSummary, wishlist: []),
         ],
       );
 
       blocTest<SpendingPlanBloc, SpendingPlanState>(
         'emits [Loading, Error] on failure',
         build: () {
-          when(mockRepository.getSpendingPlans()).thenAnswer(
-              (_) async =>
+          when(mockRepository.getSpendingPlans())
+              .thenAnswer((_) async =>
                   const Left(ServerFailure('지출 계획을 불러오지 못했습니다')));
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right(<SpendingPlan>[]));
           return bloc;
         },
         act: (bloc) => bloc.add(const LoadSpendingPlans()),
@@ -408,6 +416,8 @@ void main() {
           // After create, LoadSpendingPlans is dispatched (with no filters)
           when(mockRepository.getSpendingPlans())
               .thenAnswer((_) async => const Right(tListResponse));
+          when(mockRepository.getWishlist())
+              .thenAnswer((_) async => const Right(<SpendingPlan>[]));
           return bloc;
         },
         seed: () =>
@@ -419,7 +429,8 @@ void main() {
         )),
         expect: () => [
           const SpendingPlanLoading(),
-          const SpendingPlanLoaded(plans: tPlans, summary: tSummary),
+          const SpendingPlanLoaded(
+              plans: tPlans, summary: tSummary, wishlist: []),
         ],
       );
 
