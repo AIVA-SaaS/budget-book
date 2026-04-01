@@ -140,21 +140,6 @@ class DeleteSpendingPlan extends SpendingPlanEvent {
   List<Object?> get props => [id];
 }
 
-class CompletePlan extends SpendingPlanEvent {
-  final String id;
-  final String? transactionId;
-  final int? actualAmount;
-
-  const CompletePlan({
-    required this.id,
-    this.transactionId,
-    this.actualAmount,
-  });
-
-  @override
-  List<Object?> get props => [id, transactionId, actualAmount];
-}
-
 class SkipPlan extends SpendingPlanEvent {
   final String id;
 

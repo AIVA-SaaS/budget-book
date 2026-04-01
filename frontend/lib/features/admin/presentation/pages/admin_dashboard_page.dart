@@ -79,6 +79,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             tooltip: '공지사항 관리',
             onPressed: () => context.push('/admin/announcements'),
           ),
+          IconButton(
+            icon: const Icon(Icons.feedback),
+            tooltip: '피드백 관리',
+            onPressed: () => context.push('/admin/feedback'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.new_releases),
+            tooltip: '배포 노트 관리',
+            onPressed: () => context.push('/admin/releases'),
+          ),
         ],
       ),
       body: _loading

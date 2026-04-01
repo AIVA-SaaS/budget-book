@@ -462,31 +462,6 @@ void main() {
       );
     });
 
-    group('CompletePlan', () {
-      blocTest<SpendingPlanBloc, SpendingPlanState>(
-        'emits [Loaded with operationError] on failure',
-        build: () {
-          when(mockRepository.completePlan(
-            id: 'sp1',
-            actualAmount: 140000,
-          )).thenAnswer((_) async =>
-              const Left(ServerFailure('계획 완료 처리에 실패했습니다')));
-          return bloc;
-        },
-        seed: () =>
-            const SpendingPlanLoaded(plans: tPlans, summary: tSummary),
-        act: (bloc) =>
-            bloc.add(const CompletePlan(id: 'sp1', actualAmount: 140000)),
-        expect: () => [
-          const SpendingPlanLoaded(
-            plans: tPlans,
-            summary: tSummary,
-            operationError: '계획 완료 처리에 실패했습니다',
-          ),
-        ],
-      );
-    });
-
     group('SkipPlan', () {
       blocTest<SpendingPlanBloc, SpendingPlanState>(
         'emits [Loaded with operationError] on failure',

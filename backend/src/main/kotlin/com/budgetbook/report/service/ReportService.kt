@@ -134,11 +134,16 @@ class ReportService(
         }
         val balance = totalIncome - totalExpense
 
+        // Fetch category expenses ONCE and share between group summaries and top categories
+        val currentCategoryExpenses = transactionRepository.sumByCategoryForCouple(
+            couple.id, startDate, endDate, TransactionType.EXPENSE, userId
+        )
+
         // Group summaries
-        val groupSummaries = calculateGroupSummaries(couple.id, yearMonthStr, startDate, endDate, userId)
+        val groupSummaries = calculateGroupSummaries(couple.id, yearMonthStr, userId, currentCategoryExpenses)
 
         // Top 5 categories by amount
-        val topCategories = calculateTopCategories(couple.id, startDate, endDate, year, month, userId)
+        val topCategories = calculateTopCategories(couple.id, year, month, userId, currentCategoryExpenses)
 
         // Previous month comparison
         val previousMonthComparison = calculatePreviousMonthComparison(
@@ -282,18 +287,13 @@ class ReportService(
     private fun calculateGroupSummaries(
         coupleId: UUID,
         yearMonth: String,
-        startDate: LocalDate,
-        endDate: LocalDate,
-        userId: UUID
+        userId: UUID,
+        currentCategoryExpenses: List<Array<Any?>>
     ): List<GroupSpendingSummary> {
         val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(coupleId, userId)
         val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
 
-        // Fetch all category expenses once, then filter in-memory per group
-        val allCategoryExpenses = transactionRepository.sumByCategoryForCouple(
-            coupleId, startDate, endDate, TransactionType.EXPENSE, userId
-        )
-        val expenseByCategoryId = allCategoryExpenses.associate { row ->
+        val expenseByCategoryId = currentCategoryExpenses.associate { row ->
             (row[2] as UUID) to (row[0] as Long)
         }
 
@@ -327,15 +327,12 @@ class ReportService(
 
     private fun calculateTopCategories(
         coupleId: UUID,
-        startDate: LocalDate,
-        endDate: LocalDate,
         year: Int,
         month: Int,
-        userId: UUID
+        userId: UUID,
+        currentCategoryExpenses: List<Array<Any?>>
     ): List<CategorySpendingItem> {
-        val currentResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, startDate, endDate, TransactionType.EXPENSE, userId
-        )
+        val currentResults = currentCategoryExpenses
 
         // Previous month for average comparison
         val prevMonth = YearMonth.of(year, month).minusMonths(1)

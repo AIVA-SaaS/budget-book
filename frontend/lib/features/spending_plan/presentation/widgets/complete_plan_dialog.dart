@@ -24,17 +24,15 @@ import 'package:budget_book/features/spending_plan/domain/entities/spending_plan
 /// Result from the complete plan dialog.
 class CompletePlanResult {
   final int actualAmount;
-  final bool createTransaction;
   final String transactionDate;
-  final String? description;
+  final String description;
   final String? categoryId;
   final String? paymentMethodId;
 
   const CompletePlanResult({
     required this.actualAmount,
-    required this.createTransaction,
     required this.transactionDate,
-    this.description,
+    required this.description,
     this.categoryId,
     this.paymentMethodId,
   });
@@ -62,8 +60,8 @@ class _CompletePlanDialog extends StatefulWidget {
 
 class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   late final TextEditingController _amountController;
+  late final TextEditingController _descriptionController;
   late DateTime _transactionDate;
-  bool _createTransaction = true;
   String? _categoryId;
   String? _categoryDisplayName;
   String? _paymentMethodId;
@@ -73,6 +71,9 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
     super.initState();
     _amountController = TextEditingController(
       text: CurrencyFormatter.format(widget.plan.amount),
+    );
+    _descriptionController = TextEditingController(
+      text: widget.plan.name,
     );
     _transactionDate = widget.plan.targetDate != null
         ? DateTime.tryParse(widget.plan.targetDate!) ?? DateTime.now()
@@ -95,6 +96,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   @override
   void dispose() {
     _amountController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -125,12 +127,13 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   void _submit() {
     final amount = CurrencyFormatter.parse(_amountController.text);
     if (amount == null || amount <= 0) return;
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) return;
 
     Navigator.of(context).pop(CompletePlanResult(
       actualAmount: amount,
-      createTransaction: _createTransaction,
       transactionDate: DateFormat('yyyy-MM-dd').format(_transactionDate),
-      description: widget.plan.name,
+      description: description,
       categoryId: _categoryId,
       paymentMethodId: _paymentMethodId,
     ));
@@ -288,6 +291,18 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
             ),
             const SizedBox(height: 12),
 
+            // Description
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: '거래 내용',
+                hintText: '실제 결제 내용을 입력하세요',
+                isDense: true,
+              ),
+              maxLength: 255,
+            ),
+            const SizedBox(height: 12),
+
             // Date picker
             InkWell(
               onTap: _selectDate,
@@ -304,39 +319,25 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
             ),
             const SizedBox(height: 12),
 
-            // Create transaction checkbox
-            CheckboxListTile(
-              value: _createTransaction,
-              onChanged: (value) =>
-                  setState(() => _createTransaction = value ?? true),
-              title: const Text('거래로 자동 등록'),
-              subtitle: const Text('지출 거래가 자동 생성됩니다'),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
+            // Payment method selector
+            ItemSelectorField(
+              label: '결제수단',
+              selectedLabel: _paymentMethodDisplayName,
+              prefixIcon: Icons.credit_card,
+              placeholder: '선택 안 함',
+              onTap: _showPaymentMethodSelectorSheet,
             ),
-
-            if (_createTransaction) ...[
-              const SizedBox(height: 8),
-              // Payment method selector
-              ItemSelectorField(
-                label: '결제수단',
-                selectedLabel: _paymentMethodDisplayName,
-                prefixIcon: Icons.credit_card,
-                placeholder: '선택 안 함',
-                onTap: _showPaymentMethodSelectorSheet,
-              ),
-              const SizedBox(height: 8),
-              // Category selector
-              ItemSelectorField(
-                label: '카테고리',
-                selectedLabel: _categoryDisplayName ?? (_categoryId != null
-                    ? _categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
-                    : null),
-                prefixIcon: Icons.category,
-                placeholder: '선택 안 함',
-                onTap: _showCategorySelectorSheet,
-              ),
-            ],
+            const SizedBox(height: 8),
+            // Category selector
+            ItemSelectorField(
+              label: '카테고리',
+              selectedLabel: _categoryDisplayName ?? (_categoryId != null
+                  ? _categories.where((c) => c.id == _categoryId).map((c) => c.name).firstOrNull ?? '(삭제됨)'
+                  : null),
+              prefixIcon: Icons.category,
+              placeholder: '선택 안 함',
+              onTap: _showCategorySelectorSheet,
+            ),
           ],
         ),
       ),

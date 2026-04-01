@@ -10,6 +10,7 @@ import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanSuggestion
+import com.budgetbook.spendingplan.dto.StatusHistoryResponse
 import com.budgetbook.spendingplan.dto.UpdateSpendingPlanRequest
 import com.budgetbook.spendingplan.service.SpendingPlanService
 import jakarta.validation.Valid
@@ -126,5 +127,13 @@ class SpendingPlanController(
         @RequestBody request: CompleteWithTransactionRequest
     ): ApiResponse<SpendingPlanResponse> {
         return ApiResponse.ok(spendingPlanService.completeWithTransaction(userId, id, request))
+    }
+
+    @GetMapping("/{id}/history")
+    fun getStatusHistory(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID
+    ): ApiResponse<List<StatusHistoryResponse>> {
+        return ApiResponse.ok(spendingPlanService.getStatusHistory(userId, id))
     }
 }

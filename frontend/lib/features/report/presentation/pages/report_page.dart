@@ -23,6 +23,11 @@ class _ReportPageState extends State<ReportPage> {
   late int _year;
   late int _month;
 
+  static int _currentWeekOfMonth(DateTime date) {
+    final firstDay = DateTime(date.year, date.month, 1);
+    return ((date.day + firstDay.weekday - 2) ~/ 7) + 1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -36,9 +41,13 @@ class _ReportPageState extends State<ReportPage> {
       _year = year;
       _month = month;
     });
+    final now = DateTime.now();
+    final week = (year == now.year && month == now.month)
+        ? _currentWeekOfMonth(now)
+        : 1;
     context.read<ReportBloc>()
       ..add(LoadMonthlyReport(year: year, month: month))
-      ..add(LoadWeeklyReport(year: year, month: month, week: 1));
+      ..add(LoadWeeklyReport(year: year, month: month, week: week));
   }
 
   @override
@@ -542,7 +551,9 @@ class _ReportPageState extends State<ReportPage> {
         context.read<ReportBloc>()
           ..add(LoadMonthlyReport(year: now.year, month: now.month))
           ..add(LoadWeeklyReport(
-              year: now.year, month: now.month, week: 1));
+              year: now.year,
+              month: now.month,
+              week: _currentWeekOfMonth(now)));
       },
       showHomeButton: true,
     );

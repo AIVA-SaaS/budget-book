@@ -3,11 +3,13 @@ package com.budgetbook.spendingplan.controller
 import com.budgetbook.spendingplan.domain.SpendingPlanFrequency
 import com.budgetbook.spendingplan.domain.SpendingPlanStatus
 import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
+import com.budgetbook.spendingplan.dto.CompleteWithTransactionRequest
 import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanSuggestion
 import com.budgetbook.spendingplan.dto.SpendingPlanSummary
+import com.budgetbook.spendingplan.dto.StatusHistoryResponse
 import com.budgetbook.spendingplan.dto.UpdateSpendingPlanRequest
 import com.budgetbook.spendingplan.service.SpendingPlanService
 import io.kotest.core.spec.style.FunSpec
@@ -198,5 +200,65 @@ class SpendingPlanControllerTest : FunSpec({
 
         result.success shouldBe true
         result.data!!.size shouldBe 0
+    }
+
+    test("completeWithTransaction returns completed plan with linked transaction") {
+        val planId = UUID.randomUUID()
+        val txId = UUID.randomUUID()
+        val request = CompleteWithTransactionRequest(
+            amount = 95000,
+            description = "실제 결제 내역",
+            categoryId = null,
+            paymentMethodId = null,
+            transactionDate = LocalDate.of(2026, 3, 29)
+        )
+        val completedResponse = samplePlanResponse().copy(
+            status = "COMPLETED",
+            actualAmount = 95000,
+            completedDate = LocalDate.of(2026, 3, 29),
+            linkedTransactionId = txId
+        )
+        every { service.completeWithTransaction(testUserId, planId, request) } returns completedResponse
+
+        val result = controller.completeWithTransaction(testUserId, planId, request)
+
+        result.success shouldBe true
+        result.data!!.status shouldBe "COMPLETED"
+        result.data!!.actualAmount shouldBe 95000
+        result.data!!.linkedTransactionId shouldBe txId
+    }
+
+    test("getStatusHistory returns history list") {
+        val planId = UUID.randomUUID()
+        val history = listOf(
+            StatusHistoryResponse(
+                id = UUID.randomUUID(),
+                fromStatus = null,
+                toStatus = "PLANNED",
+                changedByNickname = "User",
+                actualAmount = null,
+                linkedTransactionId = null,
+                note = null,
+                createdAt = Instant.now()
+            ),
+            StatusHistoryResponse(
+                id = UUID.randomUUID(),
+                fromStatus = "PLANNED",
+                toStatus = "COMPLETED",
+                changedByNickname = "User",
+                actualAmount = 95000,
+                linkedTransactionId = UUID.randomUUID(),
+                note = null,
+                createdAt = Instant.now()
+            )
+        )
+        every { service.getStatusHistory(testUserId, planId) } returns history
+
+        val result = controller.getStatusHistory(testUserId, planId)
+
+        result.success shouldBe true
+        result.data!!.size shouldBe 2
+        result.data!![0].toStatus shouldBe "PLANNED"
+        result.data!![1].toStatus shouldBe "COMPLETED"
     }
 })

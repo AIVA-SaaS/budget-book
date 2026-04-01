@@ -6,6 +6,7 @@ import com.budgetbook.common.dto.UUIDPatchValueDeserializer
 import com.budgetbook.spendingplan.domain.SpendingPlan
 import com.budgetbook.spendingplan.domain.SpendingPlanFrequency
 import com.budgetbook.spendingplan.domain.SpendingPlanPriority
+import com.budgetbook.spendingplan.domain.SpendingPlanStatusHistory
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
@@ -186,6 +187,32 @@ data class SpendingPlanSuggestion(
     val matchScore: Double,
     val matchReasons: List<String>
 )
+
+// ── Status History Response ──
+
+data class StatusHistoryResponse(
+    val id: UUID,
+    val fromStatus: String?,
+    val toStatus: String,
+    val changedByNickname: String?,
+    val actualAmount: Long?,
+    val linkedTransactionId: UUID?,
+    val note: String?,
+    val createdAt: Instant
+)
+
+fun SpendingPlanStatusHistory.toResponse(): StatusHistoryResponse {
+    return StatusHistoryResponse(
+        id = id,
+        fromStatus = fromStatus?.name,
+        toStatus = toStatus.name,
+        changedByNickname = changedBy.nickname,
+        actualAmount = actualAmount,
+        linkedTransactionId = linkedTransaction?.id,
+        note = note,
+        createdAt = createdAt
+    )
+}
 
 // ── Mapping ──
 
