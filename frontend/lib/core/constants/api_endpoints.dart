@@ -103,4 +103,16 @@ class ApiEndpoints {
   // Announcements (public)
   static const String announcementsActive = '/api/v1/announcements/active';
 
+  // Feedback
+  static const String feedback = '/api/v1/feedback';
+
+  // Release Notes (public)
+  static const String releases = '/api/v1/releases';
+
+  // Admin Feedback
+  static const String adminFeedback = '/api/v1/admin/feedback';
+
+  // Admin Release Notes
+  static const String adminReleases = '/api/v1/admin/releases';
+
 }

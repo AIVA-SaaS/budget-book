@@ -75,6 +75,16 @@ import 'package:budget_book/features/onboarding/presentation/pages/onboarding_pa
 import 'package:budget_book/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_users_page.dart';
 import 'package:budget_book/features/admin/presentation/pages/admin_announcements_page.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/feedback_event.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/release_note_event.dart';
+import 'package:budget_book/features/feedback/presentation/pages/feedback_hub_page.dart';
+import 'package:budget_book/features/feedback/presentation/pages/feedback_create_page.dart';
+import 'package:budget_book/features/feedback/presentation/pages/feedback_detail_page.dart';
+import 'package:budget_book/features/feedback/presentation/pages/release_note_detail_page.dart';
+import 'package:budget_book/features/feedback/presentation/pages/admin_feedback_page.dart';
+import 'package:budget_book/features/feedback/presentation/pages/admin_release_note_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
@@ -851,6 +861,60 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
     ),
+    // Feedback Hub
+    GoRoute(
+      path: '/feedback-hub',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<FeedbackBloc>().add(const LoadFeedbacks());
+        getIt<ReleaseNoteBloc>().add(const LoadReleaseNotes());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<FeedbackBloc>.value(
+              value: getIt<FeedbackBloc>(),
+            ),
+            BlocProvider<ReleaseNoteBloc>.value(
+              value: getIt<ReleaseNoteBloc>(),
+            ),
+          ],
+          child: const FeedbackHubPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/feedback/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        return BlocProvider<FeedbackBloc>.value(
+          value: getIt<FeedbackBloc>(),
+          child: const FeedbackCreatePage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/feedback/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final feedbackId = state.pathParameters['id']!;
+        getIt<FeedbackBloc>().add(LoadFeedbackDetail(feedbackId));
+        return BlocProvider<FeedbackBloc>.value(
+          value: getIt<FeedbackBloc>(),
+          child: FeedbackDetailPage(feedbackId: feedbackId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/releases/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final releaseId = state.pathParameters['id']!;
+        getIt<ReleaseNoteBloc>().add(LoadReleaseNoteDetail(releaseId));
+        return BlocProvider<ReleaseNoteBloc>.value(
+          value: getIt<ReleaseNoteBloc>(),
+          child: ReleaseNoteDetailPage(releaseId: releaseId),
+        );
+      },
+    ),
     // Admin pages
     GoRoute(
       path: '/admin',
@@ -866,6 +930,28 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/admin/announcements',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AdminAnnouncementsPage(),
+    ),
+    GoRoute(
+      path: '/admin/feedback',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<FeedbackBloc>().add(const LoadAdminFeedbacks());
+        return BlocProvider<FeedbackBloc>.value(
+          value: getIt<FeedbackBloc>(),
+          child: const AdminFeedbackPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/admin/releases',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        getIt<ReleaseNoteBloc>().add(const LoadReleaseNotes());
+        return BlocProvider<ReleaseNoteBloc>.value(
+          value: getIt<ReleaseNoteBloc>(),
+          child: const AdminReleaseNotePage(),
+        );
+      },
     ),
   ],
 );

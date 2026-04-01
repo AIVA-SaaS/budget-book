@@ -77,6 +77,11 @@ import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dar
 import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
 import 'package:budget_book/core/services/cache_service.dart';
+import 'package:budget_book/features/feedback/data/datasources/feedback_remote_datasource.dart';
+import 'package:budget_book/features/feedback/data/repositories/feedback_repository_impl.dart';
+import 'package:budget_book/features/feedback/domain/repositories/feedback_repository.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -364,6 +369,25 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<LocaleCubit>(
     () => LocaleCubit(),
     dispose: (cubit) => cubit.close(),
+  );
+
+  // Feedback feature
+  getIt.registerLazySingleton<FeedbackRemoteDataSource>(
+    () => FeedbackRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<FeedbackRepository>(
+    () => FeedbackRepositoryImpl(
+        remoteDataSource: getIt<FeedbackRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<FeedbackBloc>(
+    () => FeedbackBloc(
+        feedbackRepository: getIt<FeedbackRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+  getIt.registerLazySingleton<ReleaseNoteBloc>(
+    () => ReleaseNoteBloc(
+        feedbackRepository: getIt<FeedbackRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Dashboard feature
