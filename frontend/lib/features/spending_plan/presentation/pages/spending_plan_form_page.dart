@@ -807,22 +807,15 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             onPressed: () async {
               final result = await showCompletePlanDialog(context, plan);
               if (result != null && context.mounted) {
-                if (result.createTransaction) {
-                  getIt<SpendingPlanBloc>().add(CompleteWithTransaction(
-                    planId: plan.id,
-                    amount: result.actualAmount,
-                    transactionDate: result.transactionDate,
-                    description: plan.name,
-                    categoryId: result.categoryId,
-                    paymentMethodId: result.paymentMethodId,
-                  ));
-                } else {
-                  getIt<SpendingPlanBloc>().add(CompletePlan(
-                    id: plan.id,
-                    actualAmount: result.actualAmount,
-                  ));
-                }
-                context.pop();
+                getIt<SpendingPlanBloc>().add(CompleteWithTransaction(
+                  planId: plan.id,
+                  amount: result.actualAmount,
+                  transactionDate: result.transactionDate,
+                  description: result.description,
+                  categoryId: result.categoryId,
+                  paymentMethodId: result.paymentMethodId,
+                ));
+                if (context.mounted) context.pop();
               }
             },
             icon: const Icon(Icons.check_circle, color: Colors.green),

@@ -240,17 +240,36 @@ class SpendingPlanCard extends StatelessWidget {
       final varianceStr = variance != null
           ? CurrencyFormatter.formatWithSign(variance)
           : '';
-      return Text(
-        '계획 ${CurrencyFormatter.format(plan.amount)} -> 실제 ${CurrencyFormatter.format(plan.actualAmount!)} ($varianceStr)',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: variance != null && variance < 0
-              ? Colors.green
-              : variance != null && variance > 0
-                  ? Colors.red
-                  : null,
-        ),
+      final dateInfo = <String>[];
+      if (plan.targetDate != null) dateInfo.add('계획 ${plan.targetDate}');
+      if (plan.completedDate != null) dateInfo.add('완료 ${plan.completedDate}');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '계획 ${CurrencyFormatter.format(plan.amount)} → 실제 ${CurrencyFormatter.format(plan.actualAmount!)}원 ($varianceStr)',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: variance != null && variance < 0
+                  ? Colors.green
+                  : variance != null && variance > 0
+                      ? Colors.red
+                      : null,
+            ),
+          ),
+          if (dateInfo.isNotEmpty)
+            Text(
+              dateInfo.join(' → '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
+            ),
+        ],
       );
     }
 
