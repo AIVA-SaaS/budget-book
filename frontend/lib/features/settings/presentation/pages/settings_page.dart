@@ -138,6 +138,14 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/insurances'),
             ),
+            // Feedback & Announcements
+            ListTile(
+              leading: const Icon(Icons.feedback),
+              title: const Text('피드백 및 공지'),
+              subtitle: const Text('요청, 공지사항, 업데이트'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/feedback-hub'),
+            ),
             // Recurring Transactions
             ListTile(
               leading: const Icon(Icons.repeat),
