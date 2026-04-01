@@ -131,6 +131,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<CoupleBloc>(
     () => CoupleBloc(coupleRepository: getIt<CoupleRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Category feature
@@ -185,6 +186,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<StatisticsBloc>(
     () => StatisticsBloc(
         statisticsRepository: getIt<StatisticsRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Payment Method feature
@@ -226,6 +228,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<WeeklyBudgetBloc>(
     () => WeeklyBudgetBloc(
         weeklyBudgetRepository: getIt<WeeklyBudgetRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Report feature
@@ -238,6 +241,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<ReportBloc>(
     () => ReportBloc(reportRepository: getIt<ReportRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Recurring Transaction feature
@@ -250,6 +254,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Money Pocket feature
