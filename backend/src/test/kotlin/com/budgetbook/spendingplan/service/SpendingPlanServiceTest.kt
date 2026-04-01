@@ -24,6 +24,7 @@ import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.UpdateSpendingPlanRequest
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
+import com.budgetbook.spendingplan.repository.SpendingPlanStatusHistoryRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -51,11 +52,12 @@ class SpendingPlanServiceTest : BehaviorSpec({
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val monthlyBudgetRepository = mockk<MonthlyBudgetRepository>()
     val transactionRepository = mockk<TransactionRepository>()
+    val statusHistoryRepository = mockk<SpendingPlanStatusHistoryRepository>()
 
     val service = SpendingPlanService(
         spendingPlanRepository, coupleResolver, userRepository,
         categoryRepository, paymentMethodRepository, monthlyBudgetRepository,
-        transactionRepository
+        transactionRepository, statusHistoryRepository
     )
 
     val user1 = User(email = "u1@test.com", nickname = "User1", provider = AuthProvider.GOOGLE, providerId = "g1")
@@ -77,6 +79,7 @@ class SpendingPlanServiceTest : BehaviorSpec({
     Given("a user in an active couple") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { statusHistoryRepository.save(any()) } answers { firstArg() }
 
         When("creating a plan with valid data") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
@@ -353,6 +356,8 @@ class SpendingPlanServiceTest : BehaviorSpec({
 
     Given("a PLANNED plan to complete") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { statusHistoryRepository.save(any()) } answers { firstArg() }
 
         val plan = SpendingPlan(
             couple = couple, author = user1,
@@ -400,6 +405,7 @@ class SpendingPlanServiceTest : BehaviorSpec({
 
     Given("a COMPLETED plan") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
 
         val plan = SpendingPlan(
             couple = couple, author = user1,
@@ -425,6 +431,8 @@ class SpendingPlanServiceTest : BehaviorSpec({
 
     Given("a PLANNED plan to skip") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { statusHistoryRepository.save(any()) } answers { firstArg() }
 
         val plan = SpendingPlan(
             couple = couple, author = user1,
@@ -447,6 +455,7 @@ class SpendingPlanServiceTest : BehaviorSpec({
 
     Given("a SKIPPED plan") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
 
         val plan = SpendingPlan(
             couple = couple, author = user1,

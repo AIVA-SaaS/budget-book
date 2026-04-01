@@ -1,5 +1,6 @@
 package com.budgetbook.spendingplan.service
 
+import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryRepository
@@ -14,6 +15,7 @@ import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.spendingplan.domain.SpendingPlan
 import com.budgetbook.spendingplan.domain.SpendingPlanPriority
 import com.budgetbook.spendingplan.domain.SpendingPlanStatus
+import com.budgetbook.spendingplan.domain.SpendingPlanStatusHistory
 import com.budgetbook.spendingplan.dto.AssignSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteWithTransactionRequest
@@ -22,9 +24,11 @@ import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanSuggestion
 import com.budgetbook.spendingplan.dto.SpendingPlanSummary
+import com.budgetbook.spendingplan.dto.StatusHistoryResponse
 import com.budgetbook.spendingplan.dto.UpdateSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.toResponse
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
+import com.budgetbook.spendingplan.repository.SpendingPlanStatusHistoryRepository
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -43,7 +47,8 @@ class SpendingPlanService(
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
     private val monthlyBudgetRepository: MonthlyBudgetRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val statusHistoryRepository: SpendingPlanStatusHistoryRepository
 ) : CoupleAwareService {
 
     @Transactional(readOnly = true)
@@ -141,7 +146,14 @@ class SpendingPlanService(
             owner = if (visibility == Visibility.PRIVATE) user else null
         )
 
-        return spendingPlanRepository.save(plan).toResponse()
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = null,
+            toStatus = status,
+            changedBy = user
+        )
+        return savedPlan.toResponse()
     }
 
     @Transactional
@@ -232,10 +244,14 @@ class SpendingPlanService(
     fun completePlan(userId: UUID, planId: UUID, request: CompleteSpendingPlanRequest): SpendingPlanResponse {
         val couple = getActiveCouple(userId)
         val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
 
         if (plan.status != SpendingPlanStatus.PLANNED && plan.status != SpendingPlanStatus.OVERDUE) {
             throw BusinessException("INVALID_STATUS", "Only PLANNED or OVERDUE plans can be completed.")
         }
+
+        val oldStatus = plan.status
 
         request.linkedTransactionId?.let { txId ->
             val transaction = transactionRepository.findById(txId)
@@ -252,27 +268,47 @@ class SpendingPlanService(
         plan.completedDate = request.completedDate ?: LocalDate.now()
         plan.status = SpendingPlanStatus.COMPLETED
 
-        return spendingPlanRepository.save(plan).toResponse()
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = oldStatus,
+            toStatus = SpendingPlanStatus.COMPLETED,
+            changedBy = user,
+            actualAmount = savedPlan.actualAmount
+        )
+        return savedPlan.toResponse()
     }
 
     @Transactional
     fun skipPlan(userId: UUID, planId: UUID): SpendingPlanResponse {
         val couple = getActiveCouple(userId)
         val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
 
         if (plan.status != SpendingPlanStatus.PLANNED && plan.status != SpendingPlanStatus.OVERDUE) {
             throw BusinessException("INVALID_STATUS", "Only PLANNED or OVERDUE plans can be skipped.")
         }
 
+        val oldStatus = plan.status
         plan.status = SpendingPlanStatus.SKIPPED
 
-        return spendingPlanRepository.save(plan).toResponse()
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = oldStatus,
+            toStatus = SpendingPlanStatus.SKIPPED,
+            changedBy = user
+        )
+        return savedPlan.toResponse()
     }
 
     @Transactional
     fun assignPlan(userId: UUID, planId: UUID, request: AssignSpendingPlanRequest): SpendingPlanResponse {
         val couple = getActiveCouple(userId)
         val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
 
         if (plan.status != SpendingPlanStatus.WISHLIST) {
             throw BusinessException("INVALID_STATUS", "Only WISHLIST plans can be assigned.")
@@ -289,7 +325,14 @@ class SpendingPlanService(
             plan.budget = budget
         }
 
-        return spendingPlanRepository.save(plan).toResponse()
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = SpendingPlanStatus.WISHLIST,
+            toStatus = SpendingPlanStatus.PLANNED,
+            changedBy = user
+        )
+        return savedPlan.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -309,6 +352,8 @@ class SpendingPlanService(
         if (plan.status != SpendingPlanStatus.PLANNED && plan.status != SpendingPlanStatus.OVERDUE && plan.status != SpendingPlanStatus.WISHLIST) {
             throw BusinessException("INVALID_STATUS", "Only WISHLIST, PLANNED or OVERDUE plans can be completed.")
         }
+
+        val oldStatus = plan.status
 
         val category = request.categoryId?.let { catId ->
             categoryRepository.findById(catId)
@@ -340,7 +385,16 @@ class SpendingPlanService(
         plan.actualAmount = request.amount
         plan.completedDate = request.transactionDate
 
-        return spendingPlanRepository.save(plan).toResponse()
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = oldStatus,
+            toStatus = SpendingPlanStatus.COMPLETED,
+            changedBy = user,
+            actualAmount = request.amount,
+            linkedTransaction = transaction
+        )
+        return savedPlan.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -375,7 +429,36 @@ class SpendingPlanService(
             .sortedByDescending { it.matchScore }
     }
 
+    @Transactional(readOnly = true)
+    fun getStatusHistory(userId: UUID, planId: UUID): List<StatusHistoryResponse> {
+        val couple = getActiveCouple(userId)
+        val plan = findPlanWithAccess(planId, couple.id, userId)
+        return statusHistoryRepository.findByPlanId(plan.id).map { it.toResponse() }
+    }
+
     // ── Private Helpers ──
+
+    private fun recordStatusChange(
+        plan: SpendingPlan,
+        fromStatus: SpendingPlanStatus?,
+        toStatus: SpendingPlanStatus,
+        changedBy: User,
+        actualAmount: Long? = null,
+        linkedTransaction: Transaction? = null,
+        note: String? = null
+    ) {
+        statusHistoryRepository.save(
+            SpendingPlanStatusHistory(
+                spendingPlan = plan,
+                fromStatus = fromStatus,
+                toStatus = toStatus,
+                changedBy = changedBy,
+                actualAmount = actualAmount,
+                linkedTransaction = linkedTransaction,
+                note = note
+            )
+        )
+    }
 
     private fun findPlanWithAccess(planId: UUID, coupleId: UUID, userId: UUID): SpendingPlan {
         val plan = spendingPlanRepository.findByIdAndCoupleId(planId, coupleId)
