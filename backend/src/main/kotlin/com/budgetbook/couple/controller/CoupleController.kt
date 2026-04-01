@@ -29,10 +29,26 @@ class CoupleController(
     companion object {
         private const val INVITE_ACCEPT_MAX_REQUESTS = 5
         private const val INVITE_ACCEPT_WINDOW_MILLIS = 3_600_000L // 1 hour
+        private const val INVITE_CREATE_MAX_REQUESTS = 10
+        private const val INVITE_CREATE_WINDOW_MILLIS = 3_600_000L // 1 hour
     }
 
     @PostMapping("/invitations")
-    fun createInvitation(@AuthUser userId: UUID): ResponseEntity<ApiResponse<InvitationResponse>> {
+    fun createInvitation(
+        @AuthUser userId: UUID,
+        request: HttpServletRequest
+    ): ResponseEntity<ApiResponse<InvitationResponse>> {
+        val clientIp = request.getHeader("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
+            ?: request.remoteAddr
+        val rateLimitKey = "invite-create:$userId:$clientIp"
+
+        if (!rateLimiter.tryAcquire(rateLimitKey, INVITE_CREATE_MAX_REQUESTS, INVITE_CREATE_WINDOW_MILLIS)) {
+            throw TooManyRequestsException(
+                "RATE_LIMIT_EXCEEDED",
+                "Too many invitation creation attempts. Please try again later."
+            )
+        }
+
         val result = coupleService.createInvitation(userId)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }

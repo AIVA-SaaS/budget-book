@@ -19,9 +19,7 @@ import com.budgetbook.recurring.dto.RecurringTransactionResponse
 import com.budgetbook.recurring.dto.UpdateRecurringTransactionRequest
 import com.budgetbook.recurring.dto.toResponse
 import com.budgetbook.recurring.repository.RecurringTransactionRepository
-import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
-import com.budgetbook.transaction.repository.TransactionRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,11 +30,11 @@ import java.util.UUID
 @Service
 class RecurringTransactionService(
     private val recurringRepository: RecurringTransactionRepository,
-    private val transactionRepository: TransactionRepository,
     override val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val categoryRepository: CategoryRepository,
-    private val paymentMethodRepository: PaymentMethodRepository
+    private val paymentMethodRepository: PaymentMethodRepository,
+    private val recurringTransactionExecutor: RecurringTransactionExecutor
 ) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -171,44 +169,33 @@ class RecurringTransactionService(
         recurringRepository.delete(recurring)
     }
 
-    @Transactional
     fun executeRecurringTransactions() {
         val today = LocalDate.now()
         val dueTransactions = recurringRepository.findByNextRunDateLessThanEqualAndIsActiveTrue(today)
 
         log.info("Processing {} due recurring transactions", dueTransactions.size)
 
+        var successCount = 0
+        var failCount = 0
+
         for (recurring in dueTransactions) {
             try {
-                // Create actual transaction with visibility propagation
-                val txVisibility = recurring.category?.visibility ?: recurring.visibility
-                val txOwner = if (txVisibility == Visibility.PRIVATE) recurring.author else null
-                val transaction = Transaction(
-                    couple = recurring.couple,
-                    author = recurring.author,
-                    category = recurring.category,
-                    type = recurring.type,
-                    amount = recurring.amount,
-                    description = recurring.description,
-                    memo = recurring.memo,
-                    transactionDate = recurring.nextRunDate,
-                    paymentMethod = recurring.paymentMethod,
-                    visibility = txVisibility,
-                    owner = txOwner
-                )
-                transactionRepository.save(transaction)
-
-                // Advance nextRunDate
-                recurring.lastRunDate = recurring.nextRunDate
-                recurring.nextRunDate = calculateNextRunDate(recurring)
-                recurringRepository.save(recurring)
-
-                log.info("Executed recurring transaction {} ({}), next run: {}",
-                    recurring.id, recurring.description, recurring.nextRunDate)
+                val nextRunDate = calculateNextRunDate(recurring)
+                recurringTransactionExecutor.executeSingle(recurring, nextRunDate)
+                successCount++
             } catch (e: Exception) {
-                log.error("Failed to execute recurring transaction {}: {}", recurring.id, e.message)
+                failCount++
+                log.error(
+                    "Failed to execute recurring transaction {} ({}): {}",
+                    recurring.id, recurring.description, e.message, e
+                )
             }
         }
+
+        log.info(
+            "Recurring transaction processing complete: {} succeeded, {} failed out of {} total",
+            successCount, failCount, dueTransactions.size
+        )
     }
 
     private fun validateFrequencyDays(frequency: Frequency, dayOfMonth: Int?, dayOfWeek: Int?) {

@@ -4,8 +4,11 @@ import 'package:budget_book/core/theme/app_colors.dart';
 class AppTheme {
   AppTheme._();
 
+  static const _fontFamily = 'NotoSansKR';
+
   static ThemeData get light => ThemeData(
         useMaterial3: true,
+        fontFamily: _fontFamily,
         colorSchemeSeed: AppColors.primary,
         brightness: Brightness.light,
         appBarTheme: const AppBarTheme(
@@ -31,6 +34,7 @@ class AppTheme {
 
   static ThemeData get dark => ThemeData(
         useMaterial3: true,
+        fontFamily: _fontFamily,
         colorSchemeSeed: AppColors.primary,
         brightness: Brightness.dark,
         appBarTheme: const AppBarTheme(

@@ -1,39 +1,32 @@
 # Known Issues & Feature Requests Tracker
 
 > 사용자 요청 사항과 구현 상태를 추적하여 반복 요청을 방지합니다.
-> 상태: 🔴 미해결 | 🟡 진행중 | 🟢 완료(사용자 확인) | ⚪ 사용자 취소
+> 상태: 🔴 미해결 | 🟡 확인 필요 | 🟢 완료(사용자 확인) | ⚪ 사용자 취소
 
 ---
 
-## 🟢 KI-001: 날짜 팝업 — "Select date" 헤더 제거
-- **요청**: 달력 그리드만 팝업 표시, 좌측 헤더 패널 제거
-- **해결**: `showDatePicker` → 커스텀 `showCalendarPickerDialog` (CalendarDatePicker + Dialog)
-- **적용 위치**: `core/widgets/calendar_picker_dialog.dart` 신규, 전체 11곳 교체
-- **사용자 확인 대기**
+## 🟡 KI-006: 완료 처리 시 거래 자동 등록 + 상태 변경
+- **요청**: 지출 계획 완료 처리 시 거래 자동 등록 + COMPLETED 상태 전환
+- **현재**: FE/BE 코드 정상. NAS에 최신 FE 재배포 후 확인 필요
+- **조치**: 2026-03-30 NAS deploy-nas 트리거됨. 배포 완료 후 사용자 확인 대기
 
-## 🟢 KI-002: FAB → 거래 폼 상단 3탭 (지출/수입/이체)
-- **요청**: BottomSheet 선택 대신 폼 내 TabBar, 홈 퀵액션 연동
-- **해결**: TransactionFormPage에 TabBar[지출|수입|이체] 추가, 이체 폼 통합. FAB 직접 이동. 퀵액션 `?tab=` 파라미터.
-- **적용 위치**: `transaction_form_page.dart` (TabBar+TransferForm), `dashboard_page.dart` (FAB/퀵액션), `transaction_list_page.dart` (FAB), `app_router.dart` (tab param)
-- **사용자 확인 대기**
+## 🟢 KI-001~005: 해결 완료
+- KI-001: 날짜 팝업 헤더 제거 → showCalendarPickerDialog
+- KI-002: FAB → 3탭 폼 (지출/수입/이체)
+- KI-003: 홈 위젯 커스터마이징 + 이전 wishlist ID 자동 정리
+- KI-004: 주간 예산 일할 계산
+- KI-005: 카테고리/결제수단 순서 관리 (드래그)
 
-## 🟢 KI-003: 홈 탭 위젯 커스터마이징 (ON/OFF + 드래그 순서)
-- **요청**: 자산 현황 기본 OFF, 설정에서 위젯 표시/순서 커스텀
-- **해결**: `DashboardWidgetConfig` + SharedPreferences 저장 + 설정 > "홈 화면 구성" 드래그+토글 페이지
-- **적용 위치**: `dashboard_widget_config.dart`, `home_config_service.dart`, `home_config_page.dart`, `dashboard_page.dart` (동적 렌더링)
-- **사용자 확인 대기**
+## 🟢 전체 UI 일관성 (감사 완료 2026-03-30)
+- 카테고리 선택: 전체 6개 폼 CategoryGroupSelectorSheet (showDialog) 통일
+- 결제수단 선택: 전체 5개 폼 ItemSelectorSheet + 타입 그룹핑 통일
+- 결제수단 정렬: CASH→BANK→DEBIT→CREDIT (전역)
+- FAB 하단 패딩: 전체 16개 페이지 88px
+- 캘린더: 전체 showCalendarPickerDialog
 
-## 🟢 KI-004: 홈/예산 탭 주간 예산 금액 불일치
-- **요청**: 주간 생활비(주 200,000)가 100만원으로 표시
-- **해결**: `BudgetService.getBudgetSummary()`에 WEEKLY pro-rata 적용 완료. 홈/예산 탭 동일 API 사용 확인.
-- **적용 위치**: `BudgetService.kt:336-341`
-- **NAS 배포 완료** — 새로고침 시 정상 표시
-
-## 🟢 KI-005: 카테고리/결제수단 순서 관리
-- **요청**: displayOrder 변경 UI 필요, 팝업 내 정렬 적용
-- **해결**:
-  - BE: `PUT /api/v1/categories/reorder` + `PUT /api/v1/payment-methods/reorder` 추가
-  - FE 선택 팝업: displayOrder 정렬 적용 + "순서 관리 >" 링크
-  - FE 자산관리: 카테고리 상/하 이동 버튼 + 결제수단 드래그 재정렬
-- **적용 위치**: BE(CategoryController, PaymentMethodController, Service), FE(selector sheets, asset_management_page, BLoC events)
-- **사용자 확인 대기**
+## 세션 교훈 (2026-03-28~30)
+1. 코드 검사만으로 부족 — NAS 배포 상태 + 런타임 데이터 확인 필수
+2. ID/key 변경 시 기존 저장 데이터 마이그레이션 포함
+3. 동일 파일 다중 에이전트 수정 금지
+4. BLoC 관련 데이터 원자적 로딩 (별도 이벤트 분리 금지)
+5. 에이전트 지시 시 기존 패턴을 구체 코드 참조로 명시

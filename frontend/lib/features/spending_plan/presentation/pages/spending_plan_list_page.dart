@@ -240,22 +240,14 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
     final result = await showCompletePlanDialog(context, plan);
     if (result == null || !context.mounted) return;
 
-    final bloc = context.read<SpendingPlanBloc>();
-    if (result.createTransaction) {
-      bloc.add(CompleteWithTransaction(
-        planId: plan.id,
-        amount: result.actualAmount,
-        transactionDate: result.transactionDate,
-        description: result.description,
-        categoryId: result.categoryId,
-        paymentMethodId: result.paymentMethodId,
-      ));
-    } else {
-      bloc.add(CompletePlan(
-        id: plan.id,
-        actualAmount: result.actualAmount,
-      ));
-    }
+    context.read<SpendingPlanBloc>().add(CompleteWithTransaction(
+      planId: plan.id,
+      amount: result.actualAmount,
+      transactionDate: result.transactionDate,
+      description: result.description,
+      categoryId: result.categoryId,
+      paymentMethodId: result.paymentMethodId,
+    ));
   }
 
   void _confirmSkip(BuildContext context, SpendingPlan plan) {

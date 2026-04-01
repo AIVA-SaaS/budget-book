@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
 import 'package:budget_book/features/spending_plan/domain/repositories/spending_plan_repository.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'spending_plan_event.dart';
 import 'spending_plan_state.dart';
 
@@ -17,7 +20,6 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
     on<CreateSpendingPlan>(_onCreateSpendingPlan);
     on<UpdateSpendingPlan>(_onUpdateSpendingPlan);
     on<DeleteSpendingPlan>(_onDeleteSpendingPlan);
-    on<CompletePlan>(_onCompletePlan);
     on<SkipPlan>(_onSkipPlan);
     on<LoadWishlist>(_onLoadWishlist);
     on<AssignPlan>(_onAssignPlan);
@@ -198,40 +200,6 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
     }
   }
 
-  Future<void> _onCompletePlan(
-    CompletePlan event,
-    Emitter<SpendingPlanState> emit,
-  ) async {
-    try {
-      final result = await spendingPlanRepository.completePlan(
-        id: event.id,
-        transactionId: event.transactionId,
-        actualAmount: event.actualAmount,
-      );
-      result.fold(
-        (failure) {
-          final currentState = state;
-          if (currentState is SpendingPlanLoaded) {
-            emit(SpendingPlanLoaded(
-              plans: currentState.plans,
-              summary: currentState.summary,
-              operationError: failure.message,
-            ));
-          } else {
-            emit(SpendingPlanError(failure.message));
-          }
-        },
-        (_) => add(LoadSpendingPlans(
-          startDate: _lastStartDate,
-          endDate: _lastEndDate,
-          status: _lastStatus,
-        )),
-      );
-    } catch (e) {
-      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
-    }
-  }
-
   Future<void> _onSkipPlan(
     SkipPlan event,
     Emitter<SpendingPlanState> emit,
@@ -336,15 +304,11 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
             emit(SpendingPlanError(failure.message));
           }
         },
-        (_) {
-          // Reload both plans and wishlist
-          add(const LoadWishlist());
-          add(LoadSpendingPlans(
-            startDate: _lastStartDate,
-            endDate: _lastEndDate,
-            status: _lastStatus,
-          ));
-        },
+        (_) => add(LoadSpendingPlans(
+          startDate: _lastStartDate,
+          endDate: _lastEndDate,
+          status: _lastStatus,
+        )),
       );
     } catch (e) {
       emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
@@ -378,11 +342,25 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
             emit(SpendingPlanError(failure.message));
           }
         },
-        (_) => add(LoadSpendingPlans(
-          startDate: _lastStartDate,
-          endDate: _lastEndDate,
-          status: _lastStatus,
-        )),
+        (_) {
+          add(LoadSpendingPlans(
+            startDate: _lastStartDate,
+            endDate: _lastEndDate,
+            status: _lastStatus,
+          ));
+          // Refresh transaction list so new transaction appears
+          try {
+            final txDate = DateTime.tryParse(event.transactionDate);
+            final year = txDate?.year ?? DateTime.now().year;
+            final month = txDate?.month ?? DateTime.now().month;
+            getIt<TransactionBloc>().add(LoadTransactions(
+              year: year,
+              month: month,
+            ));
+          } catch (_) {
+            // TransactionBloc might not be registered yet
+          }
+        },
       );
     } catch (e) {
       emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));

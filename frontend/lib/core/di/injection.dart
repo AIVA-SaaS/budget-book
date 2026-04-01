@@ -77,6 +77,11 @@ import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dar
 import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
 import 'package:budget_book/core/services/cache_service.dart';
+import 'package:budget_book/features/feedback/data/datasources/feedback_remote_datasource.dart';
+import 'package:budget_book/features/feedback/data/repositories/feedback_repository_impl.dart';
+import 'package:budget_book/features/feedback/domain/repositories/feedback_repository.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
+import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -131,6 +136,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<CoupleBloc>(
     () => CoupleBloc(coupleRepository: getIt<CoupleRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Category feature
@@ -185,6 +191,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<StatisticsBloc>(
     () => StatisticsBloc(
         statisticsRepository: getIt<StatisticsRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Payment Method feature
@@ -226,6 +233,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<WeeklyBudgetBloc>(
     () => WeeklyBudgetBloc(
         weeklyBudgetRepository: getIt<WeeklyBudgetRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Report feature
@@ -238,6 +246,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<ReportBloc>(
     () => ReportBloc(reportRepository: getIt<ReportRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Recurring Transaction feature
@@ -250,6 +259,7 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<RecurringBloc>(
     () => RecurringBloc(recurringRepository: getIt<RecurringRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Money Pocket feature
@@ -359,6 +369,25 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<LocaleCubit>(
     () => LocaleCubit(),
     dispose: (cubit) => cubit.close(),
+  );
+
+  // Feedback feature
+  getIt.registerLazySingleton<FeedbackRemoteDataSource>(
+    () => FeedbackRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<FeedbackRepository>(
+    () => FeedbackRepositoryImpl(
+        remoteDataSource: getIt<FeedbackRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<FeedbackBloc>(
+    () => FeedbackBloc(
+        feedbackRepository: getIt<FeedbackRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+  getIt.registerLazySingleton<ReleaseNoteBloc>(
+    () => ReleaseNoteBloc(
+        feedbackRepository: getIt<FeedbackRepository>()),
+    dispose: (bloc) => bloc.close(),
   );
 
   // Dashboard feature

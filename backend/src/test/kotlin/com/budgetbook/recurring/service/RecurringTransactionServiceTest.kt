@@ -18,9 +18,7 @@ import com.budgetbook.recurring.domain.RecurringTransaction
 import com.budgetbook.recurring.dto.CreateRecurringTransactionRequest
 import com.budgetbook.recurring.dto.UpdateRecurringTransactionRequest
 import com.budgetbook.recurring.repository.RecurringTransactionRepository
-import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
-import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -40,14 +38,15 @@ class RecurringTransactionServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val recurringRepository = mockk<RecurringTransactionRepository>()
-    val transactionRepository = mockk<TransactionRepository>()
     val coupleResolver = mockk<CoupleResolver>()
     val userRepository = mockk<UserRepository>()
     val categoryRepository = mockk<CategoryRepository>()
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
+    val recurringTransactionExecutor = mockk<RecurringTransactionExecutor>()
     val service = RecurringTransactionService(
-        recurringRepository, transactionRepository, coupleResolver,
-        userRepository, categoryRepository, paymentMethodRepository
+        recurringRepository, coupleResolver,
+        userRepository, categoryRepository, paymentMethodRepository,
+        recurringTransactionExecutor
     )
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
@@ -316,36 +315,59 @@ class RecurringTransactionServiceTest : BehaviorSpec({
         every { recurringRepository.findByNextRunDateLessThanEqualAndIsActiveTrue(today) } returns
             listOf(recurring1, recurring2, recurring3)
 
-        val txSlot = mutableListOf<Transaction>()
-        every { transactionRepository.save(capture(txSlot)) } answers { txSlot.last() }
-        every { recurringRepository.save(any()) } answers { firstArg() }
+        every { recurringTransactionExecutor.executeSingle(any(), any()) } returns Unit
 
         When("executeRecurringTransactions is called") {
             service.executeRecurringTransactions()
 
-            Then("creates transactions for each due recurring") {
-                txSlot.size shouldBe 3
-                txSlot[0].amount shouldBe 50000
-                txSlot[0].description shouldBe "월세"
-                txSlot[1].amount shouldBe 10000
-                txSlot[2].amount shouldBe 5000
+            Then("delegates execution to executor for each due recurring") {
+                verify(exactly = 1) { recurringTransactionExecutor.executeSingle(recurring1, any()) }
+                verify(exactly = 1) { recurringTransactionExecutor.executeSingle(recurring2, any()) }
+                verify(exactly = 1) { recurringTransactionExecutor.executeSingle(recurring3, any()) }
             }
 
-            Then("advances nextRunDate for MONTHLY") {
+            Then("passes correct nextRunDate for MONTHLY") {
                 val expectedNextMonth = YearMonth.of(today.year, today.monthValue).plusMonths(1)
                 val expectedDay = recurring1.dayOfMonth!!.coerceAtMost(expectedNextMonth.lengthOfMonth())
-                recurring1.nextRunDate shouldBe expectedNextMonth.atDay(expectedDay)
-                recurring1.lastRunDate shouldBe today
+                val expectedDate = expectedNextMonth.atDay(expectedDay)
+                verify { recurringTransactionExecutor.executeSingle(recurring1, expectedDate) }
             }
 
-            Then("advances nextRunDate for WEEKLY by 7 days") {
-                recurring2.nextRunDate shouldBe today.plusDays(7)
-                recurring2.lastRunDate shouldBe today
+            Then("passes correct nextRunDate for WEEKLY (7 days later)") {
+                verify { recurringTransactionExecutor.executeSingle(recurring2, today.plusDays(7)) }
             }
 
-            Then("advances nextRunDate for DAILY by 1 day") {
-                recurring3.nextRunDate shouldBe today.plusDays(1)
-                recurring3.lastRunDate shouldBe today
+            Then("passes correct nextRunDate for DAILY (1 day later)") {
+                verify { recurringTransactionExecutor.executeSingle(recurring3, today.plusDays(1)) }
+            }
+        }
+    }
+
+    Given("a recurring transaction that fails during execution") {
+        val today = LocalDate.now()
+        val recurring1 = RecurringTransaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 50000, description = "실패할 거래", frequency = Frequency.DAILY,
+            nextRunDate = today
+        )
+        val recurring2 = RecurringTransaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 10000, description = "성공할 거래", frequency = Frequency.DAILY,
+            nextRunDate = today
+        )
+
+        every { recurringRepository.findByNextRunDateLessThanEqualAndIsActiveTrue(today) } returns
+            listOf(recurring1, recurring2)
+
+        every { recurringTransactionExecutor.executeSingle(recurring1, any()) } throws RuntimeException("DB error")
+        every { recurringTransactionExecutor.executeSingle(recurring2, any()) } returns Unit
+
+        When("executeRecurringTransactions is called") {
+            service.executeRecurringTransactions()
+
+            Then("continues processing remaining transactions despite failure") {
+                verify(exactly = 1) { recurringTransactionExecutor.executeSingle(recurring1, any()) }
+                verify(exactly = 1) { recurringTransactionExecutor.executeSingle(recurring2, any()) }
             }
         }
     }
