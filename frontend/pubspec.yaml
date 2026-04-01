@@ -37,7 +37,6 @@ dependencies:
   fl_chart: ^0.69.0
 
   # UI
-  google_fonts: ^6.2.1
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
 
@@ -83,6 +82,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  fonts:
+    - family: NotoSansKR
+      fonts:
+        - asset: assets/fonts/NotoSansKR-VF.ttf
 
   assets:
     - assets/images/

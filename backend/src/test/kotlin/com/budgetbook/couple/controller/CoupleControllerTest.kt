@@ -27,19 +27,29 @@ class CoupleControllerTest : FunSpec({
     val testUserId = UUID.randomUUID()
 
     test("createInvitation returns 201 with invitation code") {
-
+        val request = MockHttpServletRequest().apply { remoteAddr = "127.0.0.1" }
         val expectedResponse = InvitationResponse(
             code = "ABCD1234",
             expiresAt = Instant.now().plusSeconds(86400)
         )
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns true
         every { coupleService.createInvitation(testUserId) } returns expectedResponse
 
-        val result = controller.createInvitation(testUserId)
+        val result = controller.createInvitation(testUserId, request)
 
         result.statusCode shouldBe HttpStatus.CREATED
         result.body!!.success shouldBe true
         result.body!!.data!!.code shouldBe "ABCD1234"
         verify(exactly = 1) { coupleService.createInvitation(testUserId) }
+    }
+
+    test("createInvitation throws TooManyRequestsException when rate limit exceeded") {
+        val request = MockHttpServletRequest().apply { remoteAddr = "127.0.0.1" }
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns false
+
+        shouldThrow<TooManyRequestsException> {
+            controller.createInvitation(testUserId, request)
+        }
     }
 
     test("acceptInvitation returns couple info when rate limit not exceeded") {

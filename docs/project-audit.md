@@ -1,6 +1,7 @@
 # Budget Book - Project Audit Report
 
 > 작성일: 2026-03-12
+> 최종 검증일: 2026-04-01
 > 목적: 프로젝트 전후 비교 분석 → 개선/추가/리팩토링 필요사항 정리
 > 활용: 추후 개발 요청 시 참고 문서
 
@@ -8,7 +9,7 @@
 
 ## 1. 프로젝트 현황 요약
 
-### 1.1 구현 완료 기능 (Phase 1-3)
+### 1.1 구현 완료 기능
 
 | Phase | 기능 | 상태 |
 |:------|:-----|:-----|
@@ -23,43 +24,51 @@
 | Phase 3 | 주간 예산 스냅샷 | 완료 |
 | Phase 3 | 리포트 (월별 리포트, 트렌드 분석) | 완료 |
 | Phase 3 | 반복 거래 (스케줄러 자동 생성) | 완료 |
+| Phase 11 | 보험 관리, 즐겨찾기, UI 일관성, 주간 예산 일할 계산 | 완료 |
+| Phase 12 | 지출 계획 CRUD + 상태 추적 | 완료 |
+| Phase 13 | 구매 목록 확장 (위시리스트 + 주차 배정) | 완료 |
+| - | 홈 대시보드 (6위젯 커스터마이징) | 완료 |
+| - | 설정 페이지 (테마, 언어, 프로필) | 완료 |
+| - | 공지사항 (관리자 CRUD + 배너) | 완료 |
+| - | WebSocket (STOMP + Caffeine/Redis 2단계 캐시) | 완료 |
 
 ### 1.2 테스트 현황
 
 | 영역 | 수량 | 비고 |
 |:-----|:-----|:-----|
-| Backend (Kotest) | 239+ | BehaviorSpec/FunSpec |
-| Frontend (Flutter) | 228+ | BLoC 단위 테스트 중심 |
+| Backend (Kotest) | 586+ | BehaviorSpec/FunSpec |
+| Frontend (Flutter) | 471 | BLoC 단위 테스트 중심, 전체 통과 |
 | 통합 테스트 | 일부 | `@SpringBootTest` |
 | 위젯 테스트 | 부족 | FE 위젯 테스트 GAP 존재 |
 
 **알려진 테스트 공백:**
 - `CustomOidcUserService` 테스트 없음 (`backend/src/main/kotlin/com/budgetbook/auth/service/CustomOidcUserService.kt`)
-- `WeeklyBudgetService` 커버리지 부족 (`backend/src/main/kotlin/com/budgetbook/budget/service/WeeklyBudgetService.kt`)
 - Flutter 위젯 테스트: 주요 화면(TransactionFormPage, StatisticsPage 등) 테스트 없음
 
 ### 1.3 배포 상태
 
-| 구성요소 | 플랫폼 | URL | 상태 |
-|:--------|:-------|:----|:-----|
-| Backend API | Render (free tier) | https://budget-book-api.onrender.com | Live |
-| Frontend Web | GitHub Pages | https://aiva-saas.github.io/budget-book/ | Live |
-| Database | Supabase PostgreSQL | Session Pooler (IPv4) | Live |
-| CI/CD | GitHub Actions | 4개 워크플로우 | 동작 중 |
+| 구성요소 | 플랫폼 | URL/포트 | 상태 |
+|:--------|:-------|:---------|:-----|
+| Backend API | NAS Docker (bb_app) | https://aiva-bb.duckdns.org/api, 내부 8081→8080 | Live |
+| Frontend Web | NAS nginx | https://aiva-bb.duckdns.org | Live |
+| Database | NAS PostgreSQL 16 (bb_postgres) | 내부 5433 | Live |
+| Redis | NAS Redis 7 (redis_bb) | 내부 6380 | Live |
+| CI/CD | GitHub Actions (deploy-nas.yml) | SSH + tar/docker | 동작 중 |
 
-- Flyway 마이그레이션: V1~V10 전체 적용 완료
-- 자동 배포: `main` 머지 시 Render(BE) + GitHub Pages(FE) 자동 배포
+- Flyway 마이그레이션: V1~V41 전체 적용 완료
+- 자동 배포: `main` 머지 시 SSH → NAS docker build + run (BE) / SCP 전송 (FE)
+- 배포 URL: https://aiva-bb.duckdns.org
 
-### 1.4 미구현 계획 (Phase 2c, Phase 4)
+### 1.4 미구현 계획
 
 | 항목 | 설명 | 우선순위 |
 |:-----|:-----|:--------|
-| Phase 2c | WebSocket 실시간 동기화 (STOMP) | High |
-| Phase 2c | Redis 캐싱/세션 관리 | High |
-| Phase 4 | Money Pockets (목적별 저금통) | Medium |
 | Phase 4 | AI 거래 자동 분류 (Claude API) | Medium |
 | Phase 4 | Claude Reports (AI 소비 인사이트) | Medium |
 | Phase 4 | Push Notifications (예산 초과 알림) | Medium |
+| 피드백 게시판 | 설계 완료, 구현 대기 (`docs/sessions/2026-03-29_3_plan.md`) | High |
+| 인앱 알림 | 미구현 | Medium |
+| Android 앱 배포 | 모바일 플랫폼 추가 필요 | Medium |
 
 ---
 
@@ -67,19 +76,19 @@
 
 ### Critical
 
-| # | 위치 | 설명 | 담당 |
-|:--|:-----|:-----|:-----|
-| S-1 | `backend/src/main/kotlin/com/budgetbook/auth/service/` | **OAuth2 Account Linking 취약점**: 신규 로그인 시 이메일 기반 자동 계정 연결. 악의적 제3자가 동일 이메일로 다른 Provider로 가입 시 계정 탈취 가능. `CustomOAuth2UserService`, `CustomOidcUserService` 모두 해당. | BE |
-| S-2 | `backend/src/main/kotlin/com/budgetbook/couple/service/CoupleService.kt` | **초대코드 Brute-force 공격**: 8자리 영숫자 코드에 Rate Limiting 없음. 짧은 시간 내 무차별 시도로 유효 코드 추측 가능. | BE |
-| S-3 | `backend/src/main/kotlin/com/budgetbook/auth/` | **JWT 검증 시 매 요청 DB 조회**: Access Token 검증마다 DB hit 발생. Redis 도입 전까지 성능/보안 양쪽에서 취약. | BE |
+| # | 위치 | 설명 | 담당 | 상태 |
+|:--|:-----|:-----|:-----|:-----|
+| S-1 | `backend/src/main/kotlin/com/budgetbook/auth/service/` | ~~OAuth2 Account Linking 취약점: 신규 로그인 시 이메일 기반 자동 계정 연결.~~ | BE | ✅ FIXED - `account_exists` 에러를 throw하여 크로스 프로바이더 이메일 자동 연결 차단 |
+| S-2 | `backend/src/main/kotlin/com/budgetbook/couple/service/CoupleService.kt` | **초대코드 Brute-force 공격**: 초대코드 수락에만 Rate Limiting(5/hour) 적용. 로그인/계정 생성 등 다른 엔드포인트는 미적용. | BE | PARTIAL - 초대코드 수락 한정 적용, 확장 필요 |
+| S-3 | `backend/src/main/kotlin/com/budgetbook/auth/` | **JWT 검증 캐싱**: Access Token 검증 시 Caffeine 캐시(TTL 5분, max 1000개) 적용으로 DB hit 최소화. | BE | ACCEPTABLE - 캐시로 완화, Redis 분산 캐시 고도화 가능 |
 
 ### High
 
-| # | 위치 | 설명 | 담당 |
-|:--|:-----|:-----|:-----|
-| S-4 | `backend/src/main/resources/application.yml` | **health show-details: always**: Actuator health 엔드포인트가 DB 연결 정보 등 민감 정보를 프로덕션 환경에 노출. | DevOps |
-| S-5 | `.github/workflows/deploy-init.yml` | **JWT Secret 하드코딩**: 워크플로우 파일에 JWT secret 값이 하드코딩. GitHub Secrets로 이동 필요. | DevOps |
-| S-6 | `frontend/lib/core/network/auth_interceptor.dart` | **토큰 갱신 실패 미처리**: `AuthInterceptor`에서 토큰 갱신 실패 시 사용자에게 미통보. 자격증명 만료 후 앱이 무한 대기 상태 진입 가능. | FE |
+| # | 위치 | 설명 | 담당 | 상태 |
+|:--|:-----|:-----|:-----|:-----|
+| S-4 | `backend/src/main/resources/application.yml` | ~~health show-details: always~~ | DevOps | ✅ FIXED - `when_authorized`로 변경 (application.yml + application-prod.yml 모두) |
+| S-5 | `.github/workflows/` | ~~JWT Secret 하드코딩~~ | DevOps | ✅ FIXED - `deploy-nas.yml`에서 `${{ secrets.NAS_JWT_SECRET }}` 사용 |
+| S-6 | `frontend/lib/core/network/auth_interceptor.dart` | ~~토큰 갱신 실패 미처리~~ | FE | ✅ FIXED - 갱신 실패 시 snackbar 표시 + AuthSessionExpired 이벤트 + 토큰 클리어 |
 
 ---
 
@@ -87,13 +96,13 @@
 
 ### Critical / High
 
-| # | 위치 | 설명 | 심각도 | 담당 |
-|:--|:-----|:-----|:-------|:-----|
-| P-1 | `backend/src/main/kotlin/com/budgetbook/budget/service/WeeklyBudgetService.kt` | **N+1 쿼리**: 주간 예산 스냅샷 조회 시 각 그룹별 개별 쿼리 발생. `@EntityGraph` 또는 fetch join 도입 필요. | High | BE |
-| P-2 | 여러 Repository (5건) | **Pageable.unpaged() OOM 위험**: 전체 데이터를 페이지 없이 로드하는 쿼리 5건 존재. 데이터 증가 시 OOM 발생. 명시적 `LIMIT` 또는 커서 기반 페이지네이션 필요. | High | BE |
-| P-3 | `backend/src/main/kotlin/com/budgetbook/report/service/ReportService.kt` | **ReportService 쿼리 중복**: 동일 월 데이터를 여러 메서드에서 반복 조회. 캐싱 또는 단일 쿼리로 통합 필요. | Medium | BE |
-| P-4 | `frontend/lib/features/statistics/presentation/bloc/statistics_bloc.dart` | **StatisticsBloc 순차 API 호출**: 통계 화면에서 3개 API를 순차 호출. `Future.wait()` 병렬화로 응답시간 단축 가능. | Medium | FE |
-| P-5 | `backend/src/main/kotlin/com/budgetbook/` (9개 서비스) | **getActiveCouple() 중복 호출**: 9개 서비스에서 동일한 커플 조회 로직 반복. 요청당 불필요한 DB 쿼리 증가. | Medium | BE |
+| # | 위치 | 설명 | 심각도 | 담당 | 상태 |
+|:--|:-----|:-----|:-------|:-----|:-----|
+| P-1 | `backend/src/main/kotlin/com/budgetbook/budget/service/WeeklyBudgetService.kt` | ~~N+1 쿼리~~ | High | BE | ✅ FIXED - ID 선수집 후 배치 쿼리 패턴으로 교체 |
+| P-2 | 여러 Repository | ~~Pageable.unpaged() OOM 위험~~ | High | BE | ✅ FIXED - 코드베이스에서 제거됨 |
+| P-3 | `backend/src/main/kotlin/com/budgetbook/report/service/ReportService.kt` | **ReportService 쿼리 중복**: 동일 월 데이터를 여러 메서드에서 반복 조회(`sumByCategoryForCouple` 중복 호출). 캐싱 또는 단일 쿼리로 통합 필요. | Medium | BE | OPEN |
+| P-4 | `frontend/lib/features/statistics/presentation/bloc/statistics_bloc.dart` | ~~StatisticsBloc 순차 API 호출~~ | Medium | FE | ✅ FIXED - `Future.wait()` 병렬 호출로 교체 |
+| P-5 | `backend/src/main/kotlin/com/budgetbook/` (22개 서비스, 83곳) | **getActiveCouple() 중복 호출**: 22개 서비스 83곳에서 동일한 커플 조회 반복. RequestScope 캐싱 도입 필요. | Medium | BE | OPEN - 규모 증가 (9→22 서비스) |
 
 ---
 
@@ -101,27 +110,27 @@
 
 ### 4.1 Backend
 
-| # | 위치 | 설명 | 심각도 | 난이도 |
-|:--|:-----|:-----|:-------|:-------|
-| A-1 | `backend/src/main/kotlin/com/budgetbook/couple/service/CoupleService.kt` | **커플 해산 시 연관 데이터 미처리**: 커플 해산 후 카테고리/거래/예산 데이터 처리 정책 없음. 고아 데이터 발생 가능. | High | M |
-| A-2 | `backend/src/main/kotlin/com/budgetbook/` | **getActiveCouple() 공통화 필요**: 9개 서비스에 중복된 `getActiveCouple()` 패턴. `CoupleResolver` 또는 AOP로 추출 권장. | Medium | S |
-| A-3 | `backend/src/main/kotlin/com/budgetbook/transaction/` | **TransactionType 문자열 파싱 중복**: `INCOME`/`EXPENSE` 문자열을 여러 곳에서 파싱. Enum converter로 중앙화 권장. | Medium | S |
-| A-4 | `backend/src/main/kotlin/com/budgetbook/` | **toResponse() 일관성 없음**: 일부 서비스는 entity에서 직접 변환, 일부는 DTO mapper 사용. 표준 패턴 통일 필요. | Medium | S |
-| A-5 | `backend/src/main/kotlin/com/budgetbook/category/service/CategoryGroupService.kt` | **Dead Code**: 사용되지 않는 메서드 다수 존재. 제거 또는 문서화 필요. | Low | S |
-| A-6 | `backend/src/main/kotlin/com/budgetbook/transaction/service/RecurringTransactionService.kt` | **반복거래 frequency 변경 불가**: 현재 구현상 frequency(DAILY/WEEKLY/MONTHLY/YEARLY) 수정 API 없음. | Low | M |
-| A-7 | `backend/src/main/kotlin/com/budgetbook/transaction/scheduler/RecurringTransactionScheduler.kt` | **스케줄러 트랜잭션 격리**: 스케줄러 실행 중 일부 거래 생성 실패 시 나머지에 영향 줄 수 있음. 개별 거래별 독립 트랜잭션 필요. | Medium | M |
+| # | 위치 | 설명 | 심각도 | 난이도 | 상태 |
+|:--|:-----|:-----|:-------|:-------|:-----|
+| A-1 | `backend/src/main/kotlin/com/budgetbook/couple/service/CoupleService.kt` | ~~커플 해산 시 연관 데이터 미처리~~ | High | M | ✅ FIXED - status 변경 + 양쪽 유저 캐시 eviction 구현 |
+| A-2 | `backend/src/main/kotlin/com/budgetbook/` | **getActiveCouple() 공통화 필요**: 22개 서비스에 중복된 패턴. `CoupleResolver` 또는 AOP로 추출 권장. | Medium | S | OPEN |
+| A-3 | `backend/src/main/kotlin/com/budgetbook/transaction/` | **TransactionType 문자열 파싱 중복**: `INCOME`/`EXPENSE` 문자열을 여러 곳에서 파싱. Enum converter로 중앙화 권장. | Medium | S | OPEN |
+| A-4 | `backend/src/main/kotlin/com/budgetbook/` | **toResponse() 일관성 없음**: 일부 서비스는 entity에서 직접 변환, 일부는 DTO mapper 사용. 표준 패턴 통일 필요. | Medium | S | OPEN |
+| A-5 | `backend/src/main/kotlin/com/budgetbook/category/service/CategoryGroupService.kt` | **Dead Code**: 사용되지 않는 메서드 다수 존재. 제거 또는 문서화 필요. | Low | S | OPEN |
+| A-6 | `backend/src/main/kotlin/com/budgetbook/transaction/service/RecurringTransactionService.kt` | **반복거래 frequency 변경 불가**: 현재 구현상 frequency(DAILY/WEEKLY/MONTHLY/YEARLY) 수정 API 없음. | Low | M | OPEN |
+| A-7 | `backend/src/main/kotlin/com/budgetbook/transaction/scheduler/RecurringTransactionScheduler.kt` | **스케줄러 트랜잭션 격리**: 스케줄러 실행 중 일부 거래 생성 실패 시 나머지에 영향. 개별 거래별 `REQUIRES_NEW` 독립 트랜잭션 필요. | Medium | M | OPEN |
 
 ### 4.2 Frontend
 
-| # | 위치 | 설명 | 심각도 | 난이도 |
-|:--|:-----|:-----|:-------|:-------|
-| A-8 | `frontend/lib/features/` (4곳) | **state.extra 웹 새로고침 유실**: GoRouter `extra`로 전달된 상태가 웹 새로고침 시 유실. URL 파라미터 또는 BLoC 상태로 이전 필요. `transaction_detail_page.dart`, `transaction_form_page.dart` 등 4곳. | Critical | M |
-| A-9 | `frontend/lib/core/di/injection.dart` | **AuthBloc LazySingleton close() 미호출**: AuthBloc이 LazySingleton으로 등록되었으나 앱 종료 시 `close()` 미호출. 리소스 누수. | Critical | S |
-| A-10 | `frontend/lib/features/transaction/presentation/pages/transaction_form_page.dart` | **BlocListener 로직 결함**: 성공/실패 분기 처리 누락 또는 중복 이벤트 처리 가능성. | Warning | S |
-| A-11 | `frontend/lib/features/` | **UseCase 클래스 없음**: Repository를 BLoC에서 직접 호출. Clean Architecture 계층 위반. UseCase 레이어 도입 권장. | Warning | L |
-| A-12 | `frontend/lib/features/report/presentation/pages/report_page.dart` | **week=1 고정**: 리포트 페이지에서 주차 파라미터가 1로 하드코딩. 실제 현재 주차 계산 필요. | Warning | S |
-| A-13 | `frontend/lib/` | **매직 넘버**: 여러 파일에 의미 없는 숫자 상수 직접 사용. `constants/` 로 추출 필요. | Suggestion | S |
-| A-14 | `frontend/lib/features/` | **BLoC 상태 패턴 불일치**: 일부 BLoC은 `status` enum, 일부는 `isLoading bool` 사용. 표준화 필요. | Suggestion | M |
+| # | 위치 | 설명 | 심각도 | 난이도 | 상태 |
+|:--|:-----|:-----|:-------|:-------|:-----|
+| A-8 | `frontend/lib/features/` | **state.extra 웹 새로고침 유실**: GoRouter `extra`로 전달된 상태가 웹 새로고침 시 유실. 현재 거래 복사 1곳만 사용 — 저위험이나 URL 파라미터 전환 권장. | Warning | M | LOW RISK (1곳만 사용) |
+| A-9 | `frontend/lib/core/di/injection.dart` | ~~AuthBloc LazySingleton close() 미호출~~ | Critical | S | ✅ FIXED - dispose 콜백 등록 완료 |
+| A-10 | `frontend/lib/features/transaction/presentation/pages/transaction_form_page.dart` | **BlocListener 로직 결함**: 성공/실패 분기 처리 누락 또는 중복 이벤트 처리 가능성. | Warning | S | OPEN |
+| A-11 | `frontend/lib/features/` | **UseCase 클래스 없음**: Repository를 BLoC에서 직접 호출. Clean Architecture 계층 위반. UseCase 레이어 도입 권장. | Warning | L | OPEN |
+| A-12 | `frontend/lib/features/report/presentation/pages/report_page.dart` | **week=1 고정**: 리포트 페이지에서 주차 파라미터가 1로 하드코딩. 실제 현재 주차 계산 필요. | Warning | S | OPEN |
+| A-13 | `frontend/lib/` | **매직 넘버**: 여러 파일에 의미 없는 숫자 상수 직접 사용. `constants/`로 추출 필요. | Suggestion | S | OPEN |
+| A-14 | `frontend/lib/features/` | **BLoC 상태 패턴 불일치**: 일부 BLoC은 `status` enum, 일부는 `isLoading bool` 사용. 표준화 필요. | Suggestion | M | OPEN |
 
 ### 4.3 App (모바일/웹 통합)
 
@@ -130,7 +139,7 @@
 | A-15 | `frontend/` | **android/ios 디렉토리 없음**: 모바일 빌드 불가. `flutter create --platforms=android,ios` 실행 필요. | Critical | M |
 | A-16 | `frontend/lib/core/auth/` | **OAuth 모바일 콜백 딥링크 미구현**: 모바일 환경에서 OAuth 콜백 처리용 딥링크 scheme 미등록. `flutter_appauth` 또는 custom scheme 구현 필요. | Critical | L |
 | A-17 | `frontend/lib/` | **오프라인 지원 없음**: 로컬 DB(sqflite/Hive) 없음. 네트워크 단절 시 앱 기능 전혀 불가. | Warning | XL |
-| A-18 | `frontend/lib/` | **SafeArea 누락**: `LoginPage` 외 대부분의 화면에서 `SafeArea` 미사용. 노치/펀치홀 기기 레이아웃 깨짐. | Warning | S |
+| A-18 | `frontend/lib/` | **SafeArea 누락**: 일부 화면에서 `SafeArea` 미사용. 노치/펀치홀 기기 레이아웃 깨짐 가능. | Warning | S |
 | A-19 | `frontend/lib/` | **LayoutBuilder 미사용**: 반응형 레이아웃 미구현. 태블릿/데스크톱 레이아웃 고려 없음. | Suggestion | L |
 | A-20 | `frontend/lib/core/di/` | **BLoC 인스턴스 매번 재생성**: 일부 BLoC이 `BlocProvider.value` 없이 위젯 트리 재빌드 시마다 재생성. | Suggestion | S |
 | A-21 | `frontend/pubspec.yaml` | **google_fonts 런타임 다운로드**: 앱 첫 실행 시 폰트 네트워크 다운로드. 번들 포함 또는 시스템 폰트 대체 권장. | Suggestion | S |
@@ -139,23 +148,23 @@
 
 ## 5. 기능 개선 및 추가 필요
 
-### 5.1 UX 필수 개선 (Critical 수준)
+### 5.1 UX 개선 현황
 
-| # | 설명 | 담당 | 난이도 |
-|:--|:-----|:-----|:-------|
-| U-1 | **대시보드 부재**: 앱 진입 시 보여줄 홈 화면 없음. 월 요약, 최근 거래, 예산 현황을 한눈에 볼 수 있는 대시보드 필요. `frontend/lib/features/home/` 현재 미사용. | FE | L |
-| U-2 | **BottomNavigationBar 없음**: 주요 기능 간 이동 방법 없음. 홈/거래/예산/통계/설정 탭 구조 필요. | FE | M |
-| U-3 | **설정 페이지 없음**: `frontend/lib/features/settings/` 디렉토리 구조만 존재, 구현 없음. 프로필 편집, 커플 관리, 앱 설정 등 필요. | FE | L |
-| U-4 | **프로필 편집 불가**: 닉네임, 프로필 이미지 변경 API 없음. BE `PATCH /api/users/me` 추가 필요. | BE+FE | M |
+| # | 설명 | 담당 | 상태 |
+|:--|:-----|:-----|:-----|
+| U-1 | ~~대시보드 부재~~ | FE | ✅ FIXED - 6위젯 커스터마이징 대시보드 구현 완료 |
+| U-2 | ~~BottomNavigationBar 없음~~ | FE | ✅ FIXED - 5탭 구조 (홈/거래/예산/통계/설정) |
+| U-3 | ~~설정 페이지 없음~~ | FE | ✅ FIXED - 프로필, 커플 관리, 테마, 언어 구현 |
+| U-4 | **프로필 편집 불가**: 닉네임, 프로필 이미지 변경 API 없음. BE `PATCH /api/users/me` 추가 필요. | BE+FE | OPEN |
 
 ### 5.2 기능 완성도
 
 | # | 설명 | 담당 | 난이도 |
 |:--|:-----|:-----|:-------|
-| U-5 | **거래 검색/필터 미흡**: 현재 월별 필터만 존재. 카테고리별, 결제수단별, 금액 범위, 키워드 검색 필요. `GET /api/transactions` 파라미터 확장 필요. | BE+FE | M |
-| U-6 | **데이터 내보내기 없음**: CSV/Excel export 기능 미구현. `backend/src/main/kotlin/com/budgetbook/export/` 패키지 존재하나 미구현. | BE+FE | M |
-| U-7 | **반복거래 frequency 변경 불가**: 생성 후 주기 변경 불가. `PATCH /api/recurring-transactions/{id}` 개선 필요. (`backend/.../RecurringTransactionService.kt`) | BE | S |
-| U-8 | **다국어(i18n) 미완성**: `AppLocalizations` 호출 0회, 전체 UI 한국어 하드코딩. 영어 지원을 위한 ARB 파일 적용 필요. `frontend/lib/l10n/` | FE | L |
+| U-5 | **거래 검색/필터 미흡**: 현재 월별 필터만 존재. 카테고리별, 결제수단별, 금액 범위, 키워드 검색 필요. | BE+FE | M |
+| U-6 | **데이터 내보내기 없음**: CSV/Excel export 기능 미구현. | BE+FE | M |
+| U-7 | **반복거래 frequency 변경 불가**: 생성 후 주기 변경 불가. `PATCH /api/recurring-transactions/{id}` 개선 필요. | BE | S |
+| U-8 | **다국어(i18n) 미완성**: `AppLocalizations` 호출 0회, 전체 UI 한국어 하드코딩. ARB 파일 적용 필요. | FE | L |
 
 ### 5.3 기능 간 연동 강화
 
@@ -209,12 +218,12 @@
 
 ### 7.2 배포 전략
 
-| # | 설명 | 심각도 | 난이도 |
-|:--|:-----|:-------|:-------|
-| D-7 | **Render free tier cold start**: 비활성 후 첫 요청 30~60초 지연. 유료 플랜 업그레이드 또는 keep-alive ping 설정 필요. | High | S |
-| D-8 | **롤백 전략 없음**: 배포 실패 시 이전 버전 복원 방법 없음. Render deploy hook + git tag 기반 롤백 스크립트 필요. | High | M |
-| D-9 | **Staging 환경 없음**: 프로덕션 직접 배포. `develop` 브랜치 → staging 자동 배포 환경 구성 권장. | Medium | L |
-| D-10 | **DB 복구 테스트 없음**: Supabase 7일 자동 백업에 의존하나 복구 절차(runbook) 없음. 분기별 복구 테스트 필요. | Medium | M |
+| # | 설명 | 심각도 | 난이도 | 상태 |
+|:--|:-----|:-------|:-------|:-----|
+| D-7 | ~~Render free tier cold start~~ | High | S | ✅ RESOLVED - NAS Docker 이전 완료 (콜드스타트 없음) |
+| D-8 | **롤백 전략 없음**: 배포 실패 시 이전 버전 복원 방법 없음. git tag 기반 롤백 스크립트 필요. | High | M | OPEN |
+| D-9 | **Staging 환경 없음**: 프로덕션 직접 배포. `develop` 브랜치 → staging 자동 배포 환경 구성 권장. | Medium | L | OPEN |
+| D-10 | **DB 복구 테스트 없음**: NAS PostgreSQL 백업에 의존하나 복구 절차(runbook) 없음. 분기별 복구 테스트 필요. | Medium | M | OPEN |
 
 ### 7.3 모니터링/로깅
 
@@ -223,7 +232,7 @@
 | D-11 | **구조화 로깅 없음**: `logback` 기본 설정. JSON 구조화 로깅 + correlation ID 도입 권장. | Medium | S |
 | D-12 | **에러 모니터링 없음**: Sentry (또는 Datadog) 미연동. 프로덕션 에러 실시간 감지 불가. | High | S |
 | D-13 | **성능 메트릭 없음**: Spring Actuator Prometheus endpoint 미노출 + Grafana 대시보드 없음. | Medium | M |
-| D-14 | `backend/src/main/resources/application.yml` | **profiles.active: local 하드코딩**: 환경 변수 또는 Render 환경 설정으로 분리 필요. | Medium | S |
+| D-14 | `backend/src/main/resources/application.yml` | **profiles.active 환경 변수화**: 환경 변수로 분리 권장. | Medium | S |
 
 ---
 
@@ -231,7 +240,7 @@
 
 | # | 설명 | 파일 | 심각도 | 담당 |
 |:--|:-----|:-----|:-------|:-----|
-| Doc-1 | **ERD Phase 3 테이블 누락**: `docs/erd.md`에 V7~V10 마이그레이션으로 추가된 테이블(`category_groups`, `payment_methods`, `weekly_budget_snapshots`, `recurring_transactions`) 및 `categories.group_id`, `transactions.payment_method_id` 컬럼 누락. | `docs/erd.md` | Critical | Contract |
+| Doc-1 | **ERD 최신화 필요**: `docs/erd.md`에 V11~V41 마이그레이션으로 추가된 테이블 및 컬럼 반영 필요. (지출 계획, 위시리스트, 보험, WebSocket 관련 테이블 등) | `docs/erd.md` | Critical | Contract |
 | Doc-2 | **다국어 전략 문서 없음**: i18n 접근 방식, ARB 파일 관리 방법, 번역 워크플로우 미문서화. | `docs/` | Low | Contract |
 | Doc-3 | **모바일 빌드 가이드 없음**: android/ios 플랫폼 추가 후 빌드/배포 절차 문서 필요. | `docs/` | Low | Contract |
 | Doc-4 | **API 에러 코드 목록 없음**: `docs/api-spec.md`에 비즈니스 에러 코드 전체 목록 미포함. | `docs/api-spec.md` | Medium | Contract |
@@ -242,92 +251,65 @@
 
 | # | 카테고리 | 심각도 | 설명 | 담당 | 난이도 |
 |:--|:--------|:-------|:-----|:-----|:-------|
-| 1 | 보안 | Critical | OAuth2 이메일 기반 계정 자동 연결 취약점 | BE | M |
-| 2 | 보안 | Critical | 초대코드 Rate Limiting 없음 | BE | S |
-| 3 | 모바일 | Critical | android/ios 디렉토리 없음 (모바일 빌드 불가) | App | M |
-| 4 | 모바일 | Critical | OAuth 모바일 딥링크 콜백 미구현 | App | L |
-| 5 | UX | Critical | state.extra 웹 새로고침 유실 (4곳) | FE | M |
-| 6 | UX | Critical | 대시보드 화면 없음 | FE | L |
-| 7 | UX | Critical | BottomNavigationBar 없음 | FE | M |
-| 8 | 보안 | High | JWT 검증 매 요청 DB 조회 | BE | M |
-| 9 | 보안 | High | Actuator health show-details: always | DevOps | S |
-| 10 | 보안 | High | AuthInterceptor 토큰 갱신 실패 미통보 | FE | S |
-| 11 | 성능 | High | WeeklyBudgetService N+1 쿼리 | BE | S |
-| 12 | 성능 | High | Pageable.unpaged() OOM 위험 (5건) | BE | M |
-| 13 | 안정성 | High | 커플 해산 시 연관 데이터 미처리 | BE | M |
-| 14 | 모니터링 | High | Sentry 에러 모니터링 없음 | DevOps | S |
-| 15 | 배포 | High | 롤백 전략 없음 | DevOps | M |
-| 16 | 문서 | Critical | ERD Phase 3 테이블 누락 (V7-V10) | Contract | S |
-| 17 | 기능 | High | 설정 페이지 없음 | FE | L |
-| 18 | 기능 | High | 거래 검색/필터 미흡 | BE+FE | M |
-| 19 | 성능 | Medium | ReportService 쿼리 중복 | BE | S |
-| 20 | 성능 | Medium | StatisticsBloc 순차 API 호출 | FE | S |
-| 21 | 아키텍처 | Medium | getActiveCouple() 9개 서비스 중복 | BE | S |
-| 22 | 아키텍처 | Medium | UseCase 레이어 없음 | FE | L |
-| 23 | 아키텍처 | Medium | BLoC 상태 패턴 불일치 | FE | M |
-| 24 | 테스트 | Medium | CustomOidcUserService 테스트 없음 | BE | S |
-| 25 | 테스트 | Medium | Flutter 위젯 테스트 GAP | FE | M |
-| 26 | 기능 | Medium | 데이터 내보내기 없음 | BE+FE | M |
-| 27 | 기능 | Medium | 다국어(i18n) 미완성 | FE | L |
-| 28 | 인프라 | Medium | CI 중복 실행 | DevOps | S |
-| 29 | 인프라 | Medium | feature/* 브랜치 CI 없음 | DevOps | S |
-| 30 | 기능 | Medium | 기능 간 연동 부족 (6건) | BE | M-L |
+| 1 | 보안 | Critical | 초대코드 Rate Limiting 부분 적용 (로그인/생성 엔드포인트 미적용) | BE | S |
+| 2 | 모바일 | Critical | android/ios 디렉토리 없음 (모바일 빌드 불가) | App | M |
+| 3 | 모바일 | Critical | OAuth 모바일 딥링크 콜백 미구현 | App | L |
+| 4 | UX | Warning | state.extra 웹 새로고침 유실 (1곳 - 거래 복사) | FE | M |
+| 5 | 성능 | Medium | ReportService 쿼리 중복 (sumByCategoryForCouple 중복 호출) | BE | S |
+| 6 | 성능 | Medium | getActiveCouple() 22개 서비스 83곳 중복 | BE | S |
+| 7 | 안정성 | Medium | 스케줄러 트랜잭션 격리 미비 (REQUIRES_NEW 필요) | BE | M |
+| 8 | 문서 | Critical | ERD V11-V41 테이블 누락 | Contract | S |
+| 9 | 모니터링 | High | Sentry 에러 모니터링 없음 | DevOps | S |
+| 10 | 배포 | High | 롤백 전략 없음 | DevOps | M |
+| 11 | 기능 | Medium | 거래 검색/필터 미흡 | BE+FE | M |
+| 12 | 아키텍처 | Medium | UseCase 레이어 없음 | FE | L |
+| 13 | 아키텍처 | Medium | BLoC 상태 패턴 불일치 | FE | M |
+| 14 | 테스트 | Medium | CustomOidcUserService 테스트 없음 | BE | S |
+| 15 | 테스트 | Medium | Flutter 위젯 테스트 GAP | FE | M |
+| 16 | 기능 | Medium | 데이터 내보내기 없음 | BE+FE | M |
+| 17 | 기능 | Medium | 다국어(i18n) 미완성 | FE | L |
+| 18 | 인프라 | Medium | CI 중복 실행 | DevOps | S |
+| 19 | 인프라 | Medium | feature/* 브랜치 CI 없음 | DevOps | S |
+| 20 | 기능 | Medium | 기능 간 연동 부족 (6건) | BE | M-L |
+| 21 | 기능 | Medium | 프로필 편집 불가 (닉네임/이미지 변경) | BE+FE | M |
+| 22 | 아키텍처 | Warning | report page week=1 하드코딩 | FE | S |
 
 ---
 
 ## 10. 액션 아이템 로드맵
 
-### Phase 0 (즉시): 보안/안정성 긴급 처리
+### 피드백 게시판 (설계 완료, 우선 구현 대상)
 
-> 목표: 프로덕션 보안 취약점 즉시 패치 + 핵심 안정성 확보
+> 설계서: `docs/sessions/2026-03-29_3_plan.md`
 
-- [ ] **[BE/Critical]** OAuth2 계정 연결 취약점 수정: 이메일 자동 연결 제거 → 명시적 계정 병합 플로우로 교체
-- [ ] **[BE/Critical]** 초대코드 Rate Limiting 추가: Redis 또는 in-memory 기반 IP/user 레이트 리미터
-- [ ] **[DevOps/High]** Actuator health `show-details: when_authorized`로 변경
-- [ ] **[DevOps/High]** deploy-init.yml JWT secret을 GitHub Secret으로 이동
-- [ ] **[FE/Critical]** AuthInterceptor 토큰 갱신 실패 시 로그아웃 + 사용자 알림
-- [ ] **[FE/Critical]** state.extra → BLoC 상태 또는 URL 파라미터로 교체 (4곳)
-- [ ] **[BE/High]** 커플 해산 시 데이터 처리 정책 구현 (soft delete 또는 아카이브)
-- [ ] **[Contract/Critical]** `docs/erd.md` Phase 3 테이블(V7-V10) 추가
+- [ ] **[Contract]** 피드백 게시판 API 명세 작성 (`docs/api-spec.md` 업데이트)
+- [ ] **[BE]** 피드백/공지 CRUD + 카테고리 + 좋아요 구현
+- [ ] **[FE]** 피드백 목록/상세/작성 화면 구현
 
-### Phase 2c: WebSocket / Redis (실시간 동기화)
-
-> 목표: 부부 실시간 데이터 동기화 구현
-
-- [ ] **[BE]** Redis (Upstash) 연동: JWT 검증 캐싱, Rate Limiting 스토어
-- [ ] **[BE]** WebSocket STOMP 엔드포인트 구현: `/ws`, `/topic/couple/{coupleId}`
-- [ ] **[BE]** `SyncEventPublisher`: TRANSACTION_CREATED/UPDATED/DELETED, BUDGET_UPDATED 이벤트
-- [ ] **[FE]** WebSocket 클라이언트 연동: BLoC에서 실시간 이벤트 수신 → 자동 UI 갱신
-- [ ] **[DevOps]** Redis 연결 설정 Render 환경 변수 등록
-
-### Phase 4: Money Pockets / AI / Push (신규 기능)
+### Phase 4: AI / Push (신규 기능)
 
 > 목표: 차별화 기능으로 앱 가치 증대
 
-- [ ] **[Contract]** Money Pockets API 명세 작성 (`docs/api-spec.md` 업데이트)
-- [ ] **[BE]** Money Pockets CRUD + 입출금 관리
 - [ ] **[Contract]** AI Classification API 명세 작성 (Claude API 연동)
 - [ ] **[BE]** 거래 자동 분류: Claude API 호출 서비스 (`backend/.../ai/`)
 - [ ] **[BE]** Claude Reports: 월별 소비 패턴 AI 분석 리포트 생성
 - [ ] **[BE]** Push Notifications: 예산 초과 감지 → FCM 발송
-- [ ] **[FE]** Money Pockets UI, AI 분류 제안 화면, AI 리포트 화면
+- [ ] **[FE]** AI 분류 제안 화면, AI 리포트 화면
 - [ ] **[App]** Firebase 초기화 + FCM 토큰 등록 + 알림 수신 처리
+
+### 보안 강화
+
+- [ ] **[BE/Critical]** Rate Limiting 확장: 로그인/계정 생성 엔드포인트 추가 적용
 
 ### 품질 개선 (병행)
 
-> 개발 사이클 병행 진행 권장
-
-**UX 완성도**
-- [ ] **[FE/Critical]** 대시보드 화면 구현 (월 요약 + 최근 거래 + 예산 현황)
-- [ ] **[FE/Critical]** BottomNavigationBar 5탭 구조 (홈/거래/예산/통계/설정)
-- [ ] **[FE/High]** 설정 페이지 구현 (프로필 편집, 커플 관리, 로그아웃)
-- [ ] **[FE/High]** 거래 검색/필터 UI 강화
-
 **아키텍처**
 - [ ] **[FE/Medium]** UseCase 레이어 도입 (Repository → UseCase → BLoC)
-- [ ] **[BE/Medium]** getActiveCouple() 공통화 (AOP 또는 CoupleResolver)
-- [ ] **[BE/Medium]** Pageable.unpaged() → 명시적 LIMIT 쿼리 교체 (5건)
+- [ ] **[BE/Medium]** getActiveCouple() RequestScope 캐싱 도입
+- [ ] **[BE/Medium]** ReportService 중복 쿼리 통합
+- [ ] **[BE/Medium]** 스케줄러 REQUIRES_NEW 트랜잭션 격리 적용
 - [ ] **[FE/Medium]** BLoC 상태 패턴 통일 (status enum 표준화)
+- [ ] **[FE/Warning]** report week=1 하드코딩 → 실제 현재 주차 계산
 
 **모바일**
 - [ ] **[App/Critical]** android/ios 플랫폼 추가 + 기본 설정
@@ -336,9 +318,9 @@
 
 **DevOps**
 - [ ] **[DevOps/High]** Sentry 에러 모니터링 연동 (BE + FE)
+- [ ] **[DevOps/High]** 롤백 전략 수립 (git tag 기반 스크립트)
 - [ ] **[DevOps/Medium]** 구조화 로깅 (JSON + correlation ID)
 - [ ] **[DevOps/Medium]** 코드 커버리지 리포트 (Kover + lcov) CI 연동
-- [ ] **[DevOps/Medium]** Staging 환경 구성 (develop → staging 자동 배포)
 
 **테스트**
 - [ ] **[BE/Medium]** CustomOidcUserService 테스트 추가
@@ -347,5 +329,5 @@
 
 **기능**
 - [ ] **[BE+FE/Medium]** 데이터 내보내기 (CSV/Excel)
-- [ ] **[FE/Medium]** 다국어 ARB 파일 적용 (한국어/영어)
-- [ ] **[BE/Medium]** 기능 간 연동 강화 (반복거래↔예산, 주간예산↔리포트 등 6건)
+- [ ] **[BE+FE/Medium]** 거래 검색/필터 강화 (카테고리, 결제수단, 금액 범위, 키워드)
+- [ ] **[Contract/Critical]** `docs/erd.md` V11-V41 테이블 업데이트

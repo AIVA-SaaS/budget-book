@@ -6,6 +6,9 @@ import com.budgetbook.auth.dto.TokenResponse
 import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
+import com.budgetbook.common.exception.TooManyRequestsException
+import com.budgetbook.common.ratelimit.RateLimiter
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.clearAllMocks
@@ -13,6 +16,7 @@ import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
+import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockMultipartFile
 import java.time.Instant
 import java.util.UUID
@@ -20,7 +24,8 @@ import java.util.UUID
 class AuthControllerTest : FunSpec({
 
     val authService = mockk<AuthService>()
-    val authController = AuthController(authService)
+    val rateLimiter = mockk<RateLimiter>()
+    val authController = AuthController(authService, rateLimiter)
 
     val testUserId = UUID.randomUUID()
 
@@ -30,15 +35,17 @@ class AuthControllerTest : FunSpec({
 
     test("refreshToken calls authService.refreshToken and returns ApiResponse.ok") {
         val request = RefreshTokenRequest(refreshToken = "some-refresh-token")
+        val httpRequest = MockHttpServletRequest().apply { remoteAddr = "127.0.0.1" }
         val expectedResponse = TokenResponse(
             accessToken = "new-access-token",
             refreshToken = "new-refresh-token",
             expiresIn = 3600000L
         )
 
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns true
         every { authService.refreshToken(request) } returns expectedResponse
 
-        val result = authController.refreshToken(request)
+        val result = authController.refreshToken(request, httpRequest)
 
         result.success shouldBe true
         result.data shouldBe expectedResponse
@@ -47,6 +54,36 @@ class AuthControllerTest : FunSpec({
         result.data!!.expiresIn shouldBe 3600000L
 
         verify(exactly = 1) { authService.refreshToken(request) }
+    }
+
+    test("refreshToken throws TooManyRequestsException when rate limit exceeded") {
+        val request = RefreshTokenRequest(refreshToken = "some-refresh-token")
+        val httpRequest = MockHttpServletRequest().apply { remoteAddr = "127.0.0.1" }
+
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns false
+
+        shouldThrow<TooManyRequestsException> {
+            authController.refreshToken(request, httpRequest)
+        }
+    }
+
+    test("refreshToken uses X-Forwarded-For header for IP extraction") {
+        val request = RefreshTokenRequest(refreshToken = "some-refresh-token")
+        val httpRequest = MockHttpServletRequest().apply {
+            remoteAddr = "10.0.0.1"
+            addHeader("X-Forwarded-For", "203.0.113.50, 70.41.3.18")
+        }
+        val expectedResponse = TokenResponse(
+            accessToken = "access",
+            refreshToken = "refresh",
+            expiresIn = 1000L
+        )
+
+        every { rateLimiter.tryAcquire("auth-refresh:203.0.113.50", 10, 60_000L) } returns true
+        every { authService.refreshToken(request) } returns expectedResponse
+
+        val result = authController.refreshToken(request, httpRequest)
+        result.success shouldBe true
     }
 
     test("getCurrentUser returns current user info wrapped in ApiResponse.ok") {
@@ -89,15 +126,17 @@ class AuthControllerTest : FunSpec({
 
     test("refreshToken passes the exact request object to service") {
         val request = RefreshTokenRequest(refreshToken = "specific-token-value")
+        val httpRequest = MockHttpServletRequest().apply { remoteAddr = "127.0.0.1" }
         val tokenResponse = TokenResponse(
             accessToken = "access",
             refreshToken = "refresh",
             expiresIn = 1000L
         )
 
+        every { rateLimiter.tryAcquire(any(), any(), any()) } returns true
         every { authService.refreshToken(request) } returns tokenResponse
 
-        authController.refreshToken(request)
+        authController.refreshToken(request, httpRequest)
 
         verify { authService.refreshToken(match { it.refreshToken == "specific-token-value" }) }
     }
