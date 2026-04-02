@@ -30,5 +30,7 @@ data class PaymentMethodStatResponse(
     val paymentMethodType: String? = null,
     val totalAmount: Long,
     val transactionCount: Int,
-    val percentage: Double
+    val percentage: Double,
+    val transferOut: Long? = null,
+    val transferIn: Long? = null
 )

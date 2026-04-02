@@ -8,6 +8,8 @@ class PaymentMethodStatisticsModel extends PaymentMethodStatistics {
     required super.totalAmount,
     required super.transactionCount,
     required super.percentage,
+    super.transferOut,
+    super.transferIn,
   });
 
   factory PaymentMethodStatisticsModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +20,8 @@ class PaymentMethodStatisticsModel extends PaymentMethodStatistics {
       totalAmount: json['totalAmount'] as int? ?? 0,
       transactionCount: json['transactionCount'] as int? ?? 0,
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      transferOut: json['transferOut'] as int?,
+      transferIn: json['transferIn'] as int?,
     );
   }
 }

@@ -11,6 +11,7 @@ import com.budgetbook.statistics.dto.StatisticsSummaryResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -20,6 +21,7 @@ import java.util.UUID
 @Service
 class StatisticsService(
     private val transactionRepository: TransactionRepository,
+    private val transferRepository: TransferRepository,
     override val coupleResolver: CoupleResolver
 ) : CoupleAwareService {
 
@@ -64,6 +66,15 @@ class StatisticsService(
                 }
             }
         }
+
+        // Include transfer amounts: OUT = expense, IN = income
+        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
+        val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferInTotal = transferInResults.sumOf { it[1] as Long }
+
+        totalExpense += transferOutTotal
+        totalIncome += transferInTotal
 
         return StatisticsSummaryResponse(
             yearMonth = yearMonth.toString(),
@@ -152,11 +163,23 @@ class StatisticsService(
             val ym = startMonth.plusMonths(offset.toLong())
             val ymStr = ym.toString()
             val (income, expense) = trendMap.getOrDefault(ymStr, 0L to 0L)
+
+            // Include transfer amounts for this month
+            val monthStart = ym.atDay(1)
+            val monthEnd = ym.atEndOfMonth()
+            val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, monthStart, monthEnd)
+            val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
+            val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, monthStart, monthEnd)
+            val transferInTotal = transferInResults.sumOf { it[1] as Long }
+
+            val adjustedIncome = income + transferInTotal
+            val adjustedExpense = expense + transferOutTotal
+
             MonthlyTrendResponse(
                 yearMonth = ymStr,
-                totalIncome = income,
-                totalExpense = expense,
-                balance = income - expense
+                totalIncome = adjustedIncome,
+                totalExpense = adjustedExpense,
+                balance = adjustedIncome - adjustedExpense
             )
         }
     }
