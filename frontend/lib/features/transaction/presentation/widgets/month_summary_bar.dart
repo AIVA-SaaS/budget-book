@@ -5,14 +5,15 @@ class MonthSummaryBar extends StatelessWidget {
   final int totalIncome;
   final int totalExpense;
   final int balance;
+  final int? totalTransfer;
 
   const MonthSummaryBar({
     super.key,
     required this.totalIncome,
     required this.totalExpense,
     required this.balance,
+    this.totalTransfer,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +40,15 @@ class MonthSummaryBar extends StatelessWidget {
               color: Colors.red,
             ),
           ),
+          if (totalTransfer != null && totalTransfer! > 0)
+            Expanded(
+              child: _buildItem(
+                context,
+                label: '이체',
+                amount: totalTransfer!,
+                color: Colors.teal,
+              ),
+            ),
           Expanded(
             child: _buildItem(
               context,
