@@ -63,6 +63,7 @@ import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
 import 'package:budget_book/features/transfer/presentation/pages/transfer_list_page.dart';
 import 'package:budget_book/features/transfer/presentation/pages/transfer_form_page.dart';
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.dart';
@@ -266,6 +267,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 // When popping back from form page, no params → keep current bloc state
                 // (which already has the correct month/filter from the post-creation reload).
                 final bloc = getIt<TransactionBloc>();
+                final transferBloc = getIt<TransferBloc>();
                 if (yearParam != null || monthParam != null || paymentMethodId != null || bloc.state is TransactionInitial) {
                   final now = DateTime.now();
                   final year = int.tryParse(yearParam ?? '') ?? now.year;
@@ -275,9 +277,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     month: month,
                     paymentMethodId: paymentMethodId,
                   ));
+                  transferBloc.add(LoadTransfers(year: year, month: month));
                 }
-                return BlocProvider<TransactionBloc>.value(
-                  value: getIt<TransactionBloc>(),
+                // Also load transfers if TransferBloc hasn't loaded yet
+                if (transferBloc.state is TransferInitial) {
+                  final now = DateTime.now();
+                  transferBloc.add(LoadTransfers(year: now.year, month: now.month));
+                }
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<TransactionBloc>.value(value: getIt<TransactionBloc>()),
+                    BlocProvider<TransferBloc>.value(value: transferBloc),
+                  ],
                   child: TransactionListPage(
                     initialPaymentMethodId: paymentMethodId,
                     initialPaymentMethodName: paymentMethodName,
