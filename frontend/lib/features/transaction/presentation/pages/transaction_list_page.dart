@@ -14,11 +14,17 @@ import 'package:budget_book/core/utils/web_download_stub.dart'
     if (dart.library.html) 'package:budget_book/core/utils/web_download_web.dart'
     as web_download;
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/transaction/domain/entities/ledger_item.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
+import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -122,6 +128,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           amountMin: _filterAmountMin,
           amountMax: _filterAmountMax,
         ));
+    context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
 
   Future<void> _exportCsv(BuildContext context) async {
@@ -489,6 +496,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     amountMax: _filterAmountMax,
                   ),
                 );
+            context.read<TransferBloc>().add(
+                  LoadTransfers(year: m.year, month: m.month),
+                );
           },
         ),
         // Search bar and filter button
@@ -541,19 +551,64 @@ class _TransactionListPageState extends State<TransactionListPage> {
           totalExpense: state.totalExpense,
           balance: state.balance,
         ),
-        // Transaction list grouped by date
+        // Transaction list grouped by date (merged with transfers)
         Expanded(
-          child: state.transactions.isEmpty
-              ? _buildEmpty(context)
-              : _buildGroupedList(context, state),
+          child: BlocBuilder<TransferBloc, TransferState>(
+            builder: (context, transferState) {
+              final transfers = transferState is TransferLoaded
+                  ? transferState.transfers
+                  : <Transfer>[];
+
+              // Filter transfers by payment method if filter is active
+              final filteredTransfers = _filterPaymentMethodId != null
+                  ? transfers.where((t) =>
+                      t.sourcePaymentMethod.id == _filterPaymentMethodId ||
+                      t.destinationPaymentMethod.id == _filterPaymentMethodId).toList()
+                  : transfers;
+
+              // Filter transfers by keyword if search is active
+              final keyword = _searchController.text.trim().toLowerCase();
+              final searchedTransfers = keyword.isEmpty
+                  ? filteredTransfers
+                  : filteredTransfers.where((t) {
+                      final desc = t.description?.toLowerCase() ?? '';
+                      final src = t.sourcePaymentMethod.name.toLowerCase();
+                      final dst = t.destinationPaymentMethod.name.toLowerCase();
+                      return desc.contains(keyword) ||
+                          src.contains(keyword) ||
+                          dst.contains(keyword);
+                    }).toList();
+
+              if (state.transactions.isEmpty && searchedTransfers.isEmpty) {
+                return _buildEmpty(context);
+              }
+              return _buildGroupedList(context, state, searchedTransfers);
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildGroupedList(BuildContext context, TransactionLoaded state) {
-    final grouped = state.groupedByDate;
-    final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  Widget _buildGroupedList(BuildContext context, TransactionLoaded state, List<Transfer> transfers) {
+    // Merge transactions and transfers into LedgerItems, grouped by date
+    final groupedItems = <String, List<LedgerItem>>{};
+
+    // Add transactions
+    for (final entry in state.groupedByDate.entries) {
+      groupedItems.putIfAbsent(entry.key, () => []);
+      for (final t in entry.value) {
+        groupedItems[entry.key]!.add(LedgerItem.fromTransaction(t));
+      }
+    }
+
+    // Add transfers
+    for (final transfer in transfers) {
+      groupedItems.putIfAbsent(transfer.transferDate, () => []);
+      groupedItems[transfer.transferDate]!.add(LedgerItem.fromTransfer(transfer));
+    }
+
+    final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
     // Scroll to target date after build
     if (state.scrollToDate != null) {
@@ -562,13 +617,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
       });
     }
 
-    // Calculate running totals in display order (newest date first, within date same order as displayed)
-    // Accumulate from the bottom of the list (oldest) upward
+    // Calculate running totals for transactions only (transfers are not income/expense)
     final flatTransactions = <Transaction>[];
     for (final date in sortedDates) {
-      flatTransactions.addAll(grouped[date]!);
+      for (final item in groupedItems[date]!) {
+        if (item.isTransaction) {
+          flatTransactions.add(item.transaction!);
+        }
+      }
     }
-    // Reverse to process oldest first, then assign cumulative in display order
     final runningTotals = <String, int>{};
     int cumulative = 0;
     for (int i = flatTransactions.length - 1; i >= 0; i--) {
@@ -614,55 +671,70 @@ class _TransactionListPageState extends State<TransactionListPage> {
             );
           }
           final date = sortedDates[index];
-          final transactions = grouped[date]!;
+          final items = groupedItems[date]!;
           final dateKey = _dateKeys.putIfAbsent(date, () => GlobalKey());
+
+          // Calculate day income/expense from transactions only
+          final dayTransactions = items.where((i) => i.isTransaction).map((i) => i.transaction!);
+          final dayTransferCount = items.where((i) => i.isTransfer).length;
+
           return Column(
             key: dateKey,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DateHeader(
                 dateStr: date,
-                dayIncome: transactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount),
-                dayExpense: transactions.where((t) => t.isExpense).fold(0, (s, t) => s + t.amount),
+                dayIncome: dayTransactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount),
+                dayExpense: dayTransactions.where((t) => t.isExpense).fold(0, (s, t) => s + t.amount),
+                dayTransferCount: dayTransferCount,
               ),
-              ...transactions.map((t) => TransactionListTile(
-                    transaction: t,
-                    runningTotal: runningTotals[t.id],
-                    onTap: () => context.push('/transactions/detail/${t.id}'),
-                    onDelete: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('거래 삭제'),
-                          content: const Text('정말 삭제하시겠습니까?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(),
-                              child: const Text('취소'),
+              ...items.map((item) {
+                if (item.isTransfer) {
+                  return TransferListTile(
+                    transfer: item.transfer!,
+                    onTap: () => context.push('/transfers/edit/${item.transfer!.id}'),
+                  );
+                }
+                final t = item.transaction!;
+                return TransactionListTile(
+                  transaction: t,
+                  runningTotal: runningTotals[t.id],
+                  onTap: () => context.push('/transactions/detail/${t.id}'),
+                  onDelete: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('거래 삭제'),
+                        content: const Text('정말 삭제하시겠습니까?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('취소'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              context
+                                  .read<TransactionBloc>()
+                                  .add(DeleteTransaction(t.id));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('거래가 삭제되었습니다'),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.error,
                             ),
-                            FilledButton(
-                              onPressed: () {
-                                Navigator.of(ctx).pop();
-                                context
-                                    .read<TransactionBloc>()
-                                    .add(DeleteTransaction(t.id));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('거래가 삭제되었습니다'),
-                                  ),
-                                );
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.error,
-                              ),
-                              child: const Text('삭제'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  )),
+                            child: const Text('삭제'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              }),
             ],
           );
         },
@@ -709,11 +781,13 @@ class _DateHeader extends StatelessWidget {
   final String dateStr;
   final int dayIncome;
   final int dayExpense;
+  final int dayTransferCount;
 
   const _DateHeader({
     required this.dateStr,
     this.dayIncome = 0,
     this.dayExpense = 0,
+    this.dayTransferCount = 0,
   });
 
   @override
@@ -760,6 +834,16 @@ class _DateHeader extends StatelessWidget {
                 '-${CurrencyFormatter.format(dayExpense)}',
                 style: TextStyle(fontSize: 11, color: Colors.red.shade600, fontWeight: FontWeight.w500),
               ),
+            if (dayTransferCount > 0) ...[
+              if (dayIncome > 0 || dayExpense > 0)
+                const SizedBox(width: 6),
+              Icon(Icons.swap_horiz, size: 12, color: Colors.teal.shade600),
+              const SizedBox(width: 1),
+              Text(
+                '$dayTransferCount',
+                style: TextStyle(fontSize: 11, color: Colors.teal.shade600, fontWeight: FontWeight.w500),
+              ),
+            ],
             const SizedBox(width: 8),
             Icon(
               Icons.add_circle_outline,
