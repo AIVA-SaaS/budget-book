@@ -56,6 +56,9 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
             );
           } else {
             // Successfully created and list reloaded
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('저장되었습니다')),
+            );
             context.pop();
           }
         }
@@ -129,7 +132,7 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('등록'),
+                    : const Text('저장'),
               ),
             ],
           ),

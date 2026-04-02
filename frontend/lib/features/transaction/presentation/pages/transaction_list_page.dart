@@ -573,15 +573,31 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           dst.contains(keyword);
                     }).toList();
 
-              final transferTotal = searchedTransfers.fold(0, (sum, t) => sum + t.amount);
+              // Calculate transfer in/out relative to current payment method filter
+              int transferIn = 0;
+              int transferOut = 0;
+              for (final t in searchedTransfers) {
+                if (_filterPaymentMethodId != null) {
+                  // Per-payment-method view: in/out relative to this method
+                  if (t.sourcePaymentMethod.id == _filterPaymentMethodId) {
+                    transferOut += t.amount;
+                  }
+                  if (t.destinationPaymentMethod.id == _filterPaymentMethodId) {
+                    transferIn += t.amount;
+                  }
+                } else {
+                  // Global view: transfers are internal moves
+                  transferOut += t.amount;
+                }
+              }
 
               return Column(
                 children: [
                   MonthSummaryBar(
-                    totalIncome: state.totalIncome,
-                    totalExpense: state.totalExpense,
-                    balance: state.balance,
-                    totalTransfer: transferTotal,
+                    totalIncome: state.totalIncome + transferIn,
+                    totalExpense: state.totalExpense + transferOut,
+                    balance: state.balance + transferIn - transferOut,
+                    totalTransfer: transferIn + transferOut > 0 ? transferIn + transferOut : null,
                   ),
                   if (state.transactions.isEmpty && searchedTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))

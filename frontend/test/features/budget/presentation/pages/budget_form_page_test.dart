@@ -179,7 +179,7 @@ void main() {
     testWidgets('validates empty amount', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       // Tap submit without entering amount
-      await tester.tap(find.text('추가'));
+      await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(find.text('금액을 입력하세요'), findsOneWidget);
     });
@@ -189,7 +189,7 @@ void main() {
       // Find the amount TextFormField (first one after month selector)
       final amountFields = find.byType(TextFormField);
       await tester.enterText(amountFields.first, '0');
-      await tester.tap(find.text('추가'));
+      await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(find.text('0보다 큰 금액을 입력하세요'), findsOneWidget);
     });
@@ -206,7 +206,7 @@ void main() {
 
     testWidgets('shows submit button', (tester) async {
       await tester.pumpWidget(buildTestWidget());
-      expect(find.text('추가'), findsOneWidget);
+      expect(find.text('저장'), findsOneWidget);
     });
 
     testWidgets('shows category picker editable in edit mode', (tester) async {
