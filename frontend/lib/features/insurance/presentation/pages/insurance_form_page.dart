@@ -52,6 +52,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
   DateTime? _endDate;
   String _visibility = 'SHARED';
   bool _isSubmitting = false;
+  bool _isDeleting = false;
   Insurance? _existingInsurance;
 
   bool get isEditing => widget.insuranceId != null;
@@ -240,20 +241,32 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
   Widget build(BuildContext context) {
     return BlocListener<InsuranceBloc, InsuranceState>(
       listener: (context, state) {
-        if (state is InsuranceLoaded && _isSubmitting) {
-          if (state.operationError != null) {
-            setState(() => _isSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.operationError!),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else {
-            context.pop();
-          }
-        } else if (state is InsuranceError && _isSubmitting) {
-          setState(() => _isSubmitting = false);
+        if (state is InsuranceLoaded && state.operationError != null) {
+          setState(() {
+            _isSubmitting = false;
+            _isDeleting = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.operationError!),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        } else if (state is InsuranceLoaded && _isDeleting) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('삭제되었습니다')),
+          );
+          context.pop();
+        } else if (state is InsuranceLoaded && _isSubmitting) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(isEditing ? '수정되었습니다' : '저장되었습니다')),
+          );
+          context.pop();
+        } else if (state is InsuranceError && (_isSubmitting || _isDeleting)) {
+          setState(() {
+            _isSubmitting = false;
+            _isDeleting = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
@@ -265,6 +278,14 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(isEditing ? '보험 수정' : '보험 추가'),
+          actions: [
+            if (isEditing)
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                tooltip: '삭제',
+                onPressed: () => _confirmDelete(context),
+              ),
+          ],
         ),
         body: _buildForm(context),
       ),
@@ -287,7 +308,58 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Insurance name (required)
+          // 1. Start date
+          InkWell(
+            onTap: () => _selectDate(isStart: true),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: '시작일',
+                prefixIcon: const Icon(Icons.play_arrow),
+                suffixIcon: _startDate != null
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _startDate = null),
+                      )
+                    : null,
+              ),
+              child: Text(
+                _startDate != null
+                    ? DateFormat('yyyy년 M월 d일', 'ko').format(_startDate!)
+                    : '선택 안 함',
+                style: _startDate == null
+                    ? TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5))
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 2. Premium amount (required)
+          TextFormField(
+            controller: _premiumController,
+            decoration: const InputDecoration(
+              labelText: '보험료 *',
+              prefixIcon: Icon(Icons.attach_money),
+              suffixText: '원',
+            ),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              CurrencyInputFormatter(),
+            ],
+            validator: (value) {
+              if (value == null || value.isEmpty) return '보험료를 입력하세요';
+              final amount = CurrencyFormatter.parse(value);
+              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          // 3. Insurance name (required)
           TextFormField(
             controller: _nameController,
             decoration: const InputDecoration(
@@ -302,7 +374,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             },
           ),
           const SizedBox(height: 12),
-          // Insurer
+          // 4. Insurer
           TextFormField(
             controller: _insurerController,
             decoration: const InputDecoration(
@@ -313,7 +385,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             maxLength: 100,
           ),
           const SizedBox(height: 12),
-          // Insurance type dropdown
+          // 5. Insurance type dropdown
           DropdownButtonFormField<String>(
             initialValue: _insuranceType,
             decoration: const InputDecoration(
@@ -342,29 +414,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             },
           ),
           const SizedBox(height: 16),
-          // Premium amount (required)
-          TextFormField(
-            controller: _premiumController,
-            decoration: const InputDecoration(
-              labelText: '보험료 *',
-              prefixIcon: Icon(Icons.attach_money),
-              suffixText: '원',
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              CurrencyInputFormatter(),
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) return '보험료를 입력하세요';
-              final amount = CurrencyFormatter.parse(value);
-              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
-              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          // Payment day
+          // 6. Payment day
           TextFormField(
             controller: _paymentDayController,
             decoration: const InputDecoration(
@@ -406,7 +456,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             },
           ),
           const SizedBox(height: 16),
-          // Payment method selector
+          // 7. Payment method selector
           ItemSelectorField(
             label: '결제수단',
             selectedLabel: _paymentMethodId != null
@@ -417,7 +467,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             onTap: () => _showPaymentMethodSelectorSheet(context, methods),
           ),
           const SizedBox(height: 16),
-          // Category selector
+          // 8. Category selector
           ItemSelectorField(
             label: '카테고리',
             selectedLabel: _categoryDisplayName ?? (_categoryId != null
@@ -428,36 +478,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             onTap: () => _showCategorySelectorSheet(context),
           ),
           const SizedBox(height: 16),
-          // Start date
-          InkWell(
-            onTap: () => _selectDate(isStart: true),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: '시작일',
-                prefixIcon: const Icon(Icons.play_arrow),
-                suffixIcon: _startDate != null
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () => setState(() => _startDate = null),
-                      )
-                    : null,
-              ),
-              child: Text(
-                _startDate != null
-                    ? DateFormat('yyyy년 M월 d일', 'ko').format(_startDate!)
-                    : '선택 안 함',
-                style: _startDate == null
-                    ? TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5))
-                    : null,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // End date
+          // 9. End date
           InkWell(
             onTap: () => _selectDate(isStart: false),
             child: InputDecorator(
@@ -486,7 +507,17 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             ),
           ),
           const SizedBox(height: 16),
-          // Visibility
+          // 10. Memo
+          TextFormField(
+            controller: _memoController,
+            decoration: const InputDecoration(
+              labelText: '메모',
+              prefixIcon: Icon(Icons.notes),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          // 11. Visibility
           DropdownButtonFormField<String>(
             initialValue: _visibility,
             decoration: const InputDecoration(
@@ -502,16 +533,6 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               if (value != null) setState(() => _visibility = value);
             },
           ),
-          const SizedBox(height: 16),
-          // Memo
-          TextFormField(
-            controller: _memoController,
-            decoration: const InputDecoration(
-              labelText: '메모',
-              prefixIcon: Icon(Icons.notes),
-            ),
-            maxLines: 2,
-          ),
           const SizedBox(height: 24),
           // Submit button
           FilledButton(
@@ -522,7 +543,32 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(isEditing ? '수정' : '저장'),
+                : const Text('저장'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제'),
+        content: Text("'${_nameController.text}'을(를) 삭제하시겠습니까?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _isDeleting = true);
+              this.context.read<InsuranceBloc>().add(DeleteInsurance(widget.insuranceId!));
+            },
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('삭제'),
           ),
         ],
       ),

@@ -40,7 +40,7 @@ class MonthSummaryBar extends StatelessWidget {
               color: Colors.red,
             ),
           ),
-          if (totalTransfer != null && totalTransfer! > 0)
+          if (totalTransfer != null)
             Expanded(
               child: _buildItem(
                 context,
