@@ -59,6 +59,7 @@ class _CompletePlanDialog extends StatefulWidget {
 }
 
 class _CompletePlanDialogState extends State<_CompletePlanDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late final TextEditingController _descriptionController;
   late DateTime _transactionDate;
@@ -125,20 +126,10 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   }
 
   void _submit() {
-    final amount = CurrencyFormatter.parse(_amountController.text);
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('금액을 입력해주세요')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final amount = CurrencyFormatter.parse(_amountController.text)!;
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('거래 내용을 입력해주세요')),
-      );
-      return;
-    }
 
     Navigator.of(context).pop(CompletePlanResult(
       actualAmount: amount,
@@ -266,7 +257,9 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
 
     return AlertDialog(
       title: const Text('계획 완료'),
-      content: SingleChildScrollView(
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,6 +291,12 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 FilteringTextInputFormatter.digitsOnly,
                 CurrencyInputFormatter(),
               ],
+              validator: (value) {
+                if (value == null || value.isEmpty) return '금액을 입력해주세요';
+                final amount = CurrencyFormatter.parse(value);
+                if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
 
@@ -310,6 +309,12 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 isDense: true,
               ),
               maxLength: 255,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '거래 내용을 입력해주세요';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
 
@@ -350,6 +355,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
             ),
           ],
         ),
+      ),
       ),
       actions: [
         TextButton(

@@ -234,7 +234,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(isEditing ? '수정' : '추가'),
+                    : const Text('저장'),
               ),
             ],
           ),
@@ -288,6 +288,9 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
         _selectedIcon,
         _selectedColor,
         _selectedGroupId,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEditing ? '수정되었습니다' : '저장되었습니다')),
       );
       Navigator.of(context).pop();
     }
