@@ -104,6 +104,8 @@ class StatisticsPage extends StatelessWidget {
                         stats: state.paymentMethodStats,
                         isLoading: state.paymentMethodLoading,
                         error: state.paymentMethodError,
+                        year: state.year,
+                        month: state.month,
                       ),
                     ],
                   ),

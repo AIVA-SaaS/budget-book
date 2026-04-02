@@ -62,7 +62,6 @@ class _DashboardPageState extends State<DashboardPage> {
           error: state.transactionsError,
         );
       case 'payment_breakdown':
-        if (state.paymentMethodStats.isEmpty) return null;
         return _PaymentMethodStatsCard(stats: state.paymentMethodStats);
       case 'asset_balance':
         return const AccountBalanceCard();
@@ -692,6 +691,34 @@ class _PaymentMethodStatsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            if (stats.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.credit_card_off,
+                        size: 32,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '이번 달 거래 내역이 없습니다',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ...stats.asMap().entries.map((entry) {
               final index = entry.key;
               final stat = entry.value;

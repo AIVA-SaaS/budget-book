@@ -8,6 +8,8 @@ void main() {
     List<PaymentMethodStatistics> stats = const [],
     bool isLoading = false,
     String? error,
+    int year = 2026,
+    int month = 3,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -15,6 +17,8 @@ void main() {
           stats: stats,
           isLoading: isLoading,
           error: error,
+          year: year,
+          month: month,
         ),
       ),
     );

@@ -253,12 +253,14 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               path: '/transactions',
               builder: (context, state) {
                 final now = DateTime.now();
+                final year = int.tryParse(state.uri.queryParameters['year'] ?? '') ?? now.year;
+                final month = int.tryParse(state.uri.queryParameters['month'] ?? '') ?? now.month;
                 final paymentMethodId = state.uri.queryParameters['paymentMethodId'];
                 final paymentMethodName = state.uri.queryParameters['paymentMethodName'];
                 getIt<TransactionBloc>()
                     .add(LoadTransactions(
-                      year: now.year,
-                      month: now.month,
+                      year: year,
+                      month: month,
                       paymentMethodId: paymentMethodId,
                     ));
                 return BlocProvider<TransactionBloc>.value(

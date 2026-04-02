@@ -8,11 +8,15 @@ class PaymentMethodStatsTab extends StatelessWidget {
   final List<PaymentMethodStatistics> stats;
   final bool isLoading;
   final String? error;
+  final int year;
+  final int month;
 
   const PaymentMethodStatsTab({
     super.key,
     required this.stats,
     required this.isLoading,
+    required this.year,
+    required this.month,
     this.error,
   });
 
@@ -122,7 +126,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () {
-                context.push('/transactions?paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
+                context.push('/transactions?year=$year&month=$month&paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
               },
               child: Padding(
                 padding: const EdgeInsets.all(12),
