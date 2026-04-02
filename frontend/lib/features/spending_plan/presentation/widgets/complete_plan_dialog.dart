@@ -126,9 +126,19 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
 
   void _submit() {
     final amount = CurrencyFormatter.parse(_amountController.text);
-    if (amount == null || amount <= 0) return;
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('금액을 입력해주세요')),
+      );
+      return;
+    }
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) return;
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('거래 내용을 입력해주세요')),
+      );
+      return;
+    }
 
     Navigator.of(context).pop(CompletePlanResult(
       actualAmount: amount,

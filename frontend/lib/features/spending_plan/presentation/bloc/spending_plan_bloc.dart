@@ -34,7 +34,6 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
       _lastStartDate = event.startDate;
       _lastEndDate = event.endDate;
       _lastStatus = event.status;
-      emit(const SpendingPlanLoading());
 
       final result = await spendingPlanRepository.getSpendingPlans(
         startDate: event.startDate,
