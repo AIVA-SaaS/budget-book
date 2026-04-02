@@ -297,7 +297,7 @@ void main() {
 
     group('LoadSpendingPlans', () {
       blocTest<SpendingPlanBloc, SpendingPlanState>(
-        'emits [Loading, Loaded] on success',
+        'emits [Loaded] on success (no loading state to preserve previous data)',
         build: () {
           when(mockRepository.getSpendingPlans(
             startDate: '2026-03-01',
@@ -312,14 +312,13 @@ void main() {
           endDate: '2026-03-31',
         )),
         expect: () => [
-          const SpendingPlanLoading(),
           const SpendingPlanLoaded(
               plans: tPlans, summary: tSummary, wishlist: []),
         ],
       );
 
       blocTest<SpendingPlanBloc, SpendingPlanState>(
-        'emits [Loading, Loaded] with status filter',
+        'emits [Loaded] with status filter',
         build: () {
           when(mockRepository.getSpendingPlans(
             startDate: '2026-03-01',
@@ -339,14 +338,13 @@ void main() {
           status: 'PLANNED',
         )),
         expect: () => [
-          const SpendingPlanLoading(),
           const SpendingPlanLoaded(
               plans: [tPlan1], summary: tSummary, wishlist: []),
         ],
       );
 
       blocTest<SpendingPlanBloc, SpendingPlanState>(
-        'emits [Loading, Error] on failure',
+        'emits [Error] on failure',
         build: () {
           when(mockRepository.getSpendingPlans())
               .thenAnswer((_) async =>
@@ -357,7 +355,6 @@ void main() {
         },
         act: (bloc) => bloc.add(const LoadSpendingPlans()),
         expect: () => [
-          const SpendingPlanLoading(),
           const SpendingPlanError('지출 계획을 불러오지 못했습니다'),
         ],
       );
@@ -428,7 +425,6 @@ void main() {
           targetDate: '2026-04-01',
         )),
         expect: () => [
-          const SpendingPlanLoading(),
           const SpendingPlanLoaded(
               plans: tPlans, summary: tSummary, wishlist: []),
         ],

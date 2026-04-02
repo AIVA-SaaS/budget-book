@@ -446,6 +446,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         if (state is TransactionLoaded) {
           final now = DateTime.now();
           getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+          getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           if (_continueMode) {
             _resetFormForContinue();
           } else if (isEditing) {
@@ -498,8 +499,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                           return '금액을 입력하세요';
                         }
                         final amount = CurrencyFormatter.parse(value);
-                        if (amount == null || amount <= 0) {
-                          return '0보다 큰 금액을 입력하세요';
+                        if (amount == null || amount < 0) {
+                          return '금액을 입력하세요';
                         }
                         return null;
                       },
@@ -710,7 +711,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     }
 
     final amount = CurrencyFormatter.parse(_transferAmountController.text);
-    if (amount == null || amount <= 0) return;
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('금액을 입력해주세요')),
+      );
+      return;
+    }
 
     final description = _transferDescriptionController.text.trim().isEmpty
         ? null
@@ -749,6 +755,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             final now = DateTime.now();
             getIt<DashboardBloc>()
                 .add(LoadDashboard(year: now.year, month: now.month));
+            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
             context.pop();
           }
         } else if (state is TransferError && _isTransferSubmitting) {

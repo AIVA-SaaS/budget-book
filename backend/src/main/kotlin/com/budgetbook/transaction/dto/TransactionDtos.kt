@@ -51,7 +51,7 @@ data class CreateTransactionRequest(
     val type: String,
 
     @field:NotNull
-    @field:Min(1)
+    @field:Min(0)
     @field:Max(999_999_999)
     val amount: Long,
 
@@ -75,7 +75,7 @@ data class CreateTransactionRequest(
 )
 
 data class UpdateTransactionRequest(
-    @field:Min(1)
+    @field:Min(0)
     @field:Max(999_999_999)
     val amount: Long? = null,
 
