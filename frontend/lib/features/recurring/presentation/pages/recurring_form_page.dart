@@ -93,9 +93,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
       ),
       body: BlocConsumer<RecurringBloc, RecurringState>(
         listener: (context, state) {
-          if (state is RecurringLoaded && state.operationError == null && _isSubmitting) {
-            context.pop();
-          } else if (state is RecurringLoaded &&
+          if (state is RecurringLoaded &&
               state.operationError != null) {
             setState(() => _isSubmitting = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -104,6 +102,11 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
+          } else if (state is RecurringLoaded && _isSubmitting) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(isEdit ? '수정되었습니다' : '저장되었습니다')),
+            );
+            context.pop();
           }
         },
         builder: (context, state) {
@@ -334,7 +337,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(isEdit ? '수정' : '추가'),
+                : const Text('저장'),
           ),
         ],
       ),

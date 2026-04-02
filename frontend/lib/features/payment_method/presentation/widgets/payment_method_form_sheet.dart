@@ -68,6 +68,9 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
       listener: (context, state) {
         if (!_isSubmitting) return;
         if (state is PaymentMethodLoaded && state.operationError == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(isEditing ? '수정되었습니다' : '저장되었습니다')),
+          );
           Navigator.of(context).pop();
         } else if (state is PaymentMethodLoaded &&
             state.operationError != null) {
@@ -274,7 +277,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(isEditing ? '수정' : '추가'),
+                    : const Text('저장'),
               ),
             ],
           ),

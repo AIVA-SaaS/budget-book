@@ -308,6 +308,9 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               ),
             );
           } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(isEditing ? '수정되었습니다' : '저장되었습니다')),
+            );
             context.pop();
           }
         } else if (state is SpendingPlanError && _isSubmitting) {
@@ -708,7 +711,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(isEditing ? '수정' : '저장'),
+                : const Text('저장'),
           ),
           // Status action buttons (edit mode only)
           if (isEditing && _existingPlan != null) ...[
@@ -744,6 +747,9 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             onPressed: () {
               Navigator.pop(ctx);
               getIt<SpendingPlanBloc>().add(DeleteSpendingPlan(widget.planId!));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('삭제되었습니다')),
+              );
               context.pop();
             },
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),

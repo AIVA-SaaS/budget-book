@@ -60,6 +60,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   late PeriodSelection _periodSelection;
   bool _initialized = false;
   bool _isSubmitting = false;
+  bool _isDeleting = false;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -137,22 +138,43 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? '예산 수정' : '예산 추가'),
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              tooltip: '삭제',
+              onPressed: () => _confirmDelete(context),
+            ),
+        ],
       ),
       body: BlocConsumer<BudgetBloc, BudgetState>(
         listener: (context, state) {
           if (state is BudgetLoaded && state.operationError != null) {
-            setState(() => _isSubmitting = false);
+            setState(() {
+              _isSubmitting = false;
+              _isDeleting = false;
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.operationError!),
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
+          } else if (state is BudgetLoaded && _isDeleting) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('삭제되었습니다')),
+            );
+            context.pop();
           } else if (state is BudgetLoaded && _isSubmitting) {
-            // After successful create or update, pop back to budget list
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(isEditing ? '수정되었습니다' : '저장되었습니다')),
+            );
             context.pop();
           } else if (state is BudgetError) {
-            setState(() => _isSubmitting = false);
+            setState(() {
+              _isSubmitting = false;
+              _isDeleting = false;
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -312,7 +334,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(isEditing ? '수정' : '추가'),
+                  : const Text('저장'),
             ),
           ],
         ),
@@ -546,6 +568,31 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         onSelected: (item) {
           setState(() => _selectedPocketId = item?.id);
         },
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제'),
+        content: const Text('이 예산을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _isDeleting = true);
+              this.context.read<BudgetBloc>().add(DeleteBudget(widget.budgetId!));
+            },
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
       ),
     );
   }
