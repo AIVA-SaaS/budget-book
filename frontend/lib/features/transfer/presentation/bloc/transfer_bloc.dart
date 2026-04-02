@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/transfer/domain/repositories/transfer_repository.dart';
 import 'transfer_event.dart';
@@ -47,6 +48,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     CreateTransfer event,
     Emitter<TransferState> emit,
   ) async {
+    debugPrint('[TransferBloc] createTransfer: source=${event.sourcePaymentMethodId}, dest=${event.destinationPaymentMethodId}, amount=${event.amount}, date=${event.transferDate}');
     try {
       final result = await transferRepository.createTransfer(
         sourcePaymentMethodId: event.sourcePaymentMethodId,
@@ -58,6 +60,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       );
       result.fold(
         (failure) {
+          debugPrint('[TransferBloc] createTransfer FAILED: ${failure.message}');
           final currentState = state;
           if (currentState is TransferLoaded) {
             emit(TransferLoaded(
@@ -70,9 +73,13 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
             emit(TransferError(failure.message));
           }
         },
-        (_) => add(LoadTransfers(year: _currentYear, month: _currentMonth)),
+        (_) {
+          debugPrint('[TransferBloc] createTransfer SUCCESS, reloading year=$_currentYear month=$_currentMonth');
+          add(LoadTransfers(year: _currentYear, month: _currentMonth));
+        },
       );
     } catch (e) {
+      debugPrint('[TransferBloc] createTransfer EXCEPTION: $e');
       emit(const TransferError('예기치 않은 오류가 발생했습니다'));
     }
   }
