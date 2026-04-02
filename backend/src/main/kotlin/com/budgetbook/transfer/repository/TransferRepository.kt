@@ -30,4 +30,30 @@ interface TransferRepository : JpaRepository<Transfer, UUID> {
         GROUP BY tr.sourcePaymentMethod.id
     """)
     fun sumAmountBySourceForCouple(@Param("coupleId") coupleId: UUID): List<Array<Any>>
+
+    @Query("""
+        SELECT tr.sourcePaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr
+        WHERE tr.couple.id = :coupleId
+        AND tr.transferDate BETWEEN :startDate AND :endDate
+        GROUP BY tr.sourcePaymentMethod.id
+    """)
+    fun sumAmountBySourceForCoupleAndPeriod(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
+
+    @Query("""
+        SELECT tr.destinationPaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr
+        WHERE tr.couple.id = :coupleId
+        AND tr.transferDate BETWEEN :startDate AND :endDate
+        GROUP BY tr.destinationPaymentMethod.id
+    """)
+    fun sumAmountByDestinationForCoupleAndPeriod(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
 }

@@ -11,6 +11,7 @@ import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -29,7 +30,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
     val transactionRepository = mockk<TransactionRepository>()
     val coupleResolver = mockk<CoupleResolver>()
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
-    val service = PaymentMethodStatisticsService(transactionRepository, coupleResolver, paymentMethodRepository)
+    val transferRepository = mockk<TransferRepository>()
+    val service = PaymentMethodStatisticsService(transactionRepository, coupleResolver, paymentMethodRepository, transferRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -46,8 +48,15 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         every { paymentMethodRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns pms
     }
 
+    // Helper: mock empty transfers by default
+    fun mockEmptyTransfers() {
+        every { transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, any(), any()) } returns emptyList()
+        every { transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, any(), any()) } returns emptyList()
+    }
+
     Given("a user in an active couple with payment method spending") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
@@ -90,6 +99,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user filtering by SHARED visibility") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
@@ -126,6 +136,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user filtering by PRIVATE visibility") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
@@ -161,6 +172,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user with no expense transactions") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
@@ -185,6 +197,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a single payment method used for all expenses") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "KB Card")
 
         every {
@@ -228,6 +241,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val pmId3 = UUID.randomUUID()
+        mockEmptyTransfers()
         mockActivePaymentMethods(pmId1 to "Card A", pmId2 to "Card B", pmId3 to "Cash")
 
         every {
