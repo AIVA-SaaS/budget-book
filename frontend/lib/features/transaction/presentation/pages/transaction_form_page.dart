@@ -372,101 +372,139 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? '거래 수정' : '거래 추가'),
-        actions: [
-          if (isEditing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _isSubmitting ? null : () => _confirmDelete(context),
-            ),
-        ],
-        bottom: isEditing
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(48),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _selectedType == 'INCOME'
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward,
-                          color: _selectedType == 'INCOME'
-                              ? Colors.green
-                              : Colors.red,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_selectedType == 'INCOME' ? '수입' : '지출'} (유형 수정 불가)',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.7),
-                              ),
-                        ),
-                      ],
+    // BlocListeners are placed outside the TabBarView/Scaffold body
+    // to prevent them from being rebuilt (and missing state changes)
+    // when setState is called (e.g., _isTransferSubmitting toggling).
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TransactionBloc, TransactionState>(
+          listener: (context, state) {
+            if (state is TransactionLoaded) {
+              final now = DateTime.now();
+              getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+              getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+              if (_continueMode) {
+                _resetFormForContinue();
+              } else if (isEditing) {
+                // After editing, go directly to transactions list
+                // to avoid stale edit page in browser history
+                context.go('/transactions');
+              } else {
+                context.pop();
+              }
+            } else if (state is TransactionError) {
+              setState(() => _isSubmitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            }
+          },
+        ),
+        BlocListener<TransferBloc, TransferState>(
+          listener: (context, state) {
+            if (state is TransferLoaded && _isTransferSubmitting) {
+              if (state.operationError != null) {
+                setState(() => _isTransferSubmitting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.operationError!),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                );
+              } else {
+                final now = DateTime.now();
+                getIt<DashboardBloc>()
+                    .add(LoadDashboard(year: now.year, month: now.month));
+                getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                context.pop();
+              }
+            } else if (state is TransferError && _isTransferSubmitting) {
+              setState(() => _isTransferSubmitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            }
+          },
+        ),
+      ],
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(isEditing ? '거래 수정' : '거래 추가'),
+          actions: [
+            if (isEditing)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _isSubmitting ? null : () => _confirmDelete(context),
+              ),
+          ],
+          bottom: isEditing
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(48),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _selectedType == 'INCOME'
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward,
+                            color: _selectedType == 'INCOME'
+                                ? Colors.green
+                                : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_selectedType == 'INCOME' ? '수입' : '지출'} (유형 수정 불가)',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.7),
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                )
+              : TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
+                    Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
+                    Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
+                  ],
                 ),
-              )
-            : TabBar(
+        ),
+        body: isEditing
+            ? _buildTransactionFormBody(context)
+            : TabBarView(
                 controller: _tabController,
-                tabs: const [
-                  Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
-                  Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
-                  Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
+                children: [
+                  // Tab 0: Expense form
+                  _buildTransactionFormBody(context),
+                  // Tab 1: Income form
+                  _buildTransactionFormBody(context),
+                  // Tab 2: Transfer form (embedded)
+                  _buildTransferFormBody(context),
                 ],
               ),
       ),
-      body: isEditing
-          ? _buildTransactionFormBody(context)
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // Tab 0: Expense form
-                _buildTransactionFormBody(context),
-                // Tab 1: Income form
-                _buildTransactionFormBody(context),
-                // Tab 2: Transfer form (embedded)
-                _buildTransferFormBody(context),
-              ],
-            ),
     );
   }
 
   Widget _buildTransactionFormBody(BuildContext context) {
-    return BlocListener<TransactionBloc, TransactionState>(
-      listener: (context, state) {
-        if (state is TransactionLoaded) {
-          final now = DateTime.now();
-          getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
-          getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-          if (_continueMode) {
-            _resetFormForContinue();
-          } else if (isEditing) {
-            // After editing, go directly to transactions list
-            // to avoid stale edit page in browser history
-            context.go('/transactions');
-          } else {
-            context.pop();
-          }
-        } else if (state is TransactionError) {
-          setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      },
-      child: SingleChildScrollView(
+    // BlocListener is now in the top-level MultiBlocListener in build()
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
@@ -659,7 +697,6 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
             ),
           ),
-        ),
     );
   }
 
@@ -740,36 +777,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   Widget _buildTransferFormBody(BuildContext context) {
-    return BlocListener<TransferBloc, TransferState>(
-      listener: (context, state) {
-        if (state is TransferLoaded && _isTransferSubmitting) {
-          if (state.operationError != null) {
-            setState(() => _isTransferSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.operationError!),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else {
-            final now = DateTime.now();
-            getIt<DashboardBloc>()
-                .add(LoadDashboard(year: now.year, month: now.month));
-            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-            context.pop();
-          }
-        } else if (state is TransferError && _isTransferSubmitting) {
-          setState(() => _isTransferSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      },
-      child: _buildTransferFormContent(context),
-    );
+    // BlocListener is now in the top-level MultiBlocListener in build()
+    return _buildTransferFormContent(context);
   }
 
   Widget _buildTransferFormContent(BuildContext context) {
