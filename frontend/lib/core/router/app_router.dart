@@ -17,6 +17,7 @@ import 'package:budget_book/features/category/presentation/bloc/category_event.d
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_list_page.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_form_page.dart';
 import 'package:budget_book/features/transaction/presentation/pages/transaction_import_page.dart';
@@ -252,17 +253,25 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             GoRoute(
               path: '/transactions',
               builder: (context, state) {
-                final now = DateTime.now();
-                final year = int.tryParse(state.uri.queryParameters['year'] ?? '') ?? now.year;
-                final month = int.tryParse(state.uri.queryParameters['month'] ?? '') ?? now.month;
+                final yearParam = state.uri.queryParameters['year'];
+                final monthParam = state.uri.queryParameters['month'];
                 final paymentMethodId = state.uri.queryParameters['paymentMethodId'];
                 final paymentMethodName = state.uri.queryParameters['paymentMethodName'];
-                getIt<TransactionBloc>()
-                    .add(LoadTransactions(
-                      year: year,
-                      month: month,
-                      paymentMethodId: paymentMethodId,
-                    ));
+
+                // Only reload if explicit query params are provided or bloc hasn't loaded yet.
+                // When popping back from form page, no params → keep current bloc state
+                // (which already has the correct month/filter from the post-creation reload).
+                final bloc = getIt<TransactionBloc>();
+                if (yearParam != null || monthParam != null || paymentMethodId != null || bloc.state is TransactionInitial) {
+                  final now = DateTime.now();
+                  final year = int.tryParse(yearParam ?? '') ?? now.year;
+                  final month = int.tryParse(monthParam ?? '') ?? now.month;
+                  bloc.add(LoadTransactions(
+                    year: year,
+                    month: month,
+                    paymentMethodId: paymentMethodId,
+                  ));
+                }
                 return BlocProvider<TransactionBloc>.value(
                   value: getIt<TransactionBloc>(),
                   child: TransactionListPage(
