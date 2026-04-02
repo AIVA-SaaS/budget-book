@@ -34,6 +34,7 @@ import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -405,7 +406,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         ),
         BlocListener<TransferBloc, TransferState>(
           listener: (context, state) {
-            if (state is TransferLoaded && _isTransferSubmitting) {
+            debugPrint('[TransferForm] BlocListener state=$state, submitting=$_isTransferSubmitting');
+            if (!_isTransferSubmitting) return;
+            if (state is TransferLoaded) {
               if (state.operationError != null) {
                 setState(() => _isTransferSubmitting = false);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -415,13 +418,18 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   ),
                 );
               } else {
-                final now = DateTime.now();
-                getIt<DashboardBloc>()
-                    .add(LoadDashboard(year: now.year, month: now.month));
+                setState(() => _isTransferSubmitting = false);
+                final dashState = getIt<DashboardBloc>().state;
+                final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
+                final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
+                getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
                 getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('이체가 등록되었습니다')),
+                );
                 context.pop();
               }
-            } else if (state is TransferError && _isTransferSubmitting) {
+            } else if (state is TransferError) {
               setState(() => _isTransferSubmitting = false);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -765,6 +773,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
     setState(() => _isTransferSubmitting = true);
 
+    debugPrint('[TransferForm] _submitTransfer: amount=$amount, source=$_transferSourcePaymentMethodId, dest=$_transferDestinationPaymentMethodId, date=$dateStr');
     final bloc = context.read<TransferBloc>();
     bloc.add(CreateTransfer(
       sourcePaymentMethodId: _transferSourcePaymentMethodId!,
