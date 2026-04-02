@@ -21,6 +21,7 @@ import com.budgetbook.report.dto.WeeklyReportResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,6 +35,7 @@ import java.util.UUID
 @Service
 class ReportService(
     private val transactionRepository: TransactionRepository,
+    private val transferRepository: TransferRepository,
     override val coupleResolver: CoupleResolver,
     private val categoryGroupRepository: CategoryGroupRepository,
     private val categoryRepository: CategoryRepository,
@@ -61,7 +63,12 @@ class ReportService(
             pageable = PageRequest.of(0, MAX_TRANSACTIONS_PER_QUERY)
         ).content
 
-        val totalSpent = weekTransactions.sumOf { it.amount }
+        var totalSpent = weekTransactions.sumOf { it.amount }
+
+        // Include transfer OUT amounts as spending
+        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, weekStart, weekEnd)
+        val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
+        totalSpent += transferOutTotal
 
         // Calculate total budget from WEEKLY groups' monthly budgets (divided by weeks in month)
         val weeksInMonth = getWeeksInMonth(yearMonth)
@@ -132,6 +139,16 @@ class ReportService(
                 TransactionType.EXPENSE -> totalExpense = sum
             }
         }
+
+        // Include transfer amounts: OUT = expense, IN = income
+        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
+        val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferInTotal = transferInResults.sumOf { it[1] as Long }
+
+        totalExpense += transferOutTotal
+        totalIncome += transferInTotal
+
         val balance = totalIncome - totalExpense
 
         // Fetch category expenses ONCE and share between group summaries and top categories

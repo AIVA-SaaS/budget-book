@@ -7,6 +7,8 @@ class PaymentMethodStatistics extends Equatable {
   final int totalAmount;
   final int transactionCount;
   final double percentage;
+  final int? transferOut;
+  final int? transferIn;
 
   const PaymentMethodStatistics({
     required this.paymentMethodId,
@@ -15,6 +17,8 @@ class PaymentMethodStatistics extends Equatable {
     required this.totalAmount,
     required this.transactionCount,
     required this.percentage,
+    this.transferOut,
+    this.transferIn,
   });
 
   @override
@@ -25,5 +29,7 @@ class PaymentMethodStatistics extends Equatable {
         totalAmount,
         transactionCount,
         percentage,
+        transferOut,
+        transferIn,
       ];
 }

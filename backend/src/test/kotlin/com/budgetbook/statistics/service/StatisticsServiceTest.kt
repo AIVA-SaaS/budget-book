@@ -9,6 +9,7 @@ import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -26,12 +27,17 @@ class StatisticsServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
+    val transferRepository = mockk<TransferRepository>()
     val coupleResolver = mockk<CoupleResolver>()
-    val service = StatisticsService(transactionRepository, coupleResolver)
+    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
+
+    // Default: no transfers (individual tests can override)
+    every { transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
 
     // --- getMonthlySummary ---
 
