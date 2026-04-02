@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -236,11 +237,14 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             GoRoute(
               path: '/home',
               builder: (context, state) {
-                final now = DateTime.now();
-                getIt<DashboardBloc>()
-                    .add(LoadDashboard(year: now.year, month: now.month));
+                // Only load on first visit; preserve month when returning from sub-pages
+                final bloc = getIt<DashboardBloc>();
+                if (bloc.state is DashboardInitial) {
+                  final now = DateTime.now();
+                  bloc.add(LoadDashboard(year: now.year, month: now.month));
+                }
                 return BlocProvider<DashboardBloc>.value(
-                  value: getIt<DashboardBloc>(),
+                  value: bloc,
                   child: const DashboardPage(),
                 );
               },
