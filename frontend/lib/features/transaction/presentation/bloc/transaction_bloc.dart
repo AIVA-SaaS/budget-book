@@ -175,6 +175,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         hasMore: currentState.hasMore,
         currentPage: currentState.currentPage,
         isLoadingMore: true,
+        serverTotalIncome: currentState.serverTotalIncome,
+        serverTotalExpense: currentState.serverTotalExpense,
       ));
 
       final result = await transactionRepository.getTransactions(
@@ -201,6 +203,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: currentState.currentPage,
             isLoadingMore: false,
             operationError: failure.message,
+            serverTotalIncome: currentState.serverTotalIncome,
+            serverTotalExpense: currentState.serverTotalExpense,
           ));
         },
         (page) {
@@ -215,6 +219,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             totalElements: page.totalElements,
             hasMore: !page.last,
             currentPage: nextPage,
+            serverTotalIncome: currentState.serverTotalIncome,
+            serverTotalExpense: currentState.serverTotalExpense,
           ));
         },
       );
@@ -228,6 +234,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         currentPage: currentState.currentPage,
         isLoadingMore: false,
         operationError: '예기치 않은 오류가 발생했습니다',
+        serverTotalIncome: currentState.serverTotalIncome,
+        serverTotalExpense: currentState.serverTotalExpense,
       ));
     }
   }

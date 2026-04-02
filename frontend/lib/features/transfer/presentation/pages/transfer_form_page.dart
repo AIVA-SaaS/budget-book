@@ -6,8 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
@@ -128,7 +131,12 @@ class _TransferFormPageState extends State<TransferFormPage> {
     }
 
     final amount = CurrencyFormatter.parse(_amountController.text);
-    if (amount == null || amount <= 0) return;
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('금액을 입력해주세요')),
+      );
+      return;
+    }
 
     final description = _descriptionController.text.trim().isEmpty
         ? null
@@ -186,6 +194,9 @@ class _TransferFormPageState extends State<TransferFormPage> {
               ),
             );
           } else {
+            final now = DateTime.now();
+            getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
             context.pop();
           }
         } else if (state is TransferError && _isSubmitting) {
