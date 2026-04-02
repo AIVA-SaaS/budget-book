@@ -17,6 +17,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -36,6 +37,7 @@ class ReportServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val transactionRepository = mockk<TransactionRepository>()
+    val transferRepository = mockk<TransferRepository>()
     val coupleResolver = mockk<CoupleResolver>()
     val categoryGroupRepository = mockk<CategoryGroupRepository>()
     val categoryRepository = mockk<CategoryRepository>()
@@ -43,6 +45,7 @@ class ReportServiceTest : BehaviorSpec({
 
     val service = ReportService(
         transactionRepository,
+        transferRepository,
         coupleResolver,
         categoryGroupRepository,
         categoryRepository,
@@ -52,6 +55,10 @@ class ReportServiceTest : BehaviorSpec({
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
+
+    // Default: no transfers (individual tests can override)
+    every { transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
 
     val foodGroup = CategoryGroup(couple = couple, name = "Food", budgetType = BudgetType.WEEKLY)
     val monthlyGroup = CategoryGroup(couple = couple, name = "Fixed", budgetType = BudgetType.MONTHLY)
