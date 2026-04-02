@@ -8,6 +8,7 @@ import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
@@ -98,6 +99,32 @@ class _TransferFormPageState extends State<TransferFormPage> {
     }
   }
 
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이체 삭제'),
+        content: const Text('정말 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<TransferBloc>().add(DeleteTransfer(widget.transferId!));
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     if (_sourcePaymentMethodId == null || _destinationPaymentMethodId == null) {
@@ -184,20 +211,37 @@ class _TransferFormPageState extends State<TransferFormPage> {
   Widget build(BuildContext context) {
     return BlocListener<TransferBloc, TransferState>(
       listener: (context, state) {
-        if (state is TransferLoaded && _isSubmitting) {
-          if (state.operationError != null) {
-            setState(() => _isSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.operationError!),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else {
-            final now = DateTime.now();
-            getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+        if (state is TransferLoaded) {
+          if (state.operationSuccess != null) {
+            // Delete success
+            final dashState = getIt<DashboardBloc>().state;
+            final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
+            final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
+            getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
             getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.operationSuccess!)),
+            );
             context.pop();
+            return;
+          }
+          if (_isSubmitting) {
+            if (state.operationError != null) {
+              setState(() => _isSubmitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.operationError!),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else {
+              final dashState = getIt<DashboardBloc>().state;
+              final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
+              final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
+              getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
+              getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+              context.pop();
+            }
           }
         } else if (state is TransferError && _isSubmitting) {
           setState(() => _isSubmitting = false);
@@ -212,6 +256,13 @@ class _TransferFormPageState extends State<TransferFormPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(isEditing ? '이체 수정' : '이체 추가'),
+          actions: [
+            if (isEditing)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _isSubmitting ? null : () => _confirmDelete(context),
+              ),
+          ],
         ),
         body: _buildForm(context),
       ),
@@ -249,6 +300,42 @@ class _TransferFormPageState extends State<TransferFormPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Date (matches transaction form order: date first)
+          InkWell(
+            onTap: _selectDate,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: '이체일',
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Amount
+          TextFormField(
+            controller: _amountController,
+            decoration: const InputDecoration(
+              labelText: '금액',
+              prefixIcon: Icon(Icons.payments),
+              suffixText: '원',
+            ),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              CurrencyInputFormatter(),
+            ],
+            validator: (value) {
+              if (value == null || value.isEmpty) return '금액을 입력하세요';
+              final amount = CurrencyFormatter.parse(value);
+              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
+              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
           // Source payment method
           DropdownButtonFormField<String>(
             key: ValueKey('source_$_swapCounter'),
@@ -267,7 +354,6 @@ class _TransferFormPageState extends State<TransferFormPage> {
             onChanged: (value) {
               setState(() {
                 _sourcePaymentMethodId = value;
-                // Clear destination if it would create CREDIT↔CREDIT
                 final newSource = methods
                     .where((pm) => pm.id == value)
                     .firstOrNull;
@@ -284,7 +370,6 @@ class _TransferFormPageState extends State<TransferFormPage> {
           Center(
             child: IconButton(
               onPressed: () {
-                // Block swap if it would create CREDIT↔CREDIT
                 final wouldSwapSourceBeCredit = selectedDest?.isCredit ?? false;
                 final wouldSwapDestBeCredit = selectedSource?.isCredit ?? false;
                 if (wouldSwapSourceBeCredit && wouldSwapDestBeCredit) return;
@@ -318,7 +403,6 @@ class _TransferFormPageState extends State<TransferFormPage> {
             onChanged: (value) {
               setState(() {
                 _destinationPaymentMethodId = value;
-                // Clear source if it would create CREDIT↔CREDIT
                 final newDest = methods
                     .where((pm) => pm.id == value)
                     .firstOrNull;
@@ -330,42 +414,6 @@ class _TransferFormPageState extends State<TransferFormPage> {
             },
             validator: (value) =>
                 value == null ? '입금 결제수단을 선택하세요' : null,
-          ),
-          const SizedBox(height: 16),
-          // Amount
-          TextFormField(
-            controller: _amountController,
-            decoration: const InputDecoration(
-              labelText: '금액',
-              prefixIcon: Icon(Icons.attach_money),
-              suffixText: '원',
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              CurrencyInputFormatter(),
-            ],
-            validator: (value) {
-              if (value == null || value.isEmpty) return '금액을 입력하세요';
-              final amount = CurrencyFormatter.parse(value);
-              if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
-              if (amount > 999999999) return '최대 999,999,999원까지 입력 가능합니다';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          // Date
-          InkWell(
-            onTap: _selectDate,
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: '이체일',
-                prefixIcon: Icon(Icons.calendar_today),
-              ),
-              child: Text(
-                DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_selectedDate),
-              ),
-            ),
           ),
           const SizedBox(height: 16),
           // Description

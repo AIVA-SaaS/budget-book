@@ -545,13 +545,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
             ],
           ),
         ),
-        // Summary bar
-        MonthSummaryBar(
-          totalIncome: state.totalIncome,
-          totalExpense: state.totalExpense,
-          balance: state.balance,
-        ),
-        // Transaction list grouped by date (merged with transfers)
+        // Summary bar + Transaction list (both need transfers)
         Expanded(
           child: BlocBuilder<TransferBloc, TransferState>(
             builder: (context, transferState) {
@@ -579,10 +573,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           dst.contains(keyword);
                     }).toList();
 
-              if (state.transactions.isEmpty && searchedTransfers.isEmpty) {
-                return _buildEmpty(context);
-              }
-              return _buildGroupedList(context, state, searchedTransfers);
+              final transferTotal = searchedTransfers.fold(0, (sum, t) => sum + t.amount);
+
+              return Column(
+                children: [
+                  MonthSummaryBar(
+                    totalIncome: state.totalIncome,
+                    totalExpense: state.totalExpense,
+                    balance: state.balance,
+                    totalTransfer: transferTotal,
+                  ),
+                  if (state.transactions.isEmpty && searchedTransfers.isEmpty)
+                    Expanded(child: _buildEmpty(context))
+                  else
+                    Expanded(child: _buildGroupedList(context, state, searchedTransfers)),
+                ],
+              );
             },
           ),
         ),
