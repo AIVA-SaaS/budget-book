@@ -2,6 +2,7 @@ package com.budgetbook.statistics.service
 
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.statistics.dto.PaymentMethodStatResponse
 import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
@@ -12,7 +13,8 @@ import java.util.UUID
 @Service
 class PaymentMethodStatisticsService(
     private val transactionRepository: TransactionRepository,
-    private val coupleResolver: CoupleResolver
+    private val coupleResolver: CoupleResolver,
+    private val paymentMethodRepository: PaymentMethodRepository
 ) {
 
     companion object {
@@ -40,27 +42,40 @@ class PaymentMethodStatisticsService(
             couple.id, startDate, endDate, userId, visFilter
         )
 
-        if (results.isEmpty()) return emptyList()
-
         val totalAmount = results.sumOf { (it[2] as Long) }
 
-        return results.map { row ->
+        // Build map of payment methods with transaction data
+        val statsMap = results.associate { row ->
             val pmId = row[0] as UUID
-            val pmName = row[1] as String
-            val amount = row[2] as Long
-            val count = (row[3] as Long).toInt()
-
-            PaymentMethodStatResponse(
+            pmId to PaymentMethodStatResponse(
                 paymentMethodId = pmId.toString(),
-                paymentMethodName = pmName,
-                totalAmount = amount,
-                transactionCount = count,
+                paymentMethodName = row[1] as String,
+                totalAmount = row[2] as Long,
+                transactionCount = (row[3] as Long).toInt(),
                 percentage = if (totalAmount > 0) {
-                    Math.round(amount.toDouble() / totalAmount * 1000) / 10.0
+                    Math.round((row[2] as Long).toDouble() / totalAmount * 1000) / 10.0
                 } else {
                     0.0
                 }
             )
         }
+
+        // Include ALL active payment methods (even those with 0 transactions)
+        val allPaymentMethods = paymentMethodRepository.findByCoupleIdAndIsActiveTrue(couple.id)
+        return allPaymentMethods.map { pm ->
+            val existing = statsMap[pm.id]
+            if (existing != null) {
+                existing.copy(paymentMethodType = pm.type.name)
+            } else {
+                PaymentMethodStatResponse(
+                    paymentMethodId = pm.id.toString(),
+                    paymentMethodName = pm.name,
+                    paymentMethodType = pm.type.name,
+                    totalAmount = 0,
+                    transactionCount = 0,
+                    percentage = 0.0
+                )
+            }
+        }.sortedByDescending { it.totalAmount }
     }
 }

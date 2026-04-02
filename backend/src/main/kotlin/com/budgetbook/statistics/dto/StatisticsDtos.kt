@@ -27,6 +27,7 @@ data class MonthlyTrendResponse(
 data class PaymentMethodStatResponse(
     val paymentMethodId: String,
     val paymentMethodName: String,
+    val paymentMethodType: String? = null,
     val totalAmount: Long,
     val transactionCount: Int,
     val percentage: Double

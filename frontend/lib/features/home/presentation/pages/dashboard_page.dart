@@ -62,7 +62,11 @@ class _DashboardPageState extends State<DashboardPage> {
           error: state.transactionsError,
         );
       case 'payment_breakdown':
-        return _PaymentMethodStatsCard(stats: state.paymentMethodStats);
+        return _PaymentMethodStatsCard(
+          stats: state.paymentMethodStats,
+          year: state.year,
+          month: state.month,
+        );
       case 'asset_balance':
         return const AccountBalanceCard();
       case 'private_summary':
@@ -648,6 +652,8 @@ class _RecentTransactionsCard extends StatelessWidget {
 
 class _PaymentMethodStatsCard extends StatelessWidget {
   final List<PaymentMethodStatistics> stats;
+  final int year;
+  final int month;
 
   static const _colors = [
     Color(0xFF2196F3),
@@ -660,7 +666,11 @@ class _PaymentMethodStatsCard extends StatelessWidget {
     Color(0xFF795548),
   ];
 
-  const _PaymentMethodStatsCard({required this.stats});
+  const _PaymentMethodStatsCard({
+    required this.stats,
+    required this.year,
+    required this.month,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -726,7 +736,7 @@ class _PaymentMethodStatsCard extends StatelessWidget {
 
               return InkWell(
                 onTap: () => context.push(
-                  '/transactions?paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}',
+                  '/transactions?year=$year&month=$month&paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}',
                 ),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(

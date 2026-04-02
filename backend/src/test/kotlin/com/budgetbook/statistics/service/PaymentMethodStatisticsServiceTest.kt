@@ -7,6 +7,9 @@ import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.paymentmethod.domain.PaymentMethod
+import com.budgetbook.paymentmethod.domain.PaymentMethodType
+import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.transaction.repository.TransactionRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
@@ -25,7 +28,8 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     val transactionRepository = mockk<TransactionRepository>()
     val coupleResolver = mockk<CoupleResolver>()
-    val service = PaymentMethodStatisticsService(transactionRepository, coupleResolver)
+    val paymentMethodRepository = mockk<PaymentMethodRepository>()
+    val service = PaymentMethodStatisticsService(transactionRepository, coupleResolver, paymentMethodRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -34,8 +38,17 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
     val pmId1 = UUID.randomUUID()
     val pmId2 = UUID.randomUUID()
 
+    // Helper: create mock PaymentMethod list for the couple
+    fun mockActivePaymentMethods(vararg pairs: Pair<UUID, String>) {
+        val pms = pairs.map { (id, name) ->
+            PaymentMethod(id = id, couple = couple, name = name, type = PaymentMethodType.DEBIT)
+        }
+        every { paymentMethodRepository.findByCoupleIdAndIsActiveTrue(couple.id) } returns pms
+    }
+
     Given("a user in an active couple with payment method spending") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
@@ -77,6 +90,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user filtering by SHARED visibility") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
@@ -93,10 +107,11 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         When("getPaymentMethodStats is called with SHARED") {
             val result = service.getPaymentMethodStats(user1.id, 2026, 3, "SHARED")
 
-            Then("returns shared-only statistics") {
-                result shouldHaveSize 1
-                result[0].totalAmount shouldBe 600000L
-                result[0].percentage shouldBe 100.0
+            Then("returns all payment methods including those with 0 spending") {
+                result shouldHaveSize 2
+                val shinhan = result.first { it.paymentMethodName == "Shinhan Card" }
+                shinhan.totalAmount shouldBe 600000L
+                shinhan.percentage shouldBe 100.0
             }
 
             Then("passes SHARED to repository") {
@@ -111,6 +126,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user filtering by PRIVATE visibility") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
@@ -127,9 +143,10 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         When("getPaymentMethodStats is called with PRIVATE") {
             val result = service.getPaymentMethodStats(user1.id, 2026, 3, "PRIVATE")
 
-            Then("returns private-only statistics") {
-                result shouldHaveSize 1
-                result[0].totalAmount shouldBe 100000L
+            Then("returns all payment methods including those with 0 spending") {
+                result shouldHaveSize 2
+                val cash = result.first { it.paymentMethodName == "Cash" }
+                cash.totalAmount shouldBe 100000L
             }
 
             Then("passes PRIVATE to repository") {
@@ -144,6 +161,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     Given("a user with no expense transactions") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockActivePaymentMethods(pmId1 to "Shinhan Card", pmId2 to "Cash")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
@@ -158,14 +176,16 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         When("getPaymentMethodStats is called") {
             val result = service.getPaymentMethodStats(user1.id, 2026, 3)
 
-            Then("returns empty list") {
-                result shouldHaveSize 0
+            Then("returns all payment methods with 0 amounts") {
+                result shouldHaveSize 2
+                result.forEach { it.totalAmount shouldBe 0 }
             }
         }
     }
 
     Given("a single payment method used for all expenses") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        mockActivePaymentMethods(pmId1 to "KB Card")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
@@ -208,6 +228,7 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         val pmId3 = UUID.randomUUID()
+        mockActivePaymentMethods(pmId1 to "Card A", pmId2 to "Card B", pmId3 to "Cash")
 
         every {
             transactionRepository.sumByPaymentMethodForCouple(
