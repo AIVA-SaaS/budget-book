@@ -2,11 +2,10 @@ name: Backend CI
 
 on:
   push:
-    # Task #16: Added feature/**, fix/**, chore/** so CI runs on feature branches before PR
-    branches: [main, develop, 'feature/**', 'fix/**', 'chore/**']
+    branches: [main, 'feature/**', 'fix/**', 'chore/**']
     paths: ['backend/**']
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths: ['backend/**']
 
 permissions:
