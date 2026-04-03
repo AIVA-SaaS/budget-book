@@ -117,14 +117,11 @@ When running in agent team mode:
 - Both BE and FE must conform to api-spec.md
 
 ## Git Branch Strategy
-- **main**: 프로덕션 배포 브랜치 (main 머지 시 자동 배포)
-- **develop**: 개발 통합 브랜치 (CI 자동 실행)
-- **feature/\***: 기능 브랜치 (develop에서 분기 → develop으로 PR)
+- **main**: 프로덕션 배포 브랜치 (main push 시 자동 배포)
+- **feature/\***: 기능 브랜치 (main에서 분기 → main으로 PR)
 - Branch naming: `feature/{feature-name}`, `fix/{bug-name}`, `chore/{task-name}`
 - Commit messages: conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`)
-- Always create feature branches from `develop`, NOT from `main`
-- Feature → develop: CI 통과 + Code Review 필수
-- develop → main: 릴리즈 단위, 모든 CI 통과 필수
+- Feature → main: CI 통과 필수
 
 ## Deployment (Synology NAS)
 - **main 머지 시 자동 배포** (`deploy-nas.yml`):
