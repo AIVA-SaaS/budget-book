@@ -47,6 +47,7 @@ class _CategoryGroupSelectorSheetState
   final Set<String> _expandedGroupIds = {};
   final _groupNameController = TextEditingController();
   final _categoryNameController = TextEditingController();
+  bool _autoExpandedOnce = false;
 
   @override
   void initState() {
@@ -158,6 +159,17 @@ class _CategoryGroupSelectorSheetState
   }
 
   Widget _buildGroupList(BuildContext context, List<CategoryGroup> groups) {
+    // Auto-expand the group containing the selected category (once)
+    if (!_autoExpandedOnce && widget.selectedCategoryId != null) {
+      for (final group in groups) {
+        if (group.categories.any((c) => c.id == widget.selectedCategoryId)) {
+          _expandedGroupIds.add(group.id);
+          _autoExpandedOnce = true;
+          break;
+        }
+      }
+    }
+
     final sharedGroups = groups.where((g) => g.isShared).toList()
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     final privateGroups = groups.where((g) => g.isPrivate).toList()
