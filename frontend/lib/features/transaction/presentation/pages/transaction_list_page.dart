@@ -38,8 +38,16 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
   final String? initialPaymentMethodName;
+  final String? initialCategoryId;
+  final String? initialCategoryName;
 
-  const TransactionListPage({super.key, this.initialPaymentMethodId, this.initialPaymentMethodName});
+  const TransactionListPage({
+    super.key,
+    this.initialPaymentMethodId,
+    this.initialPaymentMethodName,
+    this.initialCategoryId,
+    this.initialCategoryName,
+  });
 
   @override
   State<TransactionListPage> createState() => _TransactionListPageState();
@@ -52,18 +60,25 @@ class _TransactionListPageState extends State<TransactionListPage> {
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
   bool _isSearching = false;
+  String? _pendingScrollToDate;
 
   // Filter state
+  late String? _filterCategoryId = widget.initialCategoryId;
+  late String? _filterCategoryName = widget.initialCategoryName;
   late String? _filterPaymentMethodId = widget.initialPaymentMethodId;
   late String? _filterPaymentMethodName = widget.initialPaymentMethodName;
   String? _filterPocketId;
   int? _filterAmountMin;
   int? _filterAmountMax;
-  late bool _hasActiveFilters = widget.initialPaymentMethodId != null;
+  late bool _hasActiveFilters = widget.initialPaymentMethodId != null || widget.initialCategoryId != null;
 
   String get _appBarTitle {
-    if (_filterPaymentMethodId == null) return '거래 (전체)';
-    if (_filterPaymentMethodName != null) return '거래 ($_filterPaymentMethodName)';
+    if (_filterCategoryId != null && _filterCategoryName != null) {
+      return '거래 ($_filterCategoryName)';
+    }
+    if (_filterPaymentMethodId != null && _filterPaymentMethodName != null) {
+      return '거래 ($_filterPaymentMethodName)';
+    }
     return '거래 (전체)';
   }
 
@@ -123,6 +138,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           year: year,
           month: month,
           keyword: keyword,
+          categoryId: _filterCategoryId,
           paymentMethodId: _filterPaymentMethodId,
           pocketId: _filterPocketId,
           amountMin: _filterAmountMin,
@@ -270,6 +286,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                         child: OutlinedButton(
                           onPressed: () {
                             setState(() {
+                              _filterCategoryId = null;
+                              _filterCategoryName = null;
                               _filterPaymentMethodId = null;
                               _filterPaymentMethodName = null;
                               _filterPocketId = null;
@@ -481,6 +499,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
         MonthNavigator(
           year: state.year,
           month: state.month,
+          onDatePicked: (picked) {
+            // Store the target date for scroll-after-load
+            final day = picked.day;
+            if (day > 1) {
+              final dateStr = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+              setState(() => _pendingScrollToDate = dateStr);
+            }
+          },
           onMonthChanged: (m) {
             final kw = _searchController.text.trim().isEmpty
                 ? null
@@ -490,10 +516,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     year: m.year,
                     month: m.month,
                     keyword: kw,
+                    categoryId: _filterCategoryId,
                     paymentMethodId: _filterPaymentMethodId,
                     pocketId: _filterPocketId,
                     amountMin: _filterAmountMin,
                     amountMax: _filterAmountMax,
+                    scrollToDate: _pendingScrollToDate,
                   ),
                 );
             context.read<TransferBloc>().add(
@@ -632,11 +660,26 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
     final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    // Scroll to target date after build
-    if (state.scrollToDate != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToDate(state.scrollToDate!, sortedDates);
-      });
+    // Handle scroll-to-date: if target date not yet loaded, auto-load more
+    final targetDate = _pendingScrollToDate ?? state.scrollToDate;
+    if (targetDate != null) {
+      if (sortedDates.contains(targetDate)) {
+        // Target date is loaded — scroll to it and clear pending
+        _pendingScrollToDate = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToDate(targetDate, sortedDates);
+        });
+      } else if (state.hasMore && !state.isLoadingMore) {
+        // Target date not yet loaded — trigger load more
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.read<TransactionBloc>().add(const LoadMoreTransactions());
+          }
+        });
+      } else if (!state.hasMore) {
+        // All data loaded but date doesn't exist — clear pending
+        _pendingScrollToDate = null;
+      }
     }
 
     // Calculate running totals for transactions only (transfers are not income/expense)
@@ -654,6 +697,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
       final t = flatTransactions[i];
       cumulative += t.isExpense ? -t.amount : t.amount;
       runningTotals[t.id] = cumulative;
+    }
+    // Offset running totals to account for unloaded older transactions
+    if (state.serverTotalIncome != null && state.serverTotalExpense != null) {
+      final serverBalance = state.serverTotalIncome! - state.serverTotalExpense!;
+      final offset = serverBalance - cumulative;
+      if (offset != 0) {
+        for (final key in runningTotals.keys.toList()) {
+          runningTotals[key] = runningTotals[key]! + offset;
+        }
+      }
     }
 
     // Add 1 extra item for the loading indicator when loading more
