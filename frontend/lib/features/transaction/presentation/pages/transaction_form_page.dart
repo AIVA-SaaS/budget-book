@@ -104,6 +104,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   // Suggestion state
   List<SuggestionGroup> _suggestions = [];
   SuggestionGroup? _expandedSuggestion;
+  bool _suppressSuggestions = false;
   Timer? _debounceTimer;
 
   // FocusNodes for keyboard navigation on selector fields
@@ -182,11 +183,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     } else if (widget.copyFrom != null) {
       // Pre-fill from copied transaction (date defaults to today)
       final src = widget.copyFrom!;
-      _amountController.text = src.amount.toString();
+      _amountController.text = CurrencyFormatter.format(src.amount);
       _descriptionController.text = src.description;
       _memoController.text = src.memo ?? '';
       _selectedType = src.type;
       _selectedCategoryId = src.category?.id;
+      _selectedCategoryDisplayName = src.category?.displayName;
       _selectedPaymentMethodId = src.paymentMethodId;
       _selectedPocketId = src.pocketId;
     } else {
@@ -289,6 +291,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   void _onDescriptionChanged() {
+    // Skip if programmatically set (e.g., from suggestion apply)
+    if (_suppressSuggestions) return;
+
     final text = _descriptionController.text.trim();
     _debounceTimer?.cancel();
     if (text.length < 2) {
@@ -320,17 +325,22 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   void _applySuggestionPattern(SuggestionGroup group, SuggestionPattern? pattern) {
+    _suppressSuggestions = true;
+    _debounceTimer?.cancel();
     setState(() {
       _descriptionController.text = group.description;
       _descriptionController.selection =
           TextSelection.collapsed(offset: group.description.length);
       if (pattern != null) {
         _selectedCategoryId = pattern.categoryId;
+        _selectedCategoryDisplayName = pattern.categoryName;
         _selectedPaymentMethodId = pattern.paymentMethodId;
       }
       _suggestions = [];
       _expandedSuggestion = null;
     });
+    // Re-enable after listener fires
+    Future.microtask(() => _suppressSuggestions = false);
   }
 
   void _updateAmountHint() {
