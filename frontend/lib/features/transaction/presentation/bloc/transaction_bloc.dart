@@ -12,6 +12,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
   String? _currentKeyword;
+  String? _currentCategoryId;
   String? _currentPaymentMethodId;
   String? _currentPocketId;
   int? _currentAmountMin;
@@ -37,6 +38,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentYear = event.year;
       _currentMonth = event.month;
       _currentKeyword = event.keyword;
+      _currentCategoryId = event.categoryId;
       _currentPaymentMethodId = event.paymentMethodId;
       _currentPocketId = event.pocketId;
       _currentAmountMin = event.amountMin;
@@ -48,11 +50,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
       final hasOnlyPaymentMethodFilter = event.paymentMethodId != null &&
           event.keyword == null &&
+          event.categoryId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
           event.amountMax == null;
 
       final hasNoFilters = event.keyword == null &&
+          event.categoryId == null &&
           event.paymentMethodId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
@@ -62,6 +66,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         year: event.year,
         month: event.month,
         keyword: event.keyword,
+        categoryId: event.categoryId,
         paymentMethodId: event.paymentMethodId,
         pocketId: event.pocketId,
         amountMin: event.amountMin,
@@ -175,6 +180,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         hasMore: currentState.hasMore,
         currentPage: currentState.currentPage,
         isLoadingMore: true,
+        scrollToDate: currentState.scrollToDate,
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
       ));
@@ -183,6 +189,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         year: _currentYear,
         month: _currentMonth,
         keyword: _currentKeyword,
+        categoryId: _currentCategoryId,
         paymentMethodId: _currentPaymentMethodId,
         pocketId: _currentPocketId,
         amountMin: _currentAmountMin,
@@ -219,6 +226,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             totalElements: page.totalElements,
             hasMore: !page.last,
             currentPage: nextPage,
+            scrollToDate: currentState.scrollToDate,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
           ));
@@ -261,6 +269,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               year: _currentYear,
               month: _currentMonth,
               keyword: _currentKeyword,
+              categoryId: _currentCategoryId,
               paymentMethodId: _currentPaymentMethodId,
               pocketId: _currentPocketId,
               amountMin: _currentAmountMin,
@@ -308,6 +317,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               year: _currentYear,
               month: _currentMonth,
               keyword: _currentKeyword,
+              categoryId: _currentCategoryId,
               paymentMethodId: _currentPaymentMethodId,
               pocketId: _currentPocketId,
               amountMin: _currentAmountMin,

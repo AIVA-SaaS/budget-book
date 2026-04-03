@@ -8,12 +8,16 @@ class MonthNavigator extends StatelessWidget {
   final int year;
   final int month;
   final ValueChanged<({int year, int month})> onMonthChanged;
+  /// Called when user picks a specific date (day) from the calendar.
+  /// If null, only year/month is used.
+  final ValueChanged<DateTime>? onDatePicked;
 
   const MonthNavigator({
     super.key,
     required this.year,
     required this.month,
     required this.onMonthChanged,
+    this.onDatePicked,
   });
 
   @override
@@ -45,6 +49,9 @@ class MonthNavigator extends StatelessWidget {
                 lastDate: DateTime(2030, 12, 31),
               );
               if (picked != null && context.mounted) {
+                if (onDatePicked != null) {
+                  onDatePicked!(picked);
+                }
                 onMonthChanged((year: picked.year, month: picked.month));
               }
             },
