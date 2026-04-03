@@ -262,19 +262,22 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 final monthParam = state.uri.queryParameters['month'];
                 final paymentMethodId = state.uri.queryParameters['paymentMethodId'];
                 final paymentMethodName = state.uri.queryParameters['paymentMethodName'];
+                final categoryId = state.uri.queryParameters['categoryId'];
+                final categoryName = state.uri.queryParameters['categoryName'];
 
                 // Only reload if explicit query params are provided or bloc hasn't loaded yet.
                 // When popping back from form page, no params → keep current bloc state
                 // (which already has the correct month/filter from the post-creation reload).
                 final bloc = getIt<TransactionBloc>();
                 final transferBloc = getIt<TransferBloc>();
-                if (yearParam != null || monthParam != null || paymentMethodId != null || bloc.state is TransactionInitial) {
+                if (yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null || bloc.state is TransactionInitial) {
                   final now = DateTime.now();
                   final year = int.tryParse(yearParam ?? '') ?? now.year;
                   final month = int.tryParse(monthParam ?? '') ?? now.month;
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,
+                    categoryId: categoryId,
                     paymentMethodId: paymentMethodId,
                   ));
                   transferBloc.add(LoadTransfers(year: year, month: month));
@@ -292,6 +295,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   child: TransactionListPage(
                     initialPaymentMethodId: paymentMethodId,
                     initialPaymentMethodName: paymentMethodName,
+                    initialCategoryId: categoryId,
+                    initialCategoryName: categoryName,
                   ),
                 );
               },
