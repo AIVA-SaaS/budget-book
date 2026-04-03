@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -59,7 +60,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
     if (_initialized) return;
     _initialized = true;
     _type = recurring.type;
-    _amountController.text = recurring.amount.toString();
+    _amountController.text = CurrencyFormatter.format(recurring.amount);
     _descriptionController.text = recurring.description;
     _memoController.text = recurring.memo ?? '';
     _frequency = recurring.frequency;
