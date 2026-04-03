@@ -8,14 +8,28 @@ import java.util.UUID
 
 interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
 
-    fun findByCoupleIdAndYearMonth(coupleId: UUID, yearMonth: String): List<MonthlyBudget>
+    @Query("""
+        SELECT b FROM MonthlyBudget b
+        WHERE b.couple.id = :coupleId
+        AND (
+            b.yearMonth = :yearMonth
+            OR (b.periodType = com.budgetbook.budget.domain.PeriodType.NONE AND b.yearMonth <= :yearMonth)
+        )
+    """)
+    fun findByCoupleIdAndYearMonth(
+        @Param("coupleId") coupleId: UUID,
+        @Param("yearMonth") yearMonth: String
+    ): List<MonthlyBudget>
 
     @Query("""
         SELECT b FROM MonthlyBudget b
         LEFT JOIN FETCH b.group
         LEFT JOIN FETCH b.category
         WHERE b.couple.id = :coupleId
-        AND b.yearMonth = :yearMonth
+        AND (
+            b.yearMonth = :yearMonth
+            OR (b.periodType = com.budgetbook.budget.domain.PeriodType.NONE AND b.yearMonth <= :yearMonth)
+        )
         AND (b.visibility = com.budgetbook.common.entity.Visibility.SHARED OR b.owner.id = :userId)
     """)
     fun findByCoupleIdAndYearMonthAndUserId(
