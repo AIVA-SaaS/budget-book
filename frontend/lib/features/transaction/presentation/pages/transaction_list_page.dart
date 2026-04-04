@@ -34,6 +34,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart'
 import 'package:budget_book/features/category/domain/entities/category.dart' as cat_entity;
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -269,14 +270,37 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Category dropdown
-                  _buildCategoryDropdown(
-                    context,
-                    tempCategoryId,
-                    (id, name) => setSheetState(() {
-                      tempCategoryId = id;
-                      tempCategoryName = name;
-                    }),
+                  // Category selector (group > sub-category)
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => CategoryGroupSelectorSheet(
+                          selectedCategoryId: tempCategoryId,
+                          categoryType: 'EXPENSE',
+                          onSelectedWithGroupName: (cat, groupName) {
+                            setSheetState(() {
+                              tempCategoryId = cat?.id;
+                              tempCategoryName = cat != null
+                                  ? (groupName != null ? '$groupName > ${cat.name}' : cat.name)
+                                  : null;
+                            });
+                          },
+                          onSelected: (_) {},
+                        ),
+                      );
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '카테고리',
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Text(
+                        tempCategoryName ?? '전체',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   // Payment method dropdown
@@ -379,41 +403,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
       _updateHasActiveFilters();
     });
     _reloadWithFilters();
-  }
-
-  Widget _buildCategoryDropdown(
-    BuildContext context,
-    String? selectedId,
-    void Function(String?, String?) onChanged,
-  ) {
-    final catBloc = getIt<CategoryBloc>();
-    final catState = catBloc.state;
-    final categories = catState is CategoryLoaded
-        ? catState.categories
-        : <cat_entity.Category>[];
-
-    return DropdownButtonFormField<String>(
-      key: ValueKey('cat_$selectedId'),
-      value: selectedId,
-      decoration: const InputDecoration(
-        labelText: '카테고리',
-      ),
-      isExpanded: true,
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('전체'),
-        ),
-        ...categories.map((c) => DropdownMenuItem<String>(
-              value: c.id,
-              child: Text(c.name),
-            )),
-      ],
-      onChanged: (value) {
-        final name = categories.where((c) => c.id == value).firstOrNull?.name;
-        onChanged(value, name);
-      },
-    );
   }
 
   Widget _buildPaymentMethodDropdown(
