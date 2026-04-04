@@ -31,6 +31,9 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/features/category/domain/entities/category.dart' as cat_entity;
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -73,13 +76,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
   late bool _hasActiveFilters = widget.initialPaymentMethodId != null || widget.initialCategoryId != null;
 
   String get _appBarTitle {
-    if (_filterCategoryId != null && _filterCategoryName != null) {
-      return '거래 ($_filterCategoryName)';
-    }
-    if (_filterPaymentMethodId != null && _filterPaymentMethodName != null) {
-      return '거래 ($_filterPaymentMethodName)';
-    }
-    return '거래 (전체)';
+    if (!_hasActiveFilters) return '거래 (전체)';
+    // Show primary filter name in title
+    if (_filterCategoryName != null) return '거래 ($_filterCategoryName)';
+    if (_filterPaymentMethodName != null) return '거래 ($_filterPaymentMethodName)';
+    return '거래 (필터)';
   }
 
   @override
@@ -188,6 +189,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final amountMaxController = TextEditingController(
       text: _filterAmountMax?.toString() ?? '',
     );
+    String? tempCategoryId = _filterCategoryId;
+    String? tempCategoryName = _filterCategoryName;
     String? tempPaymentMethodId = _filterPaymentMethodId;
     String? tempPocketId = _filterPocketId;
 
@@ -266,6 +269,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // Category dropdown
+                  _buildCategoryDropdown(
+                    context,
+                    tempCategoryId,
+                    (id, name) => setSheetState(() {
+                      tempCategoryId = id;
+                      tempCategoryName = name;
+                    }),
+                  ),
+                  const SizedBox(height: 16),
                   // Payment method dropdown
                   _buildPaymentMethodDropdown(
                     context,
@@ -312,6 +325,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                                   minText.isEmpty ? null : int.tryParse(minText);
                               _filterAmountMax =
                                   maxText.isEmpty ? null : int.tryParse(maxText);
+                              _filterCategoryId = tempCategoryId;
+                              _filterCategoryName = tempCategoryName;
                               _filterPaymentMethodId = tempPaymentMethodId;
                               if (tempPaymentMethodId != null) {
                                 _resolvePaymentMethodName(tempPaymentMethodId!);
@@ -319,10 +334,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                                 _filterPaymentMethodName = null;
                               }
                               _filterPocketId = tempPocketId;
-                              _hasActiveFilters = _filterAmountMin != null ||
-                                  _filterAmountMax != null ||
-                                  _filterPaymentMethodId != null ||
-                                  _filterPocketId != null;
+                              _updateHasActiveFilters();
                             });
                             Navigator.of(ctx).pop();
                             _reloadWithFilters();
@@ -337,6 +349,69 @@ class _TransactionListPageState extends State<TransactionListPage> {
             );
           },
         );
+      },
+    );
+  }
+
+  void _updateHasActiveFilters() {
+    _hasActiveFilters = _filterCategoryId != null ||
+        _filterAmountMin != null ||
+        _filterAmountMax != null ||
+        _filterPaymentMethodId != null ||
+        _filterPocketId != null;
+  }
+
+  void _removeFilter(String filterType) {
+    setState(() {
+      switch (filterType) {
+        case 'category':
+          _filterCategoryId = null;
+          _filterCategoryName = null;
+        case 'paymentMethod':
+          _filterPaymentMethodId = null;
+          _filterPaymentMethodName = null;
+        case 'pocket':
+          _filterPocketId = null;
+        case 'amount':
+          _filterAmountMin = null;
+          _filterAmountMax = null;
+      }
+      _updateHasActiveFilters();
+    });
+    _reloadWithFilters();
+  }
+
+  Widget _buildCategoryDropdown(
+    BuildContext context,
+    String? selectedId,
+    void Function(String?, String?) onChanged,
+  ) {
+    final catBloc = getIt<CategoryBloc>();
+    final catState = catBloc.state;
+    final categories = catState is CategoryLoaded
+        ? catState.categories
+        : <cat_entity.Category>[];
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey('cat_$selectedId'),
+      value: selectedId,
+      decoration: const InputDecoration(
+        labelText: '카테고리',
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('전체'),
+        ),
+        ...categories.map((c) => DropdownMenuItem<String>(
+              value: c.id,
+              child: Text(c.name),
+            )),
+      ],
+      onChanged: (value) {
+        final name = categories.where((c) => c.id == value).firstOrNull?.name;
+        onChanged(value, name);
       },
     );
   }
@@ -573,6 +648,37 @@ class _TransactionListPageState extends State<TransactionListPage> {
             ],
           ),
         ),
+        // Active filter chips
+        if (_hasActiveFilters)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (_filterCategoryId != null)
+                  _FilterChip(
+                    label: '카테고리: ${_filterCategoryName ?? "선택됨"}',
+                    onRemove: () => _removeFilter('category'),
+                  ),
+                if (_filterPaymentMethodId != null)
+                  _FilterChip(
+                    label: '결제수단: ${_filterPaymentMethodName ?? "선택됨"}',
+                    onRemove: () => _removeFilter('paymentMethod'),
+                  ),
+                if (_filterPocketId != null)
+                  _FilterChip(
+                    label: '포켓',
+                    onRemove: () => _removeFilter('pocket'),
+                  ),
+                if (_filterAmountMin != null || _filterAmountMax != null)
+                  _FilterChip(
+                    label: '금액: ${_filterAmountMin ?? 0}~${_filterAmountMax ?? "∞"}원',
+                    onRemove: () => _removeFilter('amount'),
+                  ),
+              ],
+            ),
+          ),
         // Summary bar + Transaction list (both need transfers)
         Expanded(
           child: BlocBuilder<TransferBloc, TransferState>(
@@ -927,6 +1033,25 @@ class _DateHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
+
+  const _FilterChip({required this.label, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      onDeleted: onRemove,
+      deleteIcon: const Icon(Icons.close, size: 14),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }
