@@ -259,40 +259,52 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   Future<void> _loadTransaction() async {
-    final bloc = context.read<TransactionBloc>();
-    final repo = bloc.transactionRepository;
-    final result = await repo.getTransaction(widget.transactionId!);
-    result.fold(
-      (failure) {
-        if (mounted) {
-          setState(() {
-            _isLoadingTransaction = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      },
-      (transaction) {
-        if (mounted) {
-          setState(() {
-            _isLoadingTransaction = false;
-            _amountController.text = CurrencyFormatter.format(transaction.amount);
-            _descriptionController.text = transaction.description;
-            _memoController.text = transaction.memo ?? '';
-            _selectedType = transaction.type;
-            _selectedCategoryId = transaction.category?.id;
-            _selectedCategoryDisplayName = transaction.category?.displayName;
-            _selectedPaymentMethodId = transaction.paymentMethodId;
-            _selectedPocketId = transaction.pocketId;
-            _selectedDate = DateTime.parse(transaction.transactionDate);
-          });
-        }
-      },
-    );
+    try {
+      final bloc = context.read<TransactionBloc>();
+      final repo = bloc.transactionRepository;
+      final result = await repo.getTransaction(widget.transactionId!);
+      result.fold(
+        (failure) {
+          if (mounted) {
+            setState(() {
+              _isLoadingTransaction = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
+        },
+        (transaction) {
+          if (mounted) {
+            setState(() {
+              _isLoadingTransaction = false;
+              _amountController.text = CurrencyFormatter.format(transaction.amount);
+              _descriptionController.text = transaction.description;
+              _memoController.text = transaction.memo ?? '';
+              _selectedType = transaction.type;
+              _selectedCategoryId = transaction.category?.id;
+              _selectedCategoryDisplayName = transaction.category?.displayName;
+              _selectedPaymentMethodId = transaction.paymentMethodId;
+              _selectedPocketId = transaction.pocketId;
+              _selectedDate = DateTime.parse(transaction.transactionDate);
+            });
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingTransaction = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('거래 로드 실패: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   void _onDescriptionChanged() {

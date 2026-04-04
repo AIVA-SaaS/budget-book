@@ -275,7 +275,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               count: stat.transactionCount,
               onTap: () {
                 final catName = Uri.encodeComponent(stat.category.name);
-                context.push('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
           }),
@@ -326,7 +326,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               count: stat.transactionCount,
               onTap: () {
                 final catName = Uri.encodeComponent(stat.category.name);
-                context.push('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
           }),
