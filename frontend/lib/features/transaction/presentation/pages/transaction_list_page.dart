@@ -660,26 +660,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
     final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    // Handle scroll-to-date: if target date not yet loaded, auto-load more
-    final targetDate = _pendingScrollToDate ?? state.scrollToDate;
+    // Handle scroll-to-date (one-shot: consume and clear immediately)
+    final targetDate = _pendingScrollToDate;
     if (targetDate != null) {
+      _pendingScrollToDate = null; // always consume to prevent infinite loops
       if (sortedDates.contains(targetDate)) {
-        // Target date is loaded — scroll to it and clear pending
-        _pendingScrollToDate = null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToDate(targetDate, sortedDates);
         });
-      } else if (state.hasMore && !state.isLoadingMore) {
-        // Target date not yet loaded — trigger load more
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.read<TransactionBloc>().add(const LoadMoreTransactions());
-          }
-        });
-      } else if (!state.hasMore) {
-        // All data loaded but date doesn't exist — clear pending
-        _pendingScrollToDate = null;
       }
+      // If target date not loaded, user can scroll manually — no auto-load
+    } else if (state.scrollToDate != null && sortedDates.contains(state.scrollToDate!)) {
+      // One-shot scroll from BLoC (e.g., after create/update)
+      final scrollDate = state.scrollToDate!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToDate(scrollDate, sortedDates);
+      });
     }
 
     // Calculate running totals for transactions only (transfers are not income/expense)

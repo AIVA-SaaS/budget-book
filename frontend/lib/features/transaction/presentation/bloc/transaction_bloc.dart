@@ -180,7 +180,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         hasMore: currentState.hasMore,
         currentPage: currentState.currentPage,
         isLoadingMore: true,
-        scrollToDate: currentState.scrollToDate,
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
       ));
@@ -226,7 +225,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             totalElements: page.totalElements,
             hasMore: !page.last,
             currentPage: nextPage,
-            scrollToDate: currentState.scrollToDate,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
           ));
