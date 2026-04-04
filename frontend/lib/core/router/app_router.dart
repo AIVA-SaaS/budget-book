@@ -422,6 +422,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             BlocProvider<PocketBloc>.value(
               value: getIt<PocketBloc>(),
             ),
+            BlocProvider<TransferBloc>.value(
+              value: getIt<TransferBloc>(),
+            ),
           ],
           child: TransactionFormPage(
             transactionId: transactionId,
