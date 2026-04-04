@@ -407,7 +407,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       listeners: [
         BlocListener<TransactionBloc, TransactionState>(
           listener: (context, state) {
+            // Only react when user actually submitted the form.
+            // Without this guard, any TransactionLoaded change (e.g., LoadMore
+            // from the list page behind) would trigger premature navigation.
+            if (!_isSubmitting) return;
             if (state is TransactionLoaded) {
+              _isSubmitting = false;
               final now = DateTime.now();
               getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
