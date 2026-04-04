@@ -265,15 +265,19 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 final categoryId = state.uri.queryParameters['categoryId'];
                 final categoryName = state.uri.queryParameters['categoryName'];
 
-                // Only reload if explicit query params are provided or bloc hasn't loaded yet.
-                // When popping back from form page, no params → keep current bloc state
-                // (which already has the correct month/filter from the post-creation reload).
+                // Reload when: explicit params provided, first load, or clearing a stale filter.
                 final bloc = getIt<TransactionBloc>();
                 final transferBloc = getIt<TransferBloc>();
-                if (yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null || bloc.state is TransactionInitial) {
+                final hasExplicitParams = yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null;
+                // Detect stale category/payment filter: bloc was filtered but URL has no filter
+                final hasStaleFilter = !hasExplicitParams &&
+                    bloc.state is TransactionLoaded &&
+                    (bloc.currentCategoryId != null || bloc.currentPaymentMethodId != paymentMethodId);
+                if (hasExplicitParams || bloc.state is TransactionInitial || hasStaleFilter) {
                   final now = DateTime.now();
-                  final year = int.tryParse(yearParam ?? '') ?? now.year;
-                  final month = int.tryParse(monthParam ?? '') ?? now.month;
+                  final loadedState = bloc.state is TransactionLoaded ? bloc.state as TransactionLoaded : null;
+                  final year = int.tryParse(yearParam ?? '') ?? loadedState?.year ?? now.year;
+                  final month = int.tryParse(monthParam ?? '') ?? loadedState?.month ?? now.month;
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,

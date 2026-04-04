@@ -13,7 +13,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int _currentMonth = DateTime.now().month;
   String? _currentKeyword;
   String? _currentCategoryId;
+  String? get currentCategoryId => _currentCategoryId;
   String? _currentPaymentMethodId;
+  String? get currentPaymentMethodId => _currentPaymentMethodId;
   String? _currentPocketId;
   int? _currentAmountMin;
   int? _currentAmountMax;
