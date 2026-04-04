@@ -55,32 +55,18 @@ class TransactionDetailPage extends StatelessWidget {
       ),
       body: BlocBuilder<TransactionBloc, TransactionState>(
         builder: (context, state) {
-          if (state is! TransactionLoaded) {
-            return const Center(child: CircularProgressIndicator());
+          if (state is TransactionLoaded) {
+            final txn = _findTransaction(state);
+            if (txn != null) {
+              return _buildContent(context, txn);
+            }
           }
-
-          final txn = _findTransaction(state);
-          if (txn == null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.search_off,
-                    size: 48,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('거래를 찾을 수 없습니다'),
-                ],
-              ),
-            );
-          }
-
-          return _buildContent(context, txn);
+          // Fallback: load transaction directly from API
+          return _AsyncTransactionLoader(
+            transactionId: transactionId,
+            bloc: context.read<TransactionBloc>(),
+            builder: (txn) => _buildContent(context, txn),
+          );
         },
       ),
     );
@@ -282,6 +268,64 @@ class _DetailRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Loads a single transaction from the API when the BLoC state doesn't contain it.
+class _AsyncTransactionLoader extends StatefulWidget {
+  final String transactionId;
+  final TransactionBloc bloc;
+  final Widget Function(Transaction) builder;
+
+  const _AsyncTransactionLoader({
+    required this.transactionId,
+    required this.bloc,
+    required this.builder,
+  });
+
+  @override
+  State<_AsyncTransactionLoader> createState() => _AsyncTransactionLoaderState();
+}
+
+class _AsyncTransactionLoaderState extends State<_AsyncTransactionLoader> {
+  Transaction? _transaction;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final result = await widget.bloc.transactionRepository.getTransaction(widget.transactionId);
+      if (!mounted) return;
+      result.fold(
+        (failure) => setState(() { _error = failure.message; _loading = false; }),
+        (txn) => setState(() { _transaction = txn; _loading = false; }),
+      );
+    } catch (e) {
+      if (mounted) setState(() { _error = '$e'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_transaction != null) return widget.builder(_transaction!);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 48,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+          const SizedBox(height: 12),
+          Text(_error ?? '거래를 찾을 수 없습니다'),
+        ],
+      ),
     );
   }
 }
