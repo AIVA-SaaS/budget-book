@@ -581,6 +581,23 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   ? transferState.transfers
                   : <Transfer>[];
 
+              // Exclude transfers when filtering by category (transfers have no category)
+              if (_filterCategoryId != null) {
+                return Column(
+                  children: [
+                    MonthSummaryBar(
+                      totalIncome: state.totalIncome,
+                      totalExpense: state.totalExpense,
+                      balance: state.balance,
+                    ),
+                    if (state.transactions.isEmpty)
+                      Expanded(child: _buildEmpty(context))
+                    else
+                      Expanded(child: _buildGroupedList(context, state, const [])),
+                  ],
+                );
+              }
+
               // Filter transfers by payment method if filter is active
               final filteredTransfers = _filterPaymentMethodId != null
                   ? transfers.where((t) =>
