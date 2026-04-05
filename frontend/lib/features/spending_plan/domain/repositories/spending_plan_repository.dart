@@ -89,5 +89,6 @@ abstract class SpendingPlanRepository {
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   });
 }

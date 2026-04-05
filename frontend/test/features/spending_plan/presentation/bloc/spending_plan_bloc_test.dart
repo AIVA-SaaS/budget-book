@@ -194,6 +194,7 @@ class MockSpendingPlanRepository extends Mock
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   }) =>
       super.noSuchMethod(
         Invocation.method(#completeWithTransaction, [], {

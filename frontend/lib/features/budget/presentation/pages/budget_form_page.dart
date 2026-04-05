@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -280,16 +281,11 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             const SizedBox(height: 16),
             // Amount input - show different field based on period
             if (_budgetPeriod == 'WEEKLY')
-              TextFormField(
+              AmountInputField(
                 controller: _weeklyAmountController,
-                decoration: InputDecoration(
-                  labelText: '주간 예산 금액',
-                  suffixText: '원',
-                  prefixIcon: const Icon(Icons.date_range),
-                  helperText: _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [CurrencyInputFormatter()],
+                labelText: '주간 예산 금액',
+                prefixIcon: Icons.date_range,
+                helperText: _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '주간 예산 금액을 입력하세요';
@@ -302,16 +298,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 },
               )
             else
-              TextFormField(
+              AmountInputField(
                 controller: _amountController,
-                decoration: InputDecoration(
-                  labelText: '예산 금액',
-                  suffixText: '원',
-                  prefixIcon: const Icon(Icons.payments),
-                  helperText: _amountHint.isNotEmpty ? _amountHint : null,
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [CurrencyInputFormatter()],
+                labelText: '예산 금액',
+                helperText: _amountHint.isNotEmpty ? _amountHint : null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '금액을 입력하세요';

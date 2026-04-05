@@ -20,6 +20,9 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart' as tx;
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 
 /// Result from the complete plan dialog.
 class CompletePlanResult {
@@ -28,6 +31,8 @@ class CompletePlanResult {
   final String description;
   final String? categoryId;
   final String? paymentMethodId;
+  /// If set, link to existing transaction instead of creating new one
+  final String? linkedTransactionId;
 
   const CompletePlanResult({
     required this.actualAmount,
@@ -35,6 +40,7 @@ class CompletePlanResult {
     required this.description,
     this.categoryId,
     this.paymentMethodId,
+    this.linkedTransactionId,
   });
 }
 
@@ -66,6 +72,8 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   String? _categoryId;
   String? _categoryDisplayName;
   String? _paymentMethodId;
+  bool _linkExisting = false;
+  tx.Transaction? _linkedTransaction;
 
   @override
   void initState() {
@@ -126,6 +134,18 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
   }
 
   void _submit() {
+    if (_linkExisting && _linkedTransaction != null) {
+      Navigator.of(context).pop(CompletePlanResult(
+        actualAmount: _linkedTransaction!.amount,
+        transactionDate: _linkedTransaction!.transactionDate,
+        description: _linkedTransaction!.description,
+        categoryId: _linkedTransaction!.category?.id,
+        paymentMethodId: _linkedTransaction!.paymentMethodId,
+        linkedTransactionId: _linkedTransaction!.id,
+      ));
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final amount = CurrencyFormatter.parse(_amountController.text)!;
@@ -243,6 +263,71 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
     );
   }
 
+  Widget _buildTransactionSelector() {
+    final txBloc = getIt<TransactionBloc>();
+    final txState = txBloc.state;
+    final transactions = txState is TransactionLoaded ? txState.transactions : <tx.Transaction>[];
+
+    if (transactions.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('현재 월의 거래를 먼저 로드해주세요'),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_linkedTransaction != null) ...[
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: ListTile(
+              dense: true,
+              leading: Icon(
+                _linkedTransaction!.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                color: _linkedTransaction!.isExpense ? Colors.red : Colors.blue,
+                size: 20,
+              ),
+              title: Text(_linkedTransaction!.description, style: const TextStyle(fontSize: 14)),
+              subtitle: Text(
+                '${CurrencyFormatter.format(_linkedTransaction!.amount)}원 · ${_linkedTransaction!.transactionDate}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => setState(() => _linkedTransaction = null),
+              ),
+            ),
+          ),
+        ] else ...[
+          SizedBox(
+            height: 200,
+            child: ListView.builder(
+              itemCount: transactions.length,
+              itemBuilder: (context, index) {
+                final t = transactions[index];
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    t.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                    color: t.isExpense ? Colors.red : Colors.blue,
+                    size: 18,
+                  ),
+                  title: Text(t.description, style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(
+                    '${CurrencyFormatter.format(t.amount)}원 · ${t.transactionDate}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  onTap: () => setState(() => _linkedTransaction = t),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   String? get _paymentMethodDisplayName {
     if (_paymentMethodId == null) return null;
     return _methods
@@ -276,7 +361,26 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Toggle: new transaction vs link existing
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('새 거래 생성')),
+                ButtonSegment(value: true, label: Text('기존 거래 연결')),
+              ],
+              selected: {_linkExisting},
+              onSelectionChanged: (set) => setState(() {
+                _linkExisting = set.first;
+                _linkedTransaction = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+
+            if (_linkExisting) ...[
+              // Transaction search/select
+              _buildTransactionSelector(),
+            ] else ...[
 
             // Actual amount
             TextFormField(
@@ -353,6 +457,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
               placeholder: '선택 안 함',
               onTap: _showCategorySelectorSheet,
             ),
+            ], // end of "새 거래 생성" section
           ],
         ),
       ),

@@ -135,7 +135,7 @@ void main() {
             bloc.add(const LoadWeeklyOverview(year: 2026, month: 3)),
         expect: () => [
           const WeeklyBudgetLoading(),
-          const WeeklyBudgetLoaded(overview: tOverview),
+          WeeklyBudgetLoaded(overview: tOverview, year: 2026, month: 3),
         ],
       );
 
@@ -162,13 +162,13 @@ void main() {
               .thenAnswer((_) async => const Right(tOverview));
           return bloc;
         },
-        seed: () => const WeeklyBudgetLoaded(currentWeek: tCurrentWeek),
+        seed: () => WeeklyBudgetLoaded(currentWeek: tCurrentWeek),
         act: (bloc) =>
             bloc.add(const LoadWeeklyOverview(year: 2026, month: 3)),
         expect: () => [
           const WeeklyBudgetLoading(),
-          const WeeklyBudgetLoaded(
-              overview: tOverview, currentWeek: tCurrentWeek),
+          WeeklyBudgetLoaded(
+              overview: tOverview, currentWeek: tCurrentWeek, year: 2026, month: 3),
         ],
       );
     });
@@ -184,7 +184,7 @@ void main() {
         act: (bloc) => bloc.add(const LoadCurrentWeek()),
         expect: () => [
           const WeeklyBudgetLoading(),
-          const WeeklyBudgetLoaded(currentWeek: tCurrentWeek),
+          WeeklyBudgetLoaded(currentWeek: tCurrentWeek),
         ],
       );
 
@@ -195,10 +195,10 @@ void main() {
               .thenAnswer((_) async => const Right(tCurrentWeek));
           return bloc;
         },
-        seed: () => const WeeklyBudgetLoaded(overview: tOverview),
+        seed: () => WeeklyBudgetLoaded(overview: tOverview),
         act: (bloc) => bloc.add(const LoadCurrentWeek()),
         expect: () => [
-          const WeeklyBudgetLoaded(
+          WeeklyBudgetLoaded(
               overview: tOverview, currentWeek: tCurrentWeek),
         ],
       );
@@ -211,7 +211,7 @@ void main() {
                   ServerFailure('이번 주 예산 정보를 불러오지 못했습니다')));
           return bloc;
         },
-        seed: () => const WeeklyBudgetLoaded(overview: tOverview),
+        seed: () => WeeklyBudgetLoaded(overview: tOverview),
         act: (bloc) => bloc.add(const LoadCurrentWeek()),
         expect: () => <WeeklyBudgetState>[],
       );

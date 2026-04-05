@@ -244,11 +244,21 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final theme = Theme.of(context);
     final numberFormat = NumberFormat('#,###');
 
-    return RefreshIndicator(
+    return Column(
+      children: [
+        MonthNavigator(
+          year: state.year,
+          month: state.month,
+          onMonthChanged: (m) {
+            getIt<WeeklyBudgetBloc>()
+                .add(LoadWeeklyOverview(year: m.year, month: m.month));
+          },
+        ),
+        Expanded(
+          child: RefreshIndicator(
       onRefresh: () async {
-        final now = DateTime.now();
         getIt<WeeklyBudgetBloc>()
-          ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+          ..add(LoadWeeklyOverview(year: state.year, month: state.month))
           ..add(const LoadCurrentWeek());
       },
       child: ListView(
@@ -306,6 +316,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
           const SizedBox(height: 88),
         ],
       ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -539,6 +552,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
     final spentAmount = summaryItem?.spentAmount ?? 0;
+    final plannedAmount = summaryItem?.plannedAmount ?? 0;
     // Use BE-calculated budget amount (consistent with totalBudget)
     final displayBudgetAmount = summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
 
@@ -589,18 +603,34 @@ class _BudgetListPageState extends State<BudgetListPage> {
             const SizedBox(height: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: (usageRate.clamp(0.0, 100.0)) / 100.0,
-                minHeight: 6,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                color: _getProgressColor(usageRate),
+              child: Stack(
+                children: [
+                  LinearProgressIndicator(
+                    value: displayBudgetAmount > 0
+                        ? ((spentAmount + plannedAmount) / displayBudgetAmount).clamp(0.0, 1.0)
+                        : 0.0,
+                    minHeight: 6,
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest,
+                    color: Colors.orange.shade300,
+                  ),
+                  LinearProgressIndicator(
+                    value: displayBudgetAmount > 0
+                        ? (spentAmount / displayBudgetAmount).clamp(0.0, 1.0)
+                        : 0.0,
+                    minHeight: 6,
+                    backgroundColor: Colors.transparent,
+                    color: _getProgressColor(usageRate),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(displayBudgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+              plannedAmount > 0
+                  ? '${numberFormat.format(spentAmount)}원 사용 + ${numberFormat.format(plannedAmount)}원 예정 / ${numberFormat.format(displayBudgetAmount)}원'
+                  : '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(displayBudgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

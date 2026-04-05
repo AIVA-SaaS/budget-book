@@ -68,6 +68,21 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): SpendingPlan?
 
     @Query("""
+        SELECT sp.budget.id, COALESCE(SUM(sp.amount), 0)
+        FROM SpendingPlan sp
+        WHERE sp.couple.id = :coupleId
+        AND sp.status = com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED
+        AND sp.budget IS NOT NULL
+        AND sp.targetDate BETWEEN :startDate AND :endDate
+        GROUP BY sp.budget.id
+    """)
+    fun sumPlannedAmountByBudget(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
+
+    @Query("""
         SELECT sp FROM SpendingPlan sp
         LEFT JOIN FETCH sp.category c
         LEFT JOIN FETCH c.group
