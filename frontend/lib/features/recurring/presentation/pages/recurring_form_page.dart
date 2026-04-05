@@ -17,6 +17,7 @@ import 'package:budget_book/features/payment_method/domain/entities/payment_meth
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 
 class RecurringFormPage extends StatefulWidget {
   /// If editing, pass the recurring transaction ID (from URL path parameter).
@@ -430,7 +431,31 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                   setState(() => _paymentMethodId = null);
                 }
               },
+              onCreate: () => _showCreatePaymentMethodSheet(context),
+              createLabel: '+ 새 결제수단',
             );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCreatePaymentMethodSheet(BuildContext context) async {
+    final bloc = context.read<PaymentMethodBloc>();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+            bloc.add(CreatePaymentMethod(
+              name: name,
+              type: type,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+              linkedBankId: linkedBankId,
+            ));
           },
         ),
       ),
