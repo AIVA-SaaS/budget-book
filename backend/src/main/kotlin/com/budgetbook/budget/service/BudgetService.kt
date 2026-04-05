@@ -44,7 +44,8 @@ class BudgetService(
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher,
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val spendingPlanRepository: com.budgetbook.spendingplan.repository.SpendingPlanRepository
 ) : CoupleAwareService {
 
     @Transactional
@@ -324,6 +325,12 @@ class BudgetService(
             emptyMap()
         }
 
+        // Pre-compute planned amounts per budget from spending plans
+        val plannedByBudget: Map<UUID, Long> = try {
+            spendingPlanRepository.sumPlannedAmountByBudget(couple.id, startDate, endDate)
+                .associate { row -> (row[0] as UUID) to (row[1] as Long) }
+        } catch (_: Exception) { emptyMap() }
+
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
             val groupId = budget.group?.id
@@ -333,6 +340,8 @@ class BudgetService(
                 else -> totalSpent
             }
 
+            val plannedAmount = plannedByBudget[budget.id] ?: 0L
+
             val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
                 val weeklyAmt = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
                 weeklyAmt * ym.lengthOfMonth().toLong() / 7
@@ -340,9 +349,9 @@ class BudgetService(
                 budget.amount
             }
 
-            val remainingAmount = effectiveBudgetAmount - spentAmount
+            val remainingAmount = effectiveBudgetAmount - spentAmount - plannedAmount
             val usageRate = if (effectiveBudgetAmount > 0) {
-                Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
+                Math.round((spentAmount + plannedAmount).toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
                 0.0
             }
@@ -363,6 +372,7 @@ class BudgetService(
                 groupName = budget.group?.name,
                 budgetAmount = effectiveBudgetAmount,
                 spentAmount = spentAmount,
+                plannedAmount = plannedAmount,
                 remainingAmount = remainingAmount,
                 usageRate = usageRate
             )

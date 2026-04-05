@@ -326,6 +326,7 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
         description: event.description,
         categoryId: event.categoryId,
         paymentMethodId: event.paymentMethodId,
+        linkedTransactionId: event.linkedTransactionId,
       );
       result.fold(
         (failure) {

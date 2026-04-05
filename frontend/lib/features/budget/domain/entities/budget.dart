@@ -121,6 +121,7 @@ class BudgetSummaryItem extends Equatable {
   final String? groupName;
   final int budgetAmount;
   final int spentAmount;
+  final int plannedAmount;
   final int remainingAmount;
   final double usageRate;
 
@@ -130,6 +131,7 @@ class BudgetSummaryItem extends Equatable {
     this.groupName,
     required this.budgetAmount,
     required this.spentAmount,
+    this.plannedAmount = 0,
     required this.remainingAmount,
     required this.usageRate,
   });
@@ -138,5 +140,5 @@ class BudgetSummaryItem extends Equatable {
 
   @override
   List<Object?> get props =>
-      [category, groupId, groupName, budgetAmount, spentAmount, remainingAmount, usageRate];
+      [category, groupId, groupName, budgetAmount, spentAmount, plannedAmount, remainingAmount, usageRate];
 }

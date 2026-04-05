@@ -29,7 +29,11 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
         (failure) => emit(WeeklyBudgetError(failure.message)),
         (overview) {
           emit(WeeklyBudgetLoaded(
-              overview: overview, currentWeek: previousCurrentWeek));
+            overview: overview,
+            currentWeek: previousCurrentWeek,
+            year: event.year,
+            month: event.month,
+          ));
         },
       );
     } catch (e) {
@@ -42,9 +46,12 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
     Emitter<WeeklyBudgetState> emit,
   ) async {
     try {
-      final currentOverview = state is WeeklyBudgetLoaded
-          ? (state as WeeklyBudgetLoaded).overview
+      final previousLoaded = state is WeeklyBudgetLoaded
+          ? (state as WeeklyBudgetLoaded)
           : null;
+      final currentOverview = previousLoaded?.overview;
+      final previousYear = previousLoaded?.year;
+      final previousMonth = previousLoaded?.month;
 
       if (currentOverview == null) {
         emit(const WeeklyBudgetLoading());
@@ -54,7 +61,11 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
       result.fold(
         (failure) {
           if (currentOverview != null) {
-            emit(WeeklyBudgetLoaded(overview: currentOverview));
+            emit(WeeklyBudgetLoaded(
+              overview: currentOverview,
+              year: previousYear,
+              month: previousMonth,
+            ));
           } else {
             emit(WeeklyBudgetError(failure.message));
           }
@@ -62,6 +73,8 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
         (currentWeek) => emit(WeeklyBudgetLoaded(
           overview: currentOverview,
           currentWeek: currentWeek,
+          year: previousYear,
+          month: previousMonth,
         )),
       );
     } catch (e) {

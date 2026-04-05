@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
@@ -315,18 +315,10 @@ class _TransferFormPageState extends State<TransferFormPage> {
           ),
           const SizedBox(height: 16),
           // Amount
-          TextFormField(
+          AmountInputField(
             controller: _amountController,
-            decoration: const InputDecoration(
-              labelText: '금액',
-              prefixIcon: Icon(Icons.payments),
-              suffixText: '원',
-            ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              CurrencyInputFormatter(),
-            ],
+            labelText: '금액',
+            filterDigitsOnly: true,
             validator: (value) {
               if (value == null || value.isEmpty) return '금액을 입력하세요';
               final amount = CurrencyFormatter.parse(value);

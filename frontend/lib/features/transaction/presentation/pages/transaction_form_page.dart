@@ -7,6 +7,7 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -562,16 +563,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   // Amount
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
-                    child: TextFormField(
+                    child: AmountInputField(
                       controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: '금액',
-                        suffixText: '원',
-                        prefixIcon: const Icon(Icons.payments),
-                        helperText: _amountHint.isNotEmpty ? _amountHint : null,
-                      ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [CurrencyInputFormatter()],
+                      labelText: '금액',
+                      helperText: _amountHint.isNotEmpty ? _amountHint : null,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return '금액을 입력하세요';
@@ -868,18 +863,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             ),
             const SizedBox(height: 16),
             // Amount
-            TextFormField(
+            AmountInputField(
               controller: _transferAmountController,
-              decoration: const InputDecoration(
-                labelText: '금액',
-                prefixIcon: Icon(Icons.payments),
-                suffixText: '원',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                CurrencyInputFormatter(),
-              ],
+              labelText: '금액',
+              filterDigitsOnly: true,
               validator: (value) {
                 if (value == null || value.isEmpty) return '금액을 입력하세요';
                 final amount = CurrencyFormatter.parse(value);
