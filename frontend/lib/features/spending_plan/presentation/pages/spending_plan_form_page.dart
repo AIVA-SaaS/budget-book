@@ -601,14 +601,54 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // 6. Budget link dropdown — filter by target date's month, show label + effective amount
+            // 6. Budget link dropdown — filter by target date's month
             Builder(builder: (context) {
-              // Filter budgets to match the target date's month
               final targetMonth = '${_targetDate.year}-${_targetDate.month.toString().padLeft(2, '0')}';
               final filteredBudgets = budgets.where((b) => b.yearMonth == targetMonth).toList();
 
+              // Build dropdown items: monthly budgets as-is, weekly budgets split by week
+              final dropdownItems = <DropdownMenuItem<String>>[];
+              for (final b in filteredBudgets) {
+                if (b.budgetPeriod == 'WEEKLY' && b.weeklyAmount != null) {
+                  // Split weekly budget into per-week items
+                  final parts = b.yearMonth.split('-');
+                  final year = int.parse(parts[0]);
+                  final month = int.parse(parts[1]);
+                  final daysInMonth = DateTime(year, month + 1, 0).day;
+                  final weekLabels = ['첫째주', '둘째주', '셋째주', '넷째주', '다섯째주'];
+                  var dayOffset = 1;
+                  var weekIndex = 0;
+                  while (dayOffset <= daysInMonth && weekIndex < 5) {
+                    final weekStart = dayOffset;
+                    final weekEnd = (dayOffset + 6).clamp(1, daysInMonth);
+                    final daysInWeek = weekEnd - weekStart + 1;
+                    final weekAmount = (b.weeklyAmount! * daysInWeek) ~/ 7;
+                    final isTargetWeek = _targetDate.day >= weekStart && _targetDate.day <= weekEnd;
+                    dropdownItems.add(DropdownMenuItem(
+                      value: b.id,
+                      enabled: isTargetWeek,
+                      child: Text(
+                        '${b.targetLabel} — ${weekLabels[weekIndex]} ($month/$weekStart~$month/$weekEnd) — ${CurrencyFormatter.format(weekAmount)}원',
+                        style: TextStyle(
+                          fontWeight: isTargetWeek ? FontWeight.bold : FontWeight.normal,
+                          color: isTargetWeek ? null : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ));
+                    dayOffset = weekEnd + 1;
+                    weekIndex++;
+                  }
+                } else {
+                  final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
+                  dropdownItems.add(DropdownMenuItem(
+                    value: b.id,
+                    child: Text('${b.targetLabel} — $amount원'),
+                  ));
+                }
+              }
+
               return DropdownButtonFormField<String>(
-                key: ValueKey(targetMonth),
+                key: ValueKey('$targetMonth-${_targetDate.day}'),
                 initialValue: filteredBudgets.any((b) => b.id == _budgetId) ? _budgetId : null,
                 decoration: InputDecoration(
                   labelText: '예산 연결',
@@ -621,15 +661,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                     value: null,
                     child: Text('선택 안 함'),
                   ),
-                  ...filteredBudgets.map((b) {
-                    final label = b.targetLabel;
-                    final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
-                    final period = b.budgetPeriod == 'WEEKLY' ? ' (주간)' : '';
-                    return DropdownMenuItem(
-                      value: b.id,
-                      child: Text('$label — $amount원$period'),
-                    );
-                  }),
+                  ...dropdownItems,
                 ],
                 onChanged: (value) {
                   setState(() => _budgetId = value);

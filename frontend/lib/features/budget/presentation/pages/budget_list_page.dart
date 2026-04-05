@@ -539,6 +539,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
     final spentAmount = summaryItem?.spentAmount ?? 0;
+    // Use BE-calculated budget amount (consistent with totalBudget)
+    final displayBudgetAmount = summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
 
     return Dismissible(
       key: Key(budget.id),
@@ -598,7 +600,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.effectiveMonthlyAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(displayBudgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -607,7 +609,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${numberFormat.format(budget.effectiveMonthlyAmount)}원',
+              '${numberFormat.format(displayBudgetAmount)}원',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
