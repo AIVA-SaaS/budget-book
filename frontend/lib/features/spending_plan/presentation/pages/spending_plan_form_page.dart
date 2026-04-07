@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/utils/date_helpers.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
@@ -601,36 +602,69 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // 6. Budget link dropdown — filter by target date's month, show label + effective amount
+            // 6. Budget link dropdown — filter by target date's month
+            // Weekly budgets are expanded into per-week items with pro-rata amounts
             Builder(builder: (context) {
-              // Filter budgets to match the target date's month
               final targetMonth = '${_targetDate.year}-${_targetDate.month.toString().padLeft(2, '0')}';
               final filteredBudgets = budgets.where((b) => b.yearMonth == targetMonth).toList();
+              final weekRanges = DateHelper.calculateWeekRanges(_targetDate.year, _targetDate.month);
+              final dateFormat = DateFormat('M/d');
+
+              // Build dropdown items: monthly budgets as-is, weekly budgets expanded per week
+              final dropdownItems = <DropdownMenuItem<String>>[
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('선택 안 함'),
+                ),
+              ];
+
+              for (final b in filteredBudgets) {
+                if (b.budgetPeriod == 'WEEKLY' && b.weeklyAmount != null) {
+                  // Expand weekly budget into per-week items
+                  for (final week in weekRanges) {
+                    final proRata = DateHelper.calculateProRataBudget(b.weeklyAmount!, week);
+                    final startStr = dateFormat.format(week.start);
+                    final endStr = dateFormat.format(week.end);
+                    final isTargetWeek = DateHelper.isDateInWeekRange(_targetDate, week);
+                    final label = '${b.targetLabel} — ${week.weekNumber}주차 ($startStr~$endStr) ${CurrencyFormatter.format(proRata)}원';
+
+                    dropdownItems.add(DropdownMenuItem(
+                      value: b.id,
+                      enabled: isTargetWeek,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontWeight: isTargetWeek ? FontWeight.w600 : FontWeight.normal,
+                          color: isTargetWeek ? null : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ));
+                  }
+                } else {
+                  final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
+                  dropdownItems.add(DropdownMenuItem(
+                    value: b.id,
+                    child: Text('${b.targetLabel} — $amount원'),
+                  ));
+                }
+              }
+
+              // Count only enabled weekly items for the target week
+              final weeklyBudgetCount = filteredBudgets.where((b) => b.budgetPeriod == 'WEEKLY').length;
+              final monthlyBudgetCount = filteredBudgets.length - weeklyBudgetCount;
+              final targetWeek = weekRanges.where((w) => DateHelper.isDateInWeekRange(_targetDate, w)).firstOrNull;
+              final weekLabel = targetWeek != null ? ' (${targetWeek.weekNumber}주차)' : '';
 
               return DropdownButtonFormField<String>(
-                key: ValueKey(targetMonth),
+                key: ValueKey('$targetMonth-${_targetDate.day}'),
                 initialValue: filteredBudgets.any((b) => b.id == _budgetId) ? _budgetId : null,
                 decoration: InputDecoration(
                   labelText: '예산 연결',
                   prefixIcon: const Icon(Icons.account_balance_wallet),
-                  helperText: '${_targetDate.month}월 예산 ${filteredBudgets.length}개',
+                  helperText: '${_targetDate.month}월$weekLabel 예산: 월간 $monthlyBudgetCount개, 주간 $weeklyBudgetCount개',
                 ),
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: null,
-                    child: Text('선택 안 함'),
-                  ),
-                  ...filteredBudgets.map((b) {
-                    final label = b.targetLabel;
-                    final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
-                    final period = b.budgetPeriod == 'WEEKLY' ? ' (주간)' : '';
-                    return DropdownMenuItem(
-                      value: b.id,
-                      child: Text('$label — $amount원$period'),
-                    );
-                  }),
-                ],
+                items: dropdownItems,
                 onChanged: (value) {
                   setState(() => _budgetId = value);
                 },

@@ -377,9 +377,26 @@ class BudgetService(
             effectiveTotalBudget = totalBudgetEntry.amount
             effectiveTotalSpent = totalSpent
         } else {
-            // No total budget: sum from items only (consistent budget vs spent)
-            effectiveTotalBudget = items.sumOf { it.budgetAmount }
-            effectiveTotalSpent = items.sumOf { it.spentAmount }
+            // No total budget: sum from items, but avoid double-counting
+            // when both a group budget and its child category budgets exist.
+            // Collect category IDs that belong to groups with their own budget.
+            val groupIdsWithBudget = budgets.mapNotNull { it.group?.id }.toSet()
+            val coveredCategoryIds = if (groupIdsWithBudget.isNotEmpty()) {
+                budgets
+                    .filter { it.category != null && it.category!!.group?.id in groupIdsWithBudget }
+                    .mapNotNull { it.category?.id }
+                    .toSet()
+            } else {
+                emptySet()
+            }
+
+            // Exclude items whose category is already covered by a group budget
+            val deduplicatedItems = items.filter { item ->
+                val catId = item.category?.id
+                catId == null || catId !in coveredCategoryIds
+            }
+            effectiveTotalBudget = deduplicatedItems.sumOf { it.budgetAmount }
+            effectiveTotalSpent = deduplicatedItems.sumOf { it.spentAmount }
         }
 
         return BudgetSummaryResponse(

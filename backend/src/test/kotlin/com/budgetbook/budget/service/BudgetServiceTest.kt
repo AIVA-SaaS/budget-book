@@ -697,6 +697,52 @@ class BudgetServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getBudgetSummary double-counting prevention ---
+
+    Given("group budget AND child category budgets coexist without total budget") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val group = CategoryGroup(couple = couple, name = "식비그룹", budgetType = BudgetType.WEEKLY, displayOrder = 1, isDefault = true)
+        val childCat1 = Category(couple = couple, name = "생활비", type = CategoryType.EXPENSE, group = group, icon = "home", color = "#111111")
+        val childCat2 = Category(couple = couple, name = "장", type = CategoryType.EXPENSE, group = group, icon = "cart", color = "#222222")
+
+        val groupBudget = MonthlyBudget(couple = couple, group = group, yearMonth = "2026-04", amount = 500000)
+        val cat1Budget = MonthlyBudget(couple = couple, category = childCat1, yearMonth = "2026-04", amount = 300000)
+        val cat2Budget = MonthlyBudget(couple = couple, category = childCat2, yearMonth = "2026-04", amount = 200000)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-04", user1.id) } returns listOf(groupBudget, cat1Budget, cat2Budget)
+
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30), TransactionType.EXPENSE, user1.id
+        ) } returns listOf(
+            arrayOf(60000L, 1L, childCat1.id, "생활비", CategoryType.EXPENSE, "home", "#111111"),
+            arrayOf(40000L, 1L, childCat2.id, "장", CategoryType.EXPENSE, "cart", "#222222")
+        )
+
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+            coupleId = couple.id, startDate = LocalDate.of(2026, 4, 1),
+            endDate = LocalDate.of(2026, 4, 30), type = TransactionType.EXPENSE, userId = user1.id
+        ) } returns 100000L
+
+        every { transactionRepository.sumByCategoryGroupForCouple(
+            couple.id, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30),
+            TransactionType.EXPENSE, setOf(group.id), user1.id
+        ) } returns listOf(
+            arrayOf(group.id, 100000L)
+        )
+
+        When("getBudgetSummary is called") {
+            val result = service.getBudgetSummary(user1.id, 2026, 4)
+
+            Then("totalBudget excludes child categories covered by the group budget (no double counting)") {
+                result.items.size shouldBe 3
+                // totalBudget should only count the group budget, not the children
+                result.totalBudget shouldBe 500000
+                // totalSpent should only count the group's spent, not children's
+                result.totalSpent shouldBe 100000
+            }
+        }
+    }
+
     // --- user not in couple ---
 
     Given("a user not in any couple") {
