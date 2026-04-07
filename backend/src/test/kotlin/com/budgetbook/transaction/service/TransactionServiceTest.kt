@@ -379,7 +379,7 @@ class TransactionServiceTest : BehaviorSpec({
         ) } returns page
 
         When("listTransactions is called for January 2024 without extended filters") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20)
 
             Then("returns paginated results using legacy query") {
                 result.content.size shouldBe 2
@@ -402,7 +402,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with keyword filter") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, "점심", null, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
@@ -422,7 +422,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with amountMin and amountMax") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
@@ -556,6 +556,83 @@ class TransactionServiceTest : BehaviorSpec({
         }
     }
 
+    Given("transactions exist and dateFrom/dateTo filter is used") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "1월 지출", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val tx2 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 20000, description = "3월 지출", transactionDate = LocalDate.of(2024, 3, 10)
+        )
+        val page = PageImpl(listOf(tx2, tx1), PageRequest.of(0, 20), 2)
+        every { transactionRepository.findByCoupleIdAndFilters(
+            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 31), null, null, user1.id, any()
+        ) } returns page
+
+        When("listTransactions is called with dateFrom and dateTo spanning multiple months") {
+            val result = service.listTransactions(
+                user1.id, null, null, null, null, null, null, null, null, null,
+                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 31), 0, 20
+            )
+
+            Then("returns transactions in the date range, ignoring year/month") {
+                result.content.size shouldBe 2
+                result.totalElements shouldBe 2
+            }
+        }
+    }
+
+    Given("dateFrom only is provided") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "지출", transactionDate = LocalDate.of(2024, 6, 15)
+        )
+        val page = PageImpl(listOf(tx1), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findByCoupleIdAndFilters(
+            couple.id, LocalDate.of(2024, 6, 1), LocalDate.of(2099, 12, 31), null, null, user1.id, any()
+        ) } returns page
+
+        When("listTransactions is called with dateFrom only") {
+            val result = service.listTransactions(
+                user1.id, null, null, null, null, null, null, null, null, null,
+                LocalDate.of(2024, 6, 1), null, 0, 20
+            )
+
+            Then("returns transactions from dateFrom onwards") {
+                result.content.size shouldBe 1
+            }
+        }
+    }
+
+    Given("dateTo only is provided") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx1 = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "지출", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val page = PageImpl(listOf(tx1), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findByCoupleIdAndFilters(
+            couple.id, LocalDate.of(2000, 1, 1), LocalDate.of(2024, 3, 31), null, null, user1.id, any()
+        ) } returns page
+
+        When("listTransactions is called with dateTo only") {
+            val result = service.listTransactions(
+                user1.id, null, null, null, null, null, null, null, null, null,
+                null, LocalDate.of(2024, 3, 31), 0, 20
+            )
+
+            Then("returns transactions up to dateTo") {
+                result.content.size shouldBe 1
+            }
+        }
+    }
+
     Given("transactions exist and paymentMethodId filter is used") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pmId = UUID.randomUUID()
@@ -568,7 +645,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with paymentMethodId") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, pmId, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, pmId, null, null, null, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1

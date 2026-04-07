@@ -16,6 +16,9 @@ class LoadTransactions extends TransactionEvent {
   final int? amountMin;
   final int? amountMax;
   final String? scrollToDate;
+  final String? categoryId;
+  final String? dateFrom;
+  final String? dateTo;
 
   const LoadTransactions({
     required this.year,
@@ -26,11 +29,14 @@ class LoadTransactions extends TransactionEvent {
     this.amountMin,
     this.amountMax,
     this.scrollToDate,
+    this.categoryId,
+    this.dateFrom,
+    this.dateTo,
   });
 
   @override
   List<Object?> get props =>
-      [year, month, keyword, paymentMethodId, pocketId, amountMin, amountMax, scrollToDate];
+      [year, month, keyword, paymentMethodId, pocketId, amountMin, amountMax, scrollToDate, categoryId, dateFrom, dateTo];
 }
 
 class CreateTransaction extends TransactionEvent {

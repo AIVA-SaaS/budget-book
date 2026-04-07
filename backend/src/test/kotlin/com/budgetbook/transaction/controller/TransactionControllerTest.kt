@@ -52,9 +52,9 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -66,9 +66,9 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -80,9 +80,40 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, 0, 20)
+        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20)
+
+        result.success shouldBe true
+        result.data!!.totalElements shouldBe 1
+    }
+
+    test("listTransactions with dateFrom and dateTo filter") {
+
+        val pageResponse = PageResponse(
+            content = listOf(sampleTransactionResponse()),
+            page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
+        )
+        val from = LocalDate.of(2024, 1, 1)
+        val to = LocalDate.of(2024, 3, 31)
+        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, 0, 20) } returns pageResponse
+
+        val result = controller.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, 0, 20)
+
+        result.success shouldBe true
+        result.data!!.totalElements shouldBe 1
+    }
+
+    test("listTransactions with dateFrom only") {
+
+        val pageResponse = PageResponse(
+            content = listOf(sampleTransactionResponse()),
+            page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
+        )
+        val from = LocalDate.of(2024, 1, 1)
+        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, 0, 20) } returns pageResponse
+
+        val result = controller.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1

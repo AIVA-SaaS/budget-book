@@ -5,11 +5,13 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 class WeekSummaryCard extends StatelessWidget {
   final WeeklyWeek weekSummary;
   final bool isCurrentWeek;
+  final void Function(WeeklyBudgetItem item)? onItemTap;
 
   const WeekSummaryCard({
     super.key,
     required this.weekSummary,
     this.isCurrentWeek = false,
+    this.onItemTap,
   });
 
   @override
@@ -106,48 +108,60 @@ class WeekSummaryCard extends StatelessWidget {
               ...weekSummary.items.map((item) {
                 final progress = (item.usageRate / 100).clamp(0.0, 1.0);
                 final itemColor = _getUsageColor(item.usageRate);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.folder_outlined,
-                                  size: 14,
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.5)),
-                              const SizedBox(width: 4),
-                              Text(
-                                item.displayName,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                return InkWell(
+                  onTap: onItemTap != null && item.categoryId != null
+                      ? () => onItemTap!(item)
+                      : null,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.folder_outlined,
+                                    size: 14,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  item.displayName,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 5,
-                          backgroundColor: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.1),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(itemColor),
+                                if (onItemTap != null && item.categoryId != null) ...[
+                                  const SizedBox(width: 2),
+                                  Icon(Icons.chevron_right, size: 14,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.4)),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 5,
+                            backgroundColor: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.1),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(itemColor),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }),
