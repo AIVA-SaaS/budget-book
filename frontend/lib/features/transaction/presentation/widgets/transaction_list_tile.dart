@@ -7,6 +7,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction.dar
 class TransactionListTile extends StatelessWidget {
   final Transaction transaction;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
   final int? runningTotal;
 
@@ -14,6 +15,7 @@ class TransactionListTile extends StatelessWidget {
     super.key,
     required this.transaction,
     this.onTap,
+    this.onLongPress,
     this.onDelete,
     this.runningTotal,
   });
@@ -48,6 +50,7 @@ class TransactionListTile extends StatelessWidget {
       onDismissed: (_) => onDelete?.call(),
       child: ListTile(
         onTap: onTap,
+        onLongPress: onLongPress,
         leading: SizedBox(
           width: 40,
           child: Column(

@@ -30,6 +30,8 @@ class TransactionLoaded extends TransactionState {
   final int? serverTotalExpense;
 
   final String? scrollToDate;
+  final String? dateFrom;
+  final String? dateTo;
 
   const TransactionLoaded({
     required this.transactions,
@@ -44,6 +46,8 @@ class TransactionLoaded extends TransactionState {
     this.scrollToDate,
     this.serverTotalIncome,
     this.serverTotalExpense,
+    this.dateFrom,
+    this.dateTo,
   });
 
   int get totalIncome => serverTotalIncome ?? transactions
@@ -64,9 +68,28 @@ class TransactionLoaded extends TransactionState {
     return grouped;
   }
 
+  /// Returns transactions filtered by dateFrom/dateTo if set.
+  List<Transaction> get filteredTransactions {
+    if (dateFrom == null && dateTo == null) return transactions;
+    return transactions.where((t) {
+      if (dateFrom != null && t.transactionDate.compareTo(dateFrom!) < 0) return false;
+      if (dateTo != null && t.transactionDate.compareTo(dateTo!) > 0) return false;
+      return true;
+    }).toList();
+  }
+
+  Map<String, List<Transaction>> get filteredGroupedByDate {
+    final txns = filteredTransactions;
+    final grouped = <String, List<Transaction>>{};
+    for (final t in txns) {
+      grouped.putIfAbsent(t.transactionDate, () => []).add(t);
+    }
+    return grouped;
+  }
+
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense];
+      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense, dateFrom, dateTo];
 }
 
 class TransactionError extends TransactionState {

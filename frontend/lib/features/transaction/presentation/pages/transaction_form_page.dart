@@ -7,6 +7,7 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/calculator_amount_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -545,16 +546,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   // Amount
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
-                    child: TextFormField(
+                    child: CalculatorAmountField(
                       controller: _amountController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: '금액',
                         suffixText: '원',
-                        prefixIcon: const Icon(Icons.payments),
-                        helperText: _amountHint.isNotEmpty ? _amountHint : null,
+                        prefixIcon: Icon(Icons.payments),
                       ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [CurrencyInputFormatter()],
+                      helperText: _amountHint.isNotEmpty ? _amountHint : null,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return '금액을 입력하세요';

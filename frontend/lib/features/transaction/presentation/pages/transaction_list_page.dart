@@ -31,6 +31,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
+import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -59,6 +60,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
   String? _filterPocketId;
   int? _filterAmountMin;
   int? _filterAmountMax;
+  String? _filterDateFrom;
+  String? _filterDateTo;
+  String? _filterPeriodLabel;
   late bool _hasActiveFilters = widget.initialPaymentMethodId != null;
 
   String get _appBarTitle {
@@ -127,6 +131,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
           pocketId: _filterPocketId,
           amountMin: _filterAmountMin,
           amountMax: _filterAmountMax,
+          dateFrom: _filterDateFrom,
+          dateTo: _filterDateTo,
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
@@ -275,6 +281,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
                               _filterPocketId = null;
                               _filterAmountMin = null;
                               _filterAmountMax = null;
+                              _filterDateFrom = null;
+                              _filterDateTo = null;
+                              _filterPeriodLabel = null;
                               _hasActiveFilters = false;
                             });
                             Navigator.of(ctx).pop();
@@ -301,10 +310,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                                 _filterPaymentMethodName = null;
                               }
                               _filterPocketId = tempPocketId;
-                              _hasActiveFilters = _filterAmountMin != null ||
-                                  _filterAmountMax != null ||
-                                  _filterPaymentMethodId != null ||
-                                  _filterPocketId != null;
+                              _updateHasActiveFilters();
                             });
                             Navigator.of(ctx).pop();
                             _reloadWithFilters();
@@ -387,6 +393,155 @@ class _TransactionListPageState extends State<TransactionListPage> {
     );
   }
 
+  void _updateHasActiveFilters() {
+    _hasActiveFilters = _filterAmountMin != null ||
+        _filterAmountMax != null ||
+        _filterPaymentMethodId != null ||
+        _filterPocketId != null ||
+        _filterDateFrom != null ||
+        _filterDateTo != null;
+  }
+
+  void _showPeriodFilterSheet() {
+    final now = DateTime.now();
+
+    // Calculate presets
+    final thisWeekStart = now.subtract(Duration(days: now.weekday - 1));
+    final thisWeekEnd = thisWeekStart.add(const Duration(days: 6));
+    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+    final lastWeekEnd = thisWeekStart.subtract(const Duration(days: 1));
+
+    String fmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    String fmtShort(DateTime d) => '${d.month}/${d.day}';
+
+    void applyFilter(String label, String from, String to) {
+      setState(() {
+        _filterDateFrom = from;
+        _filterDateTo = to;
+        _filterPeriodLabel = label;
+        _updateHasActiveFilters();
+      });
+      Navigator.of(context).pop();
+      _reloadWithFilters();
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '기간 필터',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.today),
+                title: const Text('이번 주'),
+                subtitle: Text('${fmtShort(thisWeekStart)} ~ ${fmtShort(thisWeekEnd)}'),
+                onTap: () => applyFilter(
+                    '이번 주', fmt(thisWeekStart), fmt(thisWeekEnd)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('지난 주'),
+                subtitle: Text('${fmtShort(lastWeekStart)} ~ ${fmtShort(lastWeekEnd)}'),
+                onTap: () => applyFilter(
+                    '지난 주', fmt(lastWeekStart), fmt(lastWeekEnd)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('이번 달'),
+                subtitle: Text('${now.month}월'),
+                onTap: () {
+                  final monthStart = DateTime(now.year, now.month, 1);
+                  final monthEnd = DateTime(now.year, now.month + 1, 0);
+                  applyFilter('이번 달', fmt(monthStart), fmt(monthEnd));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('지난 달'),
+                onTap: () {
+                  final prevMonth = DateTime(now.year, now.month - 1, 1);
+                  final prevMonthEnd = DateTime(now.year, now.month, 0);
+                  applyFilter('지난 달', fmt(prevMonth), fmt(prevMonthEnd));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.date_range),
+                title: const Text('직접 설정'),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final range = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    initialDateRange: _filterDateFrom != null && _filterDateTo != null
+                        ? DateTimeRange(
+                            start: DateTime.parse(_filterDateFrom!),
+                            end: DateTime.parse(_filterDateTo!),
+                          )
+                        : null,
+                    locale: const Locale('ko'),
+                  );
+                  if (range != null) {
+                    final label =
+                        '${fmtShort(range.start)} ~ ${fmtShort(range.end)}';
+                    setState(() {
+                      _filterDateFrom = fmt(range.start);
+                      _filterDateTo = fmt(range.end);
+                      _filterPeriodLabel = label;
+                      _updateHasActiveFilters();
+                    });
+                    _reloadWithFilters();
+                  }
+                },
+              ),
+              if (_filterDateFrom != null) ...[
+                const Divider(),
+                ListTile(
+                  leading: Icon(Icons.clear, color: Theme.of(context).colorScheme.error),
+                  title: Text('기간 필터 해제',
+                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  onTap: () {
+                    setState(() {
+                      _filterDateFrom = null;
+                      _filterDateTo = null;
+                      _filterPeriodLabel = null;
+                      _updateHasActiveFilters();
+                    });
+                    Navigator.of(ctx).pop();
+                    _reloadWithFilters();
+                  },
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -482,6 +637,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
           year: state.year,
           month: state.month,
           onMonthChanged: (m) {
+            // Clear period filter when navigating months
+            setState(() {
+              _filterDateFrom = null;
+              _filterDateTo = null;
+              _filterPeriodLabel = null;
+              _updateHasActiveFilters();
+            });
             final kw = _searchController.text.trim().isEmpty
                 ? null
                 : _searchController.text.trim();
@@ -542,9 +704,43 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   tooltip: '필터',
                 ),
               ),
+              IconButton(
+                icon: Icon(
+                  Icons.date_range,
+                  color: _filterDateFrom != null
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                onPressed: _showPeriodFilterSheet,
+                tooltip: '기간 필터',
+              ),
             ],
           ),
         ),
+        // Period filter indicator
+        if (_filterPeriodLabel != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.date_range, size: 16),
+                  label: Text(_filterPeriodLabel!),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () {
+                    setState(() {
+                      _filterDateFrom = null;
+                      _filterDateTo = null;
+                      _filterPeriodLabel = null;
+                      _updateHasActiveFilters();
+                    });
+                    _reloadWithFilters();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
         // Summary bar + Transaction list (both need transfers)
         Expanded(
           child: BlocBuilder<TransferBloc, TransferState>(
@@ -560,11 +756,20 @@ class _TransactionListPageState extends State<TransactionListPage> {
                       t.destinationPaymentMethod.id == _filterPaymentMethodId).toList()
                   : transfers;
 
+              // Filter transfers by date if date filter is active
+              final dateFilteredTransfers = _filterDateFrom != null || _filterDateTo != null
+                  ? filteredTransfers.where((t) {
+                      if (_filterDateFrom != null && t.transferDate.compareTo(_filterDateFrom!) < 0) return false;
+                      if (_filterDateTo != null && t.transferDate.compareTo(_filterDateTo!) > 0) return false;
+                      return true;
+                    }).toList()
+                  : filteredTransfers;
+
               // Filter transfers by keyword if search is active
               final keyword = _searchController.text.trim().toLowerCase();
               final searchedTransfers = keyword.isEmpty
-                  ? filteredTransfers
-                  : filteredTransfers.where((t) {
+                  ? dateFilteredTransfers
+                  : dateFilteredTransfers.where((t) {
                       final desc = t.description?.toLowerCase() ?? '';
                       final src = t.sourcePaymentMethod.name.toLowerCase();
                       final dst = t.destinationPaymentMethod.name.toLowerCase();
@@ -599,7 +804,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     balance: state.balance + transferIn - transferOut,
                     totalTransfer: transferIn + transferOut > 0 ? transferIn + transferOut : null,
                   ),
-                  if (state.transactions.isEmpty && searchedTransfers.isEmpty)
+                  if (state.filteredTransactions.isEmpty && searchedTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
                   else
                     Expanded(child: _buildGroupedList(context, state, searchedTransfers)),
@@ -614,10 +819,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
   Widget _buildGroupedList(BuildContext context, TransactionLoaded state, List<Transfer> transfers) {
     // Merge transactions and transfers into LedgerItems, grouped by date
+    // Use filteredGroupedByDate when date filter is active
     final groupedItems = <String, List<LedgerItem>>{};
 
-    // Add transactions
-    for (final entry in state.groupedByDate.entries) {
+    // Add transactions (filtered by date if applicable)
+    final txnGrouped = state.filteredGroupedByDate;
+    for (final entry in txnGrouped.entries) {
       groupedItems.putIfAbsent(entry.key, () => []);
       for (final t in entry.value) {
         groupedItems[entry.key]!.add(LedgerItem.fromTransaction(t));
@@ -722,6 +929,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   transaction: t,
                   runningTotal: runningTotals[t.id],
                   onTap: () => context.push('/transactions/detail/${t.id}'),
+                  onLongPress: () => _showTransactionActions(context, t),
                   onDelete: () {
                     showDialog(
                       context: context,
@@ -760,6 +968,131 @@ class _TransactionListPageState extends State<TransactionListPage> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showTransactionActions(BuildContext context, Transaction transaction) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                transaction.description,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('수정'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push('/transactions/edit/${transaction.id}');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month),
+              title: const Text('날짜 이동'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDateMoveDialog(context, transaction);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: const Text('복사'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push('/transactions/create', extra: transaction);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+              title: Text('삭제', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDeleteTransaction(context, transaction);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDateMoveDialog(BuildContext context, Transaction transaction) async {
+    final bloc = context.read<TransactionBloc>();
+    final messenger = ScaffoldMessenger.of(context);
+    final initialDate = DateTime.tryParse(transaction.transactionDate) ?? DateTime.now();
+    final pickedDate = await showCalendarPickerDialog(
+      context: context,
+      initialDate: initialDate,
+    );
+    if (pickedDate != null && mounted) {
+      final newDateStr = DateFormat('yyyy-MM-dd').format(pickedDate);
+      if (newDateStr != transaction.transactionDate) {
+        bloc.add(
+          UpdateTransaction(
+            id: transaction.id,
+            transactionDate: newDateStr,
+          ),
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('거래가 ${DateFormat('M월 d일').format(pickedDate)}로 이동되었습니다'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _confirmDeleteTransaction(BuildContext context, Transaction transaction) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('거래 삭제'),
+        content: const Text('정말 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<TransactionBloc>().add(DeleteTransaction(transaction.id));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('거래가 삭제되었습니다')),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
       ),
     );
   }
