@@ -242,7 +242,7 @@ class PaymentMethodService(
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
             val cards = creditCards.map { card ->
-                val results = transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                     paymentMethodId = card.id,
                     startDate = startDate,
                     endDate = endDate,

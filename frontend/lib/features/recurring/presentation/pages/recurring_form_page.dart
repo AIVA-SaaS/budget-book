@@ -17,6 +17,7 @@ import 'package:budget_book/features/payment_method/domain/entities/payment_meth
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 
 class RecurringFormPage extends StatefulWidget {
   /// If editing, pass the recurring transaction ID (from URL path parameter).
@@ -424,6 +425,12 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               onSelected: (item) {
                 setState(() => _paymentMethodId = item?.id);
               },
+              onEdit: (item) {
+                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                if (pm != null) {
+                  _showEditPaymentMethodSheet(context, pm);
+                }
+              },
               onDelete: (id) {
                 pmBloc.add(DeletePaymentMethod(id));
                 if (_paymentMethodId == id) {
@@ -431,6 +438,30 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 }
               },
             );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showEditPaymentMethodSheet(BuildContext context, PaymentMethod pm) {
+    final bloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          paymentMethod: pm,
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+            bloc.add(UpdatePaymentMethod(
+              id: pm.id,
+              name: name,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+              linkedBankId: linkedBankId,
+              clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+            ));
           },
         ),
       ),

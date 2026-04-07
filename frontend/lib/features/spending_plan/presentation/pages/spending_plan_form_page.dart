@@ -921,6 +921,31 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   _paymentMethodId = item?.id;
                 });
               },
+              onEdit: (item) {
+                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                if (pm != null) {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+                      value: pmBloc,
+                      child: PaymentMethodFormSheet(
+                        paymentMethod: pm,
+                        onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+                          pmBloc.add(UpdatePaymentMethod(
+                            id: pm.id,
+                            name: name,
+                            settlementDay: settlementDay,
+                            closingDay: closingDay,
+                            linkedBankId: linkedBankId,
+                            clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+                          ));
+                        },
+                      ),
+                    ),
+                  );
+                }
+              },
               onDelete: (id) {
                 pmBloc.add(DeletePaymentMethod(id));
                 if (_paymentMethodId == id) {

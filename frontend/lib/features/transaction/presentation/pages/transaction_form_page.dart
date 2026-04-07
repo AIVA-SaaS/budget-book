@@ -1331,6 +1331,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _selectedPaymentMethodId = item?.id;
                 });
               },
+              onEdit: (item) {
+                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                if (pm != null) {
+                  _showEditPaymentMethodSheet(context, pm);
+                }
+              },
               onDelete: (id) {
                 pmBloc.add(DeletePaymentMethod(id));
                 if (_selectedPaymentMethodId == id) {
@@ -1411,6 +1417,30 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           suffixIcon: Icon(Icons.calendar_today),
         ),
         child: Text(formattedDate),
+      ),
+    );
+  }
+
+  void _showEditPaymentMethodSheet(BuildContext context, PaymentMethod pm) {
+    final bloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          paymentMethod: pm,
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+            bloc.add(UpdatePaymentMethod(
+              id: pm.id,
+              name: name,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+              linkedBankId: linkedBankId,
+              clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+            ));
+          },
+        ),
       ),
     );
   }
