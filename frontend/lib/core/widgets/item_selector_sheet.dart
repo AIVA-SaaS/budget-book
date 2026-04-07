@@ -36,6 +36,7 @@ class ItemSelectorSheet extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<SelectorItem?> onSelected;
   final ValueChanged<String>? onDelete;
+  final ValueChanged<SelectorItem>? onEdit;
   final VoidCallback? onCreate;
   final String createLabel;
   final String? emptyLabel;
@@ -61,6 +62,7 @@ class ItemSelectorSheet extends StatelessWidget {
     this.selectedId,
     required this.onSelected,
     this.onDelete,
+    this.onEdit,
     this.onCreate,
     this.createLabel = '+ 새로 만들기',
     this.emptyLabel,
@@ -342,6 +344,22 @@ class ItemSelectorSheet extends StatelessWidget {
                   color: isFavorite
                       ? Colors.amber
                       : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+              ),
+            ),
+          // Edit button
+          if (onEdit != null)
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                onEdit!(item);
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
               ),
             ),

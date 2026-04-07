@@ -251,9 +251,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
           if (state is! CategoryGroupLoaded) {
             return const LinearProgressIndicator();
           }
-          final groups = state.groups
-              .where((g) => !g.isDefault || g.categories.isNotEmpty)
-              .toList();
+          final groups = state.groups;
           return DropdownButtonFormField<String?>(
             initialValue: _selectedGroupId,
             decoration: const InputDecoration(

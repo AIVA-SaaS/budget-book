@@ -53,7 +53,20 @@ class TransactionDetailPage extends StatelessWidget {
         tooltip: '거래 추가',
         child: const Icon(Icons.add),
       ),
-      body: BlocBuilder<TransactionBloc, TransactionState>(
+      body: BlocListener<TransactionBloc, TransactionState>(
+        listenWhen: (previous, current) {
+          return current is TransactionLoaded &&
+              current.operationSuccess != null;
+        },
+        listener: (context, state) {
+          if (state is TransactionLoaded && state.operationSuccess != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.operationSuccess!)),
+            );
+            context.go('/transactions');
+          }
+        },
+        child: BlocBuilder<TransactionBloc, TransactionState>(
         builder: (context, state) {
           if (state is! TransactionLoaded) {
             return const Center(child: CircularProgressIndicator());
@@ -82,6 +95,7 @@ class TransactionDetailPage extends StatelessWidget {
 
           return _buildContent(context, txn);
         },
+      ),
       ),
     );
   }
@@ -229,10 +243,6 @@ class TransactionDetailPage extends StatelessWidget {
       context
           .read<TransactionBloc>()
           .add(DeleteTransaction(transactionId));
-      context.pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('거래가 삭제되었습니다')),
-      );
     }
   }
 
