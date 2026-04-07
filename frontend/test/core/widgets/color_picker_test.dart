@@ -25,7 +25,7 @@ void main() {
 
   group('presetColors', () {
     test('contains expected number of colors', () {
-      expect(presetColors.length, 16);
+      expect(presetColors.length, 32);
     });
 
     test('all colors start with #', () {

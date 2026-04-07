@@ -21,6 +21,8 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     on<LoadYearComparison>(_onLoadYearComparison);
     on<LoadPaymentMethodStats>(_onLoadPaymentMethodStats);
     on<ChangeVisibilityFilter>(_onChangeVisibilityFilter);
+    on<SetDateRangeFilter>(_onSetDateRangeFilter);
+    on<ClearDateRangeFilter>(_onClearDateRangeFilter);
   }
 
   void _onChangeVisibilityFilter(
@@ -49,17 +51,23 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     try {
       // Load all three API calls in parallel using Future.wait
       final vis = state.visibilityFilter;
+      final df = state.dateFrom;
+      final dt = state.dateTo;
       final results = await Future.wait([
         statisticsRepository.getSummary(
           year: event.year,
           month: event.month,
           visibility: vis,
+          dateFrom: df,
+          dateTo: dt,
         ),
         statisticsRepository.getCategoryBreakdown(
           year: event.year,
           month: event.month,
           type: state.categoryType,
           visibility: vis,
+          dateFrom: df,
+          dateTo: dt,
         ),
         statisticsRepository.getMonthlyTrend(visibility: vis),
       ]);
@@ -127,6 +135,8 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         year: event.year,
         month: event.month,
         visibility: state.visibilityFilter,
+        dateFrom: state.dateFrom,
+        dateTo: state.dateTo,
       );
       result.fold(
         (failure) => emit(state.copyWith(
@@ -162,6 +172,8 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         month: event.month,
         type: event.type,
         visibility: state.visibilityFilter,
+        dateFrom: state.dateFrom,
+        dateTo: state.dateTo,
       );
       result.fold(
         (failure) => emit(state.copyWith(
@@ -295,5 +307,25 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         paymentMethodError: '예기치 않은 오류가 발생했습니다',
       ));
     }
+  }
+
+  void _onSetDateRangeFilter(
+    SetDateRangeFilter event,
+    Emitter<StatisticsState> emit,
+  ) {
+    emit(state.copyWith(
+      dateFrom: event.dateFrom,
+      dateTo: event.dateTo,
+      dateRangeLabel: event.label,
+    ));
+    add(LoadAllStatistics(year: state.year, month: state.month));
+  }
+
+  void _onClearDateRangeFilter(
+    ClearDateRangeFilter event,
+    Emitter<StatisticsState> emit,
+  ) {
+    emit(state.copyWith(clearDateRange: true));
+    add(LoadAllStatistics(year: state.year, month: state.month));
   }
 }

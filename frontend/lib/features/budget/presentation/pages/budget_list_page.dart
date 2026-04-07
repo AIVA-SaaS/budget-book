@@ -587,7 +587,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
   ) {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
-    final spentAmount = summaryItem?.spentAmount ?? 0;
 
     return Dismissible(
       key: Key(budget.id),
@@ -634,22 +633,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: (usageRate.clamp(0.0, 100.0)) / 100.0,
-                minHeight: 6,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                color: _getProgressColor(usageRate),
-              ),
-            ),
+            _buildBudgetProgressBar(context, summaryItem, budget.effectiveMonthlyAmount),
             const SizedBox(height: 4),
-            Text(
-              '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budget.effectiveMonthlyAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            _buildBudgetSubtitleText(context, summaryItem, budget.effectiveMonthlyAmount, numberFormat, usageRate),
           ],
         ),
         trailing: Row(
@@ -751,6 +737,117 @@ class _BudgetListPageState extends State<BudgetListPage> {
           }
         },
       ),
+    );
+  }
+
+  /// 3-segment progress bar: spent (solid) + planned (semi-transparent) + remaining (grey).
+  Widget _buildBudgetProgressBar(
+    BuildContext context,
+    BudgetSummaryItem? summaryItem,
+    int budgetAmount,
+  ) {
+    if (budgetAmount <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+    final plannedAmount = summaryItem?.plannedAmount ?? 0;
+
+    final spentRatio = (spentAmount / budgetAmount).clamp(0.0, 1.0);
+    final plannedRatio = (plannedAmount / budgetAmount).clamp(0.0, 1.0 - spentRatio);
+    final usageRate = summaryItem?.usageRate ?? 0.0;
+    final spentColor = _getProgressColor(usageRate);
+
+    // If no planned amount, use simple progress bar
+    if (plannedAmount <= 0) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: spentRatio,
+          minHeight: 6,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: spentColor,
+        ),
+      );
+    }
+
+    // 3-segment bar using CustomPaint-like approach with stacked bars
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 6,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final totalWidth = constraints.maxWidth;
+            final spentWidth = totalWidth * spentRatio;
+            final plannedWidth = totalWidth * plannedRatio;
+
+            return Stack(
+              children: [
+                // Background (remaining)
+                Container(
+                  width: totalWidth,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                // Planned (semi-transparent, behind spent)
+                if (plannedWidth > 0)
+                  Positioned(
+                    left: spentWidth,
+                    child: Container(
+                      width: plannedWidth,
+                      height: 6,
+                      color: spentColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                // Spent (solid)
+                if (spentWidth > 0)
+                  Container(
+                    width: spentWidth,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: spentColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(4),
+                        bottomLeft: const Radius.circular(4),
+                        topRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
+                        bottomRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Subtitle text showing spent + planned / budget.
+  Widget _buildBudgetSubtitleText(
+    BuildContext context,
+    BudgetSummaryItem? summaryItem,
+    int budgetAmount,
+    NumberFormat numberFormat,
+    double usageRate,
+  ) {
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+    final plannedAmount = summaryItem?.plannedAmount ?? 0;
+
+    if (plannedAmount > 0) {
+      return Text(
+        '사용 ${numberFormat.format(spentAmount)} + 계획 ${numberFormat.format(plannedAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+        style: Theme.of(context).textTheme.bodySmall,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Text(
+      '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 

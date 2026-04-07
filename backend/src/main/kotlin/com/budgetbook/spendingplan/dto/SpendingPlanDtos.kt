@@ -105,6 +105,12 @@ data class AssignSpendingPlanRequest(
     val budgetId: UUID? = null
 )
 
+// ── Link Transaction Request ──
+
+data class LinkTransactionRequest(
+    val transactionId: UUID
+)
+
 // ── Complete with Transaction Request ──
 
 data class CompleteWithTransactionRequest(

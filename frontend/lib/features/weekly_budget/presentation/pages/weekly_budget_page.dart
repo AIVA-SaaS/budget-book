@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/current_week_summary.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
@@ -43,6 +44,13 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('주간 예산'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: '주간 정산',
+            onPressed: () => context.push('/weekly-budgets/settlement'),
+          ),
+        ],
       ),
       body: Column(
         children: [

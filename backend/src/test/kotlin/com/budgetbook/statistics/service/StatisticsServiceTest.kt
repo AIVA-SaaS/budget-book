@@ -368,4 +368,77 @@ class StatisticsServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- getMonthlySummary with dateFrom/dateTo (C-11) ---
+
+    Given("a user requesting summary with custom date range") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("dateFrom and dateTo are provided") {
+            val customStart = LocalDate.of(2026, 3, 10)
+            val customEnd = LocalDate.of(2026, 3, 20)
+
+            every {
+                transactionRepository.sumByTypeForCouple(
+                    couple.id, customStart, customEnd, any(), "ALL"
+                )
+            } returns listOf(
+                arrayOf(TransactionType.EXPENSE, 500000L, 5L)
+            )
+
+            val result = service.getMonthlySummary(user1.id, 2026, 3, "ALL", customStart, customEnd)
+
+            Then("uses the custom date range instead of full month") {
+                result.totalExpense shouldBe 500000L
+                result.transactionCount shouldBe 5
+            }
+        }
+
+        When("only dateFrom is provided, dateTo defaults to end of month") {
+            val customStart = LocalDate.of(2026, 3, 15)
+            val monthEnd = LocalDate.of(2026, 3, 31)
+
+            every {
+                transactionRepository.sumByTypeForCouple(
+                    couple.id, customStart, monthEnd, any(), "ALL"
+                )
+            } returns listOf(
+                arrayOf(TransactionType.INCOME, 300000L, 3L)
+            )
+
+            val result = service.getMonthlySummary(user1.id, 2026, 3, "ALL", customStart, null)
+
+            Then("uses dateFrom with month end as dateTo") {
+                result.totalIncome shouldBe 300000L
+            }
+        }
+    }
+
+    // --- getCategoryBreakdown with dateFrom/dateTo (C-11) ---
+
+    Given("a user requesting category breakdown with custom date range") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val catId = UUID.randomUUID()
+        val customStart = LocalDate.of(2026, 3, 1)
+        val customEnd = LocalDate.of(2026, 3, 15)
+
+        When("dateFrom and dateTo are provided") {
+            every {
+                transactionRepository.sumByCategoryForCouple(
+                    couple.id, customStart, customEnd, TransactionType.EXPENSE, any(), "ALL"
+                )
+            } returns listOf(
+                arrayOf<Any?>(200000L, 4L, catId, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null)
+            )
+
+            val result = service.getCategoryBreakdown(user1.id, 2026, 3, "EXPENSE", "ALL", customStart, customEnd)
+
+            Then("uses the custom date range") {
+                result shouldHaveSize 1
+                result[0].amount shouldBe 200000L
+                result[0].transactionCount shouldBe 4
+            }
+        }
+    }
 })

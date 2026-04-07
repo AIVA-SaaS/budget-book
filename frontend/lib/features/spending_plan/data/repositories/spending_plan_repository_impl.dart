@@ -259,4 +259,34 @@ class SpendingPlanRepositoryImpl implements SpendingPlanRepository {
       return const Left(ServerFailure('계획 완료 처리에 실패했습니다'));
     }
   }
+
+  @override
+  Future<Either<Failure, SpendingPlan>> linkTransaction({
+    required String id,
+    required String transactionId,
+  }) async {
+    try {
+      final result = await remoteDataSource.linkTransaction(
+        id,
+        transactionId: transactionId,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '거래 연결에 실패했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('거래 연결에 실패했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SpendingPlan>> unlinkTransaction(String id) async {
+    try {
+      final result = await remoteDataSource.unlinkTransaction(id);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '거래 연결 해제에 실패했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('거래 연결 해제에 실패했습니다'));
+    }
+  }
 }

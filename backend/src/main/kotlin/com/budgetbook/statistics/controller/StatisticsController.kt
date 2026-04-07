@@ -10,11 +10,13 @@ import com.budgetbook.statistics.service.PaymentMethodStatisticsService
 import com.budgetbook.statistics.service.StatisticsService
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 @Validated
@@ -30,9 +32,11 @@ class StatisticsController(
         @AuthUser userId: UUID,
         @RequestParam @Min(2000) @Max(2100) year: Int,
         @RequestParam @Min(1) @Max(12) month: Int,
-        @RequestParam(defaultValue = "ALL") visibility: String
+        @RequestParam(defaultValue = "ALL") visibility: String,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateFrom: LocalDate?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateTo: LocalDate?
     ): ApiResponse<StatisticsSummaryResponse> {
-        return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month, visibility))
+        return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month, visibility, dateFrom, dateTo))
     }
 
     @GetMapping("/by-category")
@@ -41,9 +45,11 @@ class StatisticsController(
         @RequestParam @Min(2000) @Max(2100) year: Int,
         @RequestParam @Min(1) @Max(12) month: Int,
         @RequestParam(required = false) type: String?,
-        @RequestParam(defaultValue = "ALL") visibility: String
+        @RequestParam(defaultValue = "ALL") visibility: String,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateFrom: LocalDate?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateTo: LocalDate?
     ): ApiResponse<List<CategoryStatisticsResponse>> {
-        return ApiResponse.ok(statisticsService.getCategoryBreakdown(userId, year, month, type, visibility))
+        return ApiResponse.ok(statisticsService.getCategoryBreakdown(userId, year, month, type, visibility, dateFrom, dateTo))
     }
 
     @GetMapping("/payment-methods")

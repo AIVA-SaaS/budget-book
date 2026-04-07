@@ -197,3 +197,25 @@ class CompleteWithTransaction extends SpendingPlanEvent {
         paymentMethodId,
       ];
 }
+
+class LinkTransaction extends SpendingPlanEvent {
+  final String planId;
+  final String transactionId;
+
+  const LinkTransaction({
+    required this.planId,
+    required this.transactionId,
+  });
+
+  @override
+  List<Object?> get props => [planId, transactionId];
+}
+
+class UnlinkTransaction extends SpendingPlanEvent {
+  final String planId;
+
+  const UnlinkTransaction({required this.planId});
+
+  @override
+  List<Object?> get props => [planId];
+}
