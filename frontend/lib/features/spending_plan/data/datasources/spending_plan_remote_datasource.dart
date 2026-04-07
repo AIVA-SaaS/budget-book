@@ -55,6 +55,13 @@ abstract class SpendingPlanRemoteDataSource {
     String? categoryId,
     String? paymentMethodId,
   });
+
+  Future<SpendingPlanModel> linkTransaction(
+    String id, {
+    required String transactionId,
+  });
+
+  Future<SpendingPlanModel> unlinkTransaction(String id);
 }
 
 class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
@@ -216,6 +223,30 @@ class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
     final response = await apiClient.dio.patch(
       '${ApiEndpoints.spendingPlans}/$id/complete-with-transaction',
       data: data,
+    );
+    return SpendingPlanModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<SpendingPlanModel> linkTransaction(
+    String id, {
+    required String transactionId,
+  }) async {
+    final response = await apiClient.dio.put(
+      '${ApiEndpoints.spendingPlans}/$id/link-transaction',
+      data: {'transactionId': transactionId},
+    );
+    return SpendingPlanModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<SpendingPlanModel> unlinkTransaction(String id) async {
+    final response = await apiClient.dio.delete(
+      '${ApiEndpoints.spendingPlans}/$id/link-transaction',
     );
     return SpendingPlanModel.fromJson(
       response.data['data'] as Map<String, dynamic>,

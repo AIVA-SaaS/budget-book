@@ -84,6 +84,7 @@ data class BudgetSummaryResponse(
     val yearMonth: String,
     val totalBudget: Long,
     val totalSpent: Long,
+    val totalPlanned: Long = 0,
     val items: List<BudgetSummaryItemResponse>
 )
 
@@ -115,6 +116,7 @@ data class BudgetSummaryItemResponse(
     val groupName: String? = null,
     val budgetAmount: Long,
     val spentAmount: Long,
+    val plannedAmount: Long = 0,
     val remainingAmount: Long,
     val usageRate: Double
 )

@@ -79,3 +79,22 @@ class ChangeVisibilityFilter extends StatisticsEvent {
   @override
   List<Object?> get props => [visibility];
 }
+
+class SetDateRangeFilter extends StatisticsEvent {
+  final String dateFrom;
+  final String dateTo;
+  final String label;
+
+  const SetDateRangeFilter({
+    required this.dateFrom,
+    required this.dateTo,
+    required this.label,
+  });
+
+  @override
+  List<Object?> get props => [dateFrom, dateTo, label];
+}
+
+class ClearDateRangeFilter extends StatisticsEvent {
+  const ClearDateRangeFilter();
+}

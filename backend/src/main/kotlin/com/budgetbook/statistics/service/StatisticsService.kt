@@ -38,12 +38,12 @@ class StatisticsService(
     }
 
     @Transactional(readOnly = true)
-    fun getMonthlySummary(userId: UUID, year: Int, month: Int, visibility: String = "ALL"): StatisticsSummaryResponse {
+    fun getMonthlySummary(userId: UUID, year: Int, month: Int, visibility: String = "ALL", dateFrom: LocalDate? = null, dateTo: LocalDate? = null): StatisticsSummaryResponse {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
         val yearMonth = YearMonth.of(year, month)
-        val startDate = yearMonth.atDay(1)
-        val endDate = yearMonth.atEndOfMonth()
+        val startDate = dateFrom ?: yearMonth.atDay(1)
+        val endDate = dateTo ?: yearMonth.atEndOfMonth()
 
         val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId, visFilter)
 
@@ -86,12 +86,12 @@ class StatisticsService(
     }
 
     @Transactional(readOnly = true)
-    fun getCategoryBreakdown(userId: UUID, year: Int, month: Int, type: String?, visibility: String = "ALL"): List<CategoryStatisticsResponse> {
+    fun getCategoryBreakdown(userId: UUID, year: Int, month: Int, type: String?, visibility: String = "ALL", dateFrom: LocalDate? = null, dateTo: LocalDate? = null): List<CategoryStatisticsResponse> {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
         val yearMonth = YearMonth.of(year, month)
-        val startDate = yearMonth.atDay(1)
-        val endDate = yearMonth.atEndOfMonth()
+        val startDate = dateFrom ?: yearMonth.atDay(1)
+        val endDate = dateTo ?: yearMonth.atEndOfMonth()
 
         val transactionType = try {
             TransactionType.valueOf(type ?: "EXPENSE")

@@ -24,6 +24,8 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
     on<LoadWishlist>(_onLoadWishlist);
     on<AssignPlan>(_onAssignPlan);
     on<CompleteWithTransaction>(_onCompleteWithTransaction);
+    on<LinkTransaction>(_onLinkTransaction);
+    on<UnlinkTransaction>(_onUnlinkTransaction);
   }
 
   Future<void> _onLoadSpendingPlans(
@@ -360,6 +362,71 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
             // TransactionBloc might not be registered yet
           }
         },
+      );
+    } catch (e) {
+      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onLinkTransaction(
+    LinkTransaction event,
+    Emitter<SpendingPlanState> emit,
+  ) async {
+    try {
+      final result = await spendingPlanRepository.linkTransaction(
+        id: event.planId,
+        transactionId: event.transactionId,
+      );
+      result.fold(
+        (failure) {
+          final currentState = state;
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: currentState.wishlist,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(SpendingPlanError(failure.message));
+          }
+        },
+        (_) => add(LoadSpendingPlans(
+          startDate: _lastStartDate,
+          endDate: _lastEndDate,
+          status: _lastStatus,
+        )),
+      );
+    } catch (e) {
+      emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onUnlinkTransaction(
+    UnlinkTransaction event,
+    Emitter<SpendingPlanState> emit,
+  ) async {
+    try {
+      final result = await spendingPlanRepository.unlinkTransaction(event.planId);
+      result.fold(
+        (failure) {
+          final currentState = state;
+          if (currentState is SpendingPlanLoaded) {
+            emit(SpendingPlanLoaded(
+              plans: currentState.plans,
+              summary: currentState.summary,
+              wishlist: currentState.wishlist,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(SpendingPlanError(failure.message));
+          }
+        },
+        (_) => add(LoadSpendingPlans(
+          startDate: _lastStartDate,
+          endDate: _lastEndDate,
+          status: _lastStatus,
+        )),
       );
     } catch (e) {
       emit(const SpendingPlanError('예기치 않은 오류가 발생했습니다'));

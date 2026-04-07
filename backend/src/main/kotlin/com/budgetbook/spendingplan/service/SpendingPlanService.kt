@@ -397,6 +397,63 @@ class SpendingPlanService(
         return savedPlan.toResponse()
     }
 
+    @Transactional
+    fun linkTransaction(userId: UUID, planId: UUID, transactionId: UUID): SpendingPlanResponse {
+        val couple = getActiveCouple(userId)
+        val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        val transaction = transactionRepository.findById(transactionId)
+            .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Specified transaction does not exist.") }
+        OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
+
+        val oldStatus = plan.status
+        plan.linkedTransaction = transaction
+        plan.status = SpendingPlanStatus.COMPLETED
+        plan.actualAmount = transaction.amount
+        plan.completedDate = transaction.transactionDate
+
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = oldStatus,
+            toStatus = SpendingPlanStatus.COMPLETED,
+            changedBy = user,
+            actualAmount = transaction.amount,
+            linkedTransaction = transaction
+        )
+        return savedPlan.toResponse()
+    }
+
+    @Transactional
+    fun unlinkTransaction(userId: UUID, planId: UUID): SpendingPlanResponse {
+        val couple = getActiveCouple(userId)
+        val plan = findPlanWithAccess(planId, couple.id, userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        if (plan.linkedTransaction == null) {
+            throw BusinessException("NO_LINKED_TRANSACTION", "This plan has no linked transaction.")
+        }
+
+        val oldStatus = plan.status
+        plan.linkedTransaction = null
+        plan.actualAmount = null
+        plan.completedDate = null
+        plan.status = if (plan.targetDate != null) SpendingPlanStatus.PLANNED else SpendingPlanStatus.WISHLIST
+
+        val savedPlan = spendingPlanRepository.save(plan)
+        recordStatusChange(
+            plan = savedPlan,
+            fromStatus = oldStatus,
+            toStatus = savedPlan.status,
+            changedBy = user,
+            note = "Transaction unlinked"
+        )
+        return savedPlan.toResponse()
+    }
+
     @Transactional(readOnly = true)
     fun getSuggestions(userId: UUID, categoryId: UUID?, amount: Long, date: LocalDate): List<SpendingPlanSuggestion> {
         val couple = getActiveCouple(userId)

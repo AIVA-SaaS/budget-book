@@ -23,6 +23,7 @@ import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.pocket.repository.MoneyPocketRepository
+import com.budgetbook.spendingplan.repository.SpendingPlanRepository
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
@@ -44,7 +45,8 @@ class BudgetService(
     private val transactionRepository: TransactionRepository,
     private val syncEventPublisher: SyncEventPublisher,
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val spendingPlanRepository: SpendingPlanRepository
 ) : CoupleAwareService {
 
     @Transactional
@@ -324,6 +326,22 @@ class BudgetService(
             emptyMap()
         }
 
+        // Pre-compute planned amounts from spending plans (WISHLIST/PLANNED status)
+        val categoryIds = budgets.mapNotNull { it.category?.id }.toSet()
+        val plannedByCategory: Map<UUID, Long> = if (categoryIds.isNotEmpty()) {
+            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, categoryIds, userId)
+                .associate { row -> (row[0] as UUID) to (row[1] as Long) }
+        } else {
+            emptyMap()
+        }
+        val plannedByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
+            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, groupIds, userId)
+                .associate { row -> (row[0] as UUID) to (row[1] as Long) }
+        } else {
+            emptyMap()
+        }
+        val totalPlannedAmount = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId)
+
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id
             val groupId = budget.group?.id
@@ -331,6 +349,11 @@ class BudgetService(
                 categoryId != null -> spendingByCategory[categoryId] ?: 0L
                 groupId != null -> spendingByGroup[groupId] ?: 0L
                 else -> totalSpent
+            }
+            val plannedAmount = when {
+                categoryId != null -> plannedByCategory[categoryId] ?: 0L
+                groupId != null -> plannedByGroup[groupId] ?: 0L
+                else -> totalPlannedAmount
             }
 
             val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
@@ -340,7 +363,7 @@ class BudgetService(
                 budget.amount
             }
 
-            val remainingAmount = effectiveBudgetAmount - spentAmount
+            val remainingAmount = effectiveBudgetAmount - spentAmount - plannedAmount
             val usageRate = if (effectiveBudgetAmount > 0) {
                 Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
@@ -363,6 +386,7 @@ class BudgetService(
                 groupName = budget.group?.name,
                 budgetAmount = effectiveBudgetAmount,
                 spentAmount = spentAmount,
+                plannedAmount = plannedAmount,
                 remainingAmount = remainingAmount,
                 usageRate = usageRate
             )
@@ -371,15 +395,13 @@ class BudgetService(
         val totalBudgetEntry = budgets.find { it.category == null && it.group == null }
         val effectiveTotalBudget: Long
         val effectiveTotalSpent: Long
+        val effectiveTotalPlanned: Long
 
         if (totalBudgetEntry != null) {
-            // "전체 예산" exists: use its amount and total spending
             effectiveTotalBudget = totalBudgetEntry.amount
             effectiveTotalSpent = totalSpent
+            effectiveTotalPlanned = totalPlannedAmount
         } else {
-            // No total budget: sum from items, but avoid double-counting
-            // when both a group budget and its child category budgets exist.
-            // Collect category IDs that belong to groups with their own budget.
             val groupIdsWithBudget = budgets.mapNotNull { it.group?.id }.toSet()
             val coveredCategoryIds = if (groupIdsWithBudget.isNotEmpty()) {
                 budgets
@@ -390,19 +412,20 @@ class BudgetService(
                 emptySet()
             }
 
-            // Exclude items whose category is already covered by a group budget
             val deduplicatedItems = items.filter { item ->
                 val catId = item.category?.id
                 catId == null || catId !in coveredCategoryIds
             }
             effectiveTotalBudget = deduplicatedItems.sumOf { it.budgetAmount }
             effectiveTotalSpent = deduplicatedItems.sumOf { it.spentAmount }
+            effectiveTotalPlanned = deduplicatedItems.sumOf { it.plannedAmount }
         }
 
         return BudgetSummaryResponse(
             yearMonth = yearMonth,
             totalBudget = effectiveTotalBudget,
             totalSpent = effectiveTotalSpent,
+            totalPlanned = effectiveTotalPlanned,
             items = items
         )
     }

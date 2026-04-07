@@ -23,6 +23,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.pocket.domain.MoneyPocket
 import com.budgetbook.pocket.domain.PocketType
 import com.budgetbook.pocket.repository.MoneyPocketRepository
+import com.budgetbook.spendingplan.repository.SpendingPlanRepository
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -50,12 +51,18 @@ class BudgetServiceTest : BehaviorSpec({
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
     val userRepository = mockk<com.budgetbook.auth.repository.UserRepository>()
-    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, categoryGroupRepository, transactionRepository, syncEventPublisher, moneyPocketRepository, userRepository)
+    val spendingPlanRepository = mockk<SpendingPlanRepository>()
+    val service = BudgetService(budgetRepository, coupleResolver, categoryRepository, categoryGroupRepository, transactionRepository, syncEventPublisher, moneyPocketRepository, userRepository, spendingPlanRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
     val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, icon = "restaurant", color = "#FF5733", isDefault = true)
+
+    // Default: no planned spending (individual tests can override)
+    every { spendingPlanRepository.sumPlannedAmountByCategoryIds(any(), any(), any()) } returns emptyList()
+    every { spendingPlanRepository.sumPlannedAmountByGroupIds(any(), any(), any()) } returns emptyList()
+    every { spendingPlanRepository.sumTotalPlannedAmount(any(), any()) } returns 0L
 
     // --- createBudget ---
 
@@ -739,6 +746,53 @@ class BudgetServiceTest : BehaviorSpec({
                 result.totalBudget shouldBe 500000
                 // totalSpent should only count the group's spent, not children's
                 result.totalSpent shouldBe 100000
+            }
+        }
+    }
+
+    // --- getBudgetSummary with planned amounts (C-7) ---
+
+    Given("budgets with planned spending plans") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val budget1 = MonthlyBudget(couple = couple, category = category, yearMonth = "2026-03", amount = 150000)
+        val budget2 = MonthlyBudget(couple = couple, category = null, yearMonth = "2026-03", amount = 3000000)
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns listOf(budget1, budget2)
+
+        every { transactionRepository.sumByCategoryForCouple(
+            couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), TransactionType.EXPENSE, user1.id
+        ) } returns listOf(
+            arrayOf(50000L, 1L, category.id, "식비", CategoryType.EXPENSE, "restaurant", "#FF5733")
+        )
+
+        every { transactionRepository.sumAmountByCoupleIdAndDateRange(
+            coupleId = couple.id, startDate = LocalDate.of(2026, 3, 1),
+            endDate = LocalDate.of(2026, 3, 31), type = TransactionType.EXPENSE, userId = user1.id
+        ) } returns 80000L
+
+        // Planned spending: 30000 for category, 50000 total
+        every { spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, setOf(category.id), user1.id) } returns listOf(
+            arrayOf(category.id as Any, 30000L as Any)
+        )
+        every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 50000L
+
+        When("getBudgetSummary is called") {
+            val result = service.getBudgetSummary(user1.id, 2026, 3)
+
+            Then("includes planned amounts in summary items") {
+                val catItem = result.items.first { it.category != null }
+                catItem.plannedAmount shouldBe 30000
+                catItem.remainingAmount shouldBe 70000 // 150000 - 50000 - 30000
+            }
+
+            Then("includes planned amount in total budget item") {
+                val totalItem = result.items.first { it.category == null }
+                totalItem.plannedAmount shouldBe 50000
+                totalItem.remainingAmount shouldBe 2870000 // 3000000 - 80000 - 50000
+            }
+
+            Then("includes totalPlanned in response") {
+                result.totalPlanned shouldBe 50000
             }
         }
     }
