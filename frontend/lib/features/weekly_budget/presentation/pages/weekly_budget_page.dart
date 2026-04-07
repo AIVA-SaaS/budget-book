@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/current_week_summary.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
@@ -8,8 +9,34 @@ import 'package:budget_book/features/weekly_budget/presentation/widgets/week_sum
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
-class WeeklyBudgetPage extends StatelessWidget {
+class WeeklyBudgetPage extends StatefulWidget {
   const WeeklyBudgetPage({super.key});
+
+  @override
+  State<WeeklyBudgetPage> createState() => _WeeklyBudgetPageState();
+}
+
+class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
+  late int _year;
+  late int _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _year = now.year;
+    _month = now.month;
+  }
+
+  void _onMonthChanged(({int year, int month}) value) {
+    setState(() {
+      _year = value.year;
+      _month = value.month;
+    });
+    context.read<WeeklyBudgetBloc>()
+      ..add(LoadWeeklyOverview(year: _year, month: _month))
+      ..add(const LoadCurrentWeek());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,18 +44,29 @@ class WeeklyBudgetPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('주간 예산'),
       ),
-      body: BlocBuilder<WeeklyBudgetBloc, WeeklyBudgetState>(
-        builder: (context, state) {
-          return switch (state) {
-            WeeklyBudgetInitial() ||
-            WeeklyBudgetLoading() =>
-              const Center(child: CircularProgressIndicator()),
-            WeeklyBudgetLoaded() =>
-              _buildContent(context, state),
-            WeeklyBudgetError(message: final message) =>
-              _buildError(context, message),
-          };
-        },
+      body: Column(
+        children: [
+          MonthNavigator(
+            year: _year,
+            month: _month,
+            onMonthChanged: _onMonthChanged,
+          ),
+          Expanded(
+            child: BlocBuilder<WeeklyBudgetBloc, WeeklyBudgetState>(
+              builder: (context, state) {
+                return switch (state) {
+                  WeeklyBudgetInitial() ||
+                  WeeklyBudgetLoading() =>
+                    const Center(child: CircularProgressIndicator()),
+                  WeeklyBudgetLoaded() =>
+                    _buildContent(context, state),
+                  WeeklyBudgetError(message: final message) =>
+                    _buildError(context, message),
+                };
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -38,9 +76,8 @@ class WeeklyBudgetPage extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        final now = DateTime.now();
         context.read<WeeklyBudgetBloc>()
-          ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+          ..add(LoadWeeklyOverview(year: _year, month: _month))
           ..add(const LoadCurrentWeek());
       },
       child: ListView(
@@ -233,9 +270,8 @@ class WeeklyBudgetPage extends StatelessWidget {
     return AppErrorWidget(
       message: message,
       onRetry: () {
-        final now = DateTime.now();
         context.read<WeeklyBudgetBloc>()
-          ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+          ..add(LoadWeeklyOverview(year: _year, month: _month))
           ..add(const LoadCurrentWeek());
       },
       showHomeButton: true,
