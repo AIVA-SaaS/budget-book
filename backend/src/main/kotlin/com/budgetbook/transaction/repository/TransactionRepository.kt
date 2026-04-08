@@ -176,10 +176,11 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     ): List<Array<Any?>>
 
     @Query("""
-        SELECT SUM(t.amount), COUNT(t)
+        SELECT COALESCE(SUM(t.amount), 0), COUNT(t)
         FROM Transaction t
         WHERE t.paymentMethod.id = :paymentMethodId
         AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
     fun sumByPaymentMethodAndSettlementDateRange(

@@ -52,6 +52,14 @@ class ApiEndpoints {
   static const String weeklyBudgets = '/api/v1/budgets/weekly';
   static const String weeklyBudgetCurrent = '/api/v1/budgets/weekly/current';
 
+  // Weekly Settlements
+  static const String weeklySettlements =
+      '/api/v1/budgets/weekly/settlements';
+  static const String weeklySettlementsSettle =
+      '/api/v1/budgets/weekly/settlements/settle';
+  static const String weeklySettlementsUnsettle =
+      '/api/v1/budgets/weekly/settlements/unsettle';
+
   // Reports
   static const String reportsWeekly = '/api/v1/reports/weekly';
   static const String reportsMonthly = '/api/v1/reports/monthly';

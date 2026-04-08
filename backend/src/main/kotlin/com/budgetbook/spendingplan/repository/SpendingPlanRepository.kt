@@ -65,6 +65,50 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
         @Param("endDate") endDate: LocalDate
     ): List<SpendingPlan>
 
+    @Query("""
+        SELECT sp.category.id, COALESCE(SUM(sp.amount), 0)
+        FROM SpendingPlan sp
+        WHERE sp.couple.id = :coupleId
+        AND sp.category.id IN :categoryIds
+        AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
+        AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        GROUP BY sp.category.id
+    """)
+    fun sumPlannedAmountByCategoryIds(
+        @Param("coupleId") coupleId: UUID,
+        @Param("categoryIds") categoryIds: Set<UUID>,
+        @Param("userId") userId: UUID
+    ): List<Array<Any>>
+
+    @Query("""
+        SELECT COALESCE(SUM(sp.amount), 0)
+        FROM SpendingPlan sp
+        WHERE sp.couple.id = :coupleId
+        AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
+        AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+    """)
+    fun sumTotalPlannedAmount(
+        @Param("coupleId") coupleId: UUID,
+        @Param("userId") userId: UUID
+    ): Long
+
+    @Query("""
+        SELECT cg.id, COALESCE(SUM(sp.amount), 0)
+        FROM SpendingPlan sp
+        JOIN sp.category c
+        JOIN c.group cg
+        WHERE sp.couple.id = :coupleId
+        AND cg.id IN :groupIds
+        AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
+        AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        GROUP BY cg.id
+    """)
+    fun sumPlannedAmountByGroupIds(
+        @Param("coupleId") coupleId: UUID,
+        @Param("groupIds") groupIds: Set<UUID>,
+        @Param("userId") userId: UUID
+    ): List<Array<Any>>
+
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): SpendingPlan?
 
     @Query("""

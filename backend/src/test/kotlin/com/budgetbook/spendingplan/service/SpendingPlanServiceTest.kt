@@ -556,4 +556,144 @@ class SpendingPlanServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- linkTransaction (C-8) ---
+
+    Given("a user linking a transaction to a plan") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { statusHistoryRepository.save(any()) } answers { firstArg() }
+
+        val plan = SpendingPlan(
+            couple = couple,
+            author = user1,
+            name = "Costco shopping",
+            amount = 150000,
+            targetDate = LocalDate.of(2026, 4, 5),
+            status = SpendingPlanStatus.PLANNED
+        )
+
+        val transaction = Transaction(
+            couple = couple,
+            author = user1,
+            type = com.budgetbook.transaction.domain.TransactionType.EXPENSE,
+            amount = 145000,
+            description = "Costco groceries",
+            transactionDate = LocalDate.of(2026, 4, 5)
+        )
+
+        When("linking a valid transaction") {
+            every { spendingPlanRepository.findByIdAndCoupleId(plan.id, couple.id) } returns plan
+            every { transactionRepository.findById(transaction.id) } returns Optional.of(transaction)
+            every { spendingPlanRepository.save(any()) } answers { firstArg() }
+
+            val result = service.linkTransaction(user1.id, plan.id, transaction.id)
+
+            Then("marks plan as COMPLETED with transaction details") {
+                result.status shouldBe "COMPLETED"
+                result.linkedTransactionId shouldBe transaction.id
+                result.actualAmount shouldBe 145000
+                result.completedDate shouldBe LocalDate.of(2026, 4, 5)
+            }
+        }
+
+        When("linking a transaction from another couple") {
+            val otherTransaction = Transaction(
+                couple = otherCouple,
+                author = user2,
+                type = com.budgetbook.transaction.domain.TransactionType.EXPENSE,
+                amount = 10000,
+                description = "Other",
+                transactionDate = LocalDate.of(2026, 4, 1)
+            )
+            every { spendingPlanRepository.findByIdAndCoupleId(plan.id, couple.id) } returns plan
+            every { transactionRepository.findById(otherTransaction.id) } returns Optional.of(otherTransaction)
+
+            Then("throws ForbiddenException") {
+                shouldThrow<ForbiddenException> {
+                    service.linkTransaction(user1.id, plan.id, otherTransaction.id)
+                }
+            }
+        }
+    }
+
+    // --- unlinkTransaction (C-8) ---
+
+    Given("a user unlinking a transaction from a plan") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { statusHistoryRepository.save(any()) } answers { firstArg() }
+
+        val transaction = Transaction(
+            couple = couple,
+            author = user1,
+            type = com.budgetbook.transaction.domain.TransactionType.EXPENSE,
+            amount = 145000,
+            description = "Groceries",
+            transactionDate = LocalDate.of(2026, 4, 5)
+        )
+
+        When("unlinking a linked plan with targetDate") {
+            val linkedPlan = SpendingPlan(
+                couple = couple,
+                author = user1,
+                name = "Shopping",
+                amount = 150000,
+                targetDate = LocalDate.of(2026, 4, 5),
+                status = SpendingPlanStatus.COMPLETED,
+                linkedTransaction = transaction,
+                actualAmount = 145000
+            )
+            every { spendingPlanRepository.findByIdAndCoupleId(linkedPlan.id, couple.id) } returns linkedPlan
+            every { spendingPlanRepository.save(any()) } answers { firstArg() }
+
+            val result = service.unlinkTransaction(user1.id, linkedPlan.id)
+
+            Then("reverts to PLANNED status") {
+                result.status shouldBe "PLANNED"
+                result.linkedTransactionId shouldBe null
+                result.actualAmount shouldBe null
+            }
+        }
+
+        When("unlinking a plan with no linked transaction") {
+            val unlinkedPlan = SpendingPlan(
+                couple = couple,
+                author = user1,
+                name = "Unlinked plan",
+                amount = 50000,
+                status = SpendingPlanStatus.PLANNED
+            )
+            every { spendingPlanRepository.findByIdAndCoupleId(unlinkedPlan.id, couple.id) } returns unlinkedPlan
+
+            Then("throws BusinessException") {
+                val ex = shouldThrow<BusinessException> {
+                    service.unlinkTransaction(user1.id, unlinkedPlan.id)
+                }
+                ex.code shouldBe "NO_LINKED_TRANSACTION"
+            }
+        }
+
+        When("unlinking a plan without targetDate reverts to WISHLIST") {
+            val wishlistLinkedPlan = SpendingPlan(
+                couple = couple,
+                author = user1,
+                name = "Wish item",
+                amount = 200000,
+                targetDate = null,
+                status = SpendingPlanStatus.COMPLETED,
+                linkedTransaction = transaction,
+                actualAmount = 195000
+            )
+            every { spendingPlanRepository.findByIdAndCoupleId(wishlistLinkedPlan.id, couple.id) } returns wishlistLinkedPlan
+            every { spendingPlanRepository.save(any()) } answers { firstArg() }
+
+            val result = service.unlinkTransaction(user1.id, wishlistLinkedPlan.id)
+
+            Then("reverts to WISHLIST status") {
+                result.status shouldBe "WISHLIST"
+                result.linkedTransactionId shouldBe null
+            }
+        }
+    }
 })

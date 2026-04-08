@@ -10,6 +10,8 @@ abstract class StatisticsRemoteDataSource {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<List<CategoryStatisticsModel>> getCategoryBreakdown({
@@ -17,6 +19,8 @@ abstract class StatisticsRemoteDataSource {
     required int month,
     String type = 'EXPENSE',
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<List<MonthlyTrendModel>> getMonthlyTrend({
@@ -41,10 +45,19 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   }) async {
+    final params = <String, dynamic>{
+      'year': year,
+      'month': month,
+      'visibility': visibility,
+      if (dateFrom != null) 'dateFrom': dateFrom,
+      if (dateTo != null) 'dateTo': dateTo,
+    };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsSummary,
-      queryParameters: {'year': year, 'month': month, 'visibility': visibility},
+      queryParameters: params,
     );
     return StatisticsSummaryModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
@@ -57,10 +70,20 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     required int month,
     String type = 'EXPENSE',
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   }) async {
+    final params = <String, dynamic>{
+      'year': year,
+      'month': month,
+      'type': type,
+      'visibility': visibility,
+      if (dateFrom != null) 'dateFrom': dateFrom,
+      if (dateTo != null) 'dateTo': dateTo,
+    };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsByCategory,
-      queryParameters: {'year': year, 'month': month, 'type': type, 'visibility': visibility},
+      queryParameters: params,
     );
     final data = response.data['data'] as List<dynamic>;
     return data

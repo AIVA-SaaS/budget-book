@@ -19,6 +19,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   String? _currentPocketId;
   int? _currentAmountMin;
   int? _currentAmountMax;
+  String? _currentDateFrom;
+  String? _currentDateTo;
 
   TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
@@ -45,6 +47,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentPocketId = event.pocketId;
       _currentAmountMin = event.amountMin;
       _currentAmountMax = event.amountMax;
+      _currentCategoryId = event.categoryId;
+      _currentDateFrom = event.dateFrom;
+      _currentDateTo = event.dateTo;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());
@@ -55,14 +60,16 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           event.categoryId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
-          event.amountMax == null;
+          event.amountMax == null &&
+          event.categoryId == null;
 
       final hasNoFilters = event.keyword == null &&
           event.categoryId == null &&
           event.paymentMethodId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
-          event.amountMax == null;
+          event.amountMax == null &&
+          event.categoryId == null;
 
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
@@ -103,6 +110,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: 0,
             serverTotalIncome: serverIncome,
             serverTotalExpense: serverExpense,
+            dateFrom: event.dateFrom,
+            dateTo: event.dateTo,
           )),
         );
         return;
@@ -136,6 +145,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: 0,
             serverTotalIncome: serverIncome,
             serverTotalExpense: serverExpense,
+            dateFrom: event.dateFrom,
+            dateTo: event.dateTo,
           )),
         );
         return;
@@ -152,6 +163,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           hasMore: !page.last,
           currentPage: 0,
           scrollToDate: event.scrollToDate,
+          dateFrom: event.dateFrom,
+          dateTo: event.dateTo,
         )),
       );
     } catch (e) {
@@ -184,6 +197,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         isLoadingMore: true,
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        dateFrom: currentState.dateFrom,
+        dateTo: currentState.dateTo,
       ));
 
       final result = await transactionRepository.getTransactions(
@@ -213,6 +228,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             operationError: failure.message,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            dateFrom: currentState.dateFrom,
+            dateTo: currentState.dateTo,
           ));
         },
         (page) {
@@ -229,6 +246,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: nextPage,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            dateFrom: currentState.dateFrom,
+            dateTo: currentState.dateTo,
           ));
         },
       );
@@ -244,6 +263,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         operationError: '예기치 않은 오류가 발생했습니다',
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        dateFrom: currentState.dateFrom,
+        dateTo: currentState.dateTo,
       ));
     }
   }
@@ -275,6 +296,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
               scrollToDate: event.transactionDate,
+              dateFrom: _currentDateFrom,
+              dateTo: _currentDateTo,
             )),
       );
     } catch (e) {
@@ -323,6 +346,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
               scrollToDate: event.transactionDate,
+              dateFrom: _currentDateFrom,
+              dateTo: _currentDateTo,
             )),
       );
     } catch (e) {

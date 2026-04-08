@@ -106,6 +106,8 @@ class BudgetSummary extends Equatable {
 
   int get remainingAmount => totalBudget - totalSpent;
 
+  int get totalPlanned => items.fold(0, (sum, item) => sum + item.plannedAmount);
+
   double get usageRate =>
       totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
@@ -137,6 +139,12 @@ class BudgetSummaryItem extends Equatable {
   });
 
   bool get isOverBudget => spentAmount > budgetAmount;
+
+  /// Total committed = spent + planned
+  int get committedAmount => spentAmount + plannedAmount;
+
+  /// Whether committed (spent + planned) exceeds budget
+  bool get isOverCommitted => committedAmount > budgetAmount;
 
   @override
   List<Object?> get props =>

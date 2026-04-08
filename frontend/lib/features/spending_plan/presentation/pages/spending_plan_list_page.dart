@@ -14,6 +14,7 @@ import 'package:budget_book/features/spending_plan/presentation/widgets/spending
 import 'package:budget_book/features/spending_plan/presentation/widgets/spending_plan_summary_card.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
+import 'package:budget_book/features/spending_plan/presentation/widgets/link_transaction_sheet.dart';
 
 class SpendingPlanListPage extends StatefulWidget {
   const SpendingPlanListPage({super.key});
@@ -229,6 +230,8 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
                   onComplete: () => _showCompleteDialog(context, plan),
                   onSkip: () => _confirmSkip(context, plan),
                   onDelete: () => _confirmDelete(context, plan),
+                  onLinkTransaction: () => _showLinkTransaction(context, plan),
+                  onUnlinkTransaction: () => _confirmUnlink(context, plan),
                 )),
           ],
         );
@@ -296,6 +299,41 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
             child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLinkTransaction(BuildContext context, SpendingPlan plan) async {
+    final tx = await showLinkTransactionSheet(context: context, plan: plan);
+    if (tx == null || !context.mounted) return;
+
+    context.read<SpendingPlanBloc>().add(LinkTransaction(
+          planId: plan.id,
+          transactionId: tx.id,
+        ));
+  }
+
+  void _confirmUnlink(BuildContext context, SpendingPlan plan) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('거래 연결 해제'),
+        content: Text('\'${plan.name}\'의 거래 연결을 해제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context
+                  .read<SpendingPlanBloc>()
+                  .add(UnlinkTransaction(planId: plan.id));
+            },
+            child: const Text('해제'),
           ),
         ],
       ),

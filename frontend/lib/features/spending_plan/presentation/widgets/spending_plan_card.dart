@@ -90,6 +90,8 @@ class SpendingPlanCard extends StatelessWidget {
   final VoidCallback? onComplete;
   final VoidCallback? onSkip;
   final VoidCallback? onDelete;
+  final VoidCallback? onLinkTransaction;
+  final VoidCallback? onUnlinkTransaction;
 
   const SpendingPlanCard({
     super.key,
@@ -98,6 +100,8 @@ class SpendingPlanCard extends StatelessWidget {
     this.onComplete,
     this.onSkip,
     this.onDelete,
+    this.onLinkTransaction,
+    this.onUnlinkTransaction,
   });
 
   @override
@@ -210,6 +214,26 @@ class SpendingPlanCard extends StatelessWidget {
                   onComplete?.call();
                 },
               ),
+            if (onLinkTransaction != null &&
+                plan.linkedTransactionId == null &&
+                (plan.status == 'PLANNED' || plan.status == 'OVERDUE'))
+              ListTile(
+                leading: const Icon(Icons.link, color: Colors.blue),
+                title: const Text('기존 거래 연결'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onLinkTransaction?.call();
+                },
+              ),
+            if (onUnlinkTransaction != null && plan.linkedTransactionId != null)
+              ListTile(
+                leading: const Icon(Icons.link_off, color: Colors.orange),
+                title: const Text('거래 연결 해제'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onUnlinkTransaction?.call();
+                },
+              ),
             if (onSkip != null && (plan.status == 'PLANNED' || plan.status == 'OVERDUE'))
               ListTile(
                 leading: const Icon(Icons.skip_next, color: Colors.grey),
@@ -274,6 +298,9 @@ class SpendingPlanCard extends StatelessWidget {
     }
 
     final parts = <String>[];
+    if (plan.linkedTransactionId != null && plan.status != 'COMPLETED') {
+      parts.add('거래 연결됨');
+    }
     if (plan.paymentMethodName != null) {
       parts.add(plan.paymentMethodName!);
     }

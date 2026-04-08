@@ -97,7 +97,7 @@ class BudgetSummaryItemModel extends BudgetSummaryItem {
       groupName: json['groupName'] as String?,
       budgetAmount: json['budgetAmount'] as int,
       spentAmount: json['spentAmount'] as int,
-      plannedAmount: json['plannedAmount'] as int? ?? 0,
+      plannedAmount: (json['plannedAmount'] as int?) ?? 0,
       remainingAmount: json['remainingAmount'] as int,
       usageRate: (json['usageRate'] as num).toDouble(),
     );

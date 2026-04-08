@@ -37,6 +37,10 @@ import 'package:budget_book/features/weekly_budget/data/datasources/weekly_budge
 import 'package:budget_book/features/weekly_budget/data/repositories/weekly_budget_repository_impl.dart';
 import 'package:budget_book/features/weekly_budget/domain/repositories/weekly_budget_repository.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
+import 'package:budget_book/features/weekly_budget/data/datasources/weekly_settlement_remote_datasource.dart';
+import 'package:budget_book/features/weekly_budget/data/repositories/weekly_settlement_repository_impl.dart';
+import 'package:budget_book/features/weekly_budget/domain/repositories/weekly_settlement_repository.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_bloc.dart';
 import 'package:budget_book/features/report/data/datasources/report_remote_datasource.dart';
 import 'package:budget_book/features/report/data/repositories/report_repository_impl.dart';
 import 'package:budget_book/features/report/domain/repositories/report_repository.dart';
@@ -233,6 +237,20 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<WeeklyBudgetBloc>(
     () => WeeklyBudgetBloc(
         weeklyBudgetRepository: getIt<WeeklyBudgetRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Weekly Settlement feature
+  getIt.registerLazySingleton<WeeklySettlementRemoteDataSource>(
+    () => WeeklySettlementRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<WeeklySettlementRepository>(
+    () => WeeklySettlementRepositoryImpl(
+        remoteDataSource: getIt<WeeklySettlementRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<WeeklySettlementBloc>(
+    () => WeeklySettlementBloc(
+        settlementRepository: getIt<WeeklySettlementRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 
