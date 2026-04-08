@@ -87,9 +87,11 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     _weeklyAmountController.text =
         budget.weeklyAmount != null ? CurrencyFormatter.format(budget.weeklyAmount!) : '';
     _selectedCategoryId = budget.category?.id;
-    _selectedCategoryName = budget.category?.name;
-    _selectedGroupId = budget.groupId;
-    _selectedGroupName = budget.groupName;
+    _selectedCategoryName = budget.category != null && budget.groupName != null
+        ? '${budget.groupName} > ${budget.category!.name}'
+        : budget.category?.name;
+    _selectedGroupId = budget.category != null ? null : budget.groupId;
+    _selectedGroupName = budget.category != null ? null : budget.groupName;
     _selectedPocketId = budget.pocketId;
     _budgetPeriod = budget.budgetPeriod;
     _periodSelection = PeriodSelection.fromApiValues(

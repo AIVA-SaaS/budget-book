@@ -177,6 +177,7 @@ class CompleteWithTransaction extends SpendingPlanEvent {
   final String? description;
   final String? categoryId;
   final String? paymentMethodId;
+  final String? linkedTransactionId;
 
   const CompleteWithTransaction({
     required this.planId,
@@ -185,6 +186,7 @@ class CompleteWithTransaction extends SpendingPlanEvent {
     this.description,
     this.categoryId,
     this.paymentMethodId,
+    this.linkedTransactionId,
   });
 
   @override

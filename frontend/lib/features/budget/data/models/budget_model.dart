@@ -82,9 +82,9 @@ class BudgetSummaryItemModel extends BudgetSummaryItem {
     super.groupName,
     required super.budgetAmount,
     required super.spentAmount,
+    super.plannedAmount = 0,
     required super.remainingAmount,
     required super.usageRate,
-    super.plannedAmount,
   });
 
   factory BudgetSummaryItemModel.fromJson(Map<String, dynamic> json) {
@@ -97,9 +97,9 @@ class BudgetSummaryItemModel extends BudgetSummaryItem {
       groupName: json['groupName'] as String?,
       budgetAmount: json['budgetAmount'] as int,
       spentAmount: json['spentAmount'] as int,
+      plannedAmount: (json['plannedAmount'] as int?) ?? 0,
       remainingAmount: json['remainingAmount'] as int,
       usageRate: (json['usageRate'] as num).toDouble(),
-      plannedAmount: (json['plannedAmount'] as int?) ?? 0,
     );
   }
 }

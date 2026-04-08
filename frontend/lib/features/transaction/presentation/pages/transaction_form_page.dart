@@ -8,6 +8,7 @@ import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/calculator_amount_field.dart';
+import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -260,40 +261,52 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   Future<void> _loadTransaction() async {
-    final bloc = context.read<TransactionBloc>();
-    final repo = bloc.transactionRepository;
-    final result = await repo.getTransaction(widget.transactionId!);
-    result.fold(
-      (failure) {
-        if (mounted) {
-          setState(() {
-            _isLoadingTransaction = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
-      },
-      (transaction) {
-        if (mounted) {
-          setState(() {
-            _isLoadingTransaction = false;
-            _amountController.text = CurrencyFormatter.format(transaction.amount);
-            _descriptionController.text = transaction.description;
-            _memoController.text = transaction.memo ?? '';
-            _selectedType = transaction.type;
-            _selectedCategoryId = transaction.category?.id;
-            _selectedCategoryDisplayName = transaction.category?.displayName;
-            _selectedPaymentMethodId = transaction.paymentMethodId;
-            _selectedPocketId = transaction.pocketId;
-            _selectedDate = DateTime.parse(transaction.transactionDate);
-          });
-        }
-      },
-    );
+    try {
+      final bloc = context.read<TransactionBloc>();
+      final repo = bloc.transactionRepository;
+      final result = await repo.getTransaction(widget.transactionId!);
+      result.fold(
+        (failure) {
+          if (mounted) {
+            setState(() {
+              _isLoadingTransaction = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('거래를 불러올 수 없습니다: ${failure.message}'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
+        },
+        (transaction) {
+          if (mounted) {
+            setState(() {
+              _isLoadingTransaction = false;
+              _amountController.text = CurrencyFormatter.format(transaction.amount);
+              _descriptionController.text = transaction.description;
+              _memoController.text = transaction.memo ?? '';
+              _selectedType = transaction.type;
+              _selectedCategoryId = transaction.category?.id;
+              _selectedCategoryDisplayName = transaction.category?.displayName;
+              _selectedPaymentMethodId = transaction.paymentMethodId;
+              _selectedPocketId = transaction.pocketId;
+              _selectedDate = DateTime.parse(transaction.transactionDate);
+            });
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingTransaction = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('거래 로드 실패: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   void _onDescriptionChanged() {
@@ -396,7 +409,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       listeners: [
         BlocListener<TransactionBloc, TransactionState>(
           listener: (context, state) {
+            // Only react when user actually submitted the form.
+            // Without this guard, any TransactionLoaded change (e.g., LoadMore
+            // from the list page behind) would trigger premature navigation.
+            if (!_isSubmitting) return;
             if (state is TransactionLoaded) {
+              _isSubmitting = false;
               final now = DateTime.now();
               getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
@@ -850,18 +868,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             ),
             const SizedBox(height: 16),
             // Amount
-            TextFormField(
+            AmountInputField(
               controller: _transferAmountController,
-              decoration: const InputDecoration(
-                labelText: '금액',
-                prefixIcon: Icon(Icons.payments),
-                suffixText: '원',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                CurrencyInputFormatter(),
-              ],
+              labelText: '금액',
+              filterDigitsOnly: true,
               validator: (value) {
                 if (value == null || value.isEmpty) return '금액을 입력하세요';
                 final amount = CurrencyFormatter.parse(value);

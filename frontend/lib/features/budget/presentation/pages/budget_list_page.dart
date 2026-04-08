@@ -245,11 +245,21 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final theme = Theme.of(context);
     final numberFormat = NumberFormat('#,###');
 
-    return RefreshIndicator(
+    return Column(
+      children: [
+        MonthNavigator(
+          year: state.year,
+          month: state.month,
+          onMonthChanged: (m) {
+            getIt<WeeklyBudgetBloc>()
+                .add(LoadWeeklyOverview(year: m.year, month: m.month));
+          },
+        ),
+        Expanded(
+          child: RefreshIndicator(
       onRefresh: () async {
-        final now = DateTime.now();
         getIt<WeeklyBudgetBloc>()
-          ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+          ..add(LoadWeeklyOverview(year: state.year, month: state.month))
           ..add(const LoadCurrentWeek());
       },
       child: ListView(
@@ -322,6 +332,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
           const SizedBox(height: 88),
         ],
       ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -587,6 +600,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
   ) {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
+    // Use BE-calculated budget amount (consistent with totalBudget)
+    final displayBudgetAmount = summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
 
     return Dismissible(
       key: Key(budget.id),
@@ -633,16 +648,16 @@ class _BudgetListPageState extends State<BudgetListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            _buildBudgetProgressBar(context, summaryItem, budget.effectiveMonthlyAmount),
+            _buildBudgetProgressBar(context, summaryItem, displayBudgetAmount),
             const SizedBox(height: 4),
-            _buildBudgetSubtitleText(context, summaryItem, budget.effectiveMonthlyAmount, numberFormat, usageRate),
+            _buildBudgetSubtitleText(context, summaryItem, displayBudgetAmount, numberFormat, usageRate),
           ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${numberFormat.format(budget.effectiveMonthlyAmount)}원',
+              '${numberFormat.format(displayBudgetAmount)}원',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

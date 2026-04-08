@@ -54,6 +54,7 @@ abstract class SpendingPlanRemoteDataSource {
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   });
 
   Future<SpendingPlanModel> linkTransaction(
@@ -212,6 +213,7 @@ class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   }) async {
     final data = <String, dynamic>{
       'amount': amount,
@@ -219,6 +221,7 @@ class SpendingPlanRemoteDataSourceImpl implements SpendingPlanRemoteDataSource {
       if (description != null) 'description': description,
       if (categoryId != null) 'categoryId': categoryId,
       if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+      if (linkedTransactionId != null) 'linkedTransactionId': linkedTransactionId,
     };
     final response = await apiClient.dio.patch(
       '${ApiEndpoints.spendingPlans}/$id/complete-with-transaction',

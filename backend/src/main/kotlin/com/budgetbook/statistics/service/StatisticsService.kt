@@ -101,9 +101,7 @@ class StatisticsService(
 
         val results = transactionRepository.sumByCategoryForCouple(couple.id, startDate, endDate, transactionType, userId, visFilter)
 
-        val totalAmount = results.sumOf { it[0] as Long }
-
-        return results.map { row ->
+        val categoryEntries = results.map { row ->
             val amount = row[0] as Long
             val count = (row[1] as Long).toInt()
             val catId = row[2] as UUID
@@ -125,10 +123,59 @@ class StatisticsService(
                     groupName = groupName
                 ),
                 amount = amount,
-                percentage = if (totalAmount > 0) {
-                    Math.round(amount.toDouble() / totalAmount * 1000) / 10.0
-                } else 0.0,
+                percentage = 0.0, // recalculated below
                 transactionCount = count
+            )
+        }.toMutableList()
+
+        // Include transfers as a virtual "이체" category
+        if (transactionType == TransactionType.EXPENSE) {
+            val transferOutTotal = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+                .sumOf { it[1] as Long }
+            if (transferOutTotal > 0) {
+                categoryEntries.add(CategoryStatisticsResponse(
+                    category = CategorySummary(
+                        id = UUID(0, 0),
+                        name = "이체",
+                        type = "EXPENSE",
+                        icon = "swap_horiz",
+                        color = "#009688",
+                        groupId = null,
+                        groupName = null
+                    ),
+                    amount = transferOutTotal,
+                    percentage = 0.0,
+                    transactionCount = 0
+                ))
+            }
+        } else {
+            val transferInTotal = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+                .sumOf { it[1] as Long }
+            if (transferInTotal > 0) {
+                categoryEntries.add(CategoryStatisticsResponse(
+                    category = CategorySummary(
+                        id = UUID(0, 0),
+                        name = "이체",
+                        type = "INCOME",
+                        icon = "swap_horiz",
+                        color = "#009688",
+                        groupId = null,
+                        groupName = null
+                    ),
+                    amount = transferInTotal,
+                    percentage = 0.0,
+                    transactionCount = 0
+                ))
+            }
+        }
+
+        // Recalculate percentages with transfer included
+        val totalAmount = categoryEntries.sumOf { it.amount }
+        return categoryEntries.map { entry ->
+            entry.copy(
+                percentage = if (totalAmount > 0) {
+                    Math.round(entry.amount.toDouble() / totalAmount * 1000) / 10.0
+                } else 0.0
             )
         }
     }

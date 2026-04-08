@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
@@ -12,6 +13,8 @@ class CategoryBreakdownTab extends StatefulWidget {
   final String? error;
   final String selectedType;
   final ValueChanged<String> onTypeChanged;
+  final int year;
+  final int month;
 
   const CategoryBreakdownTab({
     super.key,
@@ -20,6 +23,8 @@ class CategoryBreakdownTab extends StatefulWidget {
     this.error,
     this.selectedType = 'EXPENSE',
     required this.onTypeChanged,
+    required this.year,
+    required this.month,
   });
 
   @override
@@ -268,6 +273,10 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               amount: stat.amount,
               percentage: pct,
               count: stat.transactionCount,
+              onTap: () {
+                final catName = Uri.encodeComponent(stat.category.name);
+                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+              },
             );
           }),
         ],
@@ -315,6 +324,10 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               amount: stat.amount,
               percentage: stat.percentage,
               count: stat.transactionCount,
+              onTap: () {
+                final catName = Uri.encodeComponent(stat.category.name);
+                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+              },
             );
           }),
         ],

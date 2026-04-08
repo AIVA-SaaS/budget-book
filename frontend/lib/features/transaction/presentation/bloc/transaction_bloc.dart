@@ -12,11 +12,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
   String? _currentKeyword;
+  String? _currentCategoryId;
+  String? get currentCategoryId => _currentCategoryId;
   String? _currentPaymentMethodId;
+  String? get currentPaymentMethodId => _currentPaymentMethodId;
   String? _currentPocketId;
   int? _currentAmountMin;
   int? _currentAmountMax;
-  String? _currentCategoryId;
   String? _currentDateFrom;
   String? _currentDateTo;
 
@@ -40,6 +42,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentYear = event.year;
       _currentMonth = event.month;
       _currentKeyword = event.keyword;
+      _currentCategoryId = event.categoryId;
       _currentPaymentMethodId = event.paymentMethodId;
       _currentPocketId = event.pocketId;
       _currentAmountMin = event.amountMin;
@@ -54,12 +57,14 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
       final hasOnlyPaymentMethodFilter = event.paymentMethodId != null &&
           event.keyword == null &&
+          event.categoryId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
           event.amountMax == null &&
           event.categoryId == null;
 
       final hasNoFilters = event.keyword == null &&
+          event.categoryId == null &&
           event.paymentMethodId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
