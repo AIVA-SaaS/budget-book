@@ -98,6 +98,8 @@ class StatisticsPage extends StatelessWidget {
                         isLoading: state.categoryLoading,
                         error: state.categoryError,
                         selectedType: state.categoryType,
+                        year: state.year,
+                        month: state.month,
                         onTypeChanged: (type) {
                           context.read<StatisticsBloc>().add(
                                 LoadCategoryBreakdown(

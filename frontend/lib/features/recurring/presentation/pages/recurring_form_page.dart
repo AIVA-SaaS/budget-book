@@ -437,6 +437,8 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                   setState(() => _paymentMethodId = null);
                 }
               },
+              onCreate: () => _showCreatePaymentMethodSheet(context),
+              createLabel: '+ 새 결제수단',
             );
           },
         ),
@@ -461,6 +463,28 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               closingDay: closingDay,
               linkedBankId: linkedBankId,
               clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+            ));
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCreatePaymentMethodSheet(BuildContext context) async {
+    final bloc = context.read<PaymentMethodBloc>();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+            bloc.add(CreatePaymentMethod(
+              name: name,
+              type: type,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+              linkedBankId: linkedBankId,
             ));
           },
         ),

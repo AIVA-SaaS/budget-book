@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/date_helpers.dart';
+import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
@@ -389,17 +389,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: AmountInputField(
                     controller: _estimatedMinController,
-                    decoration: const InputDecoration(
-                      labelText: '예상 최소 금액',
-                      suffixText: '원',
-                    ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      CurrencyInputFormatter(),
-                    ],
+                    labelText: '예상 최소 금액',
+                    prefixIcon: Icons.attach_money,
+                    filterDigitsOnly: true,
                   ),
                 ),
                 const Padding(
@@ -407,17 +401,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   child: Text('~'),
                 ),
                 Expanded(
-                  child: TextFormField(
+                  child: AmountInputField(
                     controller: _estimatedMaxController,
-                    decoration: const InputDecoration(
-                      labelText: '예상 최대 금액',
-                      suffixText: '원',
-                    ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      CurrencyInputFormatter(),
-                    ],
+                    labelText: '예상 최대 금액',
+                    prefixIcon: Icons.attach_money,
+                    filterDigitsOnly: true,
                   ),
                 ),
               ],
@@ -425,19 +413,12 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             const SizedBox(height: 12),
 
             // Or single amount
-            TextFormField(
+            AmountInputField(
               controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: '예상 금액 (단일)',
-                prefixIcon: Icon(Icons.attach_money),
-                suffixText: '원',
-                helperText: '최소/최대를 입력하면 생략 가능',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                CurrencyInputFormatter(),
-              ],
+              labelText: '예상 금액 (단일)',
+              prefixIcon: Icons.attach_money,
+              helperText: '최소/최대를 입력하면 생략 가능',
+              filterDigitsOnly: true,
             ),
             const SizedBox(height: 16),
 
@@ -537,18 +518,11 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             const SizedBox(height: 16),
 
             // 2. Amount (required)
-            TextFormField(
+            AmountInputField(
               controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: '금액 *',
-                prefixIcon: Icon(Icons.attach_money),
-                suffixText: '원',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                CurrencyInputFormatter(),
-              ],
+              labelText: '금액 *',
+              prefixIcon: Icons.attach_money,
+              filterDigitsOnly: true,
               validator: (value) {
                 if (_isWishlistMode) return null;
                 if (value == null || value.isEmpty) return '금액을 입력하세요';

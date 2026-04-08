@@ -250,6 +250,7 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
       description: result.description,
       categoryId: result.categoryId,
       paymentMethodId: result.paymentMethodId,
+      linkedTransactionId: result.linkedTransactionId,
     ));
   }
 

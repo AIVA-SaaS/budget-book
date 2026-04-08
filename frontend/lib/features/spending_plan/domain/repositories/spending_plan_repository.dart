@@ -89,6 +89,7 @@ abstract class SpendingPlanRepository {
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   });
 
   Future<Either<Failure, SpendingPlan>> linkTransaction({

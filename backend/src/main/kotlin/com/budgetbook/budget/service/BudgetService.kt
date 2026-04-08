@@ -365,7 +365,7 @@ class BudgetService(
 
             val remainingAmount = effectiveBudgetAmount - spentAmount - plannedAmount
             val usageRate = if (effectiveBudgetAmount > 0) {
-                Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
+                Math.round((spentAmount + plannedAmount).toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
                 0.0
             }

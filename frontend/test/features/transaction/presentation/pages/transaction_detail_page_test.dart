@@ -1,8 +1,11 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -15,11 +18,16 @@ class MockTransactionBloc
     extends MockBloc<TransactionEvent, TransactionState>
     implements TransactionBloc {}
 
+class MockTransactionRepository extends Mock implements TransactionRepository {}
+
 void main() {
   late MockTransactionBloc mockBloc;
+  late MockTransactionRepository mockRepo;
 
   setUp(() {
     mockBloc = MockTransactionBloc();
+    mockRepo = MockTransactionRepository();
+    when(() => mockBloc.transactionRepository).thenReturn(mockRepo);
   });
 
   final testTransaction = Transaction(
@@ -93,7 +101,7 @@ void main() {
       expect(find.text('지출'), findsOneWidget);
     });
 
-    testWidgets('shows not found message when transaction is missing',
+    testWidgets('falls back to API load when transaction is missing from state',
         (tester) async {
       when(() => mockBloc.state).thenReturn(const TransactionLoaded(
         transactions: [],
@@ -102,10 +110,15 @@ void main() {
         totalElements: 0,
         hasMore: false,
       ));
+      when(() => mockRepo.getTransaction('non-existent'))
+          .thenAnswer((_) async => Left(ServerFailure('Not found')));
       await tester.pumpWidget(
           createTestWidget(transactionId: 'non-existent'));
-
-      expect(find.text('거래를 찾을 수 없습니다'), findsOneWidget);
+      // Initially shows loading spinner (API call in progress)
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // After API responds with failure
+      await tester.pumpAndSettle();
+      expect(find.text('Not found'), findsOneWidget);
     });
 
     testWidgets('shows delete confirmation dialog', (tester) async {

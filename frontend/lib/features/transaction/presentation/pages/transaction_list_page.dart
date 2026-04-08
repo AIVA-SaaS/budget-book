@@ -32,6 +32,10 @@ import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
+import 'package:budget_book/features/category/domain/entities/category.dart' as cat_entity;
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -39,8 +43,16 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
   final String? initialPaymentMethodName;
+  final String? initialCategoryId;
+  final String? initialCategoryName;
 
-  const TransactionListPage({super.key, this.initialPaymentMethodId, this.initialPaymentMethodName});
+  const TransactionListPage({
+    super.key,
+    this.initialPaymentMethodId,
+    this.initialPaymentMethodName,
+    this.initialCategoryId,
+    this.initialCategoryName,
+  });
 
   @override
   State<TransactionListPage> createState() => _TransactionListPageState();
@@ -53,8 +65,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
   bool _isSearching = false;
+  String? _pendingScrollToDate;
 
   // Filter state
+  late String? _filterCategoryId = widget.initialCategoryId;
+  late String? _filterCategoryName = widget.initialCategoryName;
   late String? _filterPaymentMethodId = widget.initialPaymentMethodId;
   late String? _filterPaymentMethodName = widget.initialPaymentMethodName;
   String? _filterPocketId;
@@ -63,12 +78,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
   String? _filterDateFrom;
   String? _filterDateTo;
   String? _filterPeriodLabel;
-  late bool _hasActiveFilters = widget.initialPaymentMethodId != null;
+  late bool _hasActiveFilters = widget.initialPaymentMethodId != null || widget.initialCategoryId != null;
 
   String get _appBarTitle {
-    if (_filterPaymentMethodId == null) return '거래 (전체)';
+    if (!_hasActiveFilters) return '거래 (전체)';
+    // Show primary filter name in title
+    if (_filterCategoryName != null) return '거래 ($_filterCategoryName)';
     if (_filterPaymentMethodName != null) return '거래 ($_filterPaymentMethodName)';
-    return '거래 (전체)';
+    return '거래 (필터)';
   }
 
   @override
@@ -127,6 +144,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           year: year,
           month: month,
           keyword: keyword,
+          categoryId: _filterCategoryId,
           paymentMethodId: _filterPaymentMethodId,
           pocketId: _filterPocketId,
           amountMin: _filterAmountMin,
@@ -178,6 +196,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final amountMaxController = TextEditingController(
       text: _filterAmountMax?.toString() ?? '',
     );
+    String? tempCategoryId = _filterCategoryId;
+    String? tempCategoryName = _filterCategoryName;
     String? tempPaymentMethodId = _filterPaymentMethodId;
     String? tempPocketId = _filterPocketId;
 
@@ -256,6 +276,39 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // Category selector (group > sub-category)
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => CategoryGroupSelectorSheet(
+                          selectedCategoryId: tempCategoryId,
+                          categoryType: 'EXPENSE',
+                          onSelectedWithGroupName: (cat, groupName) {
+                            setSheetState(() {
+                              tempCategoryId = cat?.id;
+                              tempCategoryName = cat != null
+                                  ? (groupName != null ? '$groupName > ${cat.name}' : cat.name)
+                                  : null;
+                            });
+                          },
+                          onSelected: (_) {},
+                        ),
+                      );
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '카테고리',
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Text(
+                        tempCategoryName ?? '전체',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // Payment method dropdown
                   _buildPaymentMethodDropdown(
                     context,
@@ -276,6 +329,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                         child: OutlinedButton(
                           onPressed: () {
                             setState(() {
+                              _filterCategoryId = null;
+                              _filterCategoryName = null;
                               _filterPaymentMethodId = null;
                               _filterPaymentMethodName = null;
                               _filterPocketId = null;
@@ -303,6 +358,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                                   minText.isEmpty ? null : int.tryParse(minText);
                               _filterAmountMax =
                                   maxText.isEmpty ? null : int.tryParse(maxText);
+                              _filterCategoryId = tempCategoryId;
+                              _filterCategoryName = tempCategoryName;
                               _filterPaymentMethodId = tempPaymentMethodId;
                               if (tempPaymentMethodId != null) {
                                 _resolvePaymentMethodName(tempPaymentMethodId!);
@@ -327,6 +384,36 @@ class _TransactionListPageState extends State<TransactionListPage> {
         );
       },
     );
+  }
+
+  void _updateHasActiveFilters() {
+    _hasActiveFilters = _filterCategoryId != null ||
+        _filterAmountMin != null ||
+        _filterAmountMax != null ||
+        _filterPaymentMethodId != null ||
+        _filterPocketId != null ||
+        _filterDateFrom != null ||
+        _filterDateTo != null;
+  }
+
+  void _removeFilter(String filterType) {
+    setState(() {
+      switch (filterType) {
+        case 'category':
+          _filterCategoryId = null;
+          _filterCategoryName = null;
+        case 'paymentMethod':
+          _filterPaymentMethodId = null;
+          _filterPaymentMethodName = null;
+        case 'pocket':
+          _filterPocketId = null;
+        case 'amount':
+          _filterAmountMin = null;
+          _filterAmountMax = null;
+      }
+      _updateHasActiveFilters();
+    });
+    _reloadWithFilters();
   }
 
   Widget _buildPaymentMethodDropdown(
@@ -391,15 +478,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
       ],
       onChanged: onChanged,
     );
-  }
-
-  void _updateHasActiveFilters() {
-    _hasActiveFilters = _filterAmountMin != null ||
-        _filterAmountMax != null ||
-        _filterPaymentMethodId != null ||
-        _filterPocketId != null ||
-        _filterDateFrom != null ||
-        _filterDateTo != null;
   }
 
   void _showPeriodFilterSheet() {
@@ -636,6 +714,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
         MonthNavigator(
           year: state.year,
           month: state.month,
+          onDatePicked: (picked) {
+            // Store the target date for scroll-after-load
+            final day = picked.day;
+            if (day > 1) {
+              final dateStr = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+              setState(() => _pendingScrollToDate = dateStr);
+            }
+          },
           onMonthChanged: (m) {
             // Clear period filter when navigating months
             setState(() {
@@ -652,10 +738,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     year: m.year,
                     month: m.month,
                     keyword: kw,
+                    categoryId: _filterCategoryId,
                     paymentMethodId: _filterPaymentMethodId,
                     pocketId: _filterPocketId,
                     amountMin: _filterAmountMin,
                     amountMax: _filterAmountMax,
+                    scrollToDate: _pendingScrollToDate,
                   ),
                 );
             context.read<TransferBloc>().add(
@@ -717,27 +805,47 @@ class _TransactionListPageState extends State<TransactionListPage> {
             ],
           ),
         ),
-        // Period filter indicator
-        if (_filterPeriodLabel != null)
+        // Active filter chips (category, payment, pocket, amount, period)
+        if (_hasActiveFilters || _filterPeriodLabel != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
               children: [
-                Chip(
-                  avatar: const Icon(Icons.date_range, size: 16),
-                  label: Text(_filterPeriodLabel!),
-                  deleteIcon: const Icon(Icons.close, size: 16),
-                  onDeleted: () {
-                    setState(() {
-                      _filterDateFrom = null;
-                      _filterDateTo = null;
-                      _filterPeriodLabel = null;
-                      _updateHasActiveFilters();
-                    });
-                    _reloadWithFilters();
-                  },
-                  visualDensity: VisualDensity.compact,
-                ),
+                if (_filterCategoryId != null)
+                  _FilterChip(
+                    label: '카테고리: ${_filterCategoryName ?? "선택됨"}',
+                    onRemove: () => _removeFilter('category'),
+                  ),
+                if (_filterPaymentMethodId != null)
+                  _FilterChip(
+                    label: '결제수단: ${_filterPaymentMethodName ?? "선택됨"}',
+                    onRemove: () => _removeFilter('paymentMethod'),
+                  ),
+                if (_filterPocketId != null)
+                  _FilterChip(
+                    label: '포켓',
+                    onRemove: () => _removeFilter('pocket'),
+                  ),
+                if (_filterAmountMin != null || _filterAmountMax != null)
+                  _FilterChip(
+                    label: '금액: ${_filterAmountMin ?? 0}~${_filterAmountMax ?? "∞"}원',
+                    onRemove: () => _removeFilter('amount'),
+                  ),
+                if (_filterPeriodLabel != null)
+                  _FilterChip(
+                    label: _filterPeriodLabel!,
+                    onRemove: () {
+                      setState(() {
+                        _filterDateFrom = null;
+                        _filterDateTo = null;
+                        _filterPeriodLabel = null;
+                        _updateHasActiveFilters();
+                      });
+                      _reloadWithFilters();
+                    },
+                  ),
               ],
             ),
           ),
@@ -839,10 +947,21 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
     final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    // Scroll to target date after build
-    if (state.scrollToDate != null) {
+    // Handle scroll-to-date (one-shot: consume and clear immediately)
+    final targetDate = _pendingScrollToDate;
+    if (targetDate != null) {
+      _pendingScrollToDate = null; // always consume to prevent infinite loops
+      if (sortedDates.contains(targetDate)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToDate(targetDate, sortedDates);
+        });
+      }
+      // If target date not loaded, user can scroll manually — no auto-load
+    } else if (state.scrollToDate != null && sortedDates.contains(state.scrollToDate!)) {
+      // One-shot scroll from BLoC (e.g., after create/update)
+      final scrollDate = state.scrollToDate!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToDate(state.scrollToDate!, sortedDates);
+        _scrollToDate(scrollDate, sortedDates);
       });
     }
 
@@ -861,6 +980,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
       final t = flatTransactions[i];
       cumulative += t.isExpense ? -t.amount : t.amount;
       runningTotals[t.id] = cumulative;
+    }
+    // Offset running totals to account for unloaded older transactions
+    if (state.serverTotalIncome != null && state.serverTotalExpense != null) {
+      final serverBalance = state.serverTotalIncome! - state.serverTotalExpense!;
+      final offset = serverBalance - cumulative;
+      if (offset != 0) {
+        for (final key in runningTotals.keys.toList()) {
+          runningTotals[key] = runningTotals[key]! + offset;
+        }
+      }
     }
 
     // Add 1 extra item for the loading indicator when loading more
@@ -1211,6 +1340,25 @@ class _DateHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
+
+  const _FilterChip({required this.label, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return InputChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      onDeleted: onRemove,
+      deleteIcon: const Icon(Icons.close, size: 14),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }

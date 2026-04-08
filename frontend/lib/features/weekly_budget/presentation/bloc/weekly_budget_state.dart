@@ -20,11 +20,19 @@ class WeeklyBudgetLoading extends WeeklyBudgetState {
 class WeeklyBudgetLoaded extends WeeklyBudgetState {
   final WeeklyOverview? overview;
   final CurrentWeekSummary? currentWeek;
+  final int year;
+  final int month;
 
-  const WeeklyBudgetLoaded({this.overview, this.currentWeek});
+  WeeklyBudgetLoaded({
+    this.overview,
+    this.currentWeek,
+    int? year,
+    int? month,
+  })  : year = year ?? DateTime.now().year,
+        month = month ?? DateTime.now().month;
 
   @override
-  List<Object?> get props => [overview, currentWeek];
+  List<Object?> get props => [overview, currentWeek, year, month];
 }
 
 class WeeklyBudgetError extends WeeklyBudgetState {

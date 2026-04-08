@@ -242,6 +242,7 @@ class SpendingPlanRepositoryImpl implements SpendingPlanRepository {
     String? description,
     String? categoryId,
     String? paymentMethodId,
+    String? linkedTransactionId,
   }) async {
     try {
       final result = await remoteDataSource.completeWithTransaction(
@@ -251,6 +252,7 @@ class SpendingPlanRepositoryImpl implements SpendingPlanRepository {
         description: description,
         categoryId: categoryId,
         paymentMethodId: paymentMethodId,
+        linkedTransactionId: linkedTransactionId,
       );
       return Right(result);
     } on DioException catch (e) {
