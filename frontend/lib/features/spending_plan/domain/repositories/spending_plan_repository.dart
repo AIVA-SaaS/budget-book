@@ -91,4 +91,11 @@ abstract class SpendingPlanRepository {
     String? paymentMethodId,
     String? linkedTransactionId,
   });
+
+  Future<Either<Failure, SpendingPlan>> linkTransaction({
+    required String id,
+    required String transactionId,
+  });
+
+  Future<Either<Failure, SpendingPlan>> unlinkTransaction(String id);
 }

@@ -74,9 +74,27 @@ class WeeklyBudgetService(
             emptyMap()
         }
 
+        // Pre-compute per-budget pro-rata amounts for each week,
+        // with the last week receiving the remainder to eliminate rounding errors.
+        val proRataByBudgetAndWeek: Map<UUID, List<Long>> = weeklyBudgets.associate { budget ->
+            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7L / ym.lengthOfMonth())
+            val monthlyTotal = perWeekAmount * ym.lengthOfMonth().toLong() / 7
+            val amounts = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
+                if (index == weekRanges.size - 1) {
+                    // Last week gets the remainder
+                    val sumOfPrevious = weekRanges.take(index).sumOf { (s, e) ->
+                        calculateProRataBudget(perWeekAmount, s, e)
+                    }
+                    monthlyTotal - sumOfPrevious
+                } else {
+                    calculateProRataBudget(perWeekAmount, weekStart, weekEnd)
+                }
+            }
+            budget.id to amounts
+        }
+
         val weeks = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
-            val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
 
             // Batch query: spending per category for this week
             val allRelevantCategoryIds = budgetCategoryIds + categoriesInGroups.values.flatten().toSet()
@@ -110,8 +128,7 @@ class WeeklyBudgetService(
             } else 0L
 
             val items = weeklyBudgets.map { budget ->
-                val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
-                val proRataBudget = (perWeekAmount * daysInWeek) / 7
+                val proRataBudget = proRataByBudgetAndWeek[budget.id]!![index]
 
                 val spentAmount: Long = when {
                     budget.category != null -> spentByCategoryId[budget.category!!.id] ?: 0L
@@ -189,8 +206,6 @@ class WeeklyBudgetService(
             )
         }
 
-        val daysInWeek = ChronoUnit.DAYS.between(weekStart, weekEnd) + 1
-
         // Collect category IDs for batch query
         val budgetCategoryIds = weeklyBudgets.mapNotNull { it.category?.id }.toSet()
         val budgetGroupIds = weeklyBudgets.mapNotNull { it.group?.id }.toSet()
@@ -233,9 +248,20 @@ class WeeklyBudgetService(
             )
         } else 0L
 
+        val isLastWeek = currentWeekIndex == weekRanges.size - 1
+
         val items = weeklyBudgets.map { budget ->
-            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
-            val proRataBudget = (perWeekAmount * daysInWeek) / 7
+            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7L / ym.lengthOfMonth())
+            val proRataBudget = if (isLastWeek) {
+                // Last week gets the remainder to eliminate rounding errors
+                val monthlyTotal = perWeekAmount * ym.lengthOfMonth().toLong() / 7
+                val sumOfPrevious = weekRanges.take(currentWeekIndex).sumOf { (s, e) ->
+                    calculateProRataBudget(perWeekAmount, s, e)
+                }
+                monthlyTotal - sumOfPrevious
+            } else {
+                calculateProRataBudget(perWeekAmount, weekStart, weekEnd)
+            }
 
             val spentAmount: Long = when {
                 budget.category != null -> spentByCategoryId[budget.category!!.id] ?: 0L
@@ -283,11 +309,19 @@ class WeeklyBudgetService(
 
         // Per-week budget amount (before pro-rata) - WEEKLY budgets only
         val perWeekBudget = calculatePerWeekBudgetAmount(couple.id, yearMonth, userId)
+        val monthlyTotal = perWeekBudget * ym.lengthOfMonth().toLong() / 7
 
         weekRanges.forEachIndexed { index, (weekStart, weekEnd) ->
             val weekNumber = index + 1
-            // Pro-rata budget for this specific week
-            val budgetAmount = calculateProRataBudget(perWeekBudget, weekStart, weekEnd)
+            // Pro-rata budget; last week gets remainder to eliminate rounding errors
+            val budgetAmount = if (index == weekRanges.size - 1) {
+                val sumOfPrevious = weekRanges.take(index).sumOf { (s, e) ->
+                    calculateProRataBudget(perWeekBudget, s, e)
+                }
+                monthlyTotal - sumOfPrevious
+            } else {
+                calculateProRataBudget(perWeekBudget, weekStart, weekEnd)
+            }
             val spent = calculateSpentForPeriod(couple.id, weekStart, weekEnd, userId)
 
             val status = when {

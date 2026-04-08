@@ -7,6 +7,7 @@ import com.budgetbook.spendingplan.dto.AssignSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteSpendingPlanRequest
 import com.budgetbook.spendingplan.dto.CompleteWithTransactionRequest
 import com.budgetbook.spendingplan.dto.CreateSpendingPlanRequest
+import com.budgetbook.spendingplan.dto.LinkTransactionRequest
 import com.budgetbook.spendingplan.dto.SpendingPlanListResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanResponse
 import com.budgetbook.spendingplan.dto.SpendingPlanSuggestion
@@ -127,6 +128,23 @@ class SpendingPlanController(
         @RequestBody request: CompleteWithTransactionRequest
     ): ApiResponse<SpendingPlanResponse> {
         return ApiResponse.ok(spendingPlanService.completeWithTransaction(userId, id, request))
+    }
+
+    @PutMapping("/{id}/link-transaction")
+    fun linkTransaction(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID,
+        @RequestBody request: LinkTransactionRequest
+    ): ApiResponse<SpendingPlanResponse> {
+        return ApiResponse.ok(spendingPlanService.linkTransaction(userId, id, request.transactionId))
+    }
+
+    @DeleteMapping("/{id}/link-transaction")
+    fun unlinkTransaction(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID
+    ): ApiResponse<SpendingPlanResponse> {
+        return ApiResponse.ok(spendingPlanService.unlinkTransaction(userId, id))
     }
 
     @GetMapping("/{id}/history")

@@ -39,6 +39,9 @@ import 'package:budget_book/features/payment_method/presentation/pages/payment_m
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_budget_page.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_bloc.dart';
+import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_event.dart';
+import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_settlement_page.dart';
 import 'package:budget_book/features/report/presentation/bloc/report_bloc.dart';
 import 'package:budget_book/features/report/presentation/bloc/report_event.dart';
 import 'package:budget_book/features/report/presentation/pages/report_page.dart';
@@ -549,6 +552,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ..add(LoadWeeklyOverview(year: now.year, month: now.month))
             ..add(const LoadCurrentWeek()),
           child: const WeeklyBudgetPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/weekly-budgets/settlement',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final now = DateTime.now();
+        return BlocProvider<WeeklySettlementBloc>(
+          create: (_) => getIt<WeeklySettlementBloc>()
+            ..add(LoadSettlements(year: now.year, month: now.month)),
+          child: const WeeklySettlementPage(),
         );
       },
     ),

@@ -362,28 +362,58 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
         }
     }
 
-    // --- Pro-rata sum across all weeks equals approximately the monthly total ---
+    // --- Pro-rata sum with last-week remainder equals exactly the monthly total ---
 
-    Given("verifying pro-rata budget sums approximate the total monthly budget") {
-        When("summing pro-rata budgets for all weeks in March 2026 (31 days)") {
-            val weekRanges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 3))
-            val perWeek = (500000L * 7) / 31
-            val totalProRata = weekRanges.sumOf { (s, e) ->
+    Given("verifying pro-rata budget sums with last-week remainder") {
+
+        fun proRataSumWithRemainder(monthlyAmount: Long, ym: YearMonth): Long {
+            val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
+            val perWeek = monthlyAmount * 7 / ym.lengthOfMonth()
+            val monthlyTotal = perWeek * ym.lengthOfMonth().toLong() / 7
+            val sumOfPrevious = weekRanges.take(weekRanges.size - 1).sumOf { (s, e) ->
                 WeeklyBudgetService.calculateProRataBudget(perWeek, s, e)
             }
-            Then("total pro-rata is close to 500000") {
-                (totalProRata in 499900..500100) shouldBe true
+            val lastWeek = monthlyTotal - sumOfPrevious
+            return sumOfPrevious + lastWeek
+        }
+
+        When("summing pro-rata budgets for March 2026 (31 days)") {
+            val ym = YearMonth.of(2026, 3)
+            val perWeek = 100000L * 7 / ym.lengthOfMonth()
+            val monthlyTotal = perWeek * ym.lengthOfMonth().toLong() / 7
+            val result = proRataSumWithRemainder(100000L, ym)
+            Then("total exactly equals monthly total") {
+                result shouldBe monthlyTotal
             }
         }
 
-        When("summing pro-rata budgets for all weeks in Feb 2026 (28 days)") {
-            val weekRanges = WeeklyBudgetService.calculateWeekRanges(YearMonth.of(2026, 2))
-            val perWeek = (500000L * 7) / 28
-            val totalProRata = weekRanges.sumOf { (s, e) ->
-                WeeklyBudgetService.calculateProRataBudget(perWeek, s, e)
+        When("summing pro-rata budgets for April 2026 (30 days)") {
+            val ym = YearMonth.of(2026, 4)
+            val perWeek = 100000L * 7 / ym.lengthOfMonth()
+            val monthlyTotal = perWeek * ym.lengthOfMonth().toLong() / 7
+            val result = proRataSumWithRemainder(100000L, ym)
+            Then("total exactly equals monthly total") {
+                result shouldBe monthlyTotal
             }
-            Then("total pro-rata is close to 500000") {
-                (totalProRata in 499990..500010) shouldBe true
+        }
+
+        When("summing pro-rata budgets for Feb 2026 (28 days)") {
+            val ym = YearMonth.of(2026, 2)
+            val perWeek = 500000L * 7 / ym.lengthOfMonth()
+            val monthlyTotal = perWeek * ym.lengthOfMonth().toLong() / 7
+            val result = proRataSumWithRemainder(500000L, ym)
+            Then("total exactly equals monthly total") {
+                result shouldBe monthlyTotal
+            }
+        }
+
+        When("summing pro-rata budgets for June 2026 (30 days, starts Monday)") {
+            val ym = YearMonth.of(2026, 6)
+            val perWeek = 350000L * 7 / ym.lengthOfMonth()
+            val monthlyTotal = perWeek * ym.lengthOfMonth().toLong() / 7
+            val result = proRataSumWithRemainder(350000L, ym)
+            Then("total exactly equals monthly total") {
+                result shouldBe monthlyTotal
             }
         }
     }

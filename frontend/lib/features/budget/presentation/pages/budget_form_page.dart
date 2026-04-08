@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
-import 'package:budget_book/core/widgets/amount_input_field.dart';
+import 'package:budget_book/core/widgets/calculator_amount_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -281,10 +281,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             const SizedBox(height: 16),
             // Amount input - show different field based on period
             if (_budgetPeriod == 'WEEKLY')
-              AmountInputField(
+              CalculatorAmountField(
                 controller: _weeklyAmountController,
-                labelText: '주간 예산 금액',
-                prefixIcon: Icons.date_range,
+                decoration: const InputDecoration(
+                  labelText: '주간 예산 금액',
+                  suffixText: '원',
+                  prefixIcon: Icon(Icons.date_range),
+                ),
                 helperText: _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -298,9 +301,13 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 },
               )
             else
-              AmountInputField(
+              CalculatorAmountField(
                 controller: _amountController,
-                labelText: '예산 금액',
+                decoration: const InputDecoration(
+                  labelText: '예산 금액',
+                  suffixText: '원',
+                  prefixIcon: Icon(Icons.payments),
+                ),
                 helperText: _amountHint.isNotEmpty ? _amountHint : null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {

@@ -53,9 +53,15 @@ class BudgetSummaryCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '지출: ${CurrencyFormatter.format(summary.totalSpent)}원',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Expanded(
+                  child: Text(
+                    summary.totalPlanned > 0
+                        ? '사용 ${CurrencyFormatter.format(summary.totalSpent)} + 계획 ${CurrencyFormatter.format(summary.totalPlanned)}원'
+                        : '지출: ${CurrencyFormatter.format(summary.totalSpent)}원',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Text(
                   isOver

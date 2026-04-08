@@ -56,17 +56,27 @@ class TransactionService(
         pocketId: UUID? = null,
         amountMin: Long? = null,
         amountMax: Long? = null,
+        dateFrom: LocalDate? = null,
+        dateTo: LocalDate? = null,
         page: Int,
         size: Int
     ): PageResponse<TransactionResponse> {
         val couple = getActiveCouple(userId)
 
-        val now = LocalDate.now()
-        val targetYear = year ?: now.year
-        val targetMonth = month ?: now.monthValue
-        val yearMonth = YearMonth.of(targetYear, targetMonth)
-        val startDate = yearMonth.atDay(1)
-        val endDate = yearMonth.atEndOfMonth()
+        val startDate: LocalDate
+        val endDate: LocalDate
+
+        if (dateFrom != null || dateTo != null) {
+            startDate = dateFrom ?: LocalDate.of(2000, 1, 1)
+            endDate = dateTo ?: LocalDate.of(2099, 12, 31)
+        } else {
+            val now = LocalDate.now()
+            val targetYear = year ?: now.year
+            val targetMonth = month ?: now.monthValue
+            val yearMonth = YearMonth.of(targetYear, targetMonth)
+            startDate = yearMonth.atDay(1)
+            endDate = yearMonth.atEndOfMonth()
+        }
 
         val transactionType = type?.let {
             try { TransactionType.valueOf(it) } catch (e: IllegalArgumentException) {

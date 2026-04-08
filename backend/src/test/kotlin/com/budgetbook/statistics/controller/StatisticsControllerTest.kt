@@ -32,7 +32,7 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "ALL") } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "ALL")
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, "ALL", null, null)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -47,7 +47,7 @@ class StatisticsControllerTest : FunSpec({
         val summary = StatisticsSummaryResponse("2026-03", 1000000, 500000, 500000, 10)
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED") } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "SHARED")
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null)
 
         result.success shouldBe true
         verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED") }
@@ -58,7 +58,7 @@ class StatisticsControllerTest : FunSpec({
         val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 100000, 5)
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE") } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "PRIVATE")
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null)
 
         result.success shouldBe true
         verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE") }
@@ -77,7 +77,7 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL") } returns breakdown
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL", null, null)
 
         result.success shouldBe true
         result.data!! shouldBe breakdown
@@ -87,7 +87,7 @@ class StatisticsControllerTest : FunSpec({
 
         every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED") } returns emptyList()
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED", null, null)
 
         result.success shouldBe true
         verify { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED") }
@@ -97,7 +97,7 @@ class StatisticsControllerTest : FunSpec({
 
         every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL") } returns emptyList()
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL", null, null)
 
         result.success shouldBe true
         result.data!! shouldBe emptyList()

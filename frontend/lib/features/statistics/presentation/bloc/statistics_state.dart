@@ -10,6 +10,10 @@ class StatisticsState extends Equatable {
   final String categoryType;
   /// Visibility filter: 'ALL', 'SHARED', or 'PRIVATE'
   final String visibilityFilter;
+  /// Custom date range filter (overrides year/month when set)
+  final String? dateFrom;
+  final String? dateTo;
+  final String? dateRangeLabel;
 
   // Summary
   final bool summaryLoading;
@@ -42,6 +46,9 @@ class StatisticsState extends Equatable {
     required this.month,
     this.categoryType = 'EXPENSE',
     this.visibilityFilter = 'ALL',
+    this.dateFrom,
+    this.dateTo,
+    this.dateRangeLabel,
     this.summaryLoading = false,
     this.summary,
     this.summaryError,
@@ -62,11 +69,18 @@ class StatisticsState extends Equatable {
 
   bool get isAllLoading => summaryLoading && categoryLoading && trendLoading;
 
+  /// Whether a custom date range is active
+  bool get hasDateRange => dateFrom != null && dateTo != null;
+
   StatisticsState copyWith({
     int? year,
     int? month,
     String? categoryType,
     String? visibilityFilter,
+    String? dateFrom,
+    String? dateTo,
+    String? dateRangeLabel,
+    bool clearDateRange = false,
     bool? summaryLoading,
     StatisticsSummary? summary,
     String? summaryError,
@@ -94,6 +108,9 @@ class StatisticsState extends Equatable {
       month: month ?? this.month,
       categoryType: categoryType ?? this.categoryType,
       visibilityFilter: visibilityFilter ?? this.visibilityFilter,
+      dateFrom: clearDateRange ? null : (dateFrom ?? this.dateFrom),
+      dateTo: clearDateRange ? null : (dateTo ?? this.dateTo),
+      dateRangeLabel: clearDateRange ? null : (dateRangeLabel ?? this.dateRangeLabel),
       summaryLoading: summaryLoading ?? this.summaryLoading,
       summary: summary ?? this.summary,
       summaryError:
@@ -125,6 +142,9 @@ class StatisticsState extends Equatable {
         month,
         categoryType,
         visibilityFilter,
+        dateFrom,
+        dateTo,
+        dateRangeLabel,
         summaryLoading,
         summary,
         summaryError,

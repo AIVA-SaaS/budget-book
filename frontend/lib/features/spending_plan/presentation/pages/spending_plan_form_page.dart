@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/utils/date_helpers.dart';
 import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/di/injection.dart';
@@ -576,41 +577,42 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             const SizedBox(height: 16),
 
             // 6. Budget link dropdown — filter by target date's month
+            // Weekly budgets are expanded into per-week items with pro-rata amounts
             Builder(builder: (context) {
               final targetMonth = '${_targetDate.year}-${_targetDate.month.toString().padLeft(2, '0')}';
               final filteredBudgets = budgets.where((b) => b.yearMonth == targetMonth).toList();
+              final weekRanges = DateHelper.calculateWeekRanges(_targetDate.year, _targetDate.month);
+              final dateFormat = DateFormat('M/d');
 
-              // Build dropdown items: monthly budgets as-is, weekly budgets split by week
-              final dropdownItems = <DropdownMenuItem<String>>[];
+              // Build dropdown items: monthly budgets as-is, weekly budgets expanded per week
+              final dropdownItems = <DropdownMenuItem<String>>[
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('선택 안 함'),
+                ),
+              ];
+
               for (final b in filteredBudgets) {
                 if (b.budgetPeriod == 'WEEKLY' && b.weeklyAmount != null) {
-                  // Split weekly budget into per-week items
-                  final parts = b.yearMonth.split('-');
-                  final year = int.parse(parts[0]);
-                  final month = int.parse(parts[1]);
-                  final daysInMonth = DateTime(year, month + 1, 0).day;
-                  final weekLabels = ['첫째주', '둘째주', '셋째주', '넷째주', '다섯째주'];
-                  var dayOffset = 1;
-                  var weekIndex = 0;
-                  while (dayOffset <= daysInMonth && weekIndex < 5) {
-                    final weekStart = dayOffset;
-                    final weekEnd = (dayOffset + 6).clamp(1, daysInMonth);
-                    final daysInWeek = weekEnd - weekStart + 1;
-                    final weekAmount = (b.weeklyAmount! * daysInWeek) ~/ 7;
-                    final isTargetWeek = _targetDate.day >= weekStart && _targetDate.day <= weekEnd;
+                  // Expand weekly budget into per-week items
+                  for (final week in weekRanges) {
+                    final proRata = DateHelper.calculateProRataBudget(b.weeklyAmount!, week);
+                    final startStr = dateFormat.format(week.start);
+                    final endStr = dateFormat.format(week.end);
+                    final isTargetWeek = DateHelper.isDateInWeekRange(_targetDate, week);
+                    final label = '${b.targetLabel} — ${week.weekNumber}주차 ($startStr~$endStr) ${CurrencyFormatter.format(proRata)}원';
+
                     dropdownItems.add(DropdownMenuItem(
                       value: b.id,
                       enabled: isTargetWeek,
                       child: Text(
-                        '${b.targetLabel} — ${weekLabels[weekIndex]} ($month/$weekStart~$month/$weekEnd) — ${CurrencyFormatter.format(weekAmount)}원',
+                        label,
                         style: TextStyle(
-                          fontWeight: isTargetWeek ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isTargetWeek ? FontWeight.w600 : FontWeight.normal,
                           color: isTargetWeek ? null : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                         ),
                       ),
                     ));
-                    dayOffset = weekEnd + 1;
-                    weekIndex++;
                   }
                 } else {
                   final amount = CurrencyFormatter.format(b.effectiveMonthlyAmount);
@@ -621,22 +623,22 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 }
               }
 
+              // Count only enabled weekly items for the target week
+              final weeklyBudgetCount = filteredBudgets.where((b) => b.budgetPeriod == 'WEEKLY').length;
+              final monthlyBudgetCount = filteredBudgets.length - weeklyBudgetCount;
+              final targetWeek = weekRanges.where((w) => DateHelper.isDateInWeekRange(_targetDate, w)).firstOrNull;
+              final weekLabel = targetWeek != null ? ' (${targetWeek.weekNumber}주차)' : '';
+
               return DropdownButtonFormField<String>(
                 key: ValueKey('$targetMonth-${_targetDate.day}'),
                 initialValue: filteredBudgets.any((b) => b.id == _budgetId) ? _budgetId : null,
                 decoration: InputDecoration(
                   labelText: '예산 연결',
                   prefixIcon: const Icon(Icons.account_balance_wallet),
-                  helperText: '${_targetDate.month}월 예산 ${filteredBudgets.length}개',
+                  helperText: '${_targetDate.month}월$weekLabel 예산: 월간 $monthlyBudgetCount개, 주간 $weeklyBudgetCount개',
                 ),
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: null,
-                    child: Text('선택 안 함'),
-                  ),
-                  ...dropdownItems,
-                ],
+                items: dropdownItems,
                 onChanged: (value) {
                   setState(() => _budgetId = value);
                 },
@@ -926,6 +928,31 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 setState(() {
                   _paymentMethodId = item?.id;
                 });
+              },
+              onEdit: (item) {
+                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                if (pm != null) {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+                      value: pmBloc,
+                      child: PaymentMethodFormSheet(
+                        paymentMethod: pm,
+                        onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+                          pmBloc.add(UpdatePaymentMethod(
+                            id: pm.id,
+                            name: name,
+                            settlementDay: settlementDay,
+                            closingDay: closingDay,
+                            linkedBankId: linkedBankId,
+                            clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+                          ));
+                        },
+                      ),
+                    ),
+                  );
+                }
               },
               onDelete: (id) {
                 pmBloc.add(DeletePaymentMethod(id));

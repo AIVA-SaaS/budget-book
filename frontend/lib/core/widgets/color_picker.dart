@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Preset color palette for categories.
+/// Extended color palette — Material Design colors.
 const List<String> presetColors = [
-  '#FF5733',
-  '#2196F3',
-  '#4CAF50',
-  '#FF9800',
-  '#9C27B0',
-  '#00BCD4',
-  '#E91E63',
-  '#795548',
-  '#607D8B',
-  '#F44336',
-  '#3F51B5',
-  '#009688',
-  '#FFEB3B',
-  '#8BC34A',
-  '#FF5722',
-  '#673AB7',
+  // Row 1: Reds & Pinks
+  '#F44336', '#E91E63', '#FF5252', '#FF4081',
+  // Row 2: Purples
+  '#9C27B0', '#673AB7', '#7C4DFF', '#E040FB',
+  // Row 3: Blues
+  '#3F51B5', '#2196F3', '#03A9F4', '#448AFF',
+  // Row 4: Cyans & Teals
+  '#00BCD4', '#009688', '#00E5FF', '#1DE9B6',
+  // Row 5: Greens
+  '#4CAF50', '#8BC34A', '#00C853', '#69F0AE',
+  // Row 6: Yellows & Ambers
+  '#FFEB3B', '#FFC107', '#FF9800', '#FFD740',
+  // Row 7: Oranges & Browns
+  '#FF5722', '#FF5733', '#795548', '#A1887F',
+  // Row 8: Greys & Blue-greys
+  '#607D8B', '#9E9E9E', '#455A64', '#78909C',
 ];
+
+const _recentColorsKey = 'recent_colors';
+const _maxRecentColors = 8;
 
 /// Parses a hex color string (e.g., "#FF5733") to a [Color].
 Color parseHexColor(String? hex) {
@@ -31,7 +35,7 @@ Color parseHexColor(String? hex) {
   }
 }
 
-/// Shows a bottom sheet with a preset color palette for the user to pick from.
+/// Shows a bottom sheet with a color palette, recent colors, and custom hex input.
 /// Returns the selected hex color string, or null if dismissed.
 Future<String?> showColorPicker({
   required BuildContext context,
@@ -39,19 +43,77 @@ Future<String?> showColorPicker({
 }) async {
   return showModalBottomSheet<String>(
     context: context,
+    isScrollControlled: true,
     builder: (ctx) {
       return _ColorPickerSheet(selectedColor: selectedColor);
     },
   );
 }
 
-class _ColorPickerSheet extends StatelessWidget {
+class _ColorPickerSheet extends StatefulWidget {
   final String? selectedColor;
 
   const _ColorPickerSheet({this.selectedColor});
 
   @override
+  State<_ColorPickerSheet> createState() => _ColorPickerSheetState();
+}
+
+class _ColorPickerSheetState extends State<_ColorPickerSheet> {
+  final TextEditingController _hexController = TextEditingController();
+  List<String> _recentColors = [];
+  String? _customPreview;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentColors();
+  }
+
+  @override
+  void dispose() {
+    _hexController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRecentColors() async {
+    final prefs = await SharedPreferences.getInstance();
+    final recent = prefs.getStringList(_recentColorsKey) ?? [];
+    if (mounted) {
+      setState(() => _recentColors = recent);
+    }
+  }
+
+  Future<void> _saveRecentColor(String hex) async {
+    final prefs = await SharedPreferences.getInstance();
+    final recent = prefs.getStringList(_recentColorsKey) ?? [];
+    recent.remove(hex.toUpperCase());
+    recent.insert(0, hex.toUpperCase());
+    if (recent.length > _maxRecentColors) {
+      recent.removeRange(_maxRecentColors, recent.length);
+    }
+    await prefs.setStringList(_recentColorsKey, recent);
+  }
+
+  void _selectColor(String hex) {
+    _saveRecentColor(hex);
+    Navigator.of(context).pop(hex);
+  }
+
+  void _onHexChanged(String value) {
+    final cleaned = value.replaceFirst('#', '').toUpperCase();
+    if (cleaned.length == 6 &&
+        RegExp(r'^[0-9A-F]{6}$').hasMatch(cleaned)) {
+      setState(() => _customPreview = '#$cleaned');
+    } else {
+      setState(() => _customPreview = null);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -67,10 +129,7 @@ class _ColorPickerSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -78,51 +137,152 @@ class _ColorPickerSheet extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '색상 선택',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
+          // Recent colors
+          if (_recentColors.isNotEmpty) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '최근 사용',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _recentColors.map((hex) {
+                return _ColorCircle(
+                  hex: hex,
+                  isSelected: widget.selectedColor?.toUpperCase() ==
+                      hex.toUpperCase(),
+                  onTap: () => _selectColor(hex),
+                  size: 40,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+          // Preset palette
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '기본 색상',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 10,
+            runSpacing: 10,
             children: presetColors.map((hex) {
               final isSelected =
-                  selectedColor?.toUpperCase() == hex.toUpperCase();
-              final color = parseHexColor(hex);
-
-              return InkWell(
-                onTap: () => Navigator.of(context).pop(hex),
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: isSelected
-                        ? Border.all(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            width: 3,
-                          )
-                        : Border.all(
-                            color: Colors.transparent,
-                            width: 3,
-                          ),
-                  ),
-                  child: isSelected
-                      ? const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 24,
-                        )
-                      : null,
-                ),
+                  widget.selectedColor?.toUpperCase() == hex.toUpperCase();
+              return _ColorCircle(
+                hex: hex,
+                isSelected: isSelected,
+                onTap: () => _selectColor(hex),
               );
             }).toList(),
           ),
+          const SizedBox(height: 16),
+          // Custom hex input
+          Row(
+            children: [
+              if (_customPreview != null)
+                Container(
+                  width: 40,
+                  height: 40,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: parseHexColor(_customPreview),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.colorScheme.outline,
+                      width: 1,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: TextField(
+                  controller: _hexController,
+                  decoration: InputDecoration(
+                    hintText: '#RRGGBB',
+                    labelText: '직접 입력',
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.color_lens, size: 20),
+                    suffixIcon: _customPreview != null
+                        ? IconButton(
+                            icon: const Icon(Icons.check, size: 20),
+                            onPressed: () =>
+                                _selectColor(_customPreview!),
+                          )
+                        : null,
+                  ),
+                  onChanged: _onHexChanged,
+                  onSubmitted: (_) {
+                    if (_customPreview != null) {
+                      _selectColor(_customPreview!);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+}
+
+class _ColorCircle extends StatelessWidget {
+  final String hex;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final double size;
+
+  const _ColorCircle({
+    required this.hex,
+    required this.isSelected,
+    required this.onTap,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = parseHexColor(hex);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(size / 2),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: isSelected
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  width: 3,
+                )
+              : Border.all(
+                  color: Colors.transparent,
+                  width: 3,
+                ),
+        ),
+        child: isSelected
+            ? const Icon(Icons.check, color: Colors.white, size: 20)
+            : null,
       ),
     );
   }

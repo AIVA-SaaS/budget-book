@@ -547,6 +547,18 @@ class _CategoryGroupSelectorSheetState
                 ),
               ),
             ),
+            // Edit button
+            GestureDetector(
+              onTap: () => _showEditCategoryDialog(context, category),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
             if (isSelected)
               Icon(
                 Icons.check,
@@ -651,6 +663,44 @@ class _CategoryGroupSelectorSheetState
         type: widget.categoryType,
         groupId: group.id,
         visibility: group.visibility,
+      ));
+    }
+  }
+
+  Future<void> _showEditCategoryDialog(BuildContext context, Category category) async {
+    _categoryNameController.text = category.name;
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('카테고리 수정'),
+        content: TextField(
+          controller: _categoryNameController,
+          decoration: const InputDecoration(
+            hintText: '카테고리 이름',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = _categoryNameController.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.of(dialogContext).pop(text);
+              }
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName != category.name && context.mounted) {
+      getIt<CategoryBloc>().add(UpdateCategory(
+        id: category.id,
+        name: newName,
       ));
     }
   }

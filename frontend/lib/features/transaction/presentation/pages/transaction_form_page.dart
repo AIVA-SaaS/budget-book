@@ -7,6 +7,7 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/calculator_amount_field.dart';
 import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -563,9 +564,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   // Amount
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
-                    child: AmountInputField(
+                    child: CalculatorAmountField(
                       controller: _amountController,
-                      labelText: '금액',
+                      decoration: const InputDecoration(
+                        labelText: '금액',
+                        suffixText: '원',
+                        prefixIcon: Icon(Icons.payments),
+                      ),
                       helperText: _amountHint.isNotEmpty ? _amountHint : null,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -1335,6 +1340,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _selectedPaymentMethodId = item?.id;
                 });
               },
+              onEdit: (item) {
+                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                if (pm != null) {
+                  _showEditPaymentMethodSheet(context, pm);
+                }
+              },
               onDelete: (id) {
                 pmBloc.add(DeletePaymentMethod(id));
                 if (_selectedPaymentMethodId == id) {
@@ -1415,6 +1426,30 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           suffixIcon: Icon(Icons.calendar_today),
         ),
         child: Text(formattedDate),
+      ),
+    );
+  }
+
+  void _showEditPaymentMethodSheet(BuildContext context, PaymentMethod pm) {
+    final bloc = context.read<PaymentMethodBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<PaymentMethodBloc>.value(
+        value: bloc,
+        child: PaymentMethodFormSheet(
+          paymentMethod: pm,
+          onSubmit: (name, type, settlementDay, closingDay, linkedBankId) {
+            bloc.add(UpdatePaymentMethod(
+              id: pm.id,
+              name: name,
+              settlementDay: settlementDay,
+              closingDay: closingDay,
+              linkedBankId: linkedBankId,
+              clearLinkedBank: linkedBankId == null && pm.linkedBankId != null,
+            ));
+          },
+        ),
       ),
     );
   }

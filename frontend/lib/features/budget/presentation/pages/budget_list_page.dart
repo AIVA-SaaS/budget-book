@@ -15,6 +15,7 @@ import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/account_balance_card.dart';
+import 'package:budget_book/features/budget/presentation/widgets/budget_transactions_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -285,7 +286,22 @@ class _BudgetListPageState extends State<BudgetListPage> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: WeekSummaryCard(
-                    weekSummary: week, isCurrentWeek: isCurrent),
+                    weekSummary: week,
+                    isCurrentWeek: isCurrent,
+                    onItemTap: (item) {
+                      final parts = state.overview!.yearMonth.split('-');
+                      final year = int.parse(parts[0]);
+                      final month = int.parse(parts[1]);
+                      showBudgetTransactionsSheet(
+                        context: context,
+                        year: year,
+                        month: month,
+                        categoryId: item.categoryId,
+                        categoryName: item.displayName,
+                        dateFrom: week.weekStart,
+                        dateTo: week.weekEnd,
+                      );
+                    }),
               );
             }),
           ],
@@ -386,43 +402,76 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     : item.usageRate > 80
                         ? Colors.orange
                         : Colors.green;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item.displayName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.onPrimaryContainer,
+                return InkWell(
+                  onTap: item.categoryId != null
+                      ? () {
+                          // Parse yearMonth for the API call
+                          final parts = currentWeek.yearMonth.split('-');
+                          final year = int.parse(parts[0]);
+                          final month = int.parse(parts[1]);
+                          showBudgetTransactionsSheet(
+                            context: context,
+                            year: year,
+                            month: month,
+                            categoryId: item.categoryId,
+                            categoryName: item.displayName,
+                            dateFrom: currentWeek.weekStart,
+                            dateTo: currentWeek.weekEnd,
+                          );
+                        }
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  item.displayName,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                                if (item.categoryId != null) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 16,
+                                    color: theme.colorScheme.onPrimaryContainer
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ],
+                              ],
                             ),
-                          ),
-                          Text(
-                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
+                            Text(
+                              '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 6,
-                          backgroundColor: theme
-                              .colorScheme.onPrimaryContainer
-                              .withValues(alpha: 0.15),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(statusColor),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 6,
+                            backgroundColor: theme
+                                .colorScheme.onPrimaryContainer
+                                .withValues(alpha: 0.15),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(statusColor),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }),
@@ -551,8 +600,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
   ) {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
-    final spentAmount = summaryItem?.spentAmount ?? 0;
-    final plannedAmount = summaryItem?.plannedAmount ?? 0;
     // Use BE-calculated budget amount (consistent with totalBudget)
     final displayBudgetAmount = summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
 
@@ -601,38 +648,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Stack(
-                children: [
-                  LinearProgressIndicator(
-                    value: displayBudgetAmount > 0
-                        ? ((spentAmount + plannedAmount) / displayBudgetAmount).clamp(0.0, 1.0)
-                        : 0.0,
-                    minHeight: 6,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    color: Colors.orange.shade300,
-                  ),
-                  LinearProgressIndicator(
-                    value: displayBudgetAmount > 0
-                        ? (spentAmount / displayBudgetAmount).clamp(0.0, 1.0)
-                        : 0.0,
-                    minHeight: 6,
-                    backgroundColor: Colors.transparent,
-                    color: _getProgressColor(usageRate),
-                  ),
-                ],
-              ),
-            ),
+            _buildBudgetProgressBar(context, summaryItem, displayBudgetAmount),
             const SizedBox(height: 4),
-            Text(
-              plannedAmount > 0
-                  ? '${numberFormat.format(spentAmount)}원 사용 + ${numberFormat.format(plannedAmount)}원 예정 / ${numberFormat.format(displayBudgetAmount)}원'
-                  : '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(displayBudgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            _buildBudgetSubtitleText(context, summaryItem, displayBudgetAmount, numberFormat, usageRate),
           ],
         ),
         trailing: Row(
@@ -651,7 +669,17 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     state is BudgetLoaded ? state.year : DateTime.now().year;
                 final month =
                     state is BudgetLoaded ? state.month : DateTime.now().month;
-                if (value == 'edit') {
+                if (value == 'transactions') {
+                  if (budget.category != null) {
+                    showBudgetTransactionsSheet(
+                      context: context,
+                      year: year,
+                      month: month,
+                      categoryId: budget.category!.id,
+                      categoryName: budget.targetLabel,
+                    );
+                  }
+                } else if (value == 'edit') {
                   context.push(
                       '/budgets/edit/${budget.id}?year=$year&month=$month');
                 } else if (value == 'delete') {
@@ -668,6 +696,17 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 }
               },
               itemBuilder: (context) => [
+                if (budget.category != null)
+                  const PopupMenuItem(
+                    value: 'transactions',
+                    child: Row(
+                      children: [
+                        Icon(Icons.receipt_long, size: 18),
+                        SizedBox(width: 8),
+                        Text('거래 보기'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
                   value: 'edit',
                   child: Row(
@@ -698,10 +737,132 @@ class _BudgetListPageState extends State<BudgetListPage> {
               state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
-          context
-              .push('/budgets/edit/${budget.id}?year=$year&month=$month');
+          // Show transactions for this budget's category
+          if (budget.category != null) {
+            showBudgetTransactionsSheet(
+              context: context,
+              year: year,
+              month: month,
+              categoryId: budget.category!.id,
+              categoryName: budget.targetLabel,
+            );
+          } else {
+            // For group/total budgets, go to edit
+            context.push('/budgets/edit/${budget.id}?year=$year&month=$month');
+          }
         },
       ),
+    );
+  }
+
+  /// 3-segment progress bar: spent (solid) + planned (semi-transparent) + remaining (grey).
+  Widget _buildBudgetProgressBar(
+    BuildContext context,
+    BudgetSummaryItem? summaryItem,
+    int budgetAmount,
+  ) {
+    if (budgetAmount <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+    final plannedAmount = summaryItem?.plannedAmount ?? 0;
+
+    final spentRatio = (spentAmount / budgetAmount).clamp(0.0, 1.0);
+    final plannedRatio = (plannedAmount / budgetAmount).clamp(0.0, 1.0 - spentRatio);
+    final usageRate = summaryItem?.usageRate ?? 0.0;
+    final spentColor = _getProgressColor(usageRate);
+
+    // If no planned amount, use simple progress bar
+    if (plannedAmount <= 0) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: spentRatio,
+          minHeight: 6,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: spentColor,
+        ),
+      );
+    }
+
+    // 3-segment bar using CustomPaint-like approach with stacked bars
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 6,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final totalWidth = constraints.maxWidth;
+            final spentWidth = totalWidth * spentRatio;
+            final plannedWidth = totalWidth * plannedRatio;
+
+            return Stack(
+              children: [
+                // Background (remaining)
+                Container(
+                  width: totalWidth,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                // Planned (semi-transparent, behind spent)
+                if (plannedWidth > 0)
+                  Positioned(
+                    left: spentWidth,
+                    child: Container(
+                      width: plannedWidth,
+                      height: 6,
+                      color: spentColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                // Spent (solid)
+                if (spentWidth > 0)
+                  Container(
+                    width: spentWidth,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: spentColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(4),
+                        bottomLeft: const Radius.circular(4),
+                        topRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
+                        bottomRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Subtitle text showing spent + planned / budget.
+  Widget _buildBudgetSubtitleText(
+    BuildContext context,
+    BudgetSummaryItem? summaryItem,
+    int budgetAmount,
+    NumberFormat numberFormat,
+    double usageRate,
+  ) {
+    final spentAmount = summaryItem?.spentAmount ?? 0;
+    final plannedAmount = summaryItem?.plannedAmount ?? 0;
+
+    if (plannedAmount > 0) {
+      return Text(
+        '사용 ${numberFormat.format(spentAmount)} + 계획 ${numberFormat.format(plannedAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+        style: Theme.of(context).textTheme.bodySmall,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Text(
+      '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 

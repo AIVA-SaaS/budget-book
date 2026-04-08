@@ -376,6 +376,53 @@ class PaymentMethodServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getCardSettlementSummary ---
+
+    Given("a couple with credit cards for settlement summary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val creditCard = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 25, closingDay = 15
+        )
+        every { paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(couple.id, PaymentMethodType.CREDIT) } returns listOf(creditCard)
+
+        When("getCardSettlementSummary is called") {
+            val now = java.time.YearMonth.now()
+            val prev = now.minusMonths(1)
+
+            // Previous month: query by settlementDate range
+            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                creditCard.id,
+                prev.atDay(1),
+                prev.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(150000L, 3L))
+
+            // Current month: query by settlementDate range
+            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                creditCard.id,
+                now.atDay(1),
+                now.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(200000L, 5L))
+
+            val result = service.getCardSettlementSummary(user1.id)
+
+            Then("uses settlementDate-based queries and returns correct amounts") {
+                result.previousMonth.totalAmount shouldBe 150000
+                result.previousMonth.cards shouldHaveSize 1
+                result.previousMonth.cards[0].pendingAmount shouldBe 150000
+                result.previousMonth.cards[0].transactionCount shouldBe 3
+
+                result.currentMonth.totalAmount shouldBe 200000
+                result.currentMonth.cards shouldHaveSize 1
+                result.currentMonth.cards[0].pendingAmount shouldBe 200000
+                result.currentMonth.cards[0].transactionCount shouldBe 5
+            }
+        }
+    }
+
     // --- user not in couple ---
 
     Given("a user not in any couple") {

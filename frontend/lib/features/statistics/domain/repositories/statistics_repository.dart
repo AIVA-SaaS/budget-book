@@ -10,6 +10,8 @@ abstract class StatisticsRepository {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<Either<Failure, List<CategoryStatistics>>> getCategoryBreakdown({
@@ -17,6 +19,8 @@ abstract class StatisticsRepository {
     required int month,
     String type = 'EXPENSE',
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<Either<Failure, List<MonthlyTrend>>> getMonthlyTrend({
