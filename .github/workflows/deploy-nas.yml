@@ -9,7 +9,80 @@ permissions:
   issues: write
 
 jobs:
+  # ── Gate: Backend tests must pass before deploy ──
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: budgetbook_test
+          POSTGRES_USER: budgetbook
+          POSTGRES_PASSWORD: budgetbook
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build and Test
+        run: ./gradlew build
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
+          SPRING_DATASOURCE_USERNAME: budgetbook
+          SPRING_DATASOURCE_PASSWORD: budgetbook
+
+  # ── Gate: Frontend analysis + build must pass before deploy ──
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: |
+          if find test -name "*_test.dart" | grep -q .; then
+            flutter test --no-pub
+          else
+            echo "No test files found, skipping"
+          fi
+
+      - name: Build Web
+        run: flutter build web --release
+
+  # ── Deploy Backend (only after tests pass) ──
   deploy-backend:
+    needs: [test-backend]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Backend to NAS
@@ -19,6 +92,7 @@ jobs:
           username: ${{ secrets.NAS_USERNAME }}
           key: ${{ secrets.NAS_SSH_KEY }}
           port: ${{ secrets.NAS_SSH_PORT }}
+          command_timeout: 10m
           script: |
             export PATH=/usr/local/bin:$PATH
             cd /volume1/docker/budget-book
@@ -83,7 +157,9 @@ jobs:
             docker logs --tail 30 bb_app
             exit 1
 
+  # ── Deploy Frontend (only after tests pass) ──
   deploy-frontend:
+    needs: [test-frontend]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -133,6 +209,7 @@ jobs:
             ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
             "test -f /var/services/web_bb/index.html && echo 'Frontend deployed successfully!' || (echo 'FAILED: index.html not found' && exit 1)"
 
+  # ── Verify live site ──
   verify:
     needs: [deploy-backend, deploy-frontend]
     if: always() && (needs.deploy-backend.result != 'failure' || needs.deploy-frontend.result != 'failure')
