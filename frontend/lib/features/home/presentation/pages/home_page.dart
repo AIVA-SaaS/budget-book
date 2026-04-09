@@ -26,9 +26,9 @@ class HomePage extends StatelessWidget {
               tooltip: '카테고리 관리',
             ),
             IconButton(
-              onPressed: () => context.push('/couple'),
-              icon: const Icon(Icons.favorite),
-              tooltip: '커플 연결',
+              onPressed: () => context.push('/settings/partner'),
+              icon: const Icon(Icons.people),
+              tooltip: '파트너 관리',
             ),
             IconButton(
               onPressed: () {
@@ -58,7 +58,7 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '커플 연결 후 가계부를 시작하세요',
+                '거래를 기록하고 예산을 관리하세요',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context)
                           .colorScheme
@@ -68,9 +68,9 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               FilledButton.icon(
-                onPressed: () => context.push('/couple'),
-                icon: const Icon(Icons.favorite),
-                label: const Text('커플 연결하기'),
+                onPressed: () => context.push('/transactions/create'),
+                icon: const Icon(Icons.add),
+                label: const Text('첫 거래 기록하기'),
               ),
             ],
           ),

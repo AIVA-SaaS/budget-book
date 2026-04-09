@@ -57,9 +57,9 @@ class AppInfoPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              '부부가 함께 사용하는 공유 가계부 앱입니다. '
+              '스마트 가계부 앱입니다. '
               '수입/지출 관리, 카테고리별 예산 계획, 통계/분석, '
-              '실시간 동기화를 제공합니다.',
+              '파트너와의 실시간 공유를 제공합니다.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

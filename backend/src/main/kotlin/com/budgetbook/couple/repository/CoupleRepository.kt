@@ -15,4 +15,20 @@ interface CoupleRepository : JpaRepository<Couple, UUID> {
         AND c.status = :status
     """)
     fun findByUserIdAndStatus(@Param("userId") userId: UUID, @Param("status") status: CoupleStatus): Couple?
+
+    @Query("""
+        SELECT c FROM Couple c
+        WHERE c.user1.id = :userId
+        AND c.isSelf = true
+        AND c.status = 'ACTIVE'
+    """)
+    fun findActiveSelfCouple(@Param("userId") userId: UUID): Couple?
+
+    @Query("""
+        SELECT c FROM Couple c
+        WHERE (c.user1.id = :userId OR c.user2.id = :userId)
+        AND c.isSelf = false
+        AND c.status = :status
+    """)
+    fun findRealCoupleByUserIdAndStatus(@Param("userId") userId: UUID, @Param("status") status: CoupleStatus): Couple?
 }

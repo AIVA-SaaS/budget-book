@@ -97,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 8),
                     // Subtitle
                     Text(
-                      '부부 공유 가계부',
+                      '스마트 가계부',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme

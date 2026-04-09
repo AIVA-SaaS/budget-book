@@ -2,9 +2,11 @@ package com.budgetbook.auth.service
 
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
+import com.budgetbook.auth.event.UserCreatedEvent
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.auth.security.CustomOAuth2User
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException
@@ -15,7 +17,8 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class CustomOAuth2UserService(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val eventPublisher: ApplicationEventPublisher
 ) : DefaultOAuth2UserService() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -97,7 +100,9 @@ class CustomOAuth2UserService(
             provider = provider,
             providerId = userInfo.providerId
         )
-        return userRepository.save(newUser)
+        val saved = userRepository.save(newUser)
+        eventPublisher.publishEvent(UserCreatedEvent(saved.id))
+        return saved
     }
 
     data class OAuth2UserInfo(

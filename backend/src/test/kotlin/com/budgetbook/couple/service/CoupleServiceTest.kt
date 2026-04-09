@@ -15,6 +15,7 @@ import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleInvitation
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.domain.InvitationStatus
+import com.budgetbook.couple.repository.CoupleDataMigrationRepository
 import com.budgetbook.couple.repository.CoupleInvitationRepository
 import com.budgetbook.couple.repository.CoupleRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -43,7 +44,8 @@ class CoupleServiceTest : BehaviorSpec({
     val categoryGroupService = mockk<CategoryGroupService>(relaxed = true)
     val paymentMethodService = mockk<PaymentMethodService>(relaxed = true)
     val redisCacheService = mockk<RedisCacheService>(relaxed = true)
-    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService, categoryGroupService, paymentMethodService, redisCacheService)
+    val coupleDataMigrationRepository = mockk<CoupleDataMigrationRepository>(relaxed = true)
+    val coupleService = CoupleService(coupleRepository, coupleInvitationRepository, userRepository, categoryService, categoryGroupService, paymentMethodService, redisCacheService, coupleDataMigrationRepository)
 
     val user1 = User(
         email = "user1@example.com",
@@ -60,10 +62,51 @@ class CoupleServiceTest : BehaviorSpec({
         providerId = "kakao-2"
     )
 
+    // --- createSelfCouple ---
+
+    Given("a user without a self-couple") {
+        every { coupleRepository.findActiveSelfCouple(user1.id) } returns null
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val coupleSlot = slot<Couple>()
+        every { coupleRepository.save(capture(coupleSlot)) } answers { coupleSlot.captured }
+
+        When("createSelfCouple is called") {
+            val result = coupleService.createSelfCouple(user1.id)
+
+            Then("creates a self-couple with isSelf=true and user2=null") {
+                result.user1.id shouldBe user1.id
+                result.user2 shouldBe null
+                result.isSelf shouldBe true
+                result.status shouldBe CoupleStatus.ACTIVE
+            }
+
+            Then("seeds default data") {
+                verify(exactly = 1) { categoryService.seedDefaultCategories(any()) }
+                verify(exactly = 1) { categoryGroupService.seedDefaultCategoryGroups(any()) }
+                verify(exactly = 1) { paymentMethodService.seedDefaultPaymentMethods(any()) }
+            }
+        }
+    }
+
+    Given("a user who already has a self-couple") {
+        val existingSelfCouple = Couple(user1 = user1, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
+        every { coupleRepository.findActiveSelfCouple(user1.id) } returns existingSelfCouple
+
+        When("createSelfCouple is called") {
+            val result = coupleService.createSelfCouple(user1.id)
+
+            Then("returns the existing self-couple without creating a new one") {
+                result.id shouldBe existingSelfCouple.id
+                verify(exactly = 0) { coupleRepository.save(any()) }
+            }
+        }
+    }
+
     // --- createInvitation ---
 
-    Given("a user not in an active couple") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+    Given("a user in a self-couple (not in a real couple)") {
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
         every { coupleInvitationRepository.updateStatusByInviterIdAndStatus(user1.id, InvitationStatus.PENDING, InvitationStatus.CANCELLED) } returns Unit
         every { userRepository.findById(user1.id) } returns Optional.of(user1)
 
@@ -84,9 +127,9 @@ class CoupleServiceTest : BehaviorSpec({
         }
     }
 
-    Given("a user already in an active couple") {
-        val existingCouple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns existingCouple
+    Given("a user already in a real couple") {
+        val existingCouple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE, isSelf = false)
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns existingCouple
 
         When("createInvitation is called") {
             Then("throws ConflictException") {
@@ -100,7 +143,9 @@ class CoupleServiceTest : BehaviorSpec({
 
     // --- acceptInvitation ---
 
-    Given("a valid pending invitation code") {
+    Given("a valid pending invitation code with self-couples") {
+        val inviterSelfCouple = Couple(user1 = user1, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
+        val acceptorSelfCouple = Couple(user1 = user2, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
         val invitation = CoupleInvitation(
             inviter = user1,
             invitationCode = "ABCD1234",
@@ -109,30 +154,31 @@ class CoupleServiceTest : BehaviorSpec({
 
         every { coupleInvitationRepository.findByInvitationCode("ABCD1234") } returns invitation
         every { userRepository.findById(user2.id) } returns Optional.of(user2)
-        every { coupleRepository.findByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns null
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findActiveSelfCouple(user1.id) } returns inviterSelfCouple
+        every { coupleRepository.findActiveSelfCouple(user2.id) } returns acceptorSelfCouple
         every { coupleInvitationRepository.save(invitation) } returns invitation
-
-        val coupleSlot = slot<Couple>()
-        every { coupleRepository.save(capture(coupleSlot)) } answers { coupleSlot.captured }
+        every { coupleRepository.save(any()) } answers { firstArg() }
 
         When("acceptInvitation is called by a different user") {
             val result = coupleService.acceptInvitation(user2.id, "ABCD1234")
 
-            Then("creates an active couple and returns CoupleResponse") {
+            Then("promotes inviter's self-couple and returns CoupleResponse") {
                 result.status shouldBe "ACTIVE"
-                result.partner.id shouldBe user1.id
-                result.partner.nickname shouldBe "User1"
+                result.partner!!.id shouldBe user1.id
+                result.partner!!.nickname shouldBe "User1"
+                inviterSelfCouple.isSelf shouldBe false
+                inviterSelfCouple.user2 shouldBe user2
             }
 
             Then("marks invitation as accepted") {
                 invitation.status shouldBe InvitationStatus.ACCEPTED
             }
 
-            Then("seeds default categories, category groups, and payment methods") {
-                verify(exactly = 1) { categoryService.seedDefaultCategories(any()) }
-                verify(exactly = 1) { categoryGroupService.seedDefaultCategoryGroups(any()) }
-                verify(exactly = 1) { paymentMethodService.seedDefaultPaymentMethods(any()) }
+            Then("migrates acceptor's data and dissolves their self-couple") {
+                verify(exactly = 1) { coupleDataMigrationRepository.migrateAllData(acceptorSelfCouple.id, inviterSelfCouple.id) }
+                acceptorSelfCouple.status shouldBe CoupleStatus.DISSOLVED
             }
         }
     }
@@ -188,17 +234,17 @@ class CoupleServiceTest : BehaviorSpec({
         }
     }
 
-    Given("a user already in a couple trying to accept an invitation") {
+    Given("a user already in a real couple trying to accept an invitation") {
         val invitation = CoupleInvitation(
             inviter = user1,
             invitationCode = "DUPE1234",
             expiresAt = Instant.now().plusSeconds(3600)
         )
-        val existingCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
+        val existingCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE, isSelf = false)
 
         every { coupleInvitationRepository.findByInvitationCode("DUPE1234") } returns invitation
         every { userRepository.findById(user2.id) } returns Optional.of(user2)
-        every { coupleRepository.findByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns existingCouple
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns existingCouple
 
         When("acceptInvitation is called") {
             Then("throws ConflictException") {
@@ -210,38 +256,40 @@ class CoupleServiceTest : BehaviorSpec({
         }
     }
 
-    Given("a valid invitation where seed fails") {
+    Given("a valid invitation where data migration fails") {
         val invitation = CoupleInvitation(
             inviter = user1,
             invitationCode = "SEED1234",
             expiresAt = Instant.now().plusSeconds(3600)
         )
+        val inviterSelfCouple = Couple(user1 = user1, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
+        val acceptorSelfCouple = Couple(user1 = user2, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
 
         every { coupleInvitationRepository.findByInvitationCode("SEED1234") } returns invitation
         every { userRepository.findById(user2.id) } returns Optional.of(user2)
-        every { coupleRepository.findByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns null
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { coupleRepository.findActiveSelfCouple(user1.id) } returns inviterSelfCouple
+        every { coupleRepository.findActiveSelfCouple(user2.id) } returns acceptorSelfCouple
         every { coupleInvitationRepository.save(invitation) } returns invitation
+        every { coupleRepository.save(any()) } answers { firstArg() }
 
-        val coupleSlot = slot<Couple>()
-        every { coupleRepository.save(capture(coupleSlot)) } answers { coupleSlot.captured }
-
-        // categoryService.seedDefaultCategories throws an exception
-        every { categoryService.seedDefaultCategories(any()) } throws RuntimeException("DB error during seed")
+        // Data migration fails
+        every { coupleDataMigrationRepository.migrateAllData(any(), any()) } throws RuntimeException("DB error during migration")
 
         When("acceptInvitation is called") {
             Then("throws RuntimeException so @Transactional can rollback") {
                 shouldThrow<RuntimeException> {
                     coupleService.acceptInvitation(user2.id, "SEED1234")
-                }.message shouldBe "DB error during seed"
+                }.message shouldBe "DB error during migration"
             }
         }
     }
 
     // --- getMyCouple ---
 
-    Given("a user in an active couple") {
-        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
+    Given("a user in a real couple") {
+        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE, isSelf = false)
         every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
 
         When("getMyCouple is called") {
@@ -249,24 +297,41 @@ class CoupleServiceTest : BehaviorSpec({
 
             Then("returns the couple info with partner details") {
                 result.id shouldBe couple.id
-                result.partner.id shouldBe user2.id
-                result.partner.nickname shouldBe "User2"
-                result.partner.profileImageUrl shouldBe "https://example.com/photo2.jpg"
+                result.isSelf shouldBe false
+                result.partner!!.id shouldBe user2.id
+                result.partner!!.nickname shouldBe "User2"
+                result.partner!!.profileImageUrl shouldBe "https://example.com/photo2.jpg"
                 result.status shouldBe "ACTIVE"
             }
         }
     }
 
-    Given("user2 in an active couple querying their partner") {
-        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
+    Given("a user in a self-couple") {
+        val selfCouple = Couple(user1 = user1, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
+        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns selfCouple
+
+        When("getMyCouple is called") {
+            val result = coupleService.getMyCouple(user1.id)
+
+            Then("returns the self-couple info with null partner and isSelf=true") {
+                result.id shouldBe selfCouple.id
+                result.isSelf shouldBe true
+                result.partner shouldBe null
+                result.status shouldBe "ACTIVE"
+            }
+        }
+    }
+
+    Given("user2 in a real couple querying their partner") {
+        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE, isSelf = false)
         every { coupleRepository.findByUserIdAndStatus(user2.id, CoupleStatus.ACTIVE) } returns couple
 
         When("getMyCouple is called by user2") {
             val result = coupleService.getMyCouple(user2.id)
 
             Then("returns user1 as the partner") {
-                result.partner.id shouldBe user1.id
-                result.partner.nickname shouldBe "User1"
+                result.partner!!.id shouldBe user1.id
+                result.partner!!.nickname shouldBe "User1"
             }
         }
     }
@@ -359,10 +424,16 @@ class CoupleServiceTest : BehaviorSpec({
 
     // --- dissolveCouple ---
 
-    Given("a user in an active couple wanting to dissolve") {
-        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
-        every { coupleRepository.save(couple) } returns couple
+    Given("a user in a real couple wanting to dissolve") {
+        val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE, isSelf = false)
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns couple
+        every { coupleRepository.save(any()) } answers { firstArg() }
+
+        // For createSelfCouple calls during dissolve
+        every { coupleRepository.findActiveSelfCouple(user1.id) } returns null
+        every { coupleRepository.findActiveSelfCouple(user2.id) } returns null
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { userRepository.findById(user2.id) } returns Optional.of(user2)
 
         When("dissolveCouple is called") {
             val beforeDissolve = Instant.now()
@@ -370,7 +441,6 @@ class CoupleServiceTest : BehaviorSpec({
 
             Then("sets couple status to DISSOLVED") {
                 couple.status shouldBe CoupleStatus.DISSOLVED
-                verify { coupleRepository.save(couple) }
             }
 
             Then("sets dissolvedAt timestamp") {
@@ -378,11 +448,22 @@ class CoupleServiceTest : BehaviorSpec({
                 couple.dissolvedAt!!.isAfter(beforeDissolve.minusSeconds(1)) shouldBe true
                 couple.dissolvedAt!!.isBefore(Instant.now().plusSeconds(1)) shouldBe true
             }
+
+            Then("creates self-couples for both users") {
+                verify(exactly = 1) { coupleRepository.findActiveSelfCouple(user1.id) }
+                verify(exactly = 1) { coupleRepository.findActiveSelfCouple(user2.id) }
+            }
+
+            Then("splits data for user2 and migrates remaining to user1") {
+                verify(exactly = 1) { coupleDataMigrationRepository.splitDataByOwner(couple.id, any(), user2.id) }
+                verify(exactly = 1) { coupleDataMigrationRepository.migrateAllData(couple.id, any()) }
+                verify(exactly = 1) { coupleDataMigrationRepository.deleteCouplePreferences(couple.id) }
+            }
         }
     }
 
-    Given("a user not in a couple trying to dissolve") {
-        every { coupleRepository.findByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+    Given("a user not in a real couple trying to dissolve") {
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
 
         When("dissolveCouple is called") {
             Then("throws NotFoundException") {

@@ -106,12 +106,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 return const SizedBox.shrink();
               },
             ),
-            // Couple management
+            // Partner management
             ListTile(
-              leading: const Icon(Icons.favorite),
-              title: const Text('커플 관리'),
+              leading: const Icon(Icons.people),
+              title: const Text('파트너 관리'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/couple'),
+              onTap: () => context.push('/settings/partner'),
             ),
             const Divider(),
             // Asset Management (categories + payment methods + pockets)
