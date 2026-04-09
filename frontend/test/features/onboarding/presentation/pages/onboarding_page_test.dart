@@ -20,7 +20,7 @@ void main() {
 
       expect(find.text('환영합니다'), findsOneWidget);
       expect(
-        find.text('부부 공유 가계부에 오신 것을 환영합니다'),
+        find.text('Budget Book으로 똑똑하게 가계부를 관리하세요'),
         findsOneWidget,
       );
       expect(find.byIcon(Icons.account_balance_wallet), findsOneWidget);
@@ -48,13 +48,13 @@ void main() {
       await tester.drag(find.byType(PageView), const Offset(-400, 0));
       await tester.pumpAndSettle();
 
-      expect(find.text('커플 연결'), findsOneWidget);
+      expect(find.text('파트너와 함께'), findsOneWidget);
       expect(
-        find.text('파트너와 연결하여 함께 가계부를 관리하세요'),
+        find.text('파트너와 연결하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요'),
         findsOneWidget,
       );
-      expect(find.text('커플 연결하기'), findsOneWidget);
-      expect(find.text('나중에'), findsOneWidget);
+      expect(find.text('파트너 연결하기'), findsOneWidget);
+      expect(find.text('혼자 사용할게요'), findsOneWidget);
     });
 
     testWidgets('나중에 button advances to next page', (tester) async {
@@ -68,8 +68,8 @@ void main() {
       await tester.drag(find.byType(PageView), const Offset(-400, 0));
       await tester.pumpAndSettle();
 
-      // Tap 나중에
-      await tester.tap(find.text('나중에'));
+      // Tap 혼자 사용할게요
+      await tester.tap(find.text('혼자 사용할게요'));
       await tester.pumpAndSettle();
 
       // Should be on step 3

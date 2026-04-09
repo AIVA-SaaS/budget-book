@@ -32,6 +32,9 @@ class Couple(
     @Column(nullable = false, length = 20)
     var status: CoupleStatus = CoupleStatus.PENDING,
 
+    @Column(name = "is_self", nullable = false)
+    var isSelf: Boolean = false,
+
     @Column(name = "dissolved_at")
     var dissolvedAt: Instant? = null
 ) : BaseTimeEntity()

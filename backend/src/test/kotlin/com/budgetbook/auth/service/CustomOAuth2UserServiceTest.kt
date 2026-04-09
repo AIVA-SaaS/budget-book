@@ -11,6 +11,7 @@ import io.kotest.matchers.string.shouldContain
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException
 
 class CustomOAuth2UserServiceTest : BehaviorSpec({
@@ -18,7 +19,8 @@ class CustomOAuth2UserServiceTest : BehaviorSpec({
     isolationMode = IsolationMode.InstancePerLeaf
 
     val userRepository = mockk<UserRepository>()
-    val service = CustomOAuth2UserService(userRepository)
+    val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    val service = CustomOAuth2UserService(userRepository, eventPublisher)
 
     // --- findOrCreateUser (the core logic being tested) ---
 

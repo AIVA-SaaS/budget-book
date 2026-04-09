@@ -57,6 +57,7 @@ import 'package:budget_book/features/settings/presentation/pages/profile_edit_pa
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/home_config_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/asset_management_page.dart';
+import 'package:budget_book/features/settings/presentation/pages/partner_management_page.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bloc.dart';
@@ -149,18 +150,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     if (isOnCallbackPage) return null;
 
     if (authState is AuthAuthenticated && isOnLoginPage) {
-      // Server state is source of truth: if user already has a couple,
-      // auto-complete onboarding (handles new-device / cleared-cache case).
+      // Server state is source of truth: with self-couple, coupleId
+      // should always exist after signup. Auto-complete onboarding.
       if (!_onboardingCompleted && authState.user.coupleId != null) {
         markOnboardingCompleted();
       }
       if (!_onboardingCompleted) return '/onboarding';
-      return authState.user.coupleId != null ? '/home' : '/couple';
+      return '/home';
     }
 
     if (authState is AuthAuthenticated) {
       // Server state is source of truth: auto-complete onboarding
-      // when the user already has a couple.
+      // when the user already has a couple (including self-couple).
       if (!_onboardingCompleted && authState.user.coupleId != null) {
         markOnboardingCompleted();
       }
@@ -179,14 +180,6 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         return '/onboarding';
       }
 
-      // If no couple and trying to access couple-required pages, redirect to /couple
-      // But allow /couple itself, /settings, and /admin to pass through
-      if (authState.user.coupleId == null &&
-          !isOnCouplePage &&
-          !isOnAdminPage &&
-          state.matchedLocation != '/settings') {
-        return '/couple';
-      }
       return null;
     }
 
@@ -642,6 +635,16 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/settings/profile-edit',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ProfileEditPage(),
+    ),
+    // Partner Management
+    GoRoute(
+      path: '/settings/partner',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => BlocProvider<CoupleBloc>(
+        create: (context) =>
+            getIt<CoupleBloc>()..add(const LoadCouple()),
+        child: const PartnerManagementPage(),
+      ),
     ),
     // Home Config
     GoRoute(

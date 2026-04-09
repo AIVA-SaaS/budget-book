@@ -17,6 +17,7 @@ import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.dto.InvitationStatusResponse
 import com.budgetbook.couple.dto.UserSummary
+import com.budgetbook.couple.repository.CoupleDataMigrationRepository
 import com.budgetbook.couple.repository.CoupleInvitationRepository
 import com.budgetbook.couple.repository.CoupleRepository
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -35,7 +36,8 @@ class CoupleService(
     private val categoryService: CategoryService,
     private val categoryGroupService: CategoryGroupService,
     private val paymentMethodService: PaymentMethodService,
-    private val redisCacheService: RedisCacheService
+    private val redisCacheService: RedisCacheService,
+    private val coupleDataMigrationRepository: CoupleDataMigrationRepository
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -46,10 +48,47 @@ class CoupleService(
         .expireAfterWrite(5, TimeUnit.MINUTES)
         .build<UUID, UUID>()
 
+    /**
+     * Creates a self-couple for a user (solo mode).
+     * Called during user registration. Idempotent - skips if already exists.
+     */
+    @Transactional
+    fun createSelfCouple(userId: UUID): Couple {
+        val existing = coupleRepository.findActiveSelfCouple(userId)
+        if (existing != null) {
+            log.debug("Self-couple already exists for userId={}", userId)
+            return existing
+        }
+
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        val selfCouple = Couple(
+            user1 = user,
+            user2 = null,
+            status = CoupleStatus.ACTIVE,
+            isSelf = true
+        )
+        val saved = coupleRepository.save(selfCouple)
+
+        // Seed default data for the self-couple
+        categoryService.seedDefaultCategories(saved)
+        categoryGroupService.seedDefaultCategoryGroups(saved)
+        paymentMethodService.seedDefaultPaymentMethods(saved)
+
+        // Seed private category groups and categories for the user
+        val privateGroup = categoryGroupService.seedPrivateCategoryGroup(saved, user)
+        categoryService.seedPrivateCategories(saved, user, privateGroup)
+
+        log.info("Created self-couple id={} for userId={}", saved.id, userId)
+        return saved
+    }
+
     @Transactional
     fun createInvitation(userId: UUID): InvitationResponse {
-        val activeCouple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
-        if (activeCouple != null) {
+        // Only block if user is in a real (non-self) couple
+        val realCouple = coupleRepository.findRealCoupleByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+        if (realCouple != null) {
             throw ConflictException("COUPLE_ALREADY_EXISTS", "User is already in an active couple.")
         }
 
@@ -96,14 +135,14 @@ class CoupleService(
         val acceptingUser = userRepository.findById(userId)
             .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
 
-        // Check if accepting user is already in a couple
-        val activeCouple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+        // Check if accepting user is already in a real couple
+        val activeCouple = coupleRepository.findRealCoupleByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
         if (activeCouple != null) {
             throw ConflictException("COUPLE_ALREADY_EXISTS", "User is already in an active couple.")
         }
 
-        // Check if inviter is already in a couple (may have paired with someone else)
-        val inviterCouple = coupleRepository.findByUserIdAndStatus(invitation.inviter.id, CoupleStatus.ACTIVE)
+        // Check if inviter is already in a real couple
+        val inviterCouple = coupleRepository.findRealCoupleByUserIdAndStatus(invitation.inviter.id, CoupleStatus.ACTIVE)
         if (inviterCouple != null) {
             invitation.status = InvitationStatus.CANCELLED
             coupleInvitationRepository.save(invitation)
@@ -114,24 +153,55 @@ class CoupleService(
         invitation.status = InvitationStatus.ACCEPTED
         coupleInvitationRepository.save(invitation)
 
-        // Create the couple
-        val couple = Couple(
-            user1 = invitation.inviter,
-            user2 = acceptingUser,
-            status = CoupleStatus.ACTIVE
-        )
-        coupleRepository.save(couple)
+        // Find self-couples for both users (to migrate their data)
+        val inviterSelfCouple = coupleRepository.findActiveSelfCouple(invitation.inviter.id)
+        val acceptorSelfCouple = coupleRepository.findActiveSelfCouple(userId)
 
-        // Seed default data for the new couple (order matters: categories first, then groups that reference them)
-        categoryService.seedDefaultCategories(couple)
-        categoryGroupService.seedDefaultCategoryGroups(couple)
-        paymentMethodService.seedDefaultPaymentMethods(couple)
+        // Use inviter's self-couple as the real couple base (promote it)
+        // or create a new couple if inviter has no self-couple
+        val couple: Couple
+        if (inviterSelfCouple != null) {
+            // Promote inviter's self-couple to a real couple
+            inviterSelfCouple.user2 = acceptingUser
+            inviterSelfCouple.isSelf = false
+            couple = coupleRepository.save(inviterSelfCouple)
+            // Data already belongs to this couple, no migration needed for inviter
+        } else {
+            // Create a new couple (shouldn't happen in normal flow, but handle gracefully)
+            couple = Couple(
+                user1 = invitation.inviter,
+                user2 = acceptingUser,
+                status = CoupleStatus.ACTIVE,
+                isSelf = false
+            )
+            coupleRepository.save(couple)
 
-        // Seed PRIVATE category groups and categories for each user
-        listOf(invitation.inviter, acceptingUser).forEach { user ->
-            val privateGroup = categoryGroupService.seedPrivateCategoryGroup(couple, user)
-            categoryService.seedPrivateCategories(couple, user, privateGroup)
+            // Seed default data for the new couple
+            categoryService.seedDefaultCategories(couple)
+            categoryGroupService.seedDefaultCategoryGroups(couple)
+            paymentMethodService.seedDefaultPaymentMethods(couple)
+
+            // Seed PRIVATE data for inviter
+            val inviterPrivateGroup = categoryGroupService.seedPrivateCategoryGroup(couple, invitation.inviter)
+            categoryService.seedPrivateCategories(couple, invitation.inviter, inviterPrivateGroup)
         }
+
+        // Migrate acceptor's data from self-couple to the real couple
+        if (acceptorSelfCouple != null) {
+            coupleDataMigrationRepository.migrateAllData(acceptorSelfCouple.id, couple.id)
+            // Dissolve the acceptor's self-couple
+            acceptorSelfCouple.status = CoupleStatus.DISSOLVED
+            acceptorSelfCouple.dissolvedAt = Instant.now()
+            coupleRepository.save(acceptorSelfCouple)
+        } else {
+            // No self-couple data to migrate, seed private data for acceptor
+            val acceptorPrivateGroup = categoryGroupService.seedPrivateCategoryGroup(couple, acceptingUser)
+            categoryService.seedPrivateCategories(couple, acceptingUser, acceptorPrivateGroup)
+        }
+
+        // Evict caches
+        evictCoupleCache(invitation.inviter.id)
+        evictCoupleCache(userId)
 
         val partner = invitation.inviter
         return CoupleResponse(
@@ -170,14 +240,22 @@ class CoupleService(
         val couple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
             ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not currently in a couple.")
 
-        val partner = if (couple.user1.id == userId) couple.user2!! else couple.user1
+        // For self-couples, partner is null
+        val partner = if (couple.isSelf) {
+            null
+        } else {
+            val partnerUser = if (couple.user1.id == userId) couple.user2!! else couple.user1
+            UserSummary(
+                id = partnerUser.id,
+                nickname = partnerUser.nickname,
+                profileImageUrl = partnerUser.profileImageUrl
+            )
+        }
+
         return CoupleResponse(
             id = couple.id,
-            partner = UserSummary(
-                id = partner.id,
-                nickname = partner.nickname,
-                profileImageUrl = partner.profileImageUrl
-            ),
+            partner = partner,
+            isSelf = couple.isSelf,
             status = couple.status.name,
             createdAt = couple.createdAt,
             dissolvedAt = couple.dissolvedAt
@@ -186,16 +264,35 @@ class CoupleService(
 
     @Transactional
     fun dissolveCouple(userId: UUID) {
-        val couple = coupleRepository.findByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
+        // Only dissolve real couples, not self-couples
+        val couple = coupleRepository.findRealCoupleByUserIdAndStatus(userId, CoupleStatus.ACTIVE)
             ?: throw NotFoundException("COUPLE_NOT_FOUND", "User is not currently in an active couple.")
 
+        val user2 = couple.user2
+
+        // Create self-couples for both users FIRST (before splitting data)
+        val user1SelfCouple = createSelfCouple(couple.user1.id)
+        val user2SelfCouple = user2?.let { createSelfCouple(it.id) }
+
+        // Split data: move user2's owned data to their new self-couple
+        if (user2 != null && user2SelfCouple != null) {
+            coupleDataMigrationRepository.splitDataByOwner(couple.id, user2SelfCouple.id, user2.id)
+        }
+
+        // Move remaining data (user1's + shared) to user1's self-couple
+        coupleDataMigrationRepository.migrateAllData(couple.id, user1SelfCouple.id)
+
+        // Delete couple_preferences for the dissolved couple
+        coupleDataMigrationRepository.deleteCouplePreferences(couple.id)
+
+        // Now dissolve the couple
         couple.status = CoupleStatus.DISSOLVED
         couple.dissolvedAt = Instant.now()
         coupleRepository.save(couple)
 
         // Evict couple cache for both users
         evictCoupleCache(couple.user1.id)
-        couple.user2?.let { evictCoupleCache(it.id) }
+        user2?.let { evictCoupleCache(it.id) }
     }
 
     fun evictCoupleCache(userId: UUID) {

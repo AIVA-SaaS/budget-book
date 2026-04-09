@@ -1,4 +1,5 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
@@ -87,7 +88,7 @@ class TransactionListTile extends StatelessWidget {
         ),
         title: Row(
           children: [
-            if (transaction.isPrivate) ...[
+            if (transaction.isPrivate && isCoupleMode()) ...[
               Icon(
                 Icons.visibility_off,
                 size: 14,

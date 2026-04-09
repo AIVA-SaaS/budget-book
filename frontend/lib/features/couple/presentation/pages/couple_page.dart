@@ -43,7 +43,7 @@ class _CouplePageState extends State<CouplePage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('커플 연결'),
+          title: const Text('파트너 연결'),
           automaticallyImplyLeading: Navigator.canPop(context),
         ),
         body: BlocBuilder<CoupleBloc, CoupleState>(
@@ -58,11 +58,104 @@ class _CouplePageState extends State<CouplePage> {
               CoupleInvitationExpired(invitation: final inv) =>
                 _buildInvitationExpired(context, inv),
               CoupleLinked(couple: final couple) =>
-                _buildLinked(context, couple),
+                couple.isCouple
+                    ? _buildLinked(context, couple)
+                    : _buildSelfCouple(context),
               CoupleError() => _buildNotLinked(context),
             };
           },
         ),
+      ),
+    );
+  }
+
+  /// Self-couple state: user has a couple record but no partner.
+  /// Offer to invite a partner or continue as personal.
+  Widget _buildSelfCouple(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(
+            Icons.person,
+            size: 80,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '개인 가계부로 사용 중',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '파트너와 함께 사용하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.6),
+                ),
+          ),
+          const SizedBox(height: 40),
+          // Generate invitation
+          FilledButton.icon(
+            onPressed: () {
+              context.read<CoupleBloc>().add(const GenerateInvitation());
+            },
+            icon: const Icon(Icons.add_link),
+            label: const Text('파트너 초대하기'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 32),
+          // Accept invitation
+          Text(
+            '초대 코드 입력',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _codeController,
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 8,
+            decoration: const InputDecoration(
+              hintText: '8자리 코드 입력',
+              prefixIcon: Icon(Icons.vpn_key),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () {
+              final code = _codeController.text.trim();
+              if (code.length == 8) {
+                context.read<CoupleBloc>().add(AcceptInvitation(code));
+                _codeController.clear();
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text('코드로 연결'),
+          ),
+          const SizedBox(height: 32),
+          // Skip — go home
+          TextButton(
+            onPressed: () {
+              context.read<AuthBloc>().add(const AuthRefreshUser());
+              context.go('/home');
+            },
+            child: const Text('나중에 연결하기'),
+          ),
+        ],
       ),
     );
   }
@@ -74,7 +167,7 @@ class _CouplePageState extends State<CouplePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Icon(
-            Icons.favorite_border,
+            Icons.person_add,
             size: 80,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           ),
@@ -302,7 +395,7 @@ class _CouplePageState extends State<CouplePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            '커플 연결 완료',
+            '파트너 연결 완료',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -343,7 +436,7 @@ class _CouplePageState extends State<CouplePage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('커플 연결 해제'),
+        title: const Text('파트너 연결 해제'),
         content: const Text(
           '정말 연결을 해제하시겠습니까?\n공유된 데이터는 유지되지만 더 이상 공유되지 않습니다.',
         ),

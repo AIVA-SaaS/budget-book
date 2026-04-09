@@ -30,7 +30,7 @@ void main() {
 
     // App title and subtitle
     expect(find.text('Budget Book'), findsOneWidget);
-    expect(find.text('부부 공유 가계부'), findsOneWidget);
+    expect(find.text('스마트 가계부'), findsOneWidget);
 
     // Login buttons
     expect(find.text('Google(으)로 로그인'), findsOneWidget);

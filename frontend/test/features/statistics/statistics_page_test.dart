@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
+import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
@@ -11,9 +12,15 @@ import 'package:budget_book/features/statistics/domain/entities/statistics_summa
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
 
 class MockStatisticsBloc extends MockBloc<StatisticsEvent, StatisticsState>
     implements StatisticsBloc {}
+
+class MockCoupleBloc extends MockBloc<CoupleEvent, CoupleState>
+    implements CoupleBloc {}
 
 class FakeStatisticsState extends Fake implements StatisticsState {}
 
@@ -25,8 +32,17 @@ void main() {
     registerFallbackValue(FakeStatisticsState());
   });
 
-  setUp(() {
+  setUp(() async {
     mockBloc = MockStatisticsBloc();
+    // Register mock CoupleBloc for isCoupleMode()
+    await GetIt.instance.reset();
+    final mockCoupleBloc = MockCoupleBloc();
+    when(() => mockCoupleBloc.state).thenReturn(const CoupleNotLinked());
+    GetIt.instance.registerLazySingleton<CoupleBloc>(() => mockCoupleBloc);
+  });
+
+  tearDown(() async {
+    await GetIt.instance.reset();
   });
 
   Widget createTestWidget() {
