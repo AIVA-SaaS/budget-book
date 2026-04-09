@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
@@ -54,7 +55,7 @@ class RecurringListTile extends StatelessWidget {
         ),
         title: Row(
           children: [
-            if (transaction.isPrivate) ...[
+            if (transaction.isPrivate && isCoupleMode()) ...[
               Icon(
                 Icons.visibility_off,
                 size: 14,

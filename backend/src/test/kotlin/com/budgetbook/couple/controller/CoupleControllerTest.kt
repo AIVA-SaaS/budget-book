@@ -71,7 +71,7 @@ class CoupleControllerTest : FunSpec({
 
         result.success shouldBe true
         result.data!!.status shouldBe "ACTIVE"
-        result.data!!.partner.id shouldBe partnerId
+        result.data!!.partner!!.id shouldBe partnerId
         verify(exactly = 1) { coupleService.acceptInvitation(testUserId, "ABCD1234") }
     }
 
@@ -120,7 +120,7 @@ class CoupleControllerTest : FunSpec({
         val result = controller.getMyCouple(testUserId)
 
         result.success shouldBe true
-        result.data!!.partner.nickname shouldBe "Partner"
+        result.data!!.partner!!.nickname shouldBe "Partner"
         verify(exactly = 1) { coupleService.getMyCouple(testUserId) }
     }
 

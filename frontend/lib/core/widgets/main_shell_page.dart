@@ -25,6 +25,8 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 
 class MainShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -46,10 +48,11 @@ class _MainShellPageState extends State<MainShellPage> {
   }
 
   void _preloadCommonData() {
-    // Pre-load categories, payment methods, and favorites so selectors open instantly
+    // Pre-load categories, payment methods, favorites, and couple state
     getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
     getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
     getIt<FavoritesBloc>().add(const LoadFavorites());
+    getIt<CoupleBloc>().add(const LoadCouple());
   }
 
   Future<void> _connectWebSocketIfAuthenticated() async {

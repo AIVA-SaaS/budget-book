@@ -17,6 +17,9 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
@@ -28,6 +31,9 @@ class MockPaymentMethodBloc
 class MockWeeklyBudgetBloc
     extends MockBloc<WeeklyBudgetEvent, WeeklyBudgetState>
     implements WeeklyBudgetBloc {}
+
+class MockCoupleBloc extends MockBloc<CoupleEvent, CoupleState>
+    implements CoupleBloc {}
 
 void main() {
   late MockBudgetBloc mockBudgetBloc;
@@ -103,8 +109,14 @@ void main() {
     if (getIt.isRegistered<WeeklyBudgetBloc>()) {
       getIt.unregister<WeeklyBudgetBloc>();
     }
+    if (getIt.isRegistered<CoupleBloc>()) {
+      getIt.unregister<CoupleBloc>();
+    }
     getIt.registerSingleton<PaymentMethodBloc>(mockPaymentMethodBloc);
     getIt.registerSingleton<WeeklyBudgetBloc>(mockWeeklyBudgetBloc);
+    final mockCoupleBloc = MockCoupleBloc();
+    when(() => mockCoupleBloc.state).thenReturn(const CoupleNotLinked());
+    getIt.registerSingleton<CoupleBloc>(mockCoupleBloc);
   });
 
   tearDown(() {
@@ -113,6 +125,9 @@ void main() {
     }
     if (getIt.isRegistered<WeeklyBudgetBloc>()) {
       getIt.unregister<WeeklyBudgetBloc>();
+    }
+    if (getIt.isRegistered<CoupleBloc>()) {
+      getIt.unregister<CoupleBloc>();
     }
   });
 

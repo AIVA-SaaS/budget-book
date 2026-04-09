@@ -11,6 +11,7 @@ import 'package:budget_book/features/statistics/presentation/widgets/category_br
 import 'package:budget_book/features/statistics/presentation/widgets/monthly_trend_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/year_comparison_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/payment_method_stats_tab.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 
 class StatisticsPage extends StatelessWidget {
   const StatisticsPage({super.key});
@@ -57,26 +58,28 @@ class StatisticsPage extends StatelessWidget {
                       context.read<StatisticsBloc>().add(const ClearDateRangeFilter());
                     },
                   ),
-                // Filter row: visibility + date range button
+                // Filter row: visibility (couple mode only) + date range button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(value: 'ALL', label: Text('전체')),
-                            ButtonSegment(value: 'SHARED', label: Text('공유')),
-                            ButtonSegment(value: 'PRIVATE', label: Text('개인')),
-                          ],
-                          selected: {state.visibilityFilter},
-                          onSelectionChanged: (value) {
-                            context.read<StatisticsBloc>().add(
-                                  ChangeVisibilityFilter(value.first),
-                                );
-                          },
+                      if (isCoupleMode())
+                        Expanded(
+                          child: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'ALL', label: Text('전체')),
+                              ButtonSegment(value: 'SHARED', label: Text('공유')),
+                              ButtonSegment(value: 'PRIVATE', label: Text('개인')),
+                            ],
+                            selected: {state.visibilityFilter},
+                            onSelectionChanged: (value) {
+                              context.read<StatisticsBloc>().add(
+                                    ChangeVisibilityFilter(value.first),
+                                  );
+                            },
+                          ),
                         ),
-                      ),
+                      if (!isCoupleMode()) const Spacer(),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: Icon(

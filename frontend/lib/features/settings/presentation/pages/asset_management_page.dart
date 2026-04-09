@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -171,10 +172,16 @@ class _CategoryTab extends StatelessWidget {
           if (state is! CategoryGroupLoaded) {
             return const Center(child: CircularProgressIndicator());
           }
-          final sharedGroups = state.groups.where((g) => g.isShared).toList()
-            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-          final privateGroups = state.groups.where((g) => g.isPrivate).toList()
-            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          final coupled = isCoupleMode();
+          final sharedGroups = coupled
+              ? (state.groups.where((g) => g.isShared).toList()
+                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
+              : (state.groups.toList()
+                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)));
+          final privateGroups = coupled
+              ? (state.groups.where((g) => g.isPrivate).toList()
+                ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
+              : <CategoryGroup>[];
 
           if (state.groups.isEmpty) {
             return const EmptyStateWidget(
@@ -200,29 +207,31 @@ class _CategoryTab extends StatelessWidget {
                     context,
                     groups: sharedGroups,
                   ),
-                  // Add shared group button
+                  // Add group button
                   _buildAddButton(
                     context,
                     icon: Icons.create_new_folder,
-                    label: '공유 그룹 추가',
+                    label: coupled ? '공유 그룹 추가' : '그룹 추가',
                     onTap: () => _showAddGroupDialog(context),
                   ),
-                  // Private section
-                  const SizedBox(height: 8),
-                  _buildPrivateSectionHeader(context),
-                  // Private groups - reorderable
-                  _buildReorderableGroupSection(
-                    context,
-                    groups: privateGroups,
-                  ),
-                  // Add private group button
-                  _buildAddButton(
-                    context,
-                    icon: Icons.add,
-                    label: '개인 그룹 추가',
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
-                  ),
+                  // Private section (couple mode only)
+                  if (coupled) ...[
+                    const SizedBox(height: 8),
+                    _buildPrivateSectionHeader(context),
+                    // Private groups - reorderable
+                    _buildReorderableGroupSection(
+                      context,
+                      groups: privateGroups,
+                    ),
+                    // Add private group button
+                    _buildAddButton(
+                      context,
+                      icon: Icons.add,
+                      label: '개인 그룹 추가',
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
+                    ),
+                  ],
                   const SizedBox(height: 88),
                 ],
               ),
@@ -363,7 +372,7 @@ class _CategoryTab extends StatelessWidget {
                 radius: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
                 child: Icon(
-                  group.isPrivate ? Icons.visibility_off : Icons.folder,
+                  (group.isPrivate && isCoupleMode()) ? Icons.visibility_off : Icons.folder,
                   color: color,
                   size: 16,
                 ),
