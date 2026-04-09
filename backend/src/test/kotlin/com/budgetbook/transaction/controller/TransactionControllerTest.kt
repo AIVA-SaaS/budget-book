@@ -1,5 +1,6 @@
 package com.budgetbook.transaction.controller
 
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
@@ -54,7 +55,8 @@ class TransactionControllerTest : FunSpec({
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20)
+        val filter = CommonFilterParams(year = 2024, month = 1)
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -68,7 +70,8 @@ class TransactionControllerTest : FunSpec({
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20)
+        val filter = CommonFilterParams(year = 2024, month = 1, keyword = "점심")
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -82,7 +85,8 @@ class TransactionControllerTest : FunSpec({
         )
         every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20)
+        val filter = CommonFilterParams(year = 2024, month = 1, amountMin = 10000, amountMax = 50000)
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -98,7 +102,8 @@ class TransactionControllerTest : FunSpec({
         val to = LocalDate.of(2024, 3, 31)
         every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, 0, 20)
+        val filter = CommonFilterParams(dateFrom = from, dateTo = to)
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
@@ -113,7 +118,8 @@ class TransactionControllerTest : FunSpec({
         val from = LocalDate.of(2024, 1, 1)
         every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, 0, 20) } returns pageResponse
 
-        val result = controller.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, 0, 20)
+        val filter = CommonFilterParams(dateFrom = from)
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
