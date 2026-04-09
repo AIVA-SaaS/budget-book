@@ -52,7 +52,7 @@ void main() {
     testWidgets('renders subtitle', (tester) async {
       await tester.pumpWidget(buildTestWidget());
 
-      expect(find.text('부부 공유 가계부'), findsOneWidget);
+      expect(find.text('스마트 가계부'), findsOneWidget);
     });
 
     testWidgets('renders wallet icon', (tester) async {

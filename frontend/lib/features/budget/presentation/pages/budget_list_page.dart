@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -534,37 +535,45 @@ class _BudgetListPageState extends State<BudgetListPage> {
   Widget _buildBudgetList(BuildContext context, BudgetLoaded state) {
     final numberFormat = NumberFormat('#,###');
     final summaryItems = state.summary?.items ?? [];
-    final sharedBudgets = state.budgets.where((b) => b.isShared).toList();
-    final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
+    final coupled = isCoupleMode();
 
     final allItems = <Widget>[];
 
-    // Shared budgets
-    for (final budget in sharedBudgets) {
-      allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
-    }
+    if (coupled) {
+      // Couple mode: split into shared and private sections
+      final sharedBudgets = state.budgets.where((b) => b.isShared).toList();
+      final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
 
-    // Private budgets section
-    if (privateBudgets.isNotEmpty) {
-      allItems.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              const Icon(Icons.visibility_off, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                '나만 보임',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-              ),
-            ],
+      for (final budget in sharedBudgets) {
+        allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+      }
+
+      if (privateBudgets.isNotEmpty) {
+        allItems.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.visibility_off, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  '나만 보임',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-      for (final budget in privateBudgets) {
+        );
+        for (final budget in privateBudgets) {
+          allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+        }
+      }
+    } else {
+      // Personal mode: show all budgets without visibility split
+      for (final budget in state.budgets) {
         allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
       }
     }
@@ -633,7 +642,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
         ),
         title: Row(
           children: [
-            if (budget.isPrivate) ...[
+            if (budget.isPrivate && isCoupleMode()) ...[
               Icon(
                 Icons.visibility_off,
                 size: 14,

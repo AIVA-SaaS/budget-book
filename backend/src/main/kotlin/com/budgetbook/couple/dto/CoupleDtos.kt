@@ -10,7 +10,8 @@ data class InvitationResponse(
 
 data class CoupleResponse(
     val id: UUID,
-    val partner: UserSummary,
+    val partner: UserSummary? = null,
+    val isSelf: Boolean = false,
     val status: String,
     val createdAt: Instant,
     val dissolvedAt: Instant? = null

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -170,10 +171,15 @@ class _CategoryGroupSelectorSheetState
       }
     }
 
-    final sharedGroups = groups.where((g) => g.isShared).toList()
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-    final privateGroups = groups.where((g) => g.isPrivate).toList()
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    final coupled = isCoupleMode();
+    final sharedGroups = coupled
+        ? (groups.where((g) => g.isShared).toList()
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
+        : (groups.toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)));
+    final privateGroups = coupled
+        ? (groups.where((g) => g.isPrivate).toList()
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
+        : <CategoryGroup>[];
 
     // Collect all categories of this type for favorites lookup
     final allCategories = <Category>[];
@@ -285,9 +291,9 @@ class _CategoryGroupSelectorSheetState
           ),
         );
 
-        // Private section
-        if (privateGroups.isNotEmpty || true) {
-          // Always show private section for discoverability
+        // Private section (couple mode only)
+        if (coupled && (privateGroups.isNotEmpty || true)) {
+          // Always show private section for discoverability in couple mode
           children.add(const SizedBox(height: 8));
           children.add(
             Container(
@@ -344,25 +350,27 @@ class _CategoryGroupSelectorSheetState
           ));
         }
 
-        // Add private group button
-        children.add(
-          ListTile(
-            dense: true,
-            leading: Icon(
-              Icons.add,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            title: Text(
-              '개인 그룹 추가',
-              style: TextStyle(
-                fontSize: 13,
+        // Add private group button (couple mode only)
+        if (coupled) {
+          children.add(
+            ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.add,
+                size: 18,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
+              title: Text(
+                '개인 그룹 추가',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
             ),
-            onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
-          ),
-        );
+          );
+        }
 
         return ListView(
           shrinkWrap: true,
@@ -409,7 +417,7 @@ class _CategoryGroupSelectorSheetState
                   radius: 16,
                   backgroundColor: color.withValues(alpha: 0.15),
                   child: Icon(
-                    group.isPrivate ? Icons.visibility_off : Icons.folder,
+                    (group.isPrivate && isCoupleMode()) ? Icons.visibility_off : Icons.folder,
                     color: color,
                     size: 18,
                   ),

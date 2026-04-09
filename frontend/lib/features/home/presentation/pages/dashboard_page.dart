@@ -94,9 +94,9 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text('Budget Book'),
         actions: [
           IconButton(
-            onPressed: () => context.push('/couple'),
-            icon: const Icon(Icons.favorite),
-            tooltip: '커플 연결',
+            onPressed: () => context.push('/settings/partner'),
+            icon: const Icon(Icons.people),
+            tooltip: '파트너 관리',
           ),
         ],
       ),

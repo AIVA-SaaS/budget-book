@@ -119,7 +119,7 @@ class _WelcomeStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '부부 공유 가계부에 오신 것을 환영합니다',
+            'Budget Book으로 똑똑하게 가계부를 관리하세요',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
@@ -149,20 +149,20 @@ class _CoupleStep extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.favorite,
+            Icons.people,
             size: 80,
-            color: theme.colorScheme.error,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(height: 32),
           Text(
-            '커플 연결',
+            '파트너와 함께',
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            '파트너와 연결하여 함께 가계부를 관리하세요',
+            '파트너와 연결하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
@@ -171,12 +171,12 @@ class _CoupleStep extends StatelessWidget {
           const SizedBox(height: 32),
           FilledButton(
             onPressed: onConnect,
-            child: const Text('커플 연결하기'),
+            child: const Text('파트너 연결하기'),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: onSkip,
-            child: const Text('나중에'),
+            child: const Text('혼자 사용할게요'),
           ),
         ],
       ),
