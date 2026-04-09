@@ -15,6 +15,7 @@ import 'package:budget_book/features/spending_plan/presentation/widgets/spending
 import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/link_transaction_sheet.dart';
+import 'package:budget_book/core/widgets/filters/filter_chip_group.dart';
 
 class SpendingPlanListPage extends StatefulWidget {
   const SpendingPlanListPage({super.key});
@@ -30,12 +31,12 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
   String? _statusFilter;
   late final TabController _tabController;
 
-  static const _filterOptions = <(String?, String)>[
-    (null, '전체'),
-    ('PLANNED', '계획됨'),
-    ('COMPLETED', '완료'),
-    ('SKIPPED', '건너뜀'),
-    ('OVERDUE', '기한초과'),
+  static const _filterItems = <FilterChipItem>[
+    FilterChipItem(value: null, label: '전체'),
+    FilterChipItem(value: 'PLANNED', label: '계획됨'),
+    FilterChipItem(value: 'COMPLETED', label: '완료'),
+    FilterChipItem(value: 'SKIPPED', label: '건너뜀'),
+    FilterChipItem(value: 'OVERDUE', label: '기한초과'),
   ];
 
   @override
@@ -168,27 +169,13 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
   }
 
   Widget _buildFilterChips() {
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: _filterOptions.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final (value, label) = _filterOptions[index];
-          final isSelected = _statusFilter == value;
-          return FilterChip(
-            label: Text(label),
-            selected: isSelected,
-            onSelected: (_) {
-              setState(() => _statusFilter = isSelected ? null : value);
-              _loadPlans();
-            },
-            showCheckmark: false,
-          );
-        },
-      ),
+    return FilterChipGroup(
+      items: _filterItems,
+      selectedValue: _statusFilter,
+      onSelected: (value) {
+        setState(() => _statusFilter = value);
+        _loadPlans();
+      },
     );
   }
 

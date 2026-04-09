@@ -1,5 +1,6 @@
 package com.budgetbook.statistics.controller
 
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.PaymentMethodStatResponse
@@ -30,9 +31,10 @@ class StatisticsControllerTest : FunSpec({
             balance = 1800000,
             transactionCount = 45
         )
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "ALL") } returns summary
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "ALL", null, null) } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "ALL", null, null)
+        val filter = CommonFilterParams()
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
         result.data!!.yearMonth shouldBe "2026-03"
@@ -45,23 +47,25 @@ class StatisticsControllerTest : FunSpec({
     test("getMonthlySummary passes visibility SHARED to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 1000000, 500000, 500000, 10)
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED") } returns summary
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null)
+        val filter = CommonFilterParams(visibility = "SHARED")
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED") }
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) }
     }
 
     test("getMonthlySummary passes visibility PRIVATE to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 100000, 5)
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE") } returns summary
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null) } returns summary
 
-        val result = controller.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null)
+        val filter = CommonFilterParams(visibility = "PRIVATE")
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE") }
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null) }
     }
 
     test("getCategoryBreakdown returns category statistics with default visibility") {
@@ -75,9 +79,10 @@ class StatisticsControllerTest : FunSpec({
                 transactionCount = 12
             )
         )
-        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL") } returns breakdown
+        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL", null, null) } returns breakdown
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "ALL", null, null)
+        val filter = CommonFilterParams(type = "EXPENSE")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
         result.data!! shouldBe breakdown
@@ -85,19 +90,21 @@ class StatisticsControllerTest : FunSpec({
 
     test("getCategoryBreakdown passes visibility filter to service") {
 
-        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED") } returns emptyList()
+        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED", null, null) } returns emptyList()
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED", null, null)
+        val filter = CommonFilterParams(type = "EXPENSE", visibility = "SHARED")
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED") }
+        verify { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, "EXPENSE", "SHARED", null, null) }
     }
 
     test("getCategoryBreakdown with null type passes null to service") {
 
-        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL") } returns emptyList()
+        every { statisticsService.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL", null, null) } returns emptyList()
 
-        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, null, "ALL", null, null)
+        val filter = CommonFilterParams()
+        val result = controller.getCategoryBreakdown(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
         result.data!! shouldBe emptyList()
@@ -116,7 +123,8 @@ class StatisticsControllerTest : FunSpec({
         )
         every { paymentMethodStatisticsService.getPaymentMethodStats(testUserId, 2026, 3, "PRIVATE") } returns stats
 
-        val result = controller.getPaymentMethodStats(testUserId, 2026, 3, "PRIVATE")
+        val filter = CommonFilterParams(visibility = "PRIVATE")
+        val result = controller.getPaymentMethodStats(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1
@@ -132,7 +140,8 @@ class StatisticsControllerTest : FunSpec({
         )
         every { statisticsService.getMonthlyTrend(testUserId, 3, "ALL") } returns trend
 
-        val result = controller.getMonthlyTrend(testUserId, 3, "ALL")
+        val filter = CommonFilterParams()
+        val result = controller.getMonthlyTrend(testUserId, 3, filter)
 
         result.success shouldBe true
         result.data!!.size shouldBe 3
@@ -144,7 +153,8 @@ class StatisticsControllerTest : FunSpec({
         val trend = listOf(MonthlyTrendResponse("2026-03", 1000000, 500000, 500000))
         every { statisticsService.getMonthlyTrend(testUserId, 6, "SHARED") } returns trend
 
-        val result = controller.getMonthlyTrend(testUserId, 6, "SHARED")
+        val filter = CommonFilterParams(visibility = "SHARED")
+        val result = controller.getMonthlyTrend(testUserId, 6, filter)
 
         result.success shouldBe true
         verify { statisticsService.getMonthlyTrend(testUserId, 6, "SHARED") }
@@ -157,7 +167,8 @@ class StatisticsControllerTest : FunSpec({
         }
         every { statisticsService.getMonthlyTrend(testUserId, 6, "ALL") } returns trend
 
-        val result = controller.getMonthlyTrend(testUserId, 6, "ALL")
+        val filter = CommonFilterParams()
+        val result = controller.getMonthlyTrend(testUserId, 6, filter)
 
         result.success shouldBe true
         result.data!!.size shouldBe 6

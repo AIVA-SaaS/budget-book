@@ -25,17 +25,13 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
-import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
-import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
-import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
-import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
-import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
-import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
-import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
+import 'package:budget_book/core/models/unified_filter_state.dart';
+import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
+import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
@@ -64,43 +60,30 @@ class _TransactionListPageState extends State<TransactionListPage> {
   bool _isSearching = false;
   String? _pendingScrollToDate;
 
-  // Filter state
-  late String? _filterCategoryId = widget.initialCategoryId;
-  late String? _filterCategoryName = widget.initialCategoryName;
-  late String? _filterPaymentMethodId = widget.initialPaymentMethodId;
-  late String? _filterPaymentMethodName = widget.initialPaymentMethodName;
-  String? _filterPocketId;
-  int? _filterAmountMin;
-  int? _filterAmountMax;
-  String? _filterDateFrom;
-  String? _filterDateTo;
-  String? _filterPeriodLabel;
-  late bool _hasActiveFilters = widget.initialPaymentMethodId != null || widget.initialCategoryId != null;
+  // Unified filter state
+  late UnifiedFilterState _filterState = UnifiedFilterState(
+    categoryIds: widget.initialCategoryId != null ? {widget.initialCategoryId!} : const {},
+    categoryName: widget.initialCategoryName,
+    paymentMethodIds: widget.initialPaymentMethodId != null ? {widget.initialPaymentMethodId!} : const {},
+    paymentMethodName: widget.initialPaymentMethodName,
+  );
 
   String get _appBarTitle {
-    if (!_hasActiveFilters) return '거래 (전체)';
-    // Show primary filter name in title
-    if (_filterCategoryName != null) return '거래 ($_filterCategoryName)';
-    if (_filterPaymentMethodName != null) return '거래 ($_filterPaymentMethodName)';
+    if (!_filterState.hasActiveFilters) return '거래 (전체)';
+    if (_filterState.categoryName != null) return '거래 (${_filterState.categoryName})';
+    if (_filterState.paymentMethodName != null) return '거래 (${_filterState.paymentMethodName})';
     return '거래 (필터)';
   }
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialPaymentMethodId != null && _filterPaymentMethodName == null) {
-      _resolvePaymentMethodName(widget.initialPaymentMethodId!);
-    }
-  }
-
-  void _resolvePaymentMethodName(String pmId) {
-    final pmState = getIt<PaymentMethodBloc>().state;
-    if (pmState is PaymentMethodLoaded) {
-      final match = pmState.paymentMethods
-          .where((pm) => pm.id == pmId)
-          .firstOrNull;
-      if (match != null) {
-        setState(() => _filterPaymentMethodName = match.name);
+    if (widget.initialPaymentMethodId != null && _filterState.paymentMethodName == null) {
+      final name = PaymentMethodFilter.resolveName(widget.initialPaymentMethodId!);
+      if (name != null) {
+        setState(() {
+          _filterState = _filterState.copyWith(paymentMethodName: name);
+        });
       }
     }
   }
@@ -137,17 +120,18 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final keyword =
         _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
 
+    final fmt = DateFormat('yyyy-MM-dd');
     context.read<TransactionBloc>().add(LoadTransactions(
           year: year,
           month: month,
           keyword: keyword,
-          categoryId: _filterCategoryId,
-          paymentMethodId: _filterPaymentMethodId,
-          pocketId: _filterPocketId,
-          amountMin: _filterAmountMin,
-          amountMax: _filterAmountMax,
-          dateFrom: _filterDateFrom,
-          dateTo: _filterDateTo,
+          categoryId: _filterState.categoryIds.isNotEmpty ? _filterState.categoryIds.first : null,
+          paymentMethodId: _filterState.paymentMethodIds.isNotEmpty ? _filterState.paymentMethodIds.first : null,
+          pocketId: _filterState.pocketIds.isNotEmpty ? _filterState.pocketIds.first : null,
+          amountMin: _filterState.amountMin,
+          amountMax: _filterState.amountMax,
+          dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
+          dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
@@ -186,436 +170,18 @@ class _TransactionListPageState extends State<TransactionListPage> {
     }
   }
 
-  void _showFilterSheet() {
-    final amountMinController = TextEditingController(
-      text: _filterAmountMin?.toString() ?? '',
-    );
-    final amountMaxController = TextEditingController(
-      text: _filterAmountMax?.toString() ?? '',
-    );
-    String? tempCategoryId = _filterCategoryId;
-    String? tempCategoryName = _filterCategoryName;
-    String? tempPaymentMethodId = _filterPaymentMethodId;
-    String? tempPocketId = _filterPocketId;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '필터',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Amount range
-                  Text(
-                    '금액 범위',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: amountMinController,
-                          decoration: const InputDecoration(
-                            labelText: '최소 금액',
-                            hintText: '0',
-                            suffixText: '원',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('~'),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: amountMaxController,
-                          decoration: const InputDecoration(
-                            labelText: '최대 금액',
-                            hintText: '무제한',
-                            suffixText: '원',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Category selector (group > sub-category)
-                  GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        builder: (_) => CategoryGroupSelectorSheet(
-                          selectedCategoryId: tempCategoryId,
-                          categoryType: 'EXPENSE',
-                          onSelectedWithGroupName: (cat, groupName) {
-                            setSheetState(() {
-                              tempCategoryId = cat?.id;
-                              tempCategoryName = cat != null
-                                  ? (groupName != null ? '$groupName > ${cat.name}' : cat.name)
-                                  : null;
-                            });
-                          },
-                          onSelected: (_) {},
-                        ),
-                      );
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: '카테고리',
-                        suffixIcon: Icon(Icons.arrow_drop_down),
-                      ),
-                      child: Text(
-                        tempCategoryName ?? '전체',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Payment method dropdown
-                  _buildPaymentMethodDropdown(
-                    context,
-                    tempPaymentMethodId,
-                    (value) => setSheetState(() => tempPaymentMethodId = value),
-                  ),
-                  const SizedBox(height: 16),
-                  // Pocket dropdown
-                  _buildPocketDropdown(
-                    context,
-                    tempPocketId,
-                    (value) => setSheetState(() => tempPocketId = value),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _filterCategoryId = null;
-                              _filterCategoryName = null;
-                              _filterPaymentMethodId = null;
-                              _filterPaymentMethodName = null;
-                              _filterPocketId = null;
-                              _filterAmountMin = null;
-                              _filterAmountMax = null;
-                              _filterDateFrom = null;
-                              _filterDateTo = null;
-                              _filterPeriodLabel = null;
-                              _hasActiveFilters = false;
-                            });
-                            Navigator.of(ctx).pop();
-                            _reloadWithFilters();
-                          },
-                          child: const Text('초기화'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () {
-                            final minText = amountMinController.text.trim();
-                            final maxText = amountMaxController.text.trim();
-                            setState(() {
-                              _filterAmountMin =
-                                  minText.isEmpty ? null : int.tryParse(minText);
-                              _filterAmountMax =
-                                  maxText.isEmpty ? null : int.tryParse(maxText);
-                              _filterCategoryId = tempCategoryId;
-                              _filterCategoryName = tempCategoryName;
-                              _filterPaymentMethodId = tempPaymentMethodId;
-                              if (tempPaymentMethodId != null) {
-                                _resolvePaymentMethodName(tempPaymentMethodId!);
-                              } else {
-                                _filterPaymentMethodName = null;
-                              }
-                              _filterPocketId = tempPocketId;
-                              _updateHasActiveFilters();
-                            });
-                            Navigator.of(ctx).pop();
-                            _reloadWithFilters();
-                          },
-                          child: const Text('적용'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _updateHasActiveFilters() {
-    _hasActiveFilters = _filterCategoryId != null ||
-        _filterAmountMin != null ||
-        _filterAmountMax != null ||
-        _filterPaymentMethodId != null ||
-        _filterPocketId != null ||
-        _filterDateFrom != null ||
-        _filterDateTo != null;
-  }
-
-  void _removeFilter(String filterType) {
-    setState(() {
-      switch (filterType) {
-        case 'category':
-          _filterCategoryId = null;
-          _filterCategoryName = null;
-        case 'paymentMethod':
-          _filterPaymentMethodId = null;
-          _filterPaymentMethodName = null;
-        case 'pocket':
-          _filterPocketId = null;
-        case 'amount':
-          _filterAmountMin = null;
-          _filterAmountMax = null;
+  void _onFilterChanged(UnifiedFilterState newState) {
+    // Resolve payment method name if ID changed
+    if (newState.paymentMethodIds.isNotEmpty &&
+        newState.paymentMethodName == null) {
+      final name = PaymentMethodFilter.resolveName(
+          newState.paymentMethodIds.first);
+      if (name != null) {
+        newState = newState.copyWith(paymentMethodName: name);
       }
-      _updateHasActiveFilters();
-    });
-    _reloadWithFilters();
-  }
-
-  Widget _buildPaymentMethodDropdown(
-    BuildContext context,
-    String? selectedId,
-    ValueChanged<String?> onChanged,
-  ) {
-    final pmBloc = getIt<PaymentMethodBloc>();
-    final pmState = pmBloc.state;
-    final methods = pmState is PaymentMethodLoaded
-        ? pmState.activePaymentMethods
-        : <PaymentMethod>[];
-
-    return DropdownButtonFormField<String>(
-      key: ValueKey('pm_$selectedId'),
-      initialValue: selectedId,
-      decoration: const InputDecoration(
-        labelText: '결제수단',
-      ),
-      isExpanded: true,
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('전체'),
-        ),
-        ...methods.map((pm) => DropdownMenuItem<String>(
-              value: pm.id,
-              child: Text(pm.name),
-            )),
-      ],
-      onChanged: onChanged,
-    );
-  }
-
-  Widget _buildPocketDropdown(
-    BuildContext context,
-    String? selectedId,
-    ValueChanged<String?> onChanged,
-  ) {
-    final pocketBloc = getIt<PocketBloc>();
-    final pocketState = pocketBloc.state;
-    final pockets = pocketState is PocketLoaded
-        ? pocketState.activePockets
-        : <MoneyPocket>[];
-
-    return DropdownButtonFormField<String>(
-      key: ValueKey('pocket_$selectedId'),
-      initialValue: selectedId,
-      decoration: const InputDecoration(
-        labelText: '포켓',
-      ),
-      isExpanded: true,
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('전체'),
-        ),
-        ...pockets.map((p) => DropdownMenuItem<String>(
-              value: p.id,
-              child: Text(p.name),
-            )),
-      ],
-      onChanged: onChanged,
-    );
-  }
-
-  void _showPeriodFilterSheet() {
-    final now = DateTime.now();
-
-    // Calculate presets
-    final thisWeekStart = now.subtract(Duration(days: now.weekday - 1));
-    final thisWeekEnd = thisWeekStart.add(const Duration(days: 6));
-    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
-    final lastWeekEnd = thisWeekStart.subtract(const Duration(days: 1));
-
-    String fmt(DateTime d) =>
-        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-    String fmtShort(DateTime d) => '${d.month}/${d.day}';
-
-    void applyFilter(String label, String from, String to) {
-      setState(() {
-        _filterDateFrom = from;
-        _filterDateTo = to;
-        _filterPeriodLabel = label;
-        _updateHasActiveFilters();
-      });
-      Navigator.of(context).pop();
-      _reloadWithFilters();
     }
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '기간 필터',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.today),
-                title: const Text('이번 주'),
-                subtitle: Text('${fmtShort(thisWeekStart)} ~ ${fmtShort(thisWeekEnd)}'),
-                onTap: () => applyFilter(
-                    '이번 주', fmt(thisWeekStart), fmt(thisWeekEnd)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.history),
-                title: const Text('지난 주'),
-                subtitle: Text('${fmtShort(lastWeekStart)} ~ ${fmtShort(lastWeekEnd)}'),
-                onTap: () => applyFilter(
-                    '지난 주', fmt(lastWeekStart), fmt(lastWeekEnd)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.calendar_month),
-                title: const Text('이번 달'),
-                subtitle: Text('${now.month}월'),
-                onTap: () {
-                  final monthStart = DateTime(now.year, now.month, 1);
-                  final monthEnd = DateTime(now.year, now.month + 1, 0);
-                  applyFilter('이번 달', fmt(monthStart), fmt(monthEnd));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: const Text('지난 달'),
-                onTap: () {
-                  final prevMonth = DateTime(now.year, now.month - 1, 1);
-                  final prevMonthEnd = DateTime(now.year, now.month, 0);
-                  applyFilter('지난 달', fmt(prevMonth), fmt(prevMonthEnd));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.date_range),
-                title: const Text('직접 설정'),
-                onTap: () async {
-                  Navigator.of(ctx).pop();
-                  final range = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2030),
-                    initialDateRange: _filterDateFrom != null && _filterDateTo != null
-                        ? DateTimeRange(
-                            start: DateTime.parse(_filterDateFrom!),
-                            end: DateTime.parse(_filterDateTo!),
-                          )
-                        : null,
-                    locale: const Locale('ko'),
-                  );
-                  if (range != null) {
-                    final label =
-                        '${fmtShort(range.start)} ~ ${fmtShort(range.end)}';
-                    setState(() {
-                      _filterDateFrom = fmt(range.start);
-                      _filterDateTo = fmt(range.end);
-                      _filterPeriodLabel = label;
-                      _updateHasActiveFilters();
-                    });
-                    _reloadWithFilters();
-                  }
-                },
-              ),
-              if (_filterDateFrom != null) ...[
-                const Divider(),
-                ListTile(
-                  leading: Icon(Icons.clear, color: Theme.of(context).colorScheme.error),
-                  title: Text('기간 필터 해제',
-                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  onTap: () {
-                    setState(() {
-                      _filterDateFrom = null;
-                      _filterDateTo = null;
-                      _filterPeriodLabel = null;
-                      _updateHasActiveFilters();
-                    });
-                    Navigator.of(ctx).pop();
-                    _reloadWithFilters();
-                  },
-                ),
-              ],
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
+    setState(() => _filterState = newState);
+    _reloadWithFilters();
   }
 
   @override
@@ -693,8 +259,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          final pmParam = _filterPaymentMethodId != null
-              ? '&paymentMethodId=$_filterPaymentMethodId'
+          final pmId = _filterState.paymentMethodIds.isNotEmpty
+              ? _filterState.paymentMethodIds.first
+              : null;
+          final pmParam = pmId != null
+              ? '&paymentMethodId=$pmId'
               : '';
           context.push('/transactions/create?tab=expense$pmParam');
         },
@@ -722,24 +291,24 @@ class _TransactionListPageState extends State<TransactionListPage> {
           onMonthChanged: (m) {
             // Clear period filter when navigating months
             setState(() {
-              _filterDateFrom = null;
-              _filterDateTo = null;
-              _filterPeriodLabel = null;
-              _updateHasActiveFilters();
+              _filterState = _filterState.copyWith(clearDateRange: true);
             });
             final kw = _searchController.text.trim().isEmpty
                 ? null
                 : _searchController.text.trim();
+            final fmt = DateFormat('yyyy-MM-dd');
             context.read<TransactionBloc>().add(
                   LoadTransactions(
                     year: m.year,
                     month: m.month,
                     keyword: kw,
-                    categoryId: _filterCategoryId,
-                    paymentMethodId: _filterPaymentMethodId,
-                    pocketId: _filterPocketId,
-                    amountMin: _filterAmountMin,
-                    amountMax: _filterAmountMax,
+                    categoryId: _filterState.categoryIds.isNotEmpty ? _filterState.categoryIds.first : null,
+                    paymentMethodId: _filterState.paymentMethodIds.isNotEmpty ? _filterState.paymentMethodIds.first : null,
+                    pocketId: _filterState.pocketIds.isNotEmpty ? _filterState.pocketIds.first : null,
+                    amountMin: _filterState.amountMin,
+                    amountMax: _filterState.amountMax,
+                    dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
+                    dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
                     scrollToDate: _pendingScrollToDate,
                   ),
                 );
@@ -748,104 +317,47 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 );
           },
         ),
-        // Search bar and filter button
+        // Search bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  onChanged: _onSearchChanged,
-                  decoration: InputDecoration(
-                    hintText: '거래 검색...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _isSearching = false;
-                              _reloadWithFilters();
-                            },
-                          )
-                        : null,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+          child: TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: '거래 검색...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _isSearching = false;
+                        _reloadWithFilters();
+                      },
+                    )
+                  : null,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 8),
-              Badge(
-                isLabelVisible: _hasActiveFilters,
-                child: IconButton(
-                  icon: const Icon(Icons.tune),
-                  onPressed: _showFilterSheet,
-                  tooltip: '필터',
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.date_range,
-                  color: _filterDateFrom != null
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                onPressed: _showPeriodFilterSheet,
-                tooltip: '기간 필터',
-              ),
-            ],
-          ),
-        ),
-        // Active filter chips (category, payment, pocket, amount, period)
-        if (_hasActiveFilters || _filterPeriodLabel != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                if (_filterCategoryId != null)
-                  _FilterChip(
-                    label: '카테고리: ${_filterCategoryName ?? "선택됨"}',
-                    onRemove: () => _removeFilter('category'),
-                  ),
-                if (_filterPaymentMethodId != null)
-                  _FilterChip(
-                    label: '결제수단: ${_filterPaymentMethodName ?? "선택됨"}',
-                    onRemove: () => _removeFilter('paymentMethod'),
-                  ),
-                if (_filterPocketId != null)
-                  _FilterChip(
-                    label: '포켓',
-                    onRemove: () => _removeFilter('pocket'),
-                  ),
-                if (_filterAmountMin != null || _filterAmountMax != null)
-                  _FilterChip(
-                    label: '금액: ${_filterAmountMin ?? 0}~${_filterAmountMax ?? "∞"}원',
-                    onRemove: () => _removeFilter('amount'),
-                  ),
-                if (_filterPeriodLabel != null)
-                  _FilterChip(
-                    label: _filterPeriodLabel!,
-                    onRemove: () {
-                      setState(() {
-                        _filterDateFrom = null;
-                        _filterDateTo = null;
-                        _filterPeriodLabel = null;
-                        _updateHasActiveFilters();
-                      });
-                      _reloadWithFilters();
-                    },
-                  ),
-              ],
             ),
           ),
+        ),
+        // Unified filter bar (category, payment, pocket, amount, date range)
+        UnifiedFilterBar(
+          enabledFilters: const {
+            FilterType.dateRange,
+            FilterType.category,
+            FilterType.paymentMethod,
+            FilterType.pocket,
+            FilterType.amountRange,
+          },
+          state: _filterState,
+          onFilterChanged: _onFilterChanged,
+        ),
         // Summary bar + Transaction list (both need transfers)
         Expanded(
           child: BlocBuilder<TransferBloc, TransferState>(
@@ -855,17 +367,23 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   : <Transfer>[];
 
               // Filter transfers by payment method if filter is active
-              final filteredTransfers = _filterPaymentMethodId != null
+              final filterPmId = _filterState.paymentMethodIds.isNotEmpty
+                  ? _filterState.paymentMethodIds.first
+                  : null;
+              final filteredTransfers = filterPmId != null
                   ? transfers.where((t) =>
-                      t.sourcePaymentMethod.id == _filterPaymentMethodId ||
-                      t.destinationPaymentMethod.id == _filterPaymentMethodId).toList()
+                      t.sourcePaymentMethod.id == filterPmId ||
+                      t.destinationPaymentMethod.id == filterPmId).toList()
                   : transfers;
 
               // Filter transfers by date if date filter is active
-              final dateFilteredTransfers = _filterDateFrom != null || _filterDateTo != null
+              final fmt = DateFormat('yyyy-MM-dd');
+              final filterDateFrom = _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null;
+              final filterDateTo = _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null;
+              final dateFilteredTransfers = filterDateFrom != null || filterDateTo != null
                   ? filteredTransfers.where((t) {
-                      if (_filterDateFrom != null && t.transferDate.compareTo(_filterDateFrom!) < 0) return false;
-                      if (_filterDateTo != null && t.transferDate.compareTo(_filterDateTo!) > 0) return false;
+                      if (filterDateFrom != null && t.transferDate.compareTo(filterDateFrom) < 0) return false;
+                      if (filterDateTo != null && t.transferDate.compareTo(filterDateTo) > 0) return false;
                       return true;
                     }).toList()
                   : filteredTransfers;
@@ -887,12 +405,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
               int transferIn = 0;
               int transferOut = 0;
               for (final t in searchedTransfers) {
-                if (_filterPaymentMethodId != null) {
+                if (filterPmId != null) {
                   // Per-payment-method view: in/out relative to this method
-                  if (t.sourcePaymentMethod.id == _filterPaymentMethodId) {
+                  if (t.sourcePaymentMethod.id == filterPmId) {
                     transferOut += t.amount;
                   }
-                  if (t.destinationPaymentMethod.id == _filterPaymentMethodId) {
+                  if (t.destinationPaymentMethod.id == filterPmId) {
                     transferIn += t.amount;
                   }
                 } else {
@@ -1341,21 +859,3 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onRemove;
-
-  const _FilterChip({required this.label, required this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    return InputChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      onDeleted: onRemove,
-      deleteIcon: const Icon(Icons.close, size: 14),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-}
