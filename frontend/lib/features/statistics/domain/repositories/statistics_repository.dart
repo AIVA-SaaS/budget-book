@@ -4,6 +4,7 @@ import 'package:budget_book/features/statistics/domain/entities/statistics_summa
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
+import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 
 abstract class StatisticsRepository {
   Future<Either<Failure, StatisticsSummary>> getSummary({
@@ -33,5 +34,10 @@ abstract class StatisticsRepository {
     required int year,
     required int month,
     String visibility = 'ALL',
+  });
+
+  Future<Either<Failure, PeriodSummary>> getPeriodSummary({
+    required String dateFrom,
+    required String dateTo,
   });
 }

@@ -4,6 +4,7 @@ import 'package:budget_book/features/statistics/data/models/statistics_summary_m
 import 'package:budget_book/features/statistics/data/models/category_statistics_model.dart';
 import 'package:budget_book/features/statistics/data/models/monthly_trend_model.dart';
 import 'package:budget_book/features/statistics/data/models/payment_method_statistics_model.dart';
+import 'package:budget_book/features/statistics/data/models/period_summary_model.dart';
 
 abstract class StatisticsRemoteDataSource {
   Future<StatisticsSummaryModel> getSummary({
@@ -32,6 +33,11 @@ abstract class StatisticsRemoteDataSource {
     required int year,
     required int month,
     String visibility = 'ALL',
+  });
+
+  Future<PeriodSummaryModel> getPeriodSummary({
+    required String dateFrom,
+    required String dateTo,
   });
 }
 
@@ -122,5 +128,19 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
         .map((e) => PaymentMethodStatisticsModel.fromJson(
             e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<PeriodSummaryModel> getPeriodSummary({
+    required String dateFrom,
+    required String dateTo,
+  }) async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.statisticsPeriodSummary,
+      queryParameters: {'dateFrom': dateFrom, 'dateTo': dateTo},
+    );
+    return PeriodSummaryModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
   }
 }
