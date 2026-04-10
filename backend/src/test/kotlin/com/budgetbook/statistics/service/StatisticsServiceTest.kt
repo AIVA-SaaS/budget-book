@@ -2,11 +2,13 @@ package com.budgetbook.statistics.service
 
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
+import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.spendingplan.repository.SpendingPlanRepository
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transfer.repository.TransferRepository
@@ -29,7 +31,9 @@ class StatisticsServiceTest : BehaviorSpec({
     val transactionRepository = mockk<TransactionRepository>()
     val transferRepository = mockk<TransferRepository>()
     val coupleResolver = mockk<CoupleResolver>()
-    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver)
+    val budgetRepository = mockk<MonthlyBudgetRepository>()
+    val spendingPlanRepository = mockk<SpendingPlanRepository>()
+    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver, budgetRepository, spendingPlanRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -438,6 +442,136 @@ class StatisticsServiceTest : BehaviorSpec({
                 result shouldHaveSize 1
                 result[0].amount shouldBe 200000L
                 result[0].transactionCount shouldBe 4
+            }
+        }
+    }
+
+    // --- getPeriodSummary ---
+
+    Given("a user in an active couple for period summary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+        val catId1 = UUID.randomUUID()
+        val catId2 = UUID.randomUUID()
+
+        When("requesting period summary with data") {
+            // sumByTypeForCouple
+            every {
+                transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns listOf(
+                arrayOf(TransactionType.INCOME, 5000000L, 10L),
+                arrayOf(TransactionType.EXPENSE, 3200000L, 35L)
+            )
+
+            // sumByCategoryForCouple
+            every {
+                transactionRepository.sumByCategoryForCouple(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, any(), "ALL")
+            } returns listOf(
+                arrayOf<Any?>(2000000L, 15L, catId1, "식비", com.budgetbook.category.domain.CategoryType.EXPENSE, "restaurant", "#FF5733", null, null),
+                arrayOf<Any?>(1200000L, 20L, catId2, "교통비", com.budgetbook.category.domain.CategoryType.EXPENSE, "directions_car", "#2196F3", null, null)
+            )
+
+            // budgets
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
+
+            // sumAmountByCoupleIdAndDateRange (total spent)
+            every {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
+            } returns 3200000L
+
+            // spending plan
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+
+            // byPaymentMethod
+            every {
+                transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            // dailySummary
+            every {
+                transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns listOf(
+                arrayOf<Any>(java.sql.Date.valueOf(dateFrom), "INCOME", 2000000L, 3L),
+                arrayOf<Any>(java.sql.Date.valueOf(dateFrom), "EXPENSE", 1000000L, 10L),
+                arrayOf<Any>(java.sql.Date.valueOf(LocalDate.of(2026, 3, 15)), "EXPENSE", 2200000L, 25L)
+            )
+
+            val result = service.getPeriodSummary(user1.id, dateFrom, dateTo)
+
+            Then("returns correct totals") {
+                result.dateFrom shouldBe "2026-03-01"
+                result.dateTo shouldBe "2026-03-31"
+                result.totalIncome shouldBe 5000000L
+                result.totalExpense shouldBe 3200000L
+                result.balance shouldBe 1800000L
+            }
+
+            Then("returns category breakdown with percentages") {
+                result.byCategory shouldHaveSize 2
+                result.byCategory[0].categoryName shouldBe "식비"
+                result.byCategory[0].amount shouldBe 2000000L
+                result.byCategory[0].percentage shouldBe 62.5
+                result.byCategory[1].categoryName shouldBe "교통비"
+                result.byCategory[1].amount shouldBe 1200000L
+                result.byCategory[1].percentage shouldBe 37.5
+            }
+
+            Then("returns daily spending") {
+                result.byDate shouldHaveSize 2
+                result.byDate[0].date shouldBe "2026-03-01"
+                result.byDate[0].income shouldBe 2000000L
+                result.byDate[0].expense shouldBe 1000000L
+                result.byDate[1].date shouldBe "2026-03-15"
+                result.byDate[1].income shouldBe 0L
+                result.byDate[1].expense shouldBe 2200000L
+            }
+        }
+
+        When("requesting period summary with no data") {
+            every {
+                transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            every {
+                transactionRepository.sumByCategoryForCouple(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, any(), "ALL")
+            } returns emptyList()
+
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
+
+            every {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
+            } returns 0L
+
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+
+            every {
+                transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            every {
+                transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            val result = service.getPeriodSummary(user1.id, dateFrom, dateTo)
+
+            Then("returns zero values") {
+                result.totalIncome shouldBe 0L
+                result.totalExpense shouldBe 0L
+                result.balance shouldBe 0L
+                result.byCategory shouldHaveSize 0
+                result.byBudget shouldHaveSize 0
+                result.byPaymentMethod shouldHaveSize 0
+                result.byDate shouldHaveSize 0
+            }
+        }
+
+        When("invalid visibility is provided for period summary") {
+            Then("throws BusinessException") {
+                shouldThrow<BusinessException> {
+                    service.getPeriodSummary(user1.id, dateFrom, dateTo, "INVALID")
+                }.code shouldBe "VALIDATION_ERROR"
             }
         }
     }

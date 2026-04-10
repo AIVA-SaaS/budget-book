@@ -7,6 +7,7 @@ import 'package:budget_book/features/statistics/domain/entities/statistics_summa
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
+import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 
 class StatisticsRepositoryImpl implements StatisticsRepository {
@@ -90,6 +91,23 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
       return Left(mapDioError(e, '결제수단별 통계를 불러오지 못했습니다'));
     } catch (e) {
       return const Left(ServerFailure('결제수단별 통계를 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, PeriodSummary>> getPeriodSummary({
+    required String dateFrom,
+    required String dateTo,
+  }) async {
+    try {
+      final result = await remoteDataSource.getPeriodSummary(
+        dateFrom: dateFrom, dateTo: dateTo,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '기간별 통계를 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('기간별 통계를 불러오지 못했습니다'));
     }
   }
 }

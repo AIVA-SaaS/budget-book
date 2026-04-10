@@ -6,7 +6,10 @@ import com.budgetbook.common.security.AuthUser
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.PaymentMethodStatResponse
+import com.budgetbook.statistics.dto.PeriodSummaryResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
+import org.springframework.format.annotation.DateTimeFormat
+import java.time.LocalDate
 import com.budgetbook.statistics.service.PaymentMethodStatisticsService
 import com.budgetbook.statistics.service.StatisticsService
 import jakarta.validation.constraints.Max
@@ -71,6 +74,24 @@ class StatisticsController(
     ): ApiResponse<List<MonthlyTrendResponse>> {
         return ApiResponse.ok(statisticsService.getMonthlyTrend(
             userId, months, filter.visibility ?: "ALL"
+        ))
+    }
+
+    @GetMapping("/period-summary")
+    fun getPeriodSummary(
+        @AuthUser userId: UUID,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateFrom: LocalDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateTo: LocalDate,
+        @ModelAttribute filter: CommonFilterParams
+    ): ApiResponse<PeriodSummaryResponse> {
+        return ApiResponse.ok(statisticsService.getPeriodSummary(
+            userId = userId,
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            visibility = filter.visibility ?: "ALL",
+            categoryId = filter.categoryId,
+            paymentMethodId = filter.paymentMethodId,
+            pocketId = filter.pocketId
         ))
     }
 }

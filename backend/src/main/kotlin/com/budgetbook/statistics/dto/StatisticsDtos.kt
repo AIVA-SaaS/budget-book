@@ -34,3 +34,53 @@ data class PaymentMethodStatResponse(
     val transferOut: Long? = null,
     val transferIn: Long? = null
 )
+
+// --- Period Summary DTOs ---
+
+data class PeriodSummaryResponse(
+    val dateFrom: String,
+    val dateTo: String,
+    val totalIncome: Long,
+    val totalExpense: Long,
+    val balance: Long,
+    val byCategory: List<CategorySpending>,
+    val byBudget: List<BudgetSpending>,
+    val byPaymentMethod: List<PaymentMethodSpending>,
+    val byDate: List<DailySpending>
+)
+
+data class CategorySpending(
+    val categoryId: java.util.UUID?,
+    val categoryName: String,
+    val groupId: java.util.UUID?,
+    val groupName: String?,
+    val icon: String?,
+    val color: String?,
+    val amount: Long,
+    val count: Int,
+    val percentage: Double
+)
+
+data class BudgetSpending(
+    val budgetId: java.util.UUID,
+    val budgetName: String,
+    val budgetAmount: Long,
+    val spent: Long,
+    val planned: Long,
+    val remaining: Long,
+    val usageRate: Double
+)
+
+data class PaymentMethodSpending(
+    val methodId: java.util.UUID,
+    val methodName: String,
+    val methodType: String,
+    val amount: Long,
+    val count: Int
+)
+
+data class DailySpending(
+    val date: String,
+    val income: Long,
+    val expense: Long
+)

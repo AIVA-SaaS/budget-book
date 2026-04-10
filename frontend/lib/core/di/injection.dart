@@ -86,6 +86,7 @@ import 'package:budget_book/features/feedback/data/repositories/feedback_reposit
 import 'package:budget_book/features/feedback/domain/repositories/feedback_repository.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -194,6 +195,11 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<StatisticsBloc>(
     () => StatisticsBloc(
+        statisticsRepository: getIt<StatisticsRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+  getIt.registerLazySingleton<PeriodSummaryBloc>(
+    () => PeriodSummaryBloc(
         statisticsRepository: getIt<StatisticsRepository>()),
     dispose: (bloc) => bloc.close(),
   );

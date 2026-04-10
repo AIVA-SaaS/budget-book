@@ -1,12 +1,20 @@
 package com.budgetbook.statistics.service
 
+import com.budgetbook.budget.domain.BudgetPeriod
+import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
+import com.budgetbook.spendingplan.repository.SpendingPlanRepository
+import com.budgetbook.statistics.dto.BudgetSpending
+import com.budgetbook.statistics.dto.CategorySpending
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
+import com.budgetbook.statistics.dto.DailySpending
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
+import com.budgetbook.statistics.dto.PaymentMethodSpending
+import com.budgetbook.statistics.dto.PeriodSummaryResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
@@ -22,7 +30,9 @@ import java.util.UUID
 class StatisticsService(
     private val transactionRepository: TransactionRepository,
     private val transferRepository: TransferRepository,
-    override val coupleResolver: CoupleResolver
+    override val coupleResolver: CoupleResolver,
+    private val budgetRepository: MonthlyBudgetRepository,
+    private val spendingPlanRepository: SpendingPlanRepository
 ) : CoupleAwareService {
 
     companion object {
@@ -229,6 +239,206 @@ class StatisticsService(
                 balance = adjustedIncome - adjustedExpense
             )
         }
+    }
+
+    @Transactional(readOnly = true)
+    fun getPeriodSummary(
+        userId: UUID,
+        dateFrom: LocalDate,
+        dateTo: LocalDate,
+        visibility: String = "ALL",
+        categoryId: UUID? = null,
+        paymentMethodId: UUID? = null,
+        pocketId: UUID? = null
+    ): PeriodSummaryResponse {
+        val couple = getActiveCouple(userId)
+        val visFilter = validateVisibility(visibility)
+
+        // 1. Total income / expense
+        val typeResults = transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, userId, visFilter)
+        var totalIncome = 0L
+        var totalExpense = 0L
+        for (row in typeResults) {
+            val type = row[0] as TransactionType
+            val sum = row[1] as Long
+            when (type) {
+                TransactionType.INCOME -> totalIncome = sum
+                TransactionType.EXPENSE -> totalExpense = sum
+            }
+        }
+
+        // 2. byCategory (expense only)
+        val categoryResults = transactionRepository.sumByCategoryForCouple(
+            couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId, visFilter
+        )
+        val byCategory = categoryResults.map { row ->
+            val amount = row[0] as Long
+            val count = (row[1] as Long).toInt()
+            val catId = row[2] as UUID
+            val catName = row[3] as String
+            val catIcon = row[5] as? String
+            val catColor = row[6] as? String
+            val groupId = row[7] as? UUID
+            val groupName = row[8] as? String
+            CategorySpending(
+                categoryId = catId,
+                categoryName = catName,
+                groupId = groupId,
+                groupName = groupName,
+                icon = catIcon,
+                color = catColor,
+                amount = amount,
+                count = count,
+                percentage = 0.0
+            )
+        }.let { entries ->
+            val total = entries.sumOf { it.amount }
+            entries.map { entry ->
+                entry.copy(
+                    percentage = if (total > 0) {
+                        Math.round(entry.amount.toDouble() / total * 1000) / 10.0
+                    } else 0.0
+                )
+            }
+        }
+
+        // 3. byBudget — find budgets covering this period
+        val yearMonths = generateYearMonths(dateFrom, dateTo)
+        val allBudgets = yearMonths.flatMap { ym ->
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, ym, userId)
+        }.distinctBy { it.id }
+
+        val budgetCategoryIds = allBudgets.mapNotNull { it.category?.id }.toSet()
+        val budgetGroupIds = allBudgets.mapNotNull { it.group?.id }.toSet()
+
+        val spendingByCategory = if (budgetCategoryIds.isNotEmpty()) {
+            transactionRepository.sumAmountGroupedByCategoryId(
+                couple.id, dateFrom, dateTo, TransactionType.EXPENSE, budgetCategoryIds, userId
+            ).associate { (it[0] as UUID) to (it[1] as Long) }
+        } else emptyMap()
+
+        val spendingByGroup = if (budgetGroupIds.isNotEmpty()) {
+            transactionRepository.sumByCategoryGroupForCouple(
+                couple.id, dateFrom, dateTo, TransactionType.EXPENSE, budgetGroupIds, userId
+            ).associate { (it[0] as UUID) to (it[1] as Long) }
+        } else emptyMap()
+
+        val totalSpent = transactionRepository.sumAmountByCoupleIdAndDateRange(
+            couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId
+        )
+
+        val plannedByCategory = if (budgetCategoryIds.isNotEmpty()) {
+            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, budgetCategoryIds, userId)
+                .associate { (it[0] as UUID) to (it[1] as Long) }
+        } else emptyMap()
+
+        val plannedByGroup = if (budgetGroupIds.isNotEmpty()) {
+            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, budgetGroupIds, userId)
+                .associate { (it[0] as UUID) to (it[1] as Long) }
+        } else emptyMap()
+
+        val totalPlanned = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId)
+
+        val byBudget = allBudgets.map { budget ->
+            val catId = budget.category?.id
+            val grpId = budget.group?.id
+            val budgetName = budget.category?.name ?: budget.group?.name ?: "전체"
+
+            val spent = when {
+                catId != null -> spendingByCategory[catId] ?: 0L
+                grpId != null -> spendingByGroup[grpId] ?: 0L
+                else -> totalSpent
+            }
+            val planned = when {
+                catId != null -> plannedByCategory[catId] ?: 0L
+                grpId != null -> plannedByGroup[grpId] ?: 0L
+                else -> totalPlanned
+            }
+
+            val ym = YearMonth.parse(budget.yearMonth)
+            val effectiveAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
+                val weeklyAmt = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
+                weeklyAmt * ym.lengthOfMonth().toLong() / 7
+            } else {
+                budget.amount
+            }
+
+            val remaining = effectiveAmount - spent - planned
+            val usageRate = if (effectiveAmount > 0) {
+                Math.round((spent + planned).toDouble() / effectiveAmount * 1000.0) / 10.0
+            } else 0.0
+
+            BudgetSpending(
+                budgetId = budget.id,
+                budgetName = budgetName,
+                budgetAmount = effectiveAmount,
+                spent = spent,
+                planned = planned,
+                remaining = remaining,
+                usageRate = usageRate
+            )
+        }
+
+        // 4. byPaymentMethod
+        val pmResults = transactionRepository.sumByPaymentMethodWithTypeForCouple(
+            couple.id, dateFrom, dateTo, userId, visFilter
+        )
+        val byPaymentMethod = pmResults.map { row ->
+            PaymentMethodSpending(
+                methodId = row[0] as UUID,
+                methodName = row[1] as String,
+                methodType = (row[2] as Enum<*>).name,
+                amount = row[3] as Long,
+                count = (row[4] as Long).toInt()
+            )
+        }
+
+        // 5. byDate (daily spending)
+        val dailyResults = transactionRepository.dailySummaryForCouple(
+            couple.id, dateFrom, dateTo, userId, visFilter
+        )
+        val dailyMap = mutableMapOf<LocalDate, Pair<Long, Long>>() // date -> (income, expense)
+        for (row in dailyResults) {
+            val date = (row[0] as java.sql.Date).toLocalDate()
+            val typeName = row[1] as String
+            val sum = (row[2] as Number).toLong()
+            val current = dailyMap.getOrDefault(date, 0L to 0L)
+            dailyMap[date] = when (typeName) {
+                "INCOME" -> sum to current.second
+                "EXPENSE" -> current.first to sum
+                else -> current
+            }
+        }
+        val byDate = dailyMap.entries.sortedBy { it.key }.map { (date, pair) ->
+            DailySpending(
+                date = date.toString(),
+                income = pair.first,
+                expense = pair.second
+            )
+        }
+
+        return PeriodSummaryResponse(
+            dateFrom = dateFrom.toString(),
+            dateTo = dateTo.toString(),
+            totalIncome = totalIncome,
+            totalExpense = totalExpense,
+            balance = totalIncome - totalExpense,
+            byCategory = byCategory,
+            byBudget = byBudget,
+            byPaymentMethod = byPaymentMethod,
+            byDate = byDate
+        )
+    }
+
+    private fun generateYearMonths(from: LocalDate, to: LocalDate): List<String> {
+        val result = mutableListOf<String>()
+        var ym = YearMonth.from(from)
+        val end = YearMonth.from(to)
+        while (!ym.isAfter(end)) {
+            result.add(ym.toString())
+            ym = ym.plusMonths(1)
+        }
+        return result
     }
 
 }
