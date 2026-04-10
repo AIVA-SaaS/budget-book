@@ -30,6 +30,9 @@ import 'package:budget_book/features/budget/presentation/pages/budget_form_page.
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
+import 'package:budget_book/features/statistics/presentation/pages/period_summary_page.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/category_group/presentation/pages/category_group_page.dart';
@@ -571,6 +574,23 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ..add(LoadWeeklyReport(
                 year: now.year, month: now.month, week: 1)),
           child: const ReportPage(),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/period-summary',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final now = DateTime.now();
+        final dateFrom =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+        final lastDay = DateTime(now.year, now.month + 1, 0).day;
+        final dateTo =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+        return BlocProvider<PeriodSummaryBloc>(
+          create: (_) => getIt<PeriodSummaryBloc>()
+            ..add(LoadPeriodSummary(dateFrom: dateFrom, dateTo: dateTo)),
+          child: const PeriodSummaryPage(),
         );
       },
     ),

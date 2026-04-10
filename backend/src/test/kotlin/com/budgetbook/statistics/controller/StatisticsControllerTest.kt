@@ -4,7 +4,9 @@ import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.statistics.dto.CategoryStatisticsResponse
 import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.PaymentMethodStatResponse
+import com.budgetbook.statistics.dto.PeriodSummaryResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
+import java.time.LocalDate
 import com.budgetbook.statistics.service.PaymentMethodStatisticsService
 import com.budgetbook.statistics.service.StatisticsService
 import com.budgetbook.transaction.dto.CategorySummary
@@ -172,5 +174,83 @@ class StatisticsControllerTest : FunSpec({
 
         result.success shouldBe true
         result.data!!.size shouldBe 6
+    }
+
+    test("getPeriodSummary returns period summary data") {
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+        val summary = PeriodSummaryResponse(
+            dateFrom = "2026-03-01",
+            dateTo = "2026-03-31",
+            totalIncome = 5000000,
+            totalExpense = 3200000,
+            balance = 1800000,
+            byCategory = emptyList(),
+            byBudget = emptyList(),
+            byPaymentMethod = emptyList(),
+            byDate = emptyList()
+        )
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", null, null, null)
+        } returns summary
+
+        val filter = CommonFilterParams()
+        val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+
+        result.success shouldBe true
+        result.data!!.totalIncome shouldBe 5000000
+        result.data!!.totalExpense shouldBe 3200000
+        result.data!!.balance shouldBe 1800000
+    }
+
+    test("getPeriodSummary passes visibility filter to service") {
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+        val summary = PeriodSummaryResponse(
+            dateFrom = "2026-03-01",
+            dateTo = "2026-03-31",
+            totalIncome = 1000000,
+            totalExpense = 500000,
+            balance = 500000,
+            byCategory = emptyList(),
+            byBudget = emptyList(),
+            byPaymentMethod = emptyList(),
+            byDate = emptyList()
+        )
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "SHARED", null, null, null)
+        } returns summary
+
+        val filter = CommonFilterParams(visibility = "SHARED")
+        val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+
+        result.success shouldBe true
+        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "SHARED", null, null, null) }
+    }
+
+    test("getPeriodSummary passes categoryId filter to service") {
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+        val catId = UUID.randomUUID()
+        val summary = PeriodSummaryResponse(
+            dateFrom = "2026-03-01",
+            dateTo = "2026-03-31",
+            totalIncome = 0,
+            totalExpense = 800000,
+            balance = -800000,
+            byCategory = emptyList(),
+            byBudget = emptyList(),
+            byPaymentMethod = emptyList(),
+            byDate = emptyList()
+        )
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", catId, null, null)
+        } returns summary
+
+        val filter = CommonFilterParams(categoryId = catId)
+        val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+
+        result.success shouldBe true
+        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", catId, null, null) }
     }
 })

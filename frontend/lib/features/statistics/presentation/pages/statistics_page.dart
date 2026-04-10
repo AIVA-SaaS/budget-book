@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
@@ -23,6 +24,13 @@ class StatisticsPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('통계'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.analytics_outlined),
+              tooltip: '기간별 상세 분석',
+              onPressed: () => context.push('/period-summary'),
+            ),
+          ],
           bottom: const TabBar(
             isScrollable: true,
             tabs: [
