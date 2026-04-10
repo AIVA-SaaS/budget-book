@@ -290,6 +290,53 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): Long
 
+    @Query(
+        value = """
+            SELECT t.transaction_date, t.type, SUM(t.amount) as total, COUNT(*) as cnt
+            FROM transactions t
+            WHERE t.couple_id = :coupleId
+            AND t.transaction_date BETWEEN :startDate AND :endDate
+            AND (
+                (:visFilter = 'ALL' AND (t.visibility = 'SHARED' OR t.owner_id = CAST(:userId AS UUID)))
+                OR (:visFilter = 'SHARED' AND t.visibility = 'SHARED')
+                OR (:visFilter = 'PRIVATE' AND t.visibility = 'PRIVATE' AND t.owner_id = CAST(:userId AS UUID))
+            )
+            GROUP BY t.transaction_date, t.type
+            ORDER BY t.transaction_date
+        """,
+        nativeQuery = true
+    )
+    fun dailySummaryForCouple(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
+    ): List<Array<Any>>
+
+    @Query("""
+        SELECT t.paymentMethod.id, t.paymentMethod.name, t.paymentMethod.type, SUM(t.amount), COUNT(t)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND t.paymentMethod IS NOT NULL
+        AND (
+            (:visFilter = 'ALL' AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId))
+            OR (:visFilter = 'SHARED' AND t.visibility = com.budgetbook.common.entity.Visibility.SHARED)
+            OR (:visFilter = 'PRIVATE' AND t.visibility = com.budgetbook.common.entity.Visibility.PRIVATE AND t.owner.id = :userId)
+        )
+        GROUP BY t.paymentMethod.id, t.paymentMethod.name, t.paymentMethod.type
+        ORDER BY SUM(t.amount) DESC
+    """)
+    fun sumByPaymentMethodWithTypeForCouple(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID,
+        @Param("visFilter") visFilter: String = "ALL"
+    ): List<Array<Any>>
+
     @Query("SELECT COUNT(DISTINCT t.author.id) FROM Transaction t WHERE t.createdAt >= :since")
     fun countDistinctAuthorsSince(@Param("since") since: java.time.Instant): Long
 

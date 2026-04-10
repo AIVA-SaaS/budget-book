@@ -89,6 +89,10 @@ class ApiEndpoints {
   static const String statisticsPaymentMethods =
       '/api/v1/statistics/payment-methods';
 
+  // Statistics - Period Summary
+  static const String statisticsPeriodSummary =
+      '/api/v1/statistics/period-summary';
+
   // Transfers (payment method to payment method)
   static const String transfers = '/api/v1/transfers';
 
