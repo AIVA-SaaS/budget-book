@@ -1,6 +1,7 @@
 package com.budgetbook.recurring.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.recurring.dto.CreateRecurringTransactionRequest
 import com.budgetbook.recurring.dto.RecurringTransactionResponse
@@ -30,6 +31,7 @@ class RecurringTransactionController(
         return ApiResponse.ok(recurringTransactionService.listRecurringTransactions(userId))
     }
 
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @PostMapping
     fun createRecurringTransaction(
         @AuthUser userId: UUID,
@@ -39,6 +41,7 @@ class RecurringTransactionController(
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updateRecurringTransaction(
         @AuthUser userId: UUID,
@@ -48,6 +51,7 @@ class RecurringTransactionController(
         return ApiResponse.ok(recurringTransactionService.updateRecurringTransaction(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deleteRecurringTransaction(
         @AuthUser userId: UUID,

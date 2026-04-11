@@ -21,6 +21,9 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_bloc.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_event.dart';
 import 'package:budget_book/features/spending_plan/presentation/bloc/spending_plan_state.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -77,6 +80,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return _PrivateSummaryCard(transactions: privateTransactions);
       case 'spending_plans':
         return const _SpendingPlansPreviewCard();
+      case 'ai_insights':
+        return _AiInsightPreviewCard(year: state.year, month: state.month);
       default:
         return const SizedBox.shrink();
     }
@@ -1088,5 +1093,119 @@ class _PrivateSummaryCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AiInsightPreviewCard extends StatefulWidget {
+  final int year;
+  final int month;
+
+  const _AiInsightPreviewCard({required this.year, required this.month});
+
+  @override
+  State<_AiInsightPreviewCard> createState() => _AiInsightPreviewCardState();
+}
+
+class _AiInsightPreviewCardState extends State<_AiInsightPreviewCard> {
+  @override
+  void initState() {
+    super.initState();
+    final bloc = getIt<AiInsightBloc>();
+    if (bloc.state is AiInsightInitial) {
+      bloc.add(LoadInsights(year: widget.year, month: widget.month));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return BlocBuilder<AiInsightBloc, AiInsightState>(
+      bloc: getIt<AiInsightBloc>(),
+      builder: (context, state) {
+        if (state is AiInsightLoaded && state.insights.isNotEmpty) {
+          final insight = state.insights.first;
+          final (icon, color) = _severityStyle(insight.severity);
+          return Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                final shell = StatefulNavigationShell.maybeOf(context);
+                if (shell != null) {
+                  shell.goBranch(2);
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome, size: 18, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'AI 인사이트',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (state.insights.length > 1)
+                          Text(
+                            '+${state.insights.length - 1}건',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(icon, color: color, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                insight.title,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                insight.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, size: 20),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  (IconData, Color) _severityStyle(String severity) {
+    return switch (severity) {
+      'WARNING' => (Icons.warning_amber_rounded, Colors.orange),
+      'POSITIVE' => (Icons.check_circle_outline, Colors.green),
+      _ => (Icons.lightbulb_outline, Theme.of(context).colorScheme.primary),
+    };
   }
 }

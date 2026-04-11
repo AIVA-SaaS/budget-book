@@ -49,3 +49,8 @@ sentry:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5000}
+
+ai:
+  claude:
+    api-key: ${ANTHROPIC_API_KEY:}
+    enabled: ${AI_ENABLED:false}

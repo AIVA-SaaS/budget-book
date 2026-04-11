@@ -93,4 +93,11 @@ const defaultDashboardWidgets = [
     enabled: false,
     order: 6,
   ),
+  DashboardWidgetConfig(
+    id: 'ai_insights',
+    name: 'AI 인사이트',
+    icon: 'auto_awesome',
+    enabled: true,
+    order: 7,
+  ),
 ];

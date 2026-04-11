@@ -37,6 +37,8 @@ import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
+import 'package:budget_book/features/ai/data/datasources/ai_remote_datasource.dart';
+import 'package:budget_book/features/ai/domain/entities/ai_classify_result.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -108,6 +110,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   SuggestionGroup? _expandedSuggestion;
   bool _suppressSuggestions = false;
   Timer? _debounceTimer;
+
+  // AI classification state
+  AiClassifyResult? _aiResult;
+  bool _aiLoading = false;
+  Timer? _aiDebounceTimer;
 
   // FocusNodes for keyboard navigation on selector fields
   final FocusNode _categoryFocusNode = FocusNode();
@@ -315,6 +322,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
     final text = _descriptionController.text.trim();
     _debounceTimer?.cancel();
+    _aiDebounceTimer?.cancel();
     if (text.length < 2) {
       if (_suggestions.isNotEmpty || _expandedSuggestion != null) {
         setState(() {
@@ -322,11 +330,20 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           _expandedSuggestion = null;
         });
       }
+      if (_aiResult != null || _aiLoading) {
+        setState(() {
+          _aiResult = null;
+          _aiLoading = false;
+        });
+      }
       return;
     }
 
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       _fetchSuggestions(text);
+    });
+    _aiDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchAiClassification(text);
     });
   }
 
@@ -362,6 +379,34 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     Future.microtask(() => _suppressSuggestions = false);
   }
 
+  Future<void> _fetchAiClassification(String description) async {
+    if (!mounted) return;
+    setState(() => _aiLoading = true);
+    try {
+      final datasource = getIt<AiRemoteDataSource>();
+      final result = await datasource.classify(description, _selectedType);
+      if (!mounted) return;
+      setState(() {
+        _aiResult = result;
+        _aiLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _aiResult = null;
+        _aiLoading = false;
+      });
+    }
+  }
+
+  void _applyAiCategory(AiClassifyResult result) {
+    setState(() {
+      _selectedCategoryId = result.categoryId;
+      _selectedCategoryDisplayName = result.categoryName;
+      _aiResult = null;
+    });
+  }
+
   void _updateAmountHint() {
     final parsed = CurrencyFormatter.parse(_amountController.text);
     final hint = (parsed != null && parsed >= 10000)
@@ -377,6 +422,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _aiDebounceTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _descriptionController.removeListener(_onDescriptionChanged);
@@ -607,6 +653,16 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   // Suggestion chips (rich - with category/payment method patterns)
                   if (_suggestions.isNotEmpty)
                     _buildSuggestionArea(context),
+                  // AI classification recommendation
+                  if (_aiResult != null && _selectedCategoryId != _aiResult!.categoryId)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.auto_awesome, size: 16),
+                        label: Text('AI 추천: ${_aiResult!.categoryName}'),
+                        onPressed: () => _applyAiCategory(_aiResult!),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   // Category picker with keyboard support
                   FocusTraversalOrder(
@@ -1581,6 +1637,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       _descriptionController.clear();
       _memoController.clear();
       _suggestions = [];
+      _aiResult = null;
+      _aiLoading = false;
       _isSubmitting = false;
       _continueMode = false;
       _categoryError = null;

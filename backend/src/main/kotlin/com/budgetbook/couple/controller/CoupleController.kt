@@ -1,14 +1,13 @@
 package com.budgetbook.couple.controller
 
 import com.budgetbook.common.dto.ApiResponse
-import com.budgetbook.common.exception.TooManyRequestsException
-import com.budgetbook.common.ratelimit.RateLimiter
+import com.budgetbook.common.ratelimit.RateLimit
+import com.budgetbook.common.ratelimit.RateLimitKeyType
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.couple.dto.CoupleResponse
 import com.budgetbook.couple.dto.InvitationResponse
 import com.budgetbook.couple.dto.InvitationStatusResponse
 import com.budgetbook.couple.service.CoupleService
-import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -22,33 +21,14 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/couples")
 class CoupleController(
-    private val coupleService: CoupleService,
-    private val rateLimiter: RateLimiter
+    private val coupleService: CoupleService
 ) {
 
-    companion object {
-        private const val INVITE_ACCEPT_MAX_REQUESTS = 5
-        private const val INVITE_ACCEPT_WINDOW_MILLIS = 3_600_000L // 1 hour
-        private const val INVITE_CREATE_MAX_REQUESTS = 10
-        private const val INVITE_CREATE_WINDOW_MILLIS = 3_600_000L // 1 hour
-    }
-
+    @RateLimit(maxRequests = 10, windowSeconds = 3600)
     @PostMapping("/invitations")
     fun createInvitation(
-        @AuthUser userId: UUID,
-        request: HttpServletRequest
+        @AuthUser userId: UUID
     ): ResponseEntity<ApiResponse<InvitationResponse>> {
-        val clientIp = request.getHeader("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
-            ?: request.remoteAddr
-        val rateLimitKey = "invite-create:$userId:$clientIp"
-
-        if (!rateLimiter.tryAcquire(rateLimitKey, INVITE_CREATE_MAX_REQUESTS, INVITE_CREATE_WINDOW_MILLIS)) {
-            throw TooManyRequestsException(
-                "RATE_LIMIT_EXCEEDED",
-                "Too many invitation creation attempts. Please try again later."
-            )
-        }
-
         val result = coupleService.createInvitation(userId)
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
@@ -58,23 +38,12 @@ class CoupleController(
         return ApiResponse.ok(coupleService.getMyInvitation(userId))
     }
 
+    @RateLimit(maxRequests = 5, windowSeconds = 3600, keyType = RateLimitKeyType.IP)
     @PostMapping("/invitations/{code}/accept")
     fun acceptInvitation(
         @AuthUser userId: UUID,
-        @PathVariable code: String,
-        request: HttpServletRequest
+        @PathVariable code: String
     ): ApiResponse<CoupleResponse> {
-        val clientIp = request.getHeader("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
-            ?: request.remoteAddr
-        val rateLimitKey = "invite-accept:$clientIp"
-
-        if (!rateLimiter.tryAcquire(rateLimitKey, INVITE_ACCEPT_MAX_REQUESTS, INVITE_ACCEPT_WINDOW_MILLIS)) {
-            throw TooManyRequestsException(
-                "RATE_LIMIT_EXCEEDED",
-                "Too many invitation accept attempts. Please try again later."
-            )
-        }
-
         return ApiResponse.ok(coupleService.acceptInvitation(userId, code))
     }
 

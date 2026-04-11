@@ -12,6 +12,7 @@ import com.budgetbook.budget.service.BudgetAlertService
 import com.budgetbook.budget.service.BudgetService
 import com.budgetbook.budget.service.WeeklyBudgetService
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
@@ -39,6 +40,7 @@ class BudgetController(
     private val budgetAlertService: BudgetAlertService
 ) {
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PostMapping
     fun createBudget(
         @AuthUser userId: UUID,
@@ -57,6 +59,7 @@ class BudgetController(
         return ApiResponse.ok(budgetService.getBudgetsByMonth(userId, year, month))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updateBudget(
         @AuthUser userId: UUID,
@@ -66,6 +69,7 @@ class BudgetController(
         return ApiResponse.ok(budgetService.updateBudget(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deleteBudget(
         @AuthUser userId: UUID,
@@ -75,6 +79,7 @@ class BudgetController(
         return ResponseEntity.noContent().build()
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PostMapping("/copy-previous")
     fun copyFromPreviousMonth(
         @AuthUser userId: UUID,

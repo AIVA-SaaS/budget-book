@@ -1,6 +1,7 @@
 package com.budgetbook.transfer.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.TransferResponse
@@ -26,6 +27,7 @@ class TransferController(
     private val transferService: TransferService
 ) {
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PostMapping
     fun createTransfer(
         @AuthUser userId: UUID,
@@ -52,6 +54,7 @@ class TransferController(
         return ApiResponse.ok(transferService.getTransfer(userId, id))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updateTransfer(
         @AuthUser userId: UUID,
@@ -61,6 +64,7 @@ class TransferController(
         return ApiResponse.ok(transferService.updateTransfer(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deleteTransfer(
         @AuthUser userId: UUID,

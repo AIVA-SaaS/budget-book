@@ -1,6 +1,7 @@
 package com.budgetbook.spendingplan.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.spendingplan.domain.SpendingPlanStatus
 import com.budgetbook.spendingplan.dto.AssignSpendingPlanRequest
@@ -47,6 +48,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.listPlans(userId, startDate, endDate, status))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PostMapping
     fun createPlan(
         @AuthUser userId: UUID,
@@ -75,6 +77,7 @@ class SpendingPlanController(
     }
 
     // Dynamic path mappings with /{id}
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updatePlan(
         @AuthUser userId: UUID,
@@ -84,6 +87,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.updatePlan(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deletePlan(
         @AuthUser userId: UUID,
@@ -93,6 +97,7 @@ class SpendingPlanController(
         return ApiResponse.ok()
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PatchMapping("/{id}/complete")
     fun completePlan(
         @AuthUser userId: UUID,
@@ -104,6 +109,7 @@ class SpendingPlanController(
         )
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PatchMapping("/{id}/skip")
     fun skipPlan(
         @AuthUser userId: UUID,
@@ -112,6 +118,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.skipPlan(userId, id))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PatchMapping("/{id}/assign")
     fun assignPlan(
         @AuthUser userId: UUID,
@@ -121,6 +128,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.assignPlan(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PatchMapping("/{id}/complete-with-transaction")
     fun completeWithTransaction(
         @AuthUser userId: UUID,
@@ -130,6 +138,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.completeWithTransaction(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/{id}/link-transaction")
     fun linkTransaction(
         @AuthUser userId: UUID,
@@ -139,6 +148,7 @@ class SpendingPlanController(
         return ApiResponse.ok(spendingPlanService.linkTransaction(userId, id, request.transactionId))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @DeleteMapping("/{id}/link-transaction")
     fun unlinkTransaction(
         @AuthUser userId: UUID,

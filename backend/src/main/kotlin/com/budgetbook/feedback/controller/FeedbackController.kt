@@ -1,6 +1,7 @@
 package com.budgetbook.feedback.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.feedback.dto.CreateCommentRequest
 import com.budgetbook.feedback.dto.CreateFeedbackRequest
@@ -32,6 +33,7 @@ class FeedbackController(
         return ApiResponse.ok(feedbackService.getMyFeedbacks(userId))
     }
 
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping
     fun createFeedback(
         @AuthUser userId: UUID,
@@ -49,6 +51,7 @@ class FeedbackController(
         return ApiResponse.ok(feedbackService.getFeedbackDetail(userId, id))
     }
 
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @PostMapping("/{id}/comments")
     fun addComment(
         @AuthUser userId: UUID,
