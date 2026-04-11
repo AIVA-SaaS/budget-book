@@ -7,10 +7,9 @@ import com.budgetbook.auth.dto.UpdateProfileRequest
 import com.budgetbook.auth.dto.UserResponse
 import com.budgetbook.auth.service.AuthService
 import com.budgetbook.common.dto.ApiResponse
-import com.budgetbook.common.exception.TooManyRequestsException
-import com.budgetbook.common.ratelimit.RateLimiter
+import com.budgetbook.common.ratelimit.RateLimit
+import com.budgetbook.common.ratelimit.RateLimitKeyType
 import com.budgetbook.common.security.AuthUser
-import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -26,31 +25,14 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(
-    private val authService: AuthService,
-    private val rateLimiter: RateLimiter
+    private val authService: AuthService
 ) {
 
-    companion object {
-        private const val LOGIN_MAX_REQUESTS = 10
-        private const val LOGIN_WINDOW_MILLIS = 60_000L // 1 minute
-    }
-
+    @RateLimit(maxRequests = 10, windowSeconds = 60, keyType = RateLimitKeyType.IP)
     @PostMapping("/refresh")
     fun refreshToken(
-        @Valid @RequestBody request: RefreshTokenRequest,
-        httpRequest: HttpServletRequest
+        @Valid @RequestBody request: RefreshTokenRequest
     ): ApiResponse<TokenResponse> {
-        val clientIp = httpRequest.getHeader("X-Forwarded-For")?.split(",")?.firstOrNull()?.trim()
-            ?: httpRequest.remoteAddr
-        val rateLimitKey = "auth-refresh:$clientIp"
-
-        if (!rateLimiter.tryAcquire(rateLimitKey, LOGIN_MAX_REQUESTS, LOGIN_WINDOW_MILLIS)) {
-            throw TooManyRequestsException(
-                "RATE_LIMIT_EXCEEDED",
-                "Too many login attempts. Please try again later."
-            )
-        }
-
         val tokenResponse = authService.refreshToken(request)
         return ApiResponse.ok(tokenResponse)
     }

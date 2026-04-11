@@ -113,8 +113,8 @@ void main() {
       expect(config.order, 0);
     });
 
-    test('defaultDashboardWidgets has 7 items', () {
-      expect(defaultDashboardWidgets.length, 7);
+    test('defaultDashboardWidgets has 8 items', () {
+      expect(defaultDashboardWidgets.length, 8);
     });
 
     test('defaultDashboardWidgets has asset_balance disabled', () {

@@ -11,6 +11,11 @@ import 'package:budget_book/features/report/presentation/widgets/overspend_categ
 import 'package:budget_book/features/report/presentation/widgets/daily_spending_chart.dart';
 import 'package:budget_book/features/report/presentation/widgets/month_comparison_card.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
+import 'package:budget_book/features/ai/domain/entities/ai_insight.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -48,12 +53,13 @@ class _ReportPageState extends State<ReportPage> {
     context.read<ReportBloc>()
       ..add(LoadMonthlyReport(year: year, month: month))
       ..add(LoadWeeklyReport(year: year, month: month, week: week));
+    getIt<AiInsightBloc>().add(LoadInsights(year: year, month: month));
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('리포트'),
@@ -61,6 +67,7 @@ class _ReportPageState extends State<ReportPage> {
             tabs: [
               Tab(text: '주간 리포트'),
               Tab(text: '월간 리포트'),
+              Tab(text: 'AI 인사이트'),
             ],
           ),
         ),
@@ -90,6 +97,7 @@ class _ReportPageState extends State<ReportPage> {
                           monthly != null
                               ? _buildMonthlyTab(context, monthly)
                               : _buildEmptyTab(context, '월간 리포트가 없습니다'),
+                          _buildAiInsightsTab(context),
                         ],
                       ),
                     ReportError(message: final message) =>
@@ -527,6 +535,85 @@ class _ReportPageState extends State<ReportPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildAiInsightsTab(BuildContext context) {
+    return BlocBuilder<AiInsightBloc, AiInsightState>(
+      bloc: getIt<AiInsightBloc>(),
+      builder: (context, state) {
+        if (state is AiInsightInitial) {
+          getIt<AiInsightBloc>().add(LoadInsights(year: _year, month: _month));
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (state is AiInsightLoading) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('AI가 분석 중...'),
+              ],
+            ),
+          );
+        }
+        if (state is AiInsightError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(state.message),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () => getIt<AiInsightBloc>()
+                      .add(LoadInsights(year: _year, month: _month)),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('재시도'),
+                ),
+              ],
+            ),
+          );
+        }
+        if (state is AiInsightLoaded) {
+          if (state.insights.isEmpty) {
+            return _buildEmptyTab(context, '이번 달 인사이트가 없습니다');
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: state.insights.length,
+            itemBuilder: (context, index) =>
+                _buildInsightCard(context, state.insights[index]),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildInsightCard(BuildContext context, AiInsight insight) {
+    final (icon, color) = _insightSeverityStyle(insight.severity);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(icon, color: color, size: 28),
+        title: Text(
+          insight.title,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(insight.description),
+        ),
+      ),
+    );
+  }
+
+  (IconData, Color) _insightSeverityStyle(String severity) {
+    return switch (severity) {
+      'WARNING' => (Icons.warning_amber_rounded, Colors.orange),
+      'POSITIVE' => (Icons.check_circle_outline, Colors.green),
+      _ => (Icons.lightbulb_outline, Theme.of(context).colorScheme.primary),
+    };
   }
 
   Widget _buildEmptyTab(BuildContext context, String message) {

@@ -127,4 +127,7 @@ class ApiEndpoints {
   // Admin Release Notes
   static const String adminReleases = '/api/v1/admin/releases';
 
+  // AI
+  static const String aiClassify = '/api/v1/ai/classify';
+  static const String aiInsights = '/api/v1/ai/insights';
 }

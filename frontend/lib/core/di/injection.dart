@@ -87,6 +87,8 @@ import 'package:budget_book/features/feedback/domain/repositories/feedback_repos
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
+import 'package:budget_book/features/ai/data/datasources/ai_remote_datasource.dart';
+import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -411,6 +413,15 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<ReleaseNoteBloc>(
     () => ReleaseNoteBloc(
         feedbackRepository: getIt<FeedbackRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // AI feature
+  getIt.registerLazySingleton<AiRemoteDataSource>(
+    () => AiRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<AiInsightBloc>(
+    () => AiInsightBloc(remoteDataSource: getIt<AiRemoteDataSource>()),
     dispose: (bloc) => bloc.close(),
   );
 

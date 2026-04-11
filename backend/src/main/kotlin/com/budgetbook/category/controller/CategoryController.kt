@@ -8,6 +8,7 @@ import com.budgetbook.category.dto.UpdateCategoryRequest
 import com.budgetbook.category.service.CategoryService
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.exception.BusinessException
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -42,6 +43,7 @@ class CategoryController(
         return ApiResponse.ok(categoryService.listCategories(userId, categoryType))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PostMapping
     fun createCategory(
         @AuthUser userId: UUID,
@@ -51,6 +53,7 @@ class CategoryController(
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/reorder")
     fun reorderCategories(
         @AuthUser userId: UUID,
@@ -60,6 +63,7 @@ class CategoryController(
         return ApiResponse.ok()
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updateCategory(
         @AuthUser userId: UUID,
@@ -69,6 +73,7 @@ class CategoryController(
         return ApiResponse.ok(categoryService.updateCategory(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deleteCategory(
         @AuthUser userId: UUID,

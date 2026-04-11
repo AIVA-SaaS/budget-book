@@ -2,6 +2,7 @@ package com.budgetbook.transaction.controller
 
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.dto.CommonFilterParams
+import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.CsvImportResponse
@@ -12,10 +13,10 @@ import com.budgetbook.transaction.service.TransactionExportService
 import com.budgetbook.transaction.service.TransactionImportService
 import com.budgetbook.transaction.service.TransactionService
 import jakarta.validation.Valid
-import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
@@ -51,6 +52,7 @@ class TransactionController(
         ))
     }
 
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
     @PostMapping
     fun createTransaction(
         @AuthUser userId: UUID,
@@ -68,6 +70,7 @@ class TransactionController(
         return ApiResponse.ok(transactionService.getTransaction(userId, id))
     }
 
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
     @PutMapping("/{id}")
     fun updateTransaction(
         @AuthUser userId: UUID,
@@ -77,6 +80,7 @@ class TransactionController(
         return ApiResponse.ok(transactionService.updateTransaction(userId, id, request))
     }
 
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
     @DeleteMapping("/{id}")
     fun deleteTransaction(
         @AuthUser userId: UUID,
@@ -95,6 +99,7 @@ class TransactionController(
         return ApiResponse.ok(transactionService.getSuggestions(userId, q, limit))
     }
 
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping("/import/csv")
     fun importCsv(
         @AuthUser userId: UUID,
