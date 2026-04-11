@@ -660,11 +660,13 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     GoRoute(
       path: '/settings/partner',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<CoupleBloc>(
-        create: (context) =>
-            getIt<CoupleBloc>()..add(const LoadCouple()),
-        child: const PartnerManagementPage(),
-      ),
+      builder: (context, state) {
+        getIt<CoupleBloc>().add(const LoadCouple());
+        return BlocProvider<CoupleBloc>.value(
+          value: getIt<CoupleBloc>(),
+          child: const PartnerManagementPage(),
+        );
+      },
     ),
     // Home Config
     GoRoute(
