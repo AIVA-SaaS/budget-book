@@ -253,12 +253,14 @@ class _CategoryGroupSelectorSheetState
           children.add(const Divider());
         }
 
-        // Shared section
+        // Shared section — only show groups that have categories matching the type
         for (final group in sharedGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+          if (filteredCategories.isEmpty) continue;
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
@@ -332,12 +334,14 @@ class _CategoryGroupSelectorSheetState
           children.add(const SizedBox(height: 4));
         }
 
-        // Private groups
+        // Private groups — only show groups that have categories matching the type
         for (final group in privateGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+          if (filteredCategories.isEmpty) continue;
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
@@ -396,8 +400,7 @@ class _CategoryGroupSelectorSheetState
         InkWell(
           onTap: () {
             if (categories.isEmpty) {
-              // Empty group: auto-create a category with the group name, then select it
-              _createAndSelectGroupCategory(context, group);
+              // Empty group should not appear (filtered above), but as safety:
               return;
             }
             setState(() {
