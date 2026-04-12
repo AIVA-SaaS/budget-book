@@ -6,7 +6,6 @@ import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
-import 'package:budget_book/features/category/domain/repositories/category_repository.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_event.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -728,28 +727,4 @@ class _CategoryGroupSelectorSheetState
     }
   }
 
-  Future<void> _createAndSelectGroupCategory(BuildContext context, CategoryGroup group) async {
-    final repo = getIt<CategoryRepository>();
-    final result = await repo.createCategory(
-      name: group.name,
-      type: widget.categoryType,
-      groupId: group.id,
-      visibility: group.visibility,
-    );
-    result.fold(
-      (failure) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error),
-          );
-        }
-      },
-      (category) {
-        widget.onSelected(category);
-        widget.onSelectedWithGroupName?.call(category, group.name);
-        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
-        if (context.mounted) Navigator.of(context).pop();
-      },
-    );
-  }
 }
