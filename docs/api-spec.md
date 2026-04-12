@@ -107,6 +107,18 @@
   - [List Wishlist](#8-list-wishlist)
   - [Assign Spending Plan](#9-assign-spending-plan)
   - [Complete with Transaction](#10-complete-with-transaction)
+- [Feedback](#feedback)
+  - [List My Feedbacks](#1-list-my-feedbacks)
+  - [Create Feedback](#2-create-feedback)
+  - [Update Feedback](#3-update-feedback)
+  - [Delete Feedback](#4-delete-feedback)
+  - [Toggle Vote](#5-toggle-vote)
+  - [Public Feedback Board](#6-public-feedback-board)
+  - [Top Popular Feedbacks](#7-top-popular-feedbacks)
+- [Smart Analysis](#smart-analysis)
+  - [Pattern-Based Classification](#1-pattern-based-classification)
+  - [Monthly Insights](#2-monthly-insights)
+  - [Budget Adjustment Suggestions](#3-budget-adjustment-suggestions)
 - [Infrastructure](#infrastructure)
   - [Health Check](#1-health-check)
   - [Actuator Health](#2-actuator-health)
@@ -4019,6 +4031,507 @@ The returned plan has `status: "COMPLETED"`, `completedDate` set to `transaction
 
 ---
 
+## Feedback
+
+User feedback management. Users can submit, update, and delete their own feedback posts. The public board allows all authenticated users to browse feedback and toggle votes. Admins manage status via separate admin endpoints (not documented here).
+
+---
+
+### 1. List My Feedbacks
+
+Returns the authenticated user's own feedback posts.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `GET`                          |
+| **Path**    | `/api/v1/feedback`             |
+| **Auth**    | Required                       |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description                                    |
+|:----------|:----------|:--------:|:-----------------------------------------------|
+| `page`    | `int`     | No       | Page number, 0-based (default: 0)              |
+| `size`    | `int`     | No       | Page size (default: 20, max: 50)               |
+
+**Response `200 OK`**: `ApiResponse<Page<FeedbackResponse>>`
+
+`FeedbackResponse`:
+
+| Field            | Type      | Description                                                        |
+|:-----------------|:----------|:-------------------------------------------------------------------|
+| `id`             | `UUID`    | Feedback post ID                                                   |
+| `category`       | `string`  | `BUG`, `IMPROVEMENT`, `FEATURE`, or `OTHER`                        |
+| `title`          | `string`  | Post title                                                         |
+| `content`        | `string`  | Full post content                                                  |
+| `status`         | `string`  | `SUBMITTED`, `REVIEWING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED`   |
+| `adminNote`      | `string?` | Admin response note                                                |
+| `voteCount`      | `int`     | Current vote count                                                 |
+| `createdAt`      | `string`  | ISO 8601 datetime                                                  |
+| `updatedAt`      | `string`  | ISO 8601 datetime                                                  |
+
+---
+
+### 2. Create Feedback
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `POST`                         |
+| **Path**    | `/api/v1/feedback`             |
+| **Auth**    | Required                       |
+
+**Request Body**: `CreateFeedbackRequest`
+
+| Field       | Type     | Required | Description                                         |
+|:------------|:---------|:--------:|:----------------------------------------------------|
+| `category`  | `string` | Yes      | `BUG`, `IMPROVEMENT`, `FEATURE`, or `OTHER`         |
+| `title`     | `string` | Yes      | Post title (max 200 characters)                     |
+| `content`   | `string` | Yes      | Post content                                        |
+
+**Response `201 Created`**: `ApiResponse<FeedbackResponse>`
+
+**Error Responses**
+
+| Status | Error Code         | Description                              |
+|:------:|:-------------------|:-----------------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing required fields or invalid value |
+
+---
+
+### 3. Update Feedback
+
+Only the post owner can update. Updates are only allowed while status is `SUBMITTED`.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `PATCH`                        |
+| **Path**    | `/api/v1/feedback/{id}`        |
+| **Auth**    | Required                       |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Feedback post ID |
+
+**Request Body**: `UpdateFeedbackRequest`
+
+| Field       | Type      | Required | Description                                          |
+|:------------|:----------|:--------:|:-----------------------------------------------------|
+| `category`  | `string?` | No       | `BUG`, `IMPROVEMENT`, `FEATURE`, or `OTHER`          |
+| `title`     | `string?` | No       | Post title (max 200 characters)                      |
+| `content`   | `string?` | No       | Post content                                         |
+
+**Response `200 OK`**: `ApiResponse<FeedbackResponse>`
+
+**Error Responses**
+
+| Status | Error Code            | Description                                          |
+|:------:|:----------------------|:-----------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`    | Invalid field value                                  |
+| `400`  | `INVALID_STATUS`      | Post is not in `SUBMITTED` status; updates disallowed|
+| `403`  | `FORBIDDEN`           | Caller is not the post owner                         |
+| `404`  | `FEEDBACK_NOT_FOUND`  | Feedback post does not exist                         |
+
+---
+
+### 4. Delete Feedback
+
+Only the post owner can delete their own feedback.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `DELETE`                       |
+| **Path**    | `/api/v1/feedback/{id}`        |
+| **Auth**    | Required                       |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Feedback post ID |
+
+**Response `204 No Content`**
+
+**Error Responses**
+
+| Status | Error Code           | Description                     |
+|:------:|:---------------------|:--------------------------------|
+| `403`  | `FORBIDDEN`          | Caller is not the post owner    |
+| `404`  | `FEEDBACK_NOT_FOUND` | Feedback post does not exist    |
+
+---
+
+### 5. Toggle Vote
+
+Toggles the authenticated user's vote on a feedback post. If the user has not voted, adds a vote and increments `voteCount`. If the user has already voted, removes the vote and decrements `voteCount`.
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `POST`                             |
+| **Path**    | `/api/v1/feedback/{id}/vote`       |
+| **Auth**    | Required                           |
+
+**Path Parameters**
+
+| Parameter | Type   | Description      |
+|:----------|:-------|:-----------------|
+| `id`      | `UUID` | Feedback post ID |
+
+**Response `200 OK`**: `ApiResponse<VoteResponse>`
+
+`VoteResponse`:
+
+| Field       | Type      | Description                                   |
+|:------------|:----------|:----------------------------------------------|
+| `voted`     | `boolean` | `true` if the user now has an active vote      |
+| `voteCount` | `int`     | Updated total vote count for the post          |
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "voted": true,
+    "voteCount": 42
+  },
+  "error": null
+}
+```
+
+**Error Responses**
+
+| Status | Error Code           | Description                  |
+|:------:|:---------------------|:-----------------------------|
+| `404`  | `FEEDBACK_NOT_FOUND` | Feedback post does not exist |
+
+---
+
+### 6. Public Feedback Board
+
+Returns a paginated list of all feedback posts visible to authenticated users. Supports filtering by category and status, and sorting by latest or popularity.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `GET`                          |
+| **Path**    | `/api/v1/feedback/public`      |
+| **Auth**    | Required                       |
+
+**Query Parameters**
+
+| Parameter  | Type     | Required | Description                                                         |
+|:-----------|:---------|:--------:|:--------------------------------------------------------------------|
+| `page`     | `int`    | No       | Page number, 0-based (default: 0)                                   |
+| `size`     | `int`    | No       | Page size (default: 20, max: 50)                                    |
+| `sort`     | `string` | No       | `latest` (default) or `popular`                                     |
+| `category` | `string` | No       | Filter by category: `BUG`, `IMPROVEMENT`, `FEATURE`, or `OTHER`    |
+| `status`   | `string` | No       | Filter by status: `SUBMITTED`, `REVIEWING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED` |
+
+**Response `200 OK`**: `ApiResponse<Page<PublicFeedbackResponse>>`
+
+`PublicFeedbackResponse`:
+
+| Field            | Type      | Description                                                         |
+|:-----------------|:----------|:--------------------------------------------------------------------|
+| `id`             | `UUID`    | Feedback post ID                                                    |
+| `category`       | `string`  | `BUG`, `IMPROVEMENT`, `FEATURE`, or `OTHER`                         |
+| `title`          | `string`  | Post title                                                          |
+| `contentPreview` | `string`  | First 100 characters of the content                                 |
+| `status`         | `string`  | `SUBMITTED`, `REVIEWING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED`    |
+| `voteCount`      | `int`     | Total vote count                                                    |
+| `hasVoted`       | `boolean` | Whether the authenticated user has voted on this post               |
+| `commentCount`   | `int`     | Number of comments on this post                                     |
+| `authorName`     | `string`  | Display name of the post author                                     |
+| `createdAt`      | `string`  | ISO 8601 datetime                                                   |
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "content": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440100",
+        "category": "FEATURE",
+        "title": "다크 모드 지원 요청",
+        "contentPreview": "앱에 다크 모드를 추가해주세요. 밤에 사용할 때 눈이 너무 부십니다.",
+        "status": "REVIEWING",
+        "voteCount": 38,
+        "hasVoted": true,
+        "commentCount": 5,
+        "authorName": "홍길동",
+        "createdAt": "2026-04-10T09:00:00Z"
+      }
+    ],
+    "totalElements": 128,
+    "totalPages": 7,
+    "number": 0,
+    "size": 20
+  },
+  "error": null
+}
+```
+
+---
+
+### 7. Top Popular Feedbacks
+
+Returns the top 10 most-voted feedback posts across all categories and statuses.
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `GET`                              |
+| **Path**    | `/api/v1/feedback/public/top`      |
+| **Auth**    | Required                           |
+
+**Response `200 OK`**: `ApiResponse<List<PublicFeedbackResponse>>`
+
+Returns at most 10 items sorted by `voteCount` descending. The response schema is identical to `PublicFeedbackResponse` described in [Public Feedback Board](#6-public-feedback-board).
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440100",
+      "category": "FEATURE",
+      "title": "다크 모드 지원 요청",
+      "contentPreview": "앱에 다크 모드를 추가해주세요.",
+      "status": "REVIEWING",
+      "voteCount": 38,
+      "hasVoted": false,
+      "commentCount": 5,
+      "authorName": "홍길동",
+      "createdAt": "2026-04-10T09:00:00Z"
+    }
+  ],
+  "error": null
+}
+```
+
+---
+
+## Smart Analysis
+
+AI-assisted transaction classification and spending insights. Classification uses stored `category_patterns` (couple-specific keyword → category mappings learned from transaction history). Insights are rule-based statistical analysis — no external AI calls.
+
+---
+
+### 1. Pattern-Based Classification
+
+Suggests categories for a transaction based on the description. Searches the couple's learned `category_patterns` first, then falls back to transaction history frequency analysis.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/smart/classify`                 |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter     | Type     | Required | Description                            |
+|:--------------|:---------|:--------:|:---------------------------------------|
+| `description` | `string` | Yes      | Transaction description to classify    |
+
+**Response `200 OK`**: `ApiResponse<List<ClassifySuggestion>>`
+
+`ClassifySuggestion`:
+
+| Field          | Type     | Description                                                               |
+|:---------------|:---------|:--------------------------------------------------------------------------|
+| `categoryId`   | `UUID`   | Suggested category ID                                                     |
+| `categoryName` | `string` | Suggested category name                                                   |
+| `groupName`    | `string` | Category group name                                                       |
+| `confidence`   | `double` | Confidence score between 0.0 and 1.0 (higher = more confident)            |
+| `source`       | `string` | `PATTERN` (from stored patterns) or `HISTORY` (from transaction history)  |
+
+**Example Request**:
+
+```
+GET /api/v1/smart/classify?description=스타벅스 아메리카노
+```
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "categoryId": "550e8400-e29b-41d4-a716-446655440020",
+      "categoryName": "카페",
+      "groupName": "식비",
+      "confidence": 0.95,
+      "source": "PATTERN"
+    },
+    {
+      "categoryId": "550e8400-e29b-41d4-a716-446655440021",
+      "categoryName": "외식",
+      "groupName": "식비",
+      "confidence": 0.42,
+      "source": "HISTORY"
+    }
+  ],
+  "error": null
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                           |
+|:------:|:-------------------|:--------------------------------------|
+| `400`  | `VALIDATION_ERROR` | `description` parameter is missing    |
+| `404`  | `COUPLE_NOT_FOUND` | User is not in an active couple       |
+
+---
+
+### 2. Monthly Insights
+
+Returns statistical spending insights for the specified month. Insights are generated from aggregated transaction data and compared against prior months and configured budgets.
+
+| Item        | Value                                    |
+|:------------|:-----------------------------------------|
+| **Method**  | `GET`                                    |
+| **Path**    | `/api/v1/smart/insights`                 |
+| **Auth**    | Required                                 |
+
+**Query Parameters**
+
+| Parameter | Type  | Required | Description                   |
+|:----------|:------|:--------:|:------------------------------|
+| `year`    | `int` | Yes      | Target year (e.g., `2026`)    |
+| `month`   | `int` | Yes      | Target month (1–12)           |
+
+**Response `200 OK`**: `ApiResponse<InsightsResponse>`
+
+`InsightsResponse`:
+
+| Field         | Type             | Description                                      |
+|:--------------|:-----------------|:-------------------------------------------------|
+| `insights`    | `List<Insight>`  | List of generated insights (may be empty)        |
+| `generatedAt` | `string`         | ISO 8601 datetime when insights were generated   |
+
+`Insight`:
+
+| Field      | Type             | Description                                                                                              |
+|:-----------|:-----------------|:---------------------------------------------------------------------------------------------------------|
+| `type`     | `string`         | `SPENDING_CHANGE`, `BUDGET_WARNING`, `PATTERN`, `TIP`, `POSITIVE`, or `BUDGET_ADJUST`                   |
+| `title`    | `string`         | Short insight title (Korean)                                                                             |
+| `message`  | `string`         | Detailed insight message (Korean)                                                                        |
+| `severity` | `string`         | `INFO`, `WARNING`, or `POSITIVE`                                                                         |
+| `data`     | `Map<string, any>` | Additional structured data relevant to the insight type (e.g., `{ "categoryName": "외식", "changeRate": 25.3 }`) |
+
+**Insight Types**:
+
+| Type             | Trigger                                                         |
+|:-----------------|:----------------------------------------------------------------|
+| `SPENDING_CHANGE` | Category spending changed significantly vs. prior month        |
+| `BUDGET_WARNING`  | Category spending exceeds or is close to budget limit          |
+| `PATTERN`         | Recurring spending pattern detected                            |
+| `TIP`             | Generic saving tip based on spending profile                   |
+| `POSITIVE`        | Spending decreased or budget was kept under limit              |
+| `BUDGET_ADJUST`   | Suggests adjusting budget based on multi-month average         |
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "insights": [
+      {
+        "type": "SPENDING_CHANGE",
+        "title": "외식비 지출 증가",
+        "message": "이번 달 외식비가 지난 달보다 25.3% 증가했습니다.",
+        "severity": "WARNING",
+        "data": {
+          "categoryName": "외식",
+          "changeRate": 25.3,
+          "currentAmount": 180000,
+          "previousAmount": 143600
+        }
+      },
+      {
+        "type": "POSITIVE",
+        "title": "교통비 절약",
+        "message": "이번 달 교통비가 예산 범위 내에서 유지되었습니다.",
+        "severity": "POSITIVE",
+        "data": {
+          "categoryName": "교통",
+          "budgetAmount": 100000,
+          "spentAmount": 72000
+        }
+      }
+    ],
+    "generatedAt": "2026-04-12T10:30:00Z"
+  },
+  "error": null
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                        |
+|:------:|:-------------------|:-----------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid `year`/`month`  |
+| `404`  | `COUPLE_NOT_FOUND` | User is not in an active couple    |
+
+---
+
+### 3. Budget Adjustment Suggestions
+
+Analyzes the couple's multi-month spending history and suggests adjusted budget amounts for each budget category. Suggestions are based on rolling average actual spending.
+
+| Item        | Value                                         |
+|:------------|:----------------------------------------------|
+| **Method**  | `GET`                                         |
+| **Path**    | `/api/v1/smart/budget-suggestions`            |
+| **Auth**    | Required                                      |
+
+**Response `200 OK`**: `ApiResponse<List<BudgetSuggestion>>`
+
+`BudgetSuggestion`:
+
+| Field             | Type     | Description                                                              |
+|:------------------|:---------|:-------------------------------------------------------------------------|
+| `budgetId`        | `UUID`   | Budget ID                                                                |
+| `budgetName`      | `string` | Budget display name (category or group name)                             |
+| `currentAmount`   | `long`   | Current configured budget amount in KRW                                  |
+| `suggestedAmount` | `long`   | Suggested new budget amount in KRW based on average spending             |
+| `avgSpending`     | `long`   | Average actual spending over the analysis period in KRW                  |
+| `reason`          | `string` | Human-readable explanation (Korean) for why the adjustment is suggested  |
+
+**Example Response**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "budgetId": "550e8400-e29b-41d4-a716-446655440030",
+      "budgetName": "식비",
+      "currentAmount": 400000,
+      "suggestedAmount": 480000,
+      "avgSpending": 452000,
+      "reason": "최근 3개월 평균 지출이 예산보다 13% 높습니다. 예산을 현실에 맞게 조정해 보세요."
+    }
+  ],
+  "error": null
+}
+```
+
+**Error Responses**
+
+| Status | Error Code         | Description                     |
+|:------:|:-------------------|:--------------------------------|
+| `404`  | `COUPLE_NOT_FOUND` | User is not in an active couple |
+
+---
+
 ## Infrastructure
 
 Health and observability endpoints. Both are publicly accessible (`permitAll()` in `SecurityConfig`) and require no authentication.
@@ -4249,4 +4762,5 @@ spring:
 | `PRIVATE_ACCESS_DENIED`           | `403`       | The requested resource is PRIVATE and the caller is not the owner |
 | `INSURANCE_NOT_FOUND`             | `404`       | Requested insurance does not exist or belongs to another couple |
 | `SPENDING_PLAN_NOT_FOUND`         | `404`       | Requested spending plan does not exist or belongs to another couple |
-| `INVALID_STATUS`                  | `400`       | The operation is not permitted for the plan's current status        |
+| `FEEDBACK_NOT_FOUND`              | `404`       | Requested feedback post does not exist                               |
+| `INVALID_STATUS`                  | `400`       | Operation not allowed for the resource's current status (e.g., editing a non-SUBMITTED feedback, completing an already-completed plan) |

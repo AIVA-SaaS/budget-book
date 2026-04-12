@@ -3,6 +3,7 @@ import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_comment.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import 'package:budget_book/features/feedback/domain/entities/public_feedback.dart';
 
 abstract class FeedbackRepository {
   // User endpoints
@@ -51,6 +52,20 @@ abstract class FeedbackRepository {
   });
 
   Future<Either<Failure, FeedbackStats>> getFeedbackStats();
+
+  // Public board + voting
+  Future<Either<Failure, (List<PublicFeedback>, int totalElements, int totalPages)>>
+      getPublicFeedbacks({
+    String sort = 'latest',
+    String? category,
+    String? status,
+    int page = 0,
+    int size = 20,
+  });
+
+  Future<Either<Failure, List<PublicFeedback>>> getTopFeedbacks();
+
+  Future<Either<Failure, VoteResponse>> toggleVote(String feedbackId);
 
   // Admin release note management
   Future<Either<Failure, ReleaseNote>> createReleaseNote({

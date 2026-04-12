@@ -117,6 +117,8 @@ class ApiEndpoints {
 
   // Feedback
   static const String feedback = '/api/v1/feedback';
+  static const String feedbackPublic = '/api/v1/feedback/public';
+  static const String feedbackPublicTop = '/api/v1/feedback/public/top';
 
   // Release Notes (public)
   static const String releases = '/api/v1/releases';
@@ -127,7 +129,12 @@ class ApiEndpoints {
   // Admin Release Notes
   static const String adminReleases = '/api/v1/admin/releases';
 
-  // AI
+  // Smart Analysis (replaces old /api/v1/ai/* endpoints)
+  static const String smartClassify = '/api/v1/smart/classify';
+  static const String smartInsights = '/api/v1/smart/insights';
+  static const String smartBudgetSuggestions = '/api/v1/smart/budget-suggestions';
+
+  // Legacy AI endpoints (kept for reference)
   static const String aiClassify = '/api/v1/ai/classify';
   static const String aiInsights = '/api/v1/ai/insights';
 }

@@ -9,6 +9,7 @@ import 'package:budget_book/features/feedback/domain/repositories/feedback_repos
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_comment.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import 'package:budget_book/features/feedback/domain/entities/public_feedback.dart';
 import 'package:budget_book/core/error/failure.dart';
 
 // Manual mock to avoid build_runner / @GenerateMocks overhead
@@ -214,6 +215,47 @@ class MockFeedbackRepository extends Mock implements FeedbackRepository {
         returnValue:
             Future.value(Right<Failure, ReleaseNote>(_dummyReleaseNote)),
       ) as Future<Either<Failure, ReleaseNote>>;
+
+  @override
+  Future<Either<Failure, (List<PublicFeedback>, int, int)>>
+      getPublicFeedbacks({
+    String sort = 'latest',
+    String? category,
+    String? status,
+    int page = 0,
+    int size = 20,
+  }) =>
+          super.noSuchMethod(
+            Invocation.method(#getPublicFeedbacks, [], {
+              #sort: sort,
+              #category: category,
+              #status: status,
+              #page: page,
+              #size: size,
+            }),
+            returnValue: Future.value(
+              const Right<Failure, (List<PublicFeedback>, int, int)>(
+                  (<PublicFeedback>[], 0, 0)),
+            ),
+          ) as Future<Either<Failure, (List<PublicFeedback>, int, int)>>;
+
+  @override
+  Future<Either<Failure, List<PublicFeedback>>> getTopFeedbacks() =>
+      super.noSuchMethod(
+        Invocation.method(#getTopFeedbacks, []),
+        returnValue:
+            Future.value(const Right<Failure, List<PublicFeedback>>([])),
+      ) as Future<Either<Failure, List<PublicFeedback>>>;
+
+  @override
+  Future<Either<Failure, VoteResponse>> toggleVote(String feedbackId) =>
+      super.noSuchMethod(
+        Invocation.method(#toggleVote, [feedbackId]),
+        returnValue: Future.value(
+          const Right<Failure, VoteResponse>(
+              VoteResponse(voted: true, voteCount: 1)),
+        ),
+      ) as Future<Either<Failure, VoteResponse>>;
 }
 
 final _dummyFeedback = FeedbackPost(
@@ -510,6 +552,122 @@ void main() {
         expect: () => [
           const FeedbackLoading(),
           FeedbackLoaded(feedbacks: tFeedbacks),
+        ],
+      );
+    });
+
+    group('LoadPublicFeedbacks', () {
+      final tPublicFeedback = PublicFeedback(
+        id: 'pf1',
+        category: 'FEATURE',
+        title: '다크모드 지원',
+        contentPreview: '다크모드를 지원해주세요...',
+        status: 'REVIEWING',
+        voteCount: 10,
+        hasVoted: false,
+        commentCount: 3,
+        authorName: '홍길동',
+        createdAt: DateTime.parse('2026-04-01T10:00:00Z'),
+      );
+
+      blocTest<FeedbackBloc, FeedbackState>(
+        'emits [PublicFeedbacksLoading, PublicFeedbacksLoaded] on success',
+        build: () {
+          when(mockRepository.getPublicFeedbacks(
+            sort: 'latest',
+            page: 0,
+          )).thenAnswer((_) async => Right(([tPublicFeedback], 1, 1)));
+          return bloc;
+        },
+        act: (bloc) => bloc.add(const LoadPublicFeedbacks()),
+        expect: () => [
+          const PublicFeedbacksLoading(),
+          isA<PublicFeedbacksLoaded>()
+              .having((s) => s.feedbacks.length, 'count', 1)
+              .having((s) => s.feedbacks.first.id, 'first id', 'pf1')
+              .having((s) => s.totalElements, 'totalElements', 1),
+        ],
+      );
+
+      blocTest<FeedbackBloc, FeedbackState>(
+        'emits Error on failure',
+        build: () {
+          when(mockRepository.getPublicFeedbacks(
+            sort: 'latest',
+            page: 0,
+          )).thenAnswer(
+            (_) async => const Left(ServerFailure('공개 피드백을 불러오지 못했습니다')),
+          );
+          return bloc;
+        },
+        act: (bloc) => bloc.add(const LoadPublicFeedbacks()),
+        expect: () => [
+          const PublicFeedbacksLoading(),
+          const FeedbackError('공개 피드백을 불러오지 못했습니다'),
+        ],
+      );
+    });
+
+    group('ToggleVote', () {
+      final tPublicFeedback = PublicFeedback(
+        id: 'pf1',
+        category: 'FEATURE',
+        title: '다크모드 지원',
+        contentPreview: '다크모드를 지원해주세요...',
+        status: 'REVIEWING',
+        voteCount: 10,
+        hasVoted: false,
+        commentCount: 3,
+        authorName: '홍길동',
+        createdAt: DateTime.parse('2026-04-01T10:00:00Z'),
+      );
+
+      blocTest<FeedbackBloc, FeedbackState>(
+        'optimistically updates then confirms with server (deduplicated)',
+        build: () {
+          when(mockRepository.toggleVote('pf1')).thenAnswer(
+            (_) async =>
+                const Right(VoteResponse(voted: true, voteCount: 11)),
+          );
+          return bloc;
+        },
+        seed: () => PublicFeedbacksLoaded(
+          feedbacks: [tPublicFeedback],
+          totalElements: 1,
+          totalPages: 1,
+        ),
+        act: (bloc) => bloc.add(const ToggleVote('pf1')),
+        expect: () => [
+          // Optimistic + server confirm are equal, so BLoC deduplicates to 1 emission
+          isA<PublicFeedbacksLoaded>()
+              .having((s) => s.feedbacks.first.hasVoted, 'voted', true)
+              .having((s) => s.feedbacks.first.voteCount, 'count', 11),
+        ],
+      );
+
+      blocTest<FeedbackBloc, FeedbackState>(
+        'reverts on server failure',
+        build: () {
+          when(mockRepository.toggleVote('pf1')).thenAnswer(
+            (_) async => const Left(ServerFailure('투표를 처리하지 못했습니다')),
+          );
+          return bloc;
+        },
+        seed: () => PublicFeedbacksLoaded(
+          feedbacks: [tPublicFeedback],
+          totalElements: 1,
+          totalPages: 1,
+        ),
+        act: (bloc) => bloc.add(const ToggleVote('pf1')),
+        expect: () => [
+          // Optimistic update
+          isA<PublicFeedbacksLoaded>()
+              .having((s) => s.feedbacks.first.hasVoted, 'voted', true),
+          // Revert on failure
+          isA<PublicFeedbacksLoaded>()
+              .having((s) => s.feedbacks.first.hasVoted, 'reverted', false)
+              .having((s) => s.feedbacks.first.voteCount, 'reverted count', 10)
+              .having((s) => s.operationError, 'error', '투표를 처리하지 못했습니다'),
         ],
       );
     });

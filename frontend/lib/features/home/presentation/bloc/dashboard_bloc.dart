@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
+import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
@@ -65,6 +67,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           year: event.year,
           month: event.month,
         ),
+        statisticsRepository.getMonthlyTrend(months: 6),
+        statisticsRepository.getCategoryBreakdown(
+          year: event.year,
+          month: event.month,
+          type: 'EXPENSE',
+        ),
       ]);
 
       final summaryResult =
@@ -75,6 +83,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           futureResults[2] as Either<Failure, BudgetSummary>;
       final pmStatsResult =
           futureResults[3] as Either<Failure, List<PaymentMethodStatistics>>;
+      final trendResult =
+          futureResults[4] as Either<Failure, List<MonthlyTrend>>;
+      final categoryResult =
+          futureResults[5] as Either<Failure, List<CategoryStatistics>>;
 
       StatisticsSummary? summary;
       String? summaryError;
@@ -83,6 +95,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       BudgetSummary? budgetSummary;
       String? budgetError;
       List<PaymentMethodStatistics> pmStats = [];
+      List<MonthlyTrend> monthlyTrends = [];
+      List<CategoryStatistics> categoryStats = [];
 
       summaryResult.fold(
         (failure) => summaryError = failure.message,
@@ -104,6 +118,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         (data) => pmStats = data,
       );
 
+      trendResult.fold(
+        (failure) => {}, // silently ignore - widget won't show
+        (data) => monthlyTrends = data,
+      );
+
+      categoryResult.fold(
+        (failure) => {}, // silently ignore - widget won't show
+        (data) => categoryStats = data,
+      );
+
       emit(DashboardLoaded(
         year: event.year,
         month: event.month,
@@ -111,6 +135,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         recentTransactions: recentTransactions,
         budgetSummary: budgetSummary,
         paymentMethodStats: pmStats,
+        monthlyTrends: monthlyTrends,
+        categoryStats: categoryStats,
         summaryError: summaryError,
         transactionsError: transactionsError,
         budgetError: budgetError,

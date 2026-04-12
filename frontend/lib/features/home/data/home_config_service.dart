@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
 
-/// Persists dashboard widget configuration (order + visibility) via SharedPreferences.
+/// Persists dashboard widget configuration (order + visibility + settings) via SharedPreferences.
 class HomeConfigService {
   static const _key = 'dashboard_widget_config';
 
@@ -24,7 +24,7 @@ class HomeConfigService {
               DashboardWidgetConfig.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Remove widgets that no longer exist in defaults (e.g. renamed 'wishlist' → 'spending_plans')
+      // Remove widgets that no longer exist in defaults (e.g. renamed 'wishlist' -> 'spending_plans')
       final defaultIds = defaultDashboardWidgets.map((d) => d.id).toSet();
       saved.removeWhere((c) => !defaultIds.contains(c.id));
 
@@ -52,5 +52,27 @@ class HomeConfigService {
     final jsonStr =
         jsonEncode(configs.map((c) => c.toJson()).toList());
     await prefs.setString(_key, jsonStr);
+  }
+
+  /// Gets settings for a specific widget, merging saved with defaults.
+  Map<String, dynamic> getWidgetSettings(DashboardWidgetConfig config) {
+    final defaults = defaultWidgetSettings[config.id] ?? {};
+    return {...defaults, ...config.settings};
+  }
+
+  /// Updates settings for a specific widget in the config list and persists.
+  Future<List<DashboardWidgetConfig>> updateWidgetSettings(
+    List<DashboardWidgetConfig> configs,
+    String widgetId,
+    Map<String, dynamic> newSettings,
+  ) async {
+    final updated = configs.map((c) {
+      if (c.id == widgetId) {
+        return c.copyWith(settings: newSettings);
+      }
+      return c;
+    }).toList();
+    await saveConfig(updated);
+    return updated;
   }
 }

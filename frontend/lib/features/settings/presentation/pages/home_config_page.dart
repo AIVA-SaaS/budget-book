@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
 import 'package:budget_book/features/home/data/home_config_service.dart';
+import 'package:budget_book/features/home/presentation/widgets/widget_settings_sheet.dart';
 
 /// Settings page that allows the user to reorder and toggle dashboard widgets.
 class HomeConfigPage extends StatefulWidget {
@@ -55,6 +56,14 @@ class _HomeConfigPageState extends State<HomeConfigPage> {
         return Icons.account_balance;
       case 'lock':
         return Icons.lock;
+      case 'event_note':
+        return Icons.event_note;
+      case 'auto_awesome':
+        return Icons.auto_awesome;
+      case 'show_chart':
+        return Icons.show_chart;
+      case 'donut_large':
+        return Icons.donut_large;
       default:
         return Icons.widgets;
     }
@@ -107,6 +116,33 @@ class _HomeConfigPageState extends State<HomeConfigPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (defaultWidgetSettings.containsKey(config.id))
+                          IconButton(
+                            icon: Icon(
+                              Icons.settings,
+                              size: 20,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
+                            tooltip: '위젯 설정',
+                            onPressed: () {
+                              showWidgetSettingsSheet(
+                                context: context,
+                                config: config,
+                                onSave: (newSettings) async {
+                                  final updated =
+                                      await _service.updateWidgetSettings(
+                                    _configs,
+                                    config.id,
+                                    newSettings,
+                                  );
+                                  setState(() => _configs = updated);
+                                },
+                              );
+                            },
+                          ),
                         Switch(
                           value: config.enabled,
                           onChanged: (val) {

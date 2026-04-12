@@ -1,6 +1,7 @@
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_comment.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import 'package:budget_book/features/feedback/domain/entities/public_feedback.dart';
 
 class FeedbackPostModel extends FeedbackPost {
   const FeedbackPostModel({
@@ -104,6 +105,50 @@ class FeedbackStatsModel extends FeedbackStats {
           .map((key, value) => MapEntry(key, value as int)),
       byStatus: (json['byStatus'] as Map<String, dynamic>)
           .map((key, value) => MapEntry(key, value as int)),
+    );
+  }
+}
+
+class PublicFeedbackModel extends PublicFeedback {
+  const PublicFeedbackModel({
+    required super.id,
+    required super.category,
+    required super.title,
+    required super.contentPreview,
+    required super.status,
+    required super.voteCount,
+    required super.hasVoted,
+    required super.commentCount,
+    required super.authorName,
+    required super.createdAt,
+  });
+
+  factory PublicFeedbackModel.fromJson(Map<String, dynamic> json) {
+    return PublicFeedbackModel(
+      id: json['id'] as String,
+      category: json['category'] as String,
+      title: json['title'] as String,
+      contentPreview: json['contentPreview'] as String? ?? '',
+      status: json['status'] as String,
+      voteCount: json['voteCount'] as int? ?? 0,
+      hasVoted: json['hasVoted'] as bool? ?? false,
+      commentCount: json['commentCount'] as int? ?? 0,
+      authorName: json['authorName'] as String? ?? '',
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+}
+
+class VoteResponseModel extends VoteResponse {
+  const VoteResponseModel({
+    required super.voted,
+    required super.voteCount,
+  });
+
+  factory VoteResponseModel.fromJson(Map<String, dynamic> json) {
+    return VoteResponseModel(
+      voted: json['voted'] as bool,
+      voteCount: json['voteCount'] as int,
     );
   }
 }

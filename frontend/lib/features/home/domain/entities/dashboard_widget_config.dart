@@ -1,10 +1,11 @@
-/// Configuration for a single dashboard widget (visibility + order).
+/// Configuration for a single dashboard widget (visibility + order + settings).
 class DashboardWidgetConfig {
   final String id;
   final String name;
   final String icon;
   final bool enabled;
   final int order;
+  final Map<String, dynamic> settings;
 
   const DashboardWidgetConfig({
     required this.id,
@@ -12,15 +13,21 @@ class DashboardWidgetConfig {
     required this.icon,
     this.enabled = true,
     required this.order,
+    this.settings = const {},
   });
 
-  DashboardWidgetConfig copyWith({bool? enabled, int? order}) =>
+  DashboardWidgetConfig copyWith({
+    bool? enabled,
+    int? order,
+    Map<String, dynamic>? settings,
+  }) =>
       DashboardWidgetConfig(
         id: id,
         name: name,
         icon: icon,
         enabled: enabled ?? this.enabled,
         order: order ?? this.order,
+        settings: settings ?? this.settings,
       );
 
   Map<String, dynamic> toJson() => {
@@ -29,6 +36,7 @@ class DashboardWidgetConfig {
         'icon': icon,
         'enabled': enabled,
         'order': order,
+        'settings': settings,
       };
 
   factory DashboardWidgetConfig.fromJson(Map<String, dynamic> json) =>
@@ -38,11 +46,45 @@ class DashboardWidgetConfig {
         icon: json['icon'] as String,
         enabled: json['enabled'] as bool? ?? true,
         order: json['order'] as int? ?? 0,
+        settings: json['settings'] != null
+            ? Map<String, dynamic>.from(json['settings'] as Map)
+            : const {},
       );
 }
 
+/// Default widget settings per widget type.
+const defaultWidgetSettings = <String, Map<String, dynamic>>{
+  'monthly_summary': {
+    'showItems': ['income', 'expense', 'balance', 'savingRate'],
+  },
+  'budget_usage': {
+    'chartMode': 'bar',
+  },
+  'recent_transactions': {
+    'count': 5,
+  },
+  'payment_breakdown': {
+    'sortBy': 'amount',
+  },
+  'asset_balance': {
+    'showType': 'all',
+  },
+  'spending_plans': {
+    'showStatus': 'active',
+  },
+  'monthly_trend': {
+    'months': 6,
+    'showItems': ['income', 'expense'],
+  },
+  'category_breakdown': {
+    'count': 5,
+    'type': 'EXPENSE',
+  },
+};
+
 /// Default dashboard widget configuration.
-/// Order matters; asset_balance defaults to OFF.
+/// Order matters; asset_balance, spending_plans default to OFF.
+/// monthly_trend and category_breakdown are new widgets (default OFF).
 const defaultDashboardWidgets = [
   DashboardWidgetConfig(
     id: 'monthly_summary',
@@ -88,16 +130,30 @@ const defaultDashboardWidgets = [
   ),
   DashboardWidgetConfig(
     id: 'spending_plans',
-    name: '지출 계획',
+    name: '\uc9c0\ucd9c \uacc4\ud68d',
     icon: 'event_note',
     enabled: false,
     order: 6,
   ),
   DashboardWidgetConfig(
     id: 'ai_insights',
-    name: 'AI 인사이트',
+    name: 'AI \uc778\uc0ac\uc774\ud2b8',
     icon: 'auto_awesome',
     enabled: true,
     order: 7,
+  ),
+  DashboardWidgetConfig(
+    id: 'monthly_trend',
+    name: '\uc6d4\ubcc4 \ucd94\uc774',
+    icon: 'show_chart',
+    enabled: false,
+    order: 8,
+  ),
+  DashboardWidgetConfig(
+    id: 'category_breakdown',
+    name: '\uce74\ud14c\uace0\ub9ac\ubcc4 \ud604\ud669',
+    icon: 'donut_large',
+    enabled: false,
+    order: 9,
   ),
 ];

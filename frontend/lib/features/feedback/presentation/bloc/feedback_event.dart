@@ -103,3 +103,30 @@ class UpdateAdminNote extends FeedbackEvent {
 class LoadFeedbackStats extends FeedbackEvent {
   const LoadFeedbackStats();
 }
+
+// Public board events
+class LoadPublicFeedbacks extends FeedbackEvent {
+  final String sort;
+  final String? category;
+  final String? status;
+  final int page;
+
+  const LoadPublicFeedbacks({
+    this.sort = 'latest',
+    this.category,
+    this.status,
+    this.page = 0,
+  });
+
+  @override
+  List<Object?> get props => [sort, category, status, page];
+}
+
+class ToggleVote extends FeedbackEvent {
+  final String feedbackId;
+
+  const ToggleVote(this.feedbackId);
+
+  @override
+  List<Object?> get props => [feedbackId];
+}

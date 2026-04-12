@@ -27,6 +27,18 @@ abstract class FeedbackRemoteDataSource {
   Future<void> updateAdminNote(String feedbackId, Map<String, dynamic> data);
   Future<FeedbackStatsModel> getFeedbackStats();
 
+  // Public board + voting
+  Future<(List<PublicFeedbackModel>, int totalElements, int totalPages)>
+      getPublicFeedbacks({
+    String sort = 'latest',
+    String? category,
+    String? status,
+    int page = 0,
+    int size = 20,
+  });
+  Future<List<PublicFeedbackModel>> getTopFeedbacks();
+  Future<VoteResponseModel> toggleVote(String feedbackId);
+
   // Admin release note management
   Future<ReleaseNoteModel> createReleaseNote(Map<String, dynamic> data);
   Future<ReleaseNoteModel> updateReleaseNote(
@@ -215,6 +227,58 @@ class FeedbackRemoteDataSourceImpl implements FeedbackRemoteDataSource {
       data: data,
     );
     return ReleaseNoteModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<(List<PublicFeedbackModel>, int totalElements, int totalPages)>
+      getPublicFeedbacks({
+    String sort = 'latest',
+    String? category,
+    String? status,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'sort': sort,
+      'page': page,
+      'size': size,
+    };
+    if (category != null) queryParams['category'] = category;
+    if (status != null) queryParams['status'] = status;
+
+    final response = await apiClient.dio.get(
+      ApiEndpoints.feedbackPublic,
+      queryParameters: queryParams,
+    );
+    final pageData = response.data['data'] as Map<String, dynamic>;
+    final content = pageData['content'] as List<dynamic>;
+    final items = content
+        .map((e) => PublicFeedbackModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return (
+      items,
+      pageData['totalElements'] as int? ?? 0,
+      pageData['totalPages'] as int? ?? 0,
+    );
+  }
+
+  @override
+  Future<List<PublicFeedbackModel>> getTopFeedbacks() async {
+    final response = await apiClient.dio.get(ApiEndpoints.feedbackPublicTop);
+    final data = response.data['data'] as List<dynamic>;
+    return data
+        .map((e) => PublicFeedbackModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<VoteResponseModel> toggleVote(String feedbackId) async {
+    final response = await apiClient.dio.post(
+      '${ApiEndpoints.feedback}/$feedbackId/vote',
+    );
+    return VoteResponseModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
   }

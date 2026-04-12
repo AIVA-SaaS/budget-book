@@ -21,6 +21,8 @@ class FeedbackBloc extends Bloc<FeedbackEvent, FeedbackState> {
     on<AddAdminComment>(_onAddAdminComment);
     on<UpdateAdminNote>(_onUpdateAdminNote);
     on<LoadFeedbackStats>(_onLoadFeedbackStats);
+    on<LoadPublicFeedbacks>(_onLoadPublicFeedbacks);
+    on<ToggleVote>(_onToggleVote);
   }
 
   Future<void> _onLoadFeedbacks(
@@ -283,6 +285,143 @@ class FeedbackBloc extends Bloc<FeedbackEvent, FeedbackState> {
       );
     } catch (e) {
       // Silent fail for stats
+    }
+  }
+
+  Future<void> _onLoadPublicFeedbacks(
+    LoadPublicFeedbacks event,
+    Emitter<FeedbackState> emit,
+  ) async {
+    try {
+      final currentState = state;
+      // If loading more pages, keep existing data visible
+      if (event.page > 0 && currentState is PublicFeedbacksLoaded) {
+        emit(PublicFeedbacksLoaded(
+          feedbacks: currentState.feedbacks,
+          totalElements: currentState.totalElements,
+          totalPages: currentState.totalPages,
+          currentPage: currentState.currentPage,
+          currentSort: event.sort,
+          filterCategory: event.category,
+          filterStatus: event.status,
+          isLoadingMore: true,
+        ));
+      } else {
+        emit(const PublicFeedbacksLoading());
+      }
+
+      final result = await feedbackRepository.getPublicFeedbacks(
+        sort: event.sort,
+        category: event.category,
+        status: event.status,
+        page: event.page,
+      );
+
+      result.fold(
+        (failure) => emit(FeedbackError(failure.message)),
+        (data) {
+          final (items, totalElements, totalPages) = data;
+          // Append items for pagination
+          final existingItems = (event.page > 0 && currentState is PublicFeedbacksLoaded)
+              ? currentState.feedbacks
+              : <dynamic>[];
+          final allItems = [...existingItems, ...items];
+          emit(PublicFeedbacksLoaded(
+            feedbacks: allItems.cast(),
+            totalElements: totalElements,
+            totalPages: totalPages,
+            currentPage: event.page,
+            currentSort: event.sort,
+            filterCategory: event.category,
+            filterStatus: event.status,
+          ));
+        },
+      );
+    } catch (e) {
+      emit(const FeedbackError('예기치 않은 오류가 발생했습니다'));
+    }
+  }
+
+  Future<void> _onToggleVote(
+    ToggleVote event,
+    Emitter<FeedbackState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! PublicFeedbacksLoaded) return;
+
+    // Optimistic update: toggle immediately
+    final updatedFeedbacks = currentState.feedbacks.map((fb) {
+      if (fb.id == event.feedbackId) {
+        return fb.copyWith(
+          hasVoted: !fb.hasVoted,
+          voteCount: fb.hasVoted ? fb.voteCount - 1 : fb.voteCount + 1,
+        );
+      }
+      return fb;
+    }).toList();
+
+    emit(PublicFeedbacksLoaded(
+      feedbacks: updatedFeedbacks,
+      totalElements: currentState.totalElements,
+      totalPages: currentState.totalPages,
+      currentPage: currentState.currentPage,
+      currentSort: currentState.currentSort,
+      filterCategory: currentState.filterCategory,
+      filterStatus: currentState.filterStatus,
+    ));
+
+    // Call server
+    try {
+      final result = await feedbackRepository.toggleVote(event.feedbackId);
+      result.fold(
+        (failure) {
+          // Revert on error
+          emit(PublicFeedbacksLoaded(
+            feedbacks: currentState.feedbacks,
+            totalElements: currentState.totalElements,
+            totalPages: currentState.totalPages,
+            currentPage: currentState.currentPage,
+            currentSort: currentState.currentSort,
+            filterCategory: currentState.filterCategory,
+            filterStatus: currentState.filterStatus,
+            operationError: failure.message,
+          ));
+        },
+        (voteResponse) {
+          // Update with actual server values
+          final serverUpdated = updatedFeedbacks.map((fb) {
+            if (fb.id == event.feedbackId) {
+              return fb.copyWith(
+                hasVoted: voteResponse.voted,
+                voteCount: voteResponse.voteCount,
+              );
+            }
+            return fb;
+          }).toList();
+
+          emit(PublicFeedbacksLoaded(
+            feedbacks: serverUpdated,
+            totalElements: currentState.totalElements,
+            totalPages: currentState.totalPages,
+            currentPage: currentState.currentPage,
+            currentSort: currentState.currentSort,
+            filterCategory: currentState.filterCategory,
+            filterStatus: currentState.filterStatus,
+          ));
+        },
+      );
+    } catch (e) {
+      // Revert on exception
+      emit(PublicFeedbacksLoaded(
+        feedbacks: currentState.feedbacks,
+        totalElements: currentState.totalElements,
+        totalPages: currentState.totalPages,
+        currentPage: currentState.currentPage,
+        currentSort: currentState.currentSort,
+        filterCategory: currentState.filterCategory,
+        filterStatus: currentState.filterStatus,
+        operationError: '투표를 처리하지 못했습니다',
+      ));
     }
   }
 }

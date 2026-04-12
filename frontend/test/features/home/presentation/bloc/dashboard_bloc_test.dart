@@ -91,6 +91,11 @@ void main() {
               year: 2026, month: 3))
             .thenAnswer(
                 (_) async => const Right(<PaymentMethodStatistics>[]));
+        when(() => mockStatisticsRepo.getMonthlyTrend(months: 6))
+            .thenAnswer((_) async => const Right([]));
+        when(() => mockStatisticsRepo.getCategoryBreakdown(
+              year: 2026, month: 3, type: 'EXPENSE'))
+            .thenAnswer((_) async => const Right([]));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -129,6 +134,11 @@ void main() {
               year: 2026, month: 3))
             .thenAnswer(
                 (_) async => const Left(ServerFailure('pm stats error')));
+        when(() => mockStatisticsRepo.getMonthlyTrend(months: 6))
+            .thenAnswer((_) async => const Left(ServerFailure('trend error')));
+        when(() => mockStatisticsRepo.getCategoryBreakdown(
+              year: 2026, month: 3, type: 'EXPENSE'))
+            .thenAnswer((_) async => const Left(ServerFailure('cat error')));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -149,7 +159,7 @@ void main() {
     );
 
     blocTest<DashboardBloc, DashboardState>(
-      'loads all four APIs in parallel (Future.wait)',
+      'loads all six APIs in parallel (Future.wait)',
       build: () {
         when(() => mockStatisticsRepo.getSummary(year: 2026, month: 3))
             .thenAnswer((_) async => const Right(testSummary));
@@ -164,6 +174,11 @@ void main() {
               year: 2026, month: 3))
             .thenAnswer(
                 (_) async => const Right(<PaymentMethodStatistics>[]));
+        when(() => mockStatisticsRepo.getMonthlyTrend(months: 6))
+            .thenAnswer((_) async => const Right([]));
+        when(() => mockStatisticsRepo.getCategoryBreakdown(
+              year: 2026, month: 3, type: 'EXPENSE'))
+            .thenAnswer((_) async => const Right([]));
         return DashboardBloc(
           statisticsRepository: mockStatisticsRepo,
           transactionRepository: mockTransactionRepo,
@@ -185,6 +200,11 @@ void main() {
             .called(1);
         verify(() => mockStatisticsRepo.getPaymentMethodStats(
               year: 2026, month: 3))
+            .called(1);
+        verify(() => mockStatisticsRepo.getMonthlyTrend(months: 6))
+            .called(1);
+        verify(() => mockStatisticsRepo.getCategoryBreakdown(
+              year: 2026, month: 3, type: 'EXPENSE'))
             .called(1);
       },
     );

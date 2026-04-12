@@ -19,6 +19,7 @@ void main() {
       expect(config.icon, 'account_balance_wallet');
       expect(config.enabled, true);
       expect(config.order, 0);
+      expect(config.settings, const <String, dynamic>{});
     });
 
     test('toJson produces correct map', () {
@@ -37,6 +38,7 @@ void main() {
       expect(json['icon'], 'pie_chart');
       expect(json['enabled'], false);
       expect(json['order'], 1);
+      expect(json['settings'], const <String, dynamic>{});
     });
 
     test('roundtrip fromJson(toJson) preserves data', () {
@@ -55,6 +57,7 @@ void main() {
       expect(restored.icon, original.icon);
       expect(restored.enabled, original.enabled);
       expect(restored.order, original.order);
+      expect(restored.settings, original.settings);
     });
 
     test('copyWith overrides enabled and order', () {
@@ -113,8 +116,8 @@ void main() {
       expect(config.order, 0);
     });
 
-    test('defaultDashboardWidgets has 8 items', () {
-      expect(defaultDashboardWidgets.length, 8);
+    test('defaultDashboardWidgets has 10 items', () {
+      expect(defaultDashboardWidgets.length, 10);
     });
 
     test('defaultDashboardWidgets has asset_balance disabled', () {
@@ -134,6 +137,57 @@ void main() {
       for (int i = 0; i < defaultDashboardWidgets.length; i++) {
         expect(defaultDashboardWidgets[i].order, i);
       }
+    });
+
+    test('defaultDashboardWidgets has monthly_trend disabled', () {
+      final trend =
+          defaultDashboardWidgets.firstWhere((c) => c.id == 'monthly_trend');
+      expect(trend.enabled, false);
+      expect(trend.order, 8);
+    });
+
+    test('defaultDashboardWidgets has category_breakdown disabled', () {
+      final cat = defaultDashboardWidgets
+          .firstWhere((c) => c.id == 'category_breakdown');
+      expect(cat.enabled, false);
+      expect(cat.order, 9);
+    });
+
+    test('settings field roundtrip', () {
+      const config = DashboardWidgetConfig(
+        id: 'monthly_trend',
+        name: '월별 추이',
+        icon: 'show_chart',
+        order: 8,
+        settings: {'months': 6, 'showItems': ['income', 'expense']},
+      );
+
+      final json = config.toJson();
+      final restored = DashboardWidgetConfig.fromJson(json);
+
+      expect(restored.settings['months'], 6);
+      expect(restored.settings['showItems'], ['income', 'expense']);
+    });
+
+    test('copyWith settings', () {
+      const config = DashboardWidgetConfig(
+        id: 'test',
+        name: 'Test',
+        icon: 'star',
+        order: 0,
+        settings: {'count': 3},
+      );
+
+      final updated = config.copyWith(settings: {'count': 10});
+      expect(updated.settings['count'], 10);
+    });
+
+    test('defaultWidgetSettings has entries for configurable widgets', () {
+      expect(defaultWidgetSettings.containsKey('monthly_summary'), true);
+      expect(defaultWidgetSettings.containsKey('budget_usage'), true);
+      expect(defaultWidgetSettings.containsKey('recent_transactions'), true);
+      expect(defaultWidgetSettings.containsKey('monthly_trend'), true);
+      expect(defaultWidgetSettings.containsKey('category_breakdown'), true);
     });
   });
 }
