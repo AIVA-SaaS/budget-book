@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
+import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 
@@ -146,13 +147,31 @@ class _AssetItem extends StatelessWidget {
               child: Text(pm.name as String,
                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
             ),
-            if (!isCredit)
+            if (!isCredit) ...[
               Text(
                 pm.balance != null ? CurrencyFormatter.formatWithSign(pm.balance as int) : '-',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
                     color: pm.balance != null && (pm.balance as int) >= 0
                         ? Colors.green.shade800 : Colors.red.shade800),
               ),
+              if (pm.balance != null)
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    icon: Icon(Icons.tune, size: 14,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                    padding: EdgeInsets.zero,
+                    tooltip: '잔액 수정',
+                    onPressed: () => BalanceAdjustmentSheet.show(
+                      context,
+                      paymentMethodId: pm.id as String,
+                      paymentMethodName: pm.name as String,
+                      currentBalance: pm.balance as int,
+                    ),
+                  ),
+                ),
+            ],
             if (isCredit)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
