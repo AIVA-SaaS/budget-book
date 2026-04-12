@@ -384,10 +384,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     setState(() => _aiLoading = true);
     try {
       final datasource = getIt<AiRemoteDataSource>();
-      final result = await datasource.classify(description, _selectedType);
+      final results = await datasource.classify(description, _selectedType);
       if (!mounted) return;
       setState(() {
-        _aiResult = result;
+        _aiResult = results.isNotEmpty ? results.first : null;
         _aiLoading = false;
       });
     } catch (_) {

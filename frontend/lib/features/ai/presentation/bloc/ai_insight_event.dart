@@ -16,3 +16,7 @@ class LoadInsights extends AiInsightEvent {
   @override
   List<Object?> get props => [year, month];
 }
+
+class LoadBudgetSuggestions extends AiInsightEvent {
+  const LoadBudgetSuggestions();
+}

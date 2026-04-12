@@ -12,7 +12,8 @@ class AiInsightModel extends AiInsight {
     return AiInsightModel(
       type: json['type'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
+      // Smart API uses 'message', legacy AI uses 'description'
+      description: (json['message'] ?? json['description']) as String,
       severity: json['severity'] as String? ?? 'INFO',
     );
   }

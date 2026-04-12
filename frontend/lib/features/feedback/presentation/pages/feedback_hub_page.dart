@@ -9,6 +9,7 @@ import 'package:budget_book/features/feedback/presentation/bloc/release_note_eve
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_state.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_card.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/release_note_card.dart';
+import 'package:budget_book/features/feedback/presentation/pages/public_feedback_board_page.dart';
 import 'package:budget_book/core/widgets/announcement_banner.dart';
 
 class FeedbackHubPage extends StatefulWidget {
@@ -25,7 +26,7 @@ class _FeedbackHubPageState extends State<FeedbackHubPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -41,10 +42,12 @@ class _FeedbackHubPageState extends State<FeedbackHubPage>
         title: const Text('피드백 및 공지'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
             Tab(text: '공지사항'),
             Tab(text: '내 요청'),
             Tab(text: '업데이트'),
+            Tab(text: '공개 보드'),
           ],
         ),
       ),
@@ -59,6 +62,8 @@ class _FeedbackHubPageState extends State<FeedbackHubPage>
           ),
           // Tab 2: Release Notes
           const _ReleaseNotesTab(),
+          // Tab 3: Public Board
+          const PublicFeedbackBoardPage(),
         ],
       ),
     );

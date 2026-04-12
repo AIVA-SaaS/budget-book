@@ -131,6 +131,41 @@ data class FeedbackStatsResponse(
     val total: Long
 )
 
+// === Vote DTOs ===
+
+data class VoteResponse(
+    val voted: Boolean,
+    val voteCount: Int
+)
+
+data class PublicFeedbackResponse(
+    val id: UUID,
+    val category: FeedbackCategory,
+    val title: String,
+    val contentPreview: String,
+    val status: FeedbackStatus,
+    val voteCount: Int,
+    val hasVoted: Boolean,
+    val commentCount: Int,
+    val authorName: String,
+    val createdAt: Instant
+) {
+    companion object {
+        fun from(post: FeedbackPost, hasVoted: Boolean): PublicFeedbackResponse = PublicFeedbackResponse(
+            id = post.id,
+            category = post.category,
+            title = post.title,
+            contentPreview = post.content.take(100),
+            status = post.status,
+            voteCount = post.voteCount,
+            hasVoted = hasVoted,
+            commentCount = post.comments.size,
+            authorName = post.user.nickname,
+            createdAt = post.createdAt
+        )
+    }
+}
+
 // === Release Note Request DTOs ===
 
 data class CreateReleaseNoteRequest(

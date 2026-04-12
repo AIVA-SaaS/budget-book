@@ -46,6 +46,9 @@ class FeedbackPost(
     @Column(name = "resolved_release_id")
     var resolvedReleaseId: UUID? = null,
 
+    @Column(name = "vote_count", nullable = false)
+    var voteCount: Int = 0,
+
     @OneToMany(mappedBy = "post", cascade = [CascadeType.ALL], orphanRemoval = true)
     @OrderBy("createdAt ASC")
     val comments: MutableList<FeedbackComment> = mutableListOf()

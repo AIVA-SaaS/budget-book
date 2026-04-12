@@ -14,6 +14,7 @@ import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
+import com.budgetbook.smart.service.PatternLearningService
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
@@ -25,6 +26,7 @@ import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.repository.TransactionSpecifications
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -41,8 +43,11 @@ class TransactionService(
     private val categoryRepository: CategoryRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
     private val moneyPocketRepository: MoneyPocketRepository,
-    private val syncEventPublisher: SyncEventPublisher
+    private val syncEventPublisher: SyncEventPublisher,
+    private val patternLearningService: PatternLearningService
 ) : CoupleAwareService {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
     fun listTransactions(
@@ -196,6 +201,7 @@ class TransactionService(
             coupleId = couple.id,
             authorId = userId
         ))
+        learnPattern(couple.id, saved.description, saved.category?.id)
         return saved.toResponse()
     }
 
@@ -300,6 +306,7 @@ class TransactionService(
             coupleId = couple.id,
             authorId = userId
         ))
+        learnPattern(couple.id, saved.description, saved.category?.id)
         return saved.toResponse()
     }
 
@@ -411,6 +418,15 @@ class TransactionService(
         createdAt = createdAt,
         updatedAt = updatedAt
     )
+
+    private fun learnPattern(coupleId: UUID, description: String, categoryId: UUID?) {
+        if (categoryId == null) return
+        try {
+            patternLearningService.learn(coupleId, description, categoryId)
+        } catch (e: Exception) {
+            log.warn("Pattern learning failed for coupleId={}: {}", coupleId, e.message)
+        }
+    }
 
     companion object {
         fun parseVisibility(visibilityStr: String?): Visibility {

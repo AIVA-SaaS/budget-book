@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:budget_book/features/ai/data/datasources/ai_remote_datasource.dart';
 import 'package:budget_book/features/ai/data/models/ai_insight_model.dart';
+import 'package:budget_book/features/ai/data/models/budget_suggestion_model.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
@@ -85,6 +86,51 @@ void main() {
         isA<AiInsightLoaded>()
             .having((s) => s.insights, 'insights', isEmpty),
       ],
+    );
+
+    blocTest<AiInsightBloc, AiInsightState>(
+      'LoadBudgetSuggestions adds suggestions to existing loaded state',
+      build: () {
+        when(() => mockDataSource.getBudgetSuggestions()).thenAnswer(
+          (_) async => const [
+            BudgetSuggestionModel(
+              budgetId: 'b1',
+              budgetName: '식비',
+              currentAmount: 500000,
+              suggestedAmount: 600000,
+              avgSpending: 580000,
+              reason: '3개월 평균 초과',
+            ),
+          ],
+        );
+        return AiInsightBloc(remoteDataSource: mockDataSource);
+      },
+      seed: () => const AiInsightLoaded(
+        insights: [],
+        generatedAt: '2026-04-07T12:00:00Z',
+      ),
+      act: (bloc) => bloc.add(const LoadBudgetSuggestions()),
+      expect: () => [
+        isA<AiInsightLoaded>()
+            .having((s) => s.budgetSuggestions.length, 'suggestions count', 1)
+            .having((s) => s.budgetSuggestions.first.budgetName, 'name', '식비')
+            .having((s) => s.generatedAt, 'generatedAt', '2026-04-07T12:00:00Z'),
+      ],
+    );
+
+    blocTest<AiInsightBloc, AiInsightState>(
+      'LoadBudgetSuggestions silent fail does not change state',
+      build: () {
+        when(() => mockDataSource.getBudgetSuggestions())
+            .thenThrow(Exception('Network error'));
+        return AiInsightBloc(remoteDataSource: mockDataSource);
+      },
+      seed: () => const AiInsightLoaded(
+        insights: [],
+        generatedAt: '2026-04-07T12:00:00Z',
+      ),
+      act: (bloc) => bloc.add(const LoadBudgetSuggestions()),
+      expect: () => [], // No state change on error
     );
   });
 }

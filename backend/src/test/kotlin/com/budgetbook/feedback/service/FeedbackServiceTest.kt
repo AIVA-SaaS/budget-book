@@ -10,11 +10,13 @@ import com.budgetbook.feedback.domain.FeedbackCategory
 import com.budgetbook.feedback.domain.FeedbackComment
 import com.budgetbook.feedback.domain.FeedbackPost
 import com.budgetbook.feedback.domain.FeedbackStatus
+import com.budgetbook.feedback.domain.FeedbackVote
 import com.budgetbook.feedback.dto.ChangeStatusRequest
 import com.budgetbook.feedback.dto.CreateCommentRequest
 import com.budgetbook.feedback.dto.CreateFeedbackRequest
 import com.budgetbook.feedback.repository.FeedbackCommentRepository
 import com.budgetbook.feedback.repository.FeedbackPostRepository
+import com.budgetbook.feedback.repository.FeedbackVoteRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -36,9 +38,10 @@ class FeedbackServiceTest : BehaviorSpec({
 
     val feedbackPostRepository = mockk<FeedbackPostRepository>()
     val feedbackCommentRepository = mockk<FeedbackCommentRepository>()
+    val feedbackVoteRepository = mockk<FeedbackVoteRepository>()
     val userRepository = mockk<UserRepository>()
 
-    val service = FeedbackService(feedbackPostRepository, feedbackCommentRepository, userRepository)
+    val service = FeedbackService(feedbackPostRepository, feedbackCommentRepository, feedbackVoteRepository, userRepository)
 
     val user = User(
         email = "user@test.com",
@@ -274,6 +277,123 @@ class FeedbackServiceTest : BehaviorSpec({
                 result.total shouldBe 5L
                 result.byCategory[FeedbackCategory.BUG] shouldBe 5L
                 result.byStatus[FeedbackStatus.SUBMITTED] shouldBe 3L
+            }
+        }
+    }
+
+    // --- toggleVote ---
+
+    Given("a user wants to vote on a feedback post") {
+        val post = FeedbackPost(user = user, category = FeedbackCategory.FEATURE, title = "Feature", content = "desc")
+        every { feedbackPostRepository.findById(post.id) } returns Optional.of(post)
+        every { feedbackPostRepository.save(any()) } answers { firstArg() }
+
+        When("user votes for the first time") {
+            every { feedbackVoteRepository.findByPostIdAndUserId(post.id, user.id) } returns null
+            val voteSlot = slot<FeedbackVote>()
+            every { feedbackVoteRepository.save(capture(voteSlot)) } answers { voteSlot.captured }
+
+            val result = service.toggleVote(post.id, user.id)
+
+            Then("vote is created and count increases to 1") {
+                result.voted shouldBe true
+                result.voteCount shouldBe 1
+                verify(exactly = 1) { feedbackVoteRepository.save(any()) }
+            }
+        }
+
+        When("user votes again (toggle off)") {
+            post.voteCount = 1
+            val existingVote = FeedbackVote(post = post, userId = user.id)
+            every { feedbackVoteRepository.findByPostIdAndUserId(post.id, user.id) } returns existingVote
+            every { feedbackVoteRepository.delete(existingVote) } returns Unit
+
+            val result = service.toggleVote(post.id, user.id)
+
+            Then("vote is removed and count decreases to 0") {
+                result.voted shouldBe false
+                result.voteCount shouldBe 0
+                verify(exactly = 1) { feedbackVoteRepository.delete(existingVote) }
+            }
+        }
+
+        When("post is not found") {
+            val unknownPostId = UUID.randomUUID()
+            every { feedbackPostRepository.findById(unknownPostId) } returns Optional.empty()
+
+            Then("NotFoundException is thrown") {
+                shouldThrow<NotFoundException> {
+                    service.toggleVote(unknownPostId, user.id)
+                }
+            }
+        }
+    }
+
+    // --- getPublicFeedbacks ---
+
+    Given("public feedbacks are requested") {
+        val post1 = FeedbackPost(user = user, category = FeedbackCategory.BUG, title = "Bug 1", content = "A".repeat(150))
+        post1.voteCount = 5
+        val post2 = FeedbackPost(user = otherUser, category = FeedbackCategory.FEATURE, title = "Feature 1", content = "Short content")
+        post2.voteCount = 10
+
+        val page = PageImpl(listOf(post2, post1), PageRequest.of(0, 20), 2L)
+        every { feedbackPostRepository.findPublicByPopular(null, null, any()) } returns page
+        every { feedbackVoteRepository.existsByPostIdAndUserId(post1.id, user.id) } returns true
+        every { feedbackVoteRepository.existsByPostIdAndUserId(post2.id, user.id) } returns false
+
+        When("sorted by popular") {
+            val result = service.getPublicFeedbacks(user.id, "popular", null, null, 0, 20)
+
+            Then("returns feedbacks with correct vote info") {
+                result.content shouldHaveSize 2
+                result.content[0].voteCount shouldBe 10
+                result.content[0].hasVoted shouldBe false
+                result.content[1].voteCount shouldBe 5
+                result.content[1].hasVoted shouldBe true
+                result.content[1].contentPreview.length shouldBe 100
+            }
+        }
+    }
+
+    Given("public feedbacks sorted by latest") {
+        val post = FeedbackPost(user = user, category = FeedbackCategory.BUG, title = "Bug", content = "desc")
+        val page = PageImpl(listOf(post), PageRequest.of(0, 20), 1L)
+        every { feedbackPostRepository.findPublicByLatest(null, null, any()) } returns page
+        every { feedbackVoteRepository.existsByPostIdAndUserId(post.id, user.id) } returns false
+
+        When("sorted by latest") {
+            val result = service.getPublicFeedbacks(user.id, "latest", null, null, 0, 20)
+
+            Then("returns feedbacks sorted by creation date") {
+                result.content shouldHaveSize 1
+                result.content[0].title shouldBe "Bug"
+            }
+        }
+    }
+
+    // --- getTopFeedbacks ---
+
+    Given("top feedbacks are requested") {
+        val post1 = FeedbackPost(user = user, category = FeedbackCategory.BUG, title = "Top Bug", content = "desc")
+        post1.voteCount = 20
+        val post2 = FeedbackPost(user = otherUser, category = FeedbackCategory.FEATURE, title = "Top Feature", content = "desc")
+        post2.voteCount = 15
+
+        every { feedbackPostRepository.findTop10ByVoteCount() } returns listOf(post1, post2)
+        every { feedbackVoteRepository.existsByPostIdAndUserId(post1.id, user.id) } returns true
+        every { feedbackVoteRepository.existsByPostIdAndUserId(post2.id, user.id) } returns false
+
+        When("top feedbacks are retrieved") {
+            val result = service.getTopFeedbacks(user.id)
+
+            Then("returns top feedbacks sorted by vote count") {
+                result shouldHaveSize 2
+                result[0].voteCount shouldBe 20
+                result[0].hasVoted shouldBe true
+                result[0].title shouldBe "Top Bug"
+                result[1].voteCount shouldBe 15
+                result[1].hasVoted shouldBe false
             }
         }
     }

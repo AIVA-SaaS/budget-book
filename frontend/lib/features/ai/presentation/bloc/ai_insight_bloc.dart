@@ -9,6 +9,7 @@ class AiInsightBloc extends Bloc<AiInsightEvent, AiInsightState> {
   AiInsightBloc({required this.remoteDataSource})
       : super(const AiInsightInitial()) {
     on<LoadInsights>(_onLoadInsights);
+    on<LoadBudgetSuggestions>(_onLoadBudgetSuggestions);
   }
 
   Future<void> _onLoadInsights(
@@ -27,6 +28,31 @@ class AiInsightBloc extends Bloc<AiInsightEvent, AiInsightState> {
       ));
     } catch (e) {
       emit(const AiInsightError('인사이트를 불러올 수 없습니다'));
+    }
+  }
+
+  Future<void> _onLoadBudgetSuggestions(
+    LoadBudgetSuggestions event,
+    Emitter<AiInsightState> emit,
+  ) async {
+    try {
+      final suggestions = await remoteDataSource.getBudgetSuggestions();
+      final currentState = state;
+      if (currentState is AiInsightLoaded) {
+        emit(AiInsightLoaded(
+          insights: currentState.insights,
+          generatedAt: currentState.generatedAt,
+          budgetSuggestions: suggestions,
+        ));
+      } else {
+        emit(AiInsightLoaded(
+          insights: const [],
+          generatedAt: '',
+          budgetSuggestions: suggestions,
+        ));
+      }
+    } catch (e) {
+      // Silent fail for budget suggestions — don't overwrite insights
     }
   }
 }

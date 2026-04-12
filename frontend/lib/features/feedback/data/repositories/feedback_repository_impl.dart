@@ -6,6 +6,7 @@ import 'package:budget_book/features/feedback/data/datasources/feedback_remote_d
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_comment.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import 'package:budget_book/features/feedback/domain/entities/public_feedback.dart';
 import 'package:budget_book/features/feedback/domain/repositories/feedback_repository.dart';
 
 class FeedbackRepositoryImpl implements FeedbackRepository {
@@ -274,6 +275,55 @@ class FeedbackRepositoryImpl implements FeedbackRepository {
       return Left(mapDioError(e, '피드백을 연결하지 못했습니다'));
     } catch (e) {
       return const Left(ServerFailure('피드백을 연결하지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, (List<PublicFeedback>, int, int)>>
+      getPublicFeedbacks({
+    String sort = 'latest',
+    String? category,
+    String? status,
+    int page = 0,
+    int size = 20,
+  }) async {
+    try {
+      final result = await remoteDataSource.getPublicFeedbacks(
+        sort: sort,
+        category: category,
+        status: status,
+        page: page,
+        size: size,
+      );
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '공개 피드백을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('공개 피드백을 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<PublicFeedback>>> getTopFeedbacks() async {
+    try {
+      final result = await remoteDataSource.getTopFeedbacks();
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '인기 피드백을 불러오지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('인기 피드백을 불러오지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, VoteResponse>> toggleVote(String feedbackId) async {
+    try {
+      final result = await remoteDataSource.toggleVote(feedbackId);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '투표를 처리하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('투표를 처리하지 못했습니다'));
     }
   }
 }

@@ -24,6 +24,8 @@ import 'package:budget_book/features/spending_plan/presentation/bloc/spending_pl
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
+import 'package:budget_book/features/home/presentation/widgets/monthly_trend_card.dart';
+import 'package:budget_book/features/home/presentation/widgets/category_breakdown_card.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -48,6 +50,15 @@ class _DashboardPageState extends State<DashboardPage> {
     if (mounted) {
       setState(() => _widgetConfigs = configs);
     }
+  }
+
+  /// Returns merged settings for a widget (saved + defaults).
+  Map<String, dynamic> _getWidgetSettings(String widgetId) {
+    final config = _widgetConfigs.where((c) => c.id == widgetId).firstOrNull;
+    if (config != null) {
+      return _configService.getWidgetSettings(config);
+    }
+    return defaultWidgetSettings[widgetId] ?? {};
   }
 
   /// Builds the widget card matching [id] using the given dashboard [state].
@@ -82,6 +93,16 @@ class _DashboardPageState extends State<DashboardPage> {
         return const _SpendingPlansPreviewCard();
       case 'ai_insights':
         return _AiInsightPreviewCard(year: state.year, month: state.month);
+      case 'monthly_trend':
+        return MonthlyTrendCard(
+          trends: state.monthlyTrends,
+          settings: _getWidgetSettings('monthly_trend'),
+        );
+      case 'category_breakdown':
+        return CategoryBreakdownCard(
+          categoryStats: state.categoryStats,
+          settings: _getWidgetSettings('category_breakdown'),
+        );
       default:
         return const SizedBox.shrink();
     }

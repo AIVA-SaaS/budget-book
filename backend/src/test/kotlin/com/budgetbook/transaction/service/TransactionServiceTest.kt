@@ -17,6 +17,7 @@ import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
+import com.budgetbook.smart.service.PatternLearningService
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
@@ -48,7 +49,8 @@ class TransactionServiceTest : BehaviorSpec({
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher)
+    val patternLearningService = mockk<PatternLearningService>(relaxed = true)
+    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")

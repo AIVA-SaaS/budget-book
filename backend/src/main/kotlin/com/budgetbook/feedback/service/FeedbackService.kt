@@ -8,6 +8,7 @@ import com.budgetbook.feedback.domain.FeedbackCategory
 import com.budgetbook.feedback.domain.FeedbackComment
 import com.budgetbook.feedback.domain.FeedbackPost
 import com.budgetbook.feedback.domain.FeedbackStatus
+import com.budgetbook.feedback.domain.FeedbackVote
 import com.budgetbook.feedback.dto.ChangeStatusRequest
 import com.budgetbook.feedback.dto.CreateCommentRequest
 import com.budgetbook.feedback.dto.CreateFeedbackRequest
@@ -15,8 +16,13 @@ import com.budgetbook.feedback.dto.FeedbackCommentResponse
 import com.budgetbook.feedback.dto.FeedbackDetailResponse
 import com.budgetbook.feedback.dto.FeedbackPostResponse
 import com.budgetbook.feedback.dto.FeedbackStatsResponse
+import com.budgetbook.feedback.dto.PublicFeedbackResponse
+import com.budgetbook.feedback.dto.VoteResponse
 import com.budgetbook.feedback.repository.FeedbackCommentRepository
 import com.budgetbook.feedback.repository.FeedbackPostRepository
+import com.budgetbook.feedback.repository.FeedbackVoteRepository
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -26,6 +32,7 @@ import java.util.UUID
 class FeedbackService(
     private val feedbackPostRepository: FeedbackPostRepository,
     private val feedbackCommentRepository: FeedbackCommentRepository,
+    private val feedbackVoteRepository: FeedbackVoteRepository,
     private val userRepository: UserRepository
 ) {
 
@@ -88,6 +95,74 @@ class FeedbackService(
         feedbackPostRepository.save(post)
 
         return FeedbackCommentResponse.from(comment)
+    }
+
+    // --- Vote & Public Board Operations ---
+
+    @Transactional
+    fun toggleVote(postId: UUID, userId: UUID): VoteResponse {
+        val post = feedbackPostRepository.findById(postId)
+            .orElseThrow { NotFoundException("FEEDBACK_NOT_FOUND", "Feedback not found: $postId") }
+
+        val existing = feedbackVoteRepository.findByPostIdAndUserId(postId, userId)
+        if (existing != null) {
+            feedbackVoteRepository.delete(existing)
+            post.voteCount = maxOf(0, post.voteCount - 1)
+            feedbackPostRepository.save(post)
+            return VoteResponse(voted = false, voteCount = post.voteCount)
+        } else {
+            feedbackVoteRepository.save(FeedbackVote(post = post, userId = userId))
+            post.voteCount += 1
+            feedbackPostRepository.save(post)
+            return VoteResponse(voted = true, voteCount = post.voteCount)
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getPublicFeedbacks(
+        userId: UUID,
+        sort: String,
+        category: String?,
+        status: String?,
+        page: Int,
+        size: Int
+    ): Page<PublicFeedbackResponse> {
+        val pageable = PageRequest.of(page, size)
+        val categoryEnum = category?.let { FeedbackCategory.valueOf(it.uppercase()) }
+        val statusEnum = status?.let { FeedbackStatus.valueOf(it.uppercase()) }
+
+        val postsPage = if (sort == "popular") {
+            feedbackPostRepository.findPublicByPopular(statusEnum, categoryEnum, pageable)
+        } else {
+            feedbackPostRepository.findPublicByLatest(statusEnum, categoryEnum, pageable)
+        }
+
+        val postIds = postsPage.content.map { it.id }.toSet()
+        val votedPostIds = if (postIds.isNotEmpty()) {
+            postIds.filter { feedbackVoteRepository.existsByPostIdAndUserId(it, userId) }.toSet()
+        } else {
+            emptySet()
+        }
+
+        val responses = postsPage.content.map { post ->
+            PublicFeedbackResponse.from(post, votedPostIds.contains(post.id))
+        }
+
+        return PageImpl(responses, pageable, postsPage.totalElements)
+    }
+
+    @Transactional(readOnly = true)
+    fun getTopFeedbacks(userId: UUID): List<PublicFeedbackResponse> {
+        val posts = feedbackPostRepository.findTop10ByVoteCount()
+        val postIds = posts.map { it.id }.toSet()
+        val votedPostIds = if (postIds.isNotEmpty()) {
+            postIds.filter { feedbackVoteRepository.existsByPostIdAndUserId(it, userId) }.toSet()
+        } else {
+            emptySet()
+        }
+        return posts.map { post ->
+            PublicFeedbackResponse.from(post, votedPostIds.contains(post.id))
+        }
     }
 
     // --- Admin Operations ---
