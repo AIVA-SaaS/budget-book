@@ -194,7 +194,14 @@ class PaymentMethodPage extends StatelessWidget {
                 } else if (action == 'delete') {
                   _showDeleteDialog(context, method);
                 } else if (action == 'history') {
-                  context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}');
+                  final pmState = context.read<PaymentMethodBloc>().state;
+                  int year = DateTime.now().year;
+                  int month = DateTime.now().month;
+                  if (pmState is PaymentMethodLoaded && pmState.cardSettlementSummary != null) {
+                    year = pmState.cardSettlementSummary!.currentMonth.year;
+                    month = pmState.cardSettlementSummary!.currentMonth.month;
+                  }
+                  context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$year&month=$month');
                 }
               },
               itemBuilder: (_) => [
@@ -309,16 +316,26 @@ class PaymentMethodPage extends StatelessWidget {
                 Expanded(
                   child: _buildSettlementMonthCard(
                     context,
-                    '전월 결제',
+                    '전월 사용',
                     summary.previousMonth.totalAmount as int,
                     summary.previousMonth.cards.length as int,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildSettlementMonthCard(
                     context,
-                    '이번달 결제',
+                    '미결제',
+                    summary.unpaidMonth?.totalAmount as int? ?? 0,
+                    summary.unpaidMonth?.cards.length as int? ?? 0,
+                    highlight: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildSettlementMonthCard(
+                    context,
+                    '이번달 사용',
                     summary.currentMonth.totalAmount as int,
                     summary.currentMonth.cards.length as int,
                   ),
@@ -335,12 +352,15 @@ class PaymentMethodPage extends StatelessWidget {
     BuildContext context,
     String label,
     int amount,
-    int cardCount,
-  ) {
+    int cardCount, {
+    bool highlight = false,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: highlight && amount > 0
+            ? Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3)
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -349,14 +369,16 @@ class PaymentMethodPage extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 11,
+              color: highlight && amount > 0
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             '${CurrencyFormatter.format(amount)}원',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),

@@ -7,6 +7,7 @@ enum FilterType {
   pocket,
   amountRange,
   keyword,
+  transactionType,
   visibility,
   status,
 }
@@ -23,6 +24,7 @@ class UnifiedFilterState extends Equatable {
   final int? amountMin;
   final int? amountMax;
   final String? keyword;
+  final String? transactionType;
   final String? visibility;
   final String? status;
 
@@ -38,6 +40,7 @@ class UnifiedFilterState extends Equatable {
     this.amountMin,
     this.amountMax,
     this.keyword,
+    this.transactionType,
     this.visibility,
     this.status,
   });
@@ -51,6 +54,7 @@ class UnifiedFilterState extends Equatable {
       amountMin != null ||
       amountMax != null ||
       (keyword != null && keyword!.isNotEmpty) ||
+      transactionType != null ||
       (visibility != null && visibility != 'ALL') ||
       status != null;
 
@@ -68,6 +72,7 @@ class UnifiedFilterState extends Equatable {
     int? amountMin,
     int? amountMax,
     String? keyword,
+    String? transactionType,
     String? visibility,
     String? status,
     bool clearDateRange = false,
@@ -76,6 +81,7 @@ class UnifiedFilterState extends Equatable {
     bool clearPocket = false,
     bool clearAmount = false,
     bool clearKeyword = false,
+    bool clearTransactionType = false,
     bool clearVisibility = false,
     bool clearStatus = false,
   }) {
@@ -98,6 +104,9 @@ class UnifiedFilterState extends Equatable {
       amountMin: clearAmount ? null : (amountMin ?? this.amountMin),
       amountMax: clearAmount ? null : (amountMax ?? this.amountMax),
       keyword: clearKeyword ? null : (keyword ?? this.keyword),
+      transactionType: clearTransactionType
+          ? null
+          : (transactionType ?? this.transactionType),
       visibility:
           clearVisibility ? null : (visibility ?? this.visibility),
       status: clearStatus ? null : (status ?? this.status),
@@ -121,6 +130,7 @@ class UnifiedFilterState extends Equatable {
         amountMin,
         amountMax,
         keyword,
+        transactionType,
         visibility,
         status,
       ];

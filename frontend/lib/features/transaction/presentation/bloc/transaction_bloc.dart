@@ -21,6 +21,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int? _currentAmountMax;
   String? _currentDateFrom;
   String? _currentDateTo;
+  String? _currentType;
 
   TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
@@ -47,9 +48,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentPocketId = event.pocketId;
       _currentAmountMin = event.amountMin;
       _currentAmountMax = event.amountMax;
-      _currentCategoryId = event.categoryId;
       _currentDateFrom = event.dateFrom;
       _currentDateTo = event.dateTo;
+      _currentType = event.type;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());
@@ -61,7 +62,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           event.pocketId == null &&
           event.amountMin == null &&
           event.amountMax == null &&
-          event.categoryId == null;
+          event.type == null;
 
       final hasNoFilters = event.keyword == null &&
           event.categoryId == null &&
@@ -69,7 +70,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           event.pocketId == null &&
           event.amountMin == null &&
           event.amountMax == null &&
-          event.categoryId == null;
+          event.type == null;
 
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
@@ -82,6 +83,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         amountMax: event.amountMax,
         dateFrom: event.dateFrom,
         dateTo: event.dateTo,
+        type: event.type,
         page: 0,
         size: _pageSize,
       );
@@ -214,6 +216,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         amountMax: _currentAmountMax,
         dateFrom: _currentDateFrom,
         dateTo: _currentDateTo,
+        type: _currentType,
         page: nextPage,
         size: _pageSize,
       );
@@ -302,6 +305,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               scrollToDate: event.transactionDate,
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
+              type: _currentType,
             )),
       );
     } catch (e) {
@@ -352,6 +356,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               scrollToDate: event.transactionDate,
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
+              type: _currentType,
             )),
       );
     } catch (e) {

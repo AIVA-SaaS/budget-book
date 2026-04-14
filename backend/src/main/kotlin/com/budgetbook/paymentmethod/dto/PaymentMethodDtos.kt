@@ -65,7 +65,8 @@ data class CardPendingResponse(
 
 data class CardSettlementSummaryResponse(
     val previousMonth: CardSettlementMonth,
-    val currentMonth: CardSettlementMonth
+    val currentMonth: CardSettlementMonth,
+    val unpaidMonth: CardSettlementMonth
 )
 
 data class CardSettlementMonth(

@@ -391,25 +391,33 @@ class PaymentMethodServiceTest : BehaviorSpec({
             val now = java.time.YearMonth.now()
             val prev = now.minusMonths(1)
 
-            // Previous month: query by settlementDate range
-            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+            // Previous month: query by transactionDate range
+            every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
                 creditCard.id,
                 prev.atDay(1),
                 prev.atEndOfMonth(),
                 user1.id
             ) } returns listOf(arrayOf<Any?>(150000L, 3L))
 
-            // Current month: query by settlementDate range
-            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+            // Current month: query by transactionDate range
+            every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
                 creditCard.id,
                 now.atDay(1),
                 now.atEndOfMonth(),
                 user1.id
             ) } returns listOf(arrayOf<Any?>(200000L, 5L))
 
+            // Unpaid month: query by settlementDate range (current month)
+            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                creditCard.id,
+                now.atDay(1),
+                now.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(80000L, 2L))
+
             val result = service.getCardSettlementSummary(user1.id)
 
-            Then("uses settlementDate-based queries and returns correct amounts") {
+            Then("uses transactionDate for prev/current and settlementDate for unpaid") {
                 result.previousMonth.totalAmount shouldBe 150000
                 result.previousMonth.cards shouldHaveSize 1
                 result.previousMonth.cards[0].pendingAmount shouldBe 150000
@@ -419,6 +427,66 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 result.currentMonth.cards shouldHaveSize 1
                 result.currentMonth.cards[0].pendingAmount shouldBe 200000
                 result.currentMonth.cards[0].transactionCount shouldBe 5
+
+                result.unpaidMonth.totalAmount shouldBe 80000
+                result.unpaidMonth.year shouldBe now.year
+                result.unpaidMonth.month shouldBe now.monthValue
+                result.unpaidMonth.cards shouldHaveSize 1
+                result.unpaidMonth.cards[0].pendingAmount shouldBe 80000
+                result.unpaidMonth.cards[0].transactionCount shouldBe 2
+            }
+        }
+    }
+
+    Given("a couple with credit cards without closingDay/settlementDay") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val creditCardNoSetting = PaymentMethod(
+            couple = couple, name = "미설정카드", type = PaymentMethodType.CREDIT,
+            settlementDay = null, closingDay = null
+        )
+        every { paymentMethodRepository.findByCoupleIdAndTypeAndIsActiveTrue(couple.id, PaymentMethodType.CREDIT) } returns listOf(creditCardNoSetting)
+
+        When("getCardSettlementSummary is called for card without settlement settings") {
+            val now = java.time.YearMonth.now()
+            val prev = now.minusMonths(1)
+
+            // transactionDate queries still work — they don't depend on settlement settings
+            every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                creditCardNoSetting.id,
+                prev.atDay(1),
+                prev.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(100000L, 2L))
+
+            every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                creditCardNoSetting.id,
+                now.atDay(1),
+                now.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(50000L, 1L))
+
+            // settlementDate query returns 0 since no settlementDate set on transactions
+            every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
+                creditCardNoSetting.id,
+                now.atDay(1),
+                now.atEndOfMonth(),
+                user1.id
+            ) } returns listOf(arrayOf<Any?>(0L, 0L))
+
+            val result = service.getCardSettlementSummary(user1.id)
+
+            Then("previous/current months have data, unpaid is zero") {
+                result.previousMonth.totalAmount shouldBe 100000
+                result.previousMonth.cards[0].pendingAmount shouldBe 100000
+                result.previousMonth.cards[0].settlementDate shouldBe null
+
+                result.currentMonth.totalAmount shouldBe 50000
+                result.currentMonth.cards[0].pendingAmount shouldBe 50000
+
+                result.unpaidMonth.totalAmount shouldBe 0
+                result.unpaidMonth.cards[0].pendingAmount shouldBe 0
+                result.unpaidMonth.cards[0].transactionCount shouldBe 0
             }
         }
     }

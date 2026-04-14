@@ -4,6 +4,7 @@ class CardSettlementSummaryModel extends CardSettlementSummary {
   const CardSettlementSummaryModel({
     required super.previousMonth,
     required super.currentMonth,
+    super.unpaidMonth,
   });
 
   factory CardSettlementSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -12,6 +13,10 @@ class CardSettlementSummaryModel extends CardSettlementSummary {
           json['previousMonth'] as Map<String, dynamic>),
       currentMonth: CardSettlementMonthModel.fromJson(
           json['currentMonth'] as Map<String, dynamic>),
+      unpaidMonth: json['unpaidMonth'] != null
+          ? CardSettlementMonthModel.fromJson(
+              json['unpaidMonth'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
