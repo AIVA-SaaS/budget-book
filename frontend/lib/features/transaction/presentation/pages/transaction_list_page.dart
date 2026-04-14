@@ -132,6 +132,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           amountMax: _filterState.amountMax,
           dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
           dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
+          type: _filterState.transactionType,
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
@@ -310,6 +311,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
                     dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
                     scrollToDate: _pendingScrollToDate,
+                    type: _filterState.transactionType,
                   ),
                 );
             context.read<TransferBloc>().add(
@@ -350,6 +352,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         UnifiedFilterBar(
           enabledFilters: const {
             FilterType.dateRange,
+            FilterType.transactionType,
+            FilterType.visibility,
             FilterType.category,
             FilterType.paymentMethod,
             FilterType.pocket,

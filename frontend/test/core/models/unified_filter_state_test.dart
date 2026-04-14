@@ -41,6 +41,11 @@ void main() {
       expect(state.hasActiveFilters, isFalse);
     });
 
+    test('hasActiveFilters returns true when transactionType is set', () {
+      const state = UnifiedFilterState(transactionType: 'EXPENSE');
+      expect(state.hasActiveFilters, isTrue);
+    });
+
     test('hasActiveFilters returns true when visibility is not ALL', () {
       const state = UnifiedFilterState(visibility: 'SHARED');
       expect(state.hasActiveFilters, isTrue);
@@ -117,6 +122,12 @@ void main() {
       final cleared = state.copyWith(clearAmount: true);
       expect(cleared.amountMin, isNull);
       expect(cleared.amountMax, isNull);
+    });
+
+    test('copyWith clearTransactionType clears transactionType', () {
+      const state = UnifiedFilterState(transactionType: 'EXPENSE');
+      final cleared = state.copyWith(clearTransactionType: true);
+      expect(cleared.transactionType, isNull);
     });
 
     test('clearAll returns empty state', () {

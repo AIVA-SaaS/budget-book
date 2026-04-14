@@ -22,81 +22,105 @@ class UnifiedFilterBar extends StatelessWidget {
     this.categoryType = 'EXPENSE',
   });
 
+  int get _activeFilterCount {
+    int count = 0;
+    if (enabledFilters.contains(FilterType.transactionType) && state.transactionType != null) count++;
+    if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') count++;
+    if (enabledFilters.contains(FilterType.category) && state.categoryIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) count++;
+    if (enabledFilters.contains(FilterType.dateRange) && state.hasDateRange) count++;
+    return count;
+  }
+
+  List<_ChipData> get _allChips {
+    final chips = <_ChipData>[];
+    if (enabledFilters.contains(FilterType.transactionType) && state.transactionType != null) {
+      chips.add(_ChipData(
+        label: state.transactionType == 'EXPENSE' ? '지출' : '수입',
+        onRemove: () => onFilterChanged(state.copyWith(clearTransactionType: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') {
+      chips.add(_ChipData(
+        label: state.visibility == 'SHARED' ? '공유' : '개인',
+        onRemove: () => onFilterChanged(state.copyWith(clearVisibility: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.category) && state.categoryIds.isNotEmpty) {
+      chips.add(_ChipData(
+        label: '카테고리: ${state.categoryName ?? "선택됨"}',
+        onRemove: () => onFilterChanged(state.copyWith(clearCategory: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) {
+      chips.add(_ChipData(
+        label: '결제수단: ${state.paymentMethodName ?? "선택됨"}',
+        onRemove: () => onFilterChanged(state.copyWith(clearPaymentMethod: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) {
+      chips.add(_ChipData(
+        label: '포켓',
+        onRemove: () => onFilterChanged(state.copyWith(clearPocket: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) {
+      chips.add(_ChipData(
+        label: '금액: ${state.amountMin ?? 0}~${state.amountMax ?? "\u221E"}원',
+        onRemove: () => onFilterChanged(state.copyWith(clearAmount: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.dateRange) && state.hasDateRange) {
+      chips.add(_ChipData(
+        label: state.dateRangeLabel ?? '기간 설정됨',
+        onRemove: () => onFilterChanged(state.copyWith(clearDateRange: true)),
+      ));
+    }
+    return chips;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildFilterButtons(context),
-        if (_hasActiveChips) _buildActiveChips(context),
-      ],
-    );
-  }
+    if (!_hasAdvancedFilters) return const SizedBox.shrink();
 
-  bool get _hasActiveChips {
-    if (enabledFilters.contains(FilterType.dateRange) &&
-        state.hasDateRange) {
-      return true;
-    }
-    if (enabledFilters.contains(FilterType.category) &&
-        state.categoryIds.isNotEmpty) {
-      return true;
-    }
-    if (enabledFilters.contains(FilterType.paymentMethod) &&
-        state.paymentMethodIds.isNotEmpty) {
-      return true;
-    }
-    if (enabledFilters.contains(FilterType.pocket) &&
-        state.pocketIds.isNotEmpty) {
-      return true;
-    }
-    if (enabledFilters.contains(FilterType.amountRange) &&
-        (state.amountMin != null || state.amountMax != null)) {
-      return true;
-    }
-    return false;
-  }
+    final chips = _allChips;
+    const maxVisible = 3;
+    final visibleChips = chips.take(maxVisible).toList();
+    final overflowCount = chips.length > maxVisible ? chips.length - maxVisible : 0;
 
-  Widget _buildFilterButtons(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
-          // Main filter button (opens bottom sheet with category, payment, pocket, amount)
-          if (_hasAdvancedFilters)
-            Badge(
-              isLabelVisible: _hasAdvancedActiveFilters,
-              child: IconButton(
-                icon: const Icon(Icons.tune),
-                onPressed: () => _showAdvancedFilterSheet(context),
-                tooltip: '필터',
+          Badge(
+            isLabelVisible: _activeFilterCount > 0,
+            label: Text('$_activeFilterCount'),
+            child: IconButton(
+              icon: const Icon(Icons.tune),
+              onPressed: () => _showAdvancedFilterSheet(context),
+              tooltip: '필터',
+            ),
+          ),
+          ...visibleChips.map((chip) => Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: _ActiveFilterChip(
+                label: chip.label,
+                onRemove: chip.onRemove,
               ),
             ),
-          // Date range button
-          if (enabledFilters.contains(FilterType.dateRange))
-            IconButton(
-              icon: Icon(
-                Icons.date_range,
-                color: state.hasDateRange
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
+          )),
+          if (overflowCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Chip(
+                label: Text('+$overflowCount', style: const TextStyle(fontSize: 12)),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
               ),
-              onPressed: () => showDateRangeFilterSheet(
-                context: context,
-                currentFrom: state.dateFrom,
-                currentTo: state.dateTo,
-                onApply: (label, from, to) {
-                  onFilterChanged(state.copyWith(
-                    dateFrom: from,
-                    dateTo: to,
-                    dateRangeLabel: label,
-                  ));
-                },
-                onClear: () {
-                  onFilterChanged(state.copyWith(clearDateRange: true));
-                },
-              ),
-              tooltip: '기간 필터',
             ),
         ],
       ),
@@ -104,60 +128,13 @@ class UnifiedFilterBar extends StatelessWidget {
   }
 
   bool get _hasAdvancedFilters =>
+      enabledFilters.contains(FilterType.dateRange) ||
       enabledFilters.contains(FilterType.category) ||
       enabledFilters.contains(FilterType.paymentMethod) ||
       enabledFilters.contains(FilterType.pocket) ||
-      enabledFilters.contains(FilterType.amountRange);
-
-  bool get _hasAdvancedActiveFilters =>
-      state.categoryIds.isNotEmpty ||
-      state.paymentMethodIds.isNotEmpty ||
-      state.pocketIds.isNotEmpty ||
-      state.amountMin != null ||
-      state.amountMax != null;
-
-  Widget _buildActiveChips(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        children: [
-          if (state.categoryIds.isNotEmpty)
-            _ActiveFilterChip(
-              label: '카테고리: ${state.categoryName ?? "선택됨"}',
-              onRemove: () =>
-                  onFilterChanged(state.copyWith(clearCategory: true)),
-            ),
-          if (state.paymentMethodIds.isNotEmpty)
-            _ActiveFilterChip(
-              label: '결제수단: ${state.paymentMethodName ?? "선택됨"}',
-              onRemove: () =>
-                  onFilterChanged(state.copyWith(clearPaymentMethod: true)),
-            ),
-          if (state.pocketIds.isNotEmpty)
-            _ActiveFilterChip(
-              label: '포켓',
-              onRemove: () =>
-                  onFilterChanged(state.copyWith(clearPocket: true)),
-            ),
-          if (state.amountMin != null || state.amountMax != null)
-            _ActiveFilterChip(
-              label:
-                  '금액: ${state.amountMin ?? 0}~${state.amountMax ?? "\u221E"}원',
-              onRemove: () =>
-                  onFilterChanged(state.copyWith(clearAmount: true)),
-            ),
-          if (state.hasDateRange)
-            _ActiveFilterChip(
-              label: state.dateRangeLabel ?? '기간 설정됨',
-              onRemove: () =>
-                  onFilterChanged(state.copyWith(clearDateRange: true)),
-            ),
-        ],
-      ),
-    );
-  }
+      enabledFilters.contains(FilterType.amountRange) ||
+      enabledFilters.contains(FilterType.transactionType) ||
+      enabledFilters.contains(FilterType.visibility);
 
   void _showAdvancedFilterSheet(BuildContext context) {
     final amountMinController = TextEditingController(
@@ -175,6 +152,8 @@ class UnifiedFilterBar extends StatelessWidget {
             : null;
     String? tempPocketId =
         state.pocketIds.isNotEmpty ? state.pocketIds.first : null;
+    String? tempTransactionType = state.transactionType;
+    String? tempVisibility = state.visibility;
 
     showModalBottomSheet(
       context: context,
@@ -214,6 +193,91 @@ class UnifiedFilterBar extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(height: 24),
+                  // Transaction type selector
+                  if (enabledFilters.contains(FilterType.transactionType)) ...[
+                    Text('거래 유형', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String?>(
+                      segments: const [
+                        ButtonSegment(value: null, label: Text('전체')),
+                        ButtonSegment(value: 'EXPENSE', label: Text('지출')),
+                        ButtonSegment(value: 'INCOME', label: Text('수입')),
+                      ],
+                      selected: {tempTransactionType},
+                      onSelectionChanged: (values) {
+                        setSheetState(() => tempTransactionType = values.first);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // Visibility selector
+                  if (enabledFilters.contains(FilterType.visibility)) ...[
+                    Text('공개 범위', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String?>(
+                      segments: const [
+                        ButtonSegment(value: null, label: Text('전체')),
+                        ButtonSegment(value: 'SHARED', label: Text('공유')),
+                        ButtonSegment(value: 'PRIVATE', label: Text('개인')),
+                      ],
+                      selected: {tempVisibility},
+                      onSelectionChanged: (values) {
+                        setSheetState(() => tempVisibility = values.first);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // Date range
+                  if (enabledFilters.contains(FilterType.dateRange)) ...[
+                    Text('기간', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            state.hasDateRange
+                                ? (state.dateRangeLabel ?? '기간 설정됨')
+                                : '전체 기간',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.date_range, size: 18),
+                          label: const Text('기간 변경'),
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            showDateRangeFilterSheet(
+                              context: context,
+                              currentFrom: state.dateFrom,
+                              currentTo: state.dateTo,
+                              onApply: (label, from, to) {
+                                onFilterChanged(state.copyWith(
+                                  dateFrom: from,
+                                  dateTo: to,
+                                  dateRangeLabel: label,
+                                ));
+                              },
+                              onClear: () {
+                                onFilterChanged(state.copyWith(clearDateRange: true));
+                              },
+                            );
+                          },
+                        ),
+                        if (state.hasDateRange)
+                          IconButton(
+                            icon: Icon(Icons.clear, size: 18,
+                              color: Theme.of(context).colorScheme.error),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              onFilterChanged(state.copyWith(clearDateRange: true));
+                            },
+                            tooltip: '기간 초기화',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   // Amount range
                   if (enabledFilters.contains(FilterType.amountRange)) ...[
                     AmountRangeFilter(
@@ -268,6 +332,8 @@ class UnifiedFilterBar extends StatelessWidget {
                               clearPocket: true,
                               clearAmount: true,
                               clearDateRange: true,
+                              clearTransactionType: true,
+                              clearVisibility: true,
                             ));
                           },
                           child: const Text('초기화'),
@@ -306,7 +372,8 @@ class UnifiedFilterBar extends StatelessWidget {
                                   ? null
                                   : int.tryParse(maxText),
                               keyword: state.keyword,
-                              visibility: state.visibility,
+                              transactionType: tempTransactionType,
+                              visibility: tempVisibility,
                               status: state.status,
                             ));
                           },
@@ -334,6 +401,12 @@ class UnifiedFilterBar extends StatelessWidget {
   }
 }
 
+class _ChipData {
+  final String label;
+  final VoidCallback onRemove;
+  const _ChipData({required this.label, required this.onRemove});
+}
+
 class _ActiveFilterChip extends StatelessWidget {
   final String label;
   final VoidCallback onRemove;
@@ -343,7 +416,7 @@ class _ActiveFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
       onDeleted: onRemove,
       deleteIcon: const Icon(Icons.close, size: 14),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

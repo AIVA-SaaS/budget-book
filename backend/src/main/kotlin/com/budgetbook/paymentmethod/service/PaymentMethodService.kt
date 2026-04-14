@@ -238,7 +238,37 @@ class PaymentMethodService(
             couple.id, PaymentMethodType.CREDIT
         )
 
-        fun buildMonth(yearMonth: YearMonth): CardSettlementMonth {
+        fun buildMonthByTransactionDate(yearMonth: YearMonth): CardSettlementMonth {
+            val startDate = yearMonth.atDay(1)
+            val endDate = yearMonth.atEndOfMonth()
+            val cards = creditCards.map { card ->
+                val results = transactionRepository.sumByPaymentMethodAndTransactionDateRange(
+                    paymentMethodId = card.id,
+                    startDate = startDate,
+                    endDate = endDate,
+                    userId = userId
+                )
+                val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
+                val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
+                CardPendingResponse(
+                    paymentMethod = card.toResponse(),
+                    pendingAmount = totalAmount,
+                    settlementDate = if (card.settlementDay != null) {
+                        LocalDate.of(yearMonth.year, yearMonth.month,
+                            card.settlementDay!!.coerceAtMost(yearMonth.lengthOfMonth()))
+                    } else null,
+                    transactionCount = count
+                )
+            }
+            return CardSettlementMonth(
+                year = yearMonth.year,
+                month = yearMonth.monthValue,
+                totalAmount = cards.sumOf { it.pendingAmount },
+                cards = cards
+            )
+        }
+
+        fun buildMonthBySettlementDate(yearMonth: YearMonth): CardSettlementMonth {
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
             val cards = creditCards.map { card ->
@@ -269,8 +299,9 @@ class PaymentMethodService(
         }
 
         return CardSettlementSummaryResponse(
-            previousMonth = buildMonth(prev),
-            currentMonth = buildMonth(now)
+            previousMonth = buildMonthByTransactionDate(prev),
+            currentMonth = buildMonthByTransactionDate(now),
+            unpaidMonth = buildMonthBySettlementDate(now)
         )
     }
 

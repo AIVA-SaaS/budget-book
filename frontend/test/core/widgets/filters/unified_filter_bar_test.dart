@@ -25,7 +25,7 @@ void main() {
   }
 
   group('UnifiedFilterBar', () {
-    testWidgets('shows filter button when advanced filters enabled',
+    testWidgets('shows tune icon when advanced filters enabled',
         (tester) async {
       await tester.pumpWidget(createWidget(
         enabledFilters: {FilterType.category, FilterType.paymentMethod},
@@ -33,17 +33,17 @@ void main() {
       expect(find.byIcon(Icons.tune), findsOneWidget);
     });
 
-    testWidgets('shows date range button when dateRange enabled',
+    testWidgets('shows tune icon when dateRange is the only filter',
         (tester) async {
       await tester.pumpWidget(createWidget(
         enabledFilters: {FilterType.dateRange},
       ));
-      expect(find.byIcon(Icons.date_range), findsOneWidget);
+      expect(find.byIcon(Icons.tune), findsOneWidget);
     });
 
-    testWidgets('hides filter button when no advanced filters', (tester) async {
+    testWidgets('shows nothing when no filters enabled', (tester) async {
       await tester.pumpWidget(createWidget(
-        enabledFilters: {FilterType.dateRange},
+        enabledFilters: {},
       ));
       expect(find.byIcon(Icons.tune), findsNothing);
     });
@@ -85,6 +85,56 @@ void main() {
         ),
       ));
       expect(find.text('이번 달'), findsOneWidget);
+    });
+
+    testWidgets('shows active transactionType chip', (tester) async {
+      await tester.pumpWidget(createWidget(
+        enabledFilters: {FilterType.transactionType},
+        state: const UnifiedFilterState(transactionType: 'EXPENSE'),
+      ));
+      expect(find.text('지출'), findsOneWidget);
+    });
+
+    testWidgets('shows active visibility chip', (tester) async {
+      await tester.pumpWidget(createWidget(
+        enabledFilters: {FilterType.visibility},
+        state: const UnifiedFilterState(visibility: 'SHARED'),
+      ));
+      expect(find.text('공유'), findsOneWidget);
+    });
+
+    testWidgets('badge shows active filter count', (tester) async {
+      await tester.pumpWidget(createWidget(
+        state: const UnifiedFilterState(
+          categoryIds: {'cat-1'},
+          categoryName: '식비',
+          paymentMethodIds: {'pm-1'},
+          paymentMethodName: '신한카드',
+        ),
+      ));
+      expect(find.text('2'), findsOneWidget);
+    });
+
+    testWidgets('shows overflow chip when more than 3 filters active',
+        (tester) async {
+      await tester.pumpWidget(createWidget(
+        enabledFilters: {
+          FilterType.transactionType,
+          FilterType.visibility,
+          FilterType.category,
+          FilterType.paymentMethod,
+        },
+        state: const UnifiedFilterState(
+          transactionType: 'EXPENSE',
+          visibility: 'SHARED',
+          categoryIds: {'cat-1'},
+          categoryName: '식비',
+          paymentMethodIds: {'pm-1'},
+          paymentMethodName: '신한카드',
+        ),
+      ));
+      // First 3 chips shown, 4th as overflow
+      expect(find.text('+1'), findsOneWidget);
     });
 
     testWidgets('removing category chip calls onFilterChanged', (tester) async {

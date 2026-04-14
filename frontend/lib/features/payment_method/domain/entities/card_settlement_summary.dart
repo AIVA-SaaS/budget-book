@@ -3,14 +3,16 @@ import 'package:equatable/equatable.dart';
 class CardSettlementSummary extends Equatable {
   final CardSettlementMonth previousMonth;
   final CardSettlementMonth currentMonth;
+  final CardSettlementMonth? unpaidMonth;
 
   const CardSettlementSummary({
     required this.previousMonth,
     required this.currentMonth,
+    this.unpaidMonth,
   });
 
   @override
-  List<Object?> get props => [previousMonth, currentMonth];
+  List<Object?> get props => [previousMonth, currentMonth, unpaidMonth];
 }
 
 class CardSettlementMonth extends Equatable {
