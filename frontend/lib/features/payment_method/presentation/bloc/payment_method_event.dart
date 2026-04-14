@@ -76,7 +76,13 @@ class LoadCardPending extends PaymentMethodEvent {
 }
 
 class LoadCardSettlementSummary extends PaymentMethodEvent {
-  const LoadCardSettlementSummary();
+  final int? year;
+  final int? month;
+
+  const LoadCardSettlementSummary({this.year, this.month});
+
+  @override
+  List<Object?> get props => [year, month];
 }
 
 class ReorderPaymentMethods extends PaymentMethodEvent {

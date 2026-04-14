@@ -399,6 +399,13 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 user1.id
             ) } returns listOf(arrayOf<Any?>(150000L, 3L))
 
+            // Previous month: transfer out
+            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+                couple.id,
+                prev.atDay(1),
+                prev.atEndOfMonth()
+            ) } returns listOf(arrayOf<Any>(creditCard.id, 10000L))
+
             // Current month: query by transactionDate range
             every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
                 creditCard.id,
@@ -406,6 +413,13 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 now.atEndOfMonth(),
                 user1.id
             ) } returns listOf(arrayOf<Any?>(200000L, 5L))
+
+            // Current month: transfer out
+            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+                couple.id,
+                now.atDay(1),
+                now.atEndOfMonth()
+            ) } returns listOf(arrayOf<Any>(creditCard.id, 20000L))
 
             // Unpaid month: query by settlementDate range (current month)
             every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(
@@ -417,15 +431,15 @@ class PaymentMethodServiceTest : BehaviorSpec({
 
             val result = service.getCardSettlementSummary(user1.id)
 
-            Then("uses transactionDate for prev/current and settlementDate for unpaid") {
-                result.previousMonth.totalAmount shouldBe 150000
+            Then("uses transactionDate for prev/current (including transfers) and settlementDate for unpaid") {
+                result.previousMonth.totalAmount shouldBe 160000  // 150000 txn + 10000 transfer
                 result.previousMonth.cards shouldHaveSize 1
-                result.previousMonth.cards[0].pendingAmount shouldBe 150000
+                result.previousMonth.cards[0].pendingAmount shouldBe 160000
                 result.previousMonth.cards[0].transactionCount shouldBe 3
 
-                result.currentMonth.totalAmount shouldBe 200000
+                result.currentMonth.totalAmount shouldBe 220000  // 200000 txn + 20000 transfer
                 result.currentMonth.cards shouldHaveSize 1
-                result.currentMonth.cards[0].pendingAmount shouldBe 200000
+                result.currentMonth.cards[0].pendingAmount shouldBe 220000
                 result.currentMonth.cards[0].transactionCount shouldBe 5
 
                 result.unpaidMonth.totalAmount shouldBe 80000
@@ -459,12 +473,26 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 user1.id
             ) } returns listOf(arrayOf<Any?>(100000L, 2L))
 
+            // Transfer out (no transfers for this card)
+            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+                couple.id,
+                prev.atDay(1),
+                prev.atEndOfMonth()
+            ) } returns emptyList()
+
             every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
                 creditCardNoSetting.id,
                 now.atDay(1),
                 now.atEndOfMonth(),
                 user1.id
             ) } returns listOf(arrayOf<Any?>(50000L, 1L))
+
+            // Transfer out (no transfers for this card)
+            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+                couple.id,
+                now.atDay(1),
+                now.atEndOfMonth()
+            ) } returns emptyList()
 
             // settlementDate query returns 0 since no settlementDate set on transactions
             every { transactionRepository.sumByPaymentMethodAndSettlementDateRange(

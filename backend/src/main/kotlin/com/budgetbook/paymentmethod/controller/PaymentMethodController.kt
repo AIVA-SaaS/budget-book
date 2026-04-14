@@ -72,9 +72,11 @@ class PaymentMethodController(
 
     @GetMapping("/card-settlement-summary")
     fun getCardSettlementSummary(
-        @AuthUser userId: UUID
+        @AuthUser userId: UUID,
+        @RequestParam(required = false) year: Int?,
+        @RequestParam(required = false) month: Int?
     ): ApiResponse<CardSettlementSummaryResponse> {
-        return ApiResponse.ok(paymentMethodService.getCardSettlementSummary(userId))
+        return ApiResponse.ok(paymentMethodService.getCardSettlementSummary(userId, year, month))
     }
 
     @GetMapping("/card-pending")

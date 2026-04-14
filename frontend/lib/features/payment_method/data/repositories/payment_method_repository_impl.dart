@@ -107,9 +107,9 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
 
   @override
   Future<Either<Failure, CardSettlementSummary>>
-      getCardSettlementSummary() async {
+      getCardSettlementSummary({int? year, int? month}) async {
     try {
-      final result = await remoteDataSource.getCardSettlementSummary();
+      final result = await remoteDataSource.getCardSettlementSummary(year: year, month: month);
       return Right(result);
     } on DioException catch (e) {
       return Left(mapDioError(e, 'Failed to load card settlement summary'));
