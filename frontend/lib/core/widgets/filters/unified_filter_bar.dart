@@ -27,79 +27,11 @@ class UnifiedFilterBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_hasSegmentFilters) _buildSegmentFilters(context),
         _buildFilterButtons(context),
         if (_hasActiveChips) _buildActiveChips(context),
       ],
     );
   }
-
-  Widget _buildSegmentFilters(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          if (enabledFilters.contains(FilterType.transactionType)) ...[
-            Expanded(
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: '', label: Text('전체')),
-                  ButtonSegment(value: 'EXPENSE', label: Text('지출')),
-                  ButtonSegment(value: 'INCOME', label: Text('수입')),
-                ],
-                selected: {state.transactionType ?? ''},
-                onSelectionChanged: (selected) {
-                  final type = selected.first;
-                  onFilterChanged(type.isEmpty
-                      ? state.copyWith(clearTransactionType: true)
-                      : state.copyWith(transactionType: type));
-                },
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: WidgetStatePropertyAll(
-                    Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          if (enabledFilters.contains(FilterType.transactionType) &&
-              enabledFilters.contains(FilterType.visibility))
-            const SizedBox(width: 8),
-          if (enabledFilters.contains(FilterType.visibility)) ...[
-            Expanded(
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'ALL', label: Text('모두')),
-                  ButtonSegment(value: 'SHARED', label: Text('공유')),
-                  ButtonSegment(value: 'PRIVATE', label: Text('개인')),
-                ],
-                selected: {state.visibility ?? 'ALL'},
-                onSelectionChanged: (selected) {
-                  final vis = selected.first;
-                  onFilterChanged(vis == 'ALL'
-                      ? state.copyWith(clearVisibility: true)
-                      : state.copyWith(visibility: vis));
-                },
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: WidgetStatePropertyAll(
-                    Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  bool get _hasSegmentFilters =>
-      enabledFilters.contains(FilterType.transactionType) ||
-      enabledFilters.contains(FilterType.visibility);
 
   bool get _hasActiveChips {
     if (enabledFilters.contains(FilterType.dateRange) &&

@@ -125,7 +125,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
           year: year,
           month: month,
           keyword: keyword,
-          type: _filterState.transactionType,
           categoryId: _filterState.categoryIds.isNotEmpty ? _filterState.categoryIds.first : null,
           paymentMethodId: _filterState.paymentMethodIds.isNotEmpty ? _filterState.paymentMethodIds.first : null,
           pocketId: _filterState.pocketIds.isNotEmpty ? _filterState.pocketIds.first : null,
@@ -350,8 +349,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
         // Unified filter bar (category, payment, pocket, amount, date range)
         UnifiedFilterBar(
           enabledFilters: const {
-            FilterType.transactionType,
-            FilterType.visibility,
             FilterType.dateRange,
             FilterType.category,
             FilterType.paymentMethod,

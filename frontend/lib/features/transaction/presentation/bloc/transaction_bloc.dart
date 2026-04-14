@@ -21,7 +21,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int? _currentAmountMax;
   String? _currentDateFrom;
   String? _currentDateTo;
-  String? _currentType;
 
   TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
@@ -51,7 +50,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentCategoryId = event.categoryId;
       _currentDateFrom = event.dateFrom;
       _currentDateTo = event.dateTo;
-      _currentType = event.type;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());
@@ -76,7 +74,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
         month: event.month,
-        type: event.type,
         keyword: event.keyword,
         categoryId: event.categoryId,
         paymentMethodId: event.paymentMethodId,
@@ -209,7 +206,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final result = await transactionRepository.getTransactions(
         year: _currentYear,
         month: _currentMonth,
-        type: _currentType,
         keyword: _currentKeyword,
         categoryId: _currentCategoryId,
         paymentMethodId: _currentPaymentMethodId,
@@ -306,7 +302,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               scrollToDate: event.transactionDate,
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
-              type: _currentType,
             )),
       );
     } catch (e) {
@@ -357,7 +352,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               scrollToDate: event.transactionDate,
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
-              type: _currentType,
             )),
       );
     } catch (e) {
