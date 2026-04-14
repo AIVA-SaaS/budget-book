@@ -5,16 +5,18 @@ class AiInsight extends Equatable {
   final String title;
   final String description;
   final String severity;
+  final Map<String, dynamic>? data;
 
   const AiInsight({
     required this.type,
     required this.title,
     required this.description,
     required this.severity,
+    this.data,
   });
 
   @override
-  List<Object?> get props => [type, title, description, severity];
+  List<Object?> get props => [type, title, description, severity, data];
 }
 
 class AiInsightsResponse extends Equatable {

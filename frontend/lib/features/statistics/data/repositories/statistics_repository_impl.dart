@@ -98,10 +98,17 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
   Future<Either<Failure, PeriodSummary>> getPeriodSummary({
     required String dateFrom,
     required String dateTo,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
   }) async {
     try {
       final result = await remoteDataSource.getPeriodSummary(
-        dateFrom: dateFrom, dateTo: dateTo,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        categoryId: categoryId,
+        paymentMethodId: paymentMethodId,
+        pocketId: pocketId,
       );
       return Right(result);
     } on DioException catch (e) {

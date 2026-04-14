@@ -80,6 +80,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         pocketId: event.pocketId,
         amountMin: event.amountMin,
         amountMax: event.amountMax,
+        dateFrom: event.dateFrom,
+        dateTo: event.dateTo,
         page: 0,
         size: _pageSize,
       );
@@ -210,6 +212,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         pocketId: _currentPocketId,
         amountMin: _currentAmountMin,
         amountMax: _currentAmountMax,
+        dateFrom: _currentDateFrom,
+        dateTo: _currentDateTo,
         page: nextPage,
         size: _pageSize,
       );

@@ -105,11 +105,12 @@ class SmartAnalysisServiceTest : BehaviorSpec({
         When("식비 increased >20% from previous month") {
             val result = service.generateInsights(user1.id, year, month)
 
-            Then("generates SPENDING_CHANGE insight for 식비") {
+            Then("generates SPENDING_CHANGE insight for 식비 with categoryId") {
                 val spendingChange = result.insights.filter { it.type == "SPENDING_CHANGE" }
                 spendingChange shouldHaveSize 1
                 spendingChange[0].title shouldContain "식비"
                 spendingChange[0].severity shouldBe "WARNING"
+                spendingChange[0].data?.get("categoryId") shouldBe catId1.toString()
             }
         }
 

@@ -25,6 +25,8 @@ class MockTransactionRemoteDataSource extends Mock
     String? pocketId,
     int? amountMin,
     int? amountMax,
+    String? dateFrom,
+    String? dateTo,
     int page = 0,
     int size = 20,
   }) =>
@@ -39,6 +41,8 @@ class MockTransactionRemoteDataSource extends Mock
           #pocketId: pocketId,
           #amountMin: amountMin,
           #amountMax: amountMax,
+          #dateFrom: dateFrom,
+          #dateTo: dateTo,
           #page: page,
           #size: size,
         }),

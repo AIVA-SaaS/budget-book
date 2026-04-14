@@ -41,6 +41,8 @@ class _PeriodSummaryPageState extends State<PeriodSummaryPage> {
       context.read<PeriodSummaryBloc>().add(LoadPeriodSummary(
             dateFrom: _fmt.format(_filterState.dateFrom!),
             dateTo: _fmt.format(_filterState.dateTo!),
+            categoryId: _filterState.categoryIds.isNotEmpty ? _filterState.categoryIds.first : null,
+            paymentMethodId: _filterState.paymentMethodIds.isNotEmpty ? _filterState.paymentMethodIds.first : null,
           ));
     }
   }
@@ -51,6 +53,8 @@ class _PeriodSummaryPageState extends State<PeriodSummaryPage> {
       context.read<PeriodSummaryBloc>().add(LoadPeriodSummary(
             dateFrom: _fmt.format(newState.dateFrom!),
             dateTo: _fmt.format(newState.dateTo!),
+            categoryId: newState.categoryIds.isNotEmpty ? newState.categoryIds.first : null,
+            paymentMethodId: newState.paymentMethodIds.isNotEmpty ? newState.paymentMethodIds.first : null,
           ));
     }
   }

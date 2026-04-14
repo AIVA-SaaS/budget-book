@@ -1150,10 +1150,21 @@ class _AiInsightPreviewCardState extends State<_AiInsightPreviewCard> {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
-                final shell = StatefulNavigationShell.maybeOf(context);
-                if (shell != null) {
-                  shell.goBranch(2);
+                if (insight.type == 'SPENDING_CHANGE' || insight.type == 'TIP') {
+                  final categoryId = insight.data?['categoryId'];
+                  final categoryName = insight.data?['categoryName'];
+                  if (categoryId != null) {
+                    context.go('/transactions?categoryId=$categoryId&categoryName=${Uri.encodeComponent(categoryName?.toString() ?? '')}');
+                    return;
+                  }
+                } else if (insight.type == 'BUDGET_WARNING' || insight.type == 'BUDGET_ADJUST') {
+                  final shell = StatefulNavigationShell.maybeOf(context);
+                  if (shell != null) {
+                    shell.goBranch(2);
+                    return;
+                  }
                 }
+                // PATTERN, POSITIVE, or fallback → no navigation
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),

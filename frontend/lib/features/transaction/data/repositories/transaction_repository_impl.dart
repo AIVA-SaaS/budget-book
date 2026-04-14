@@ -23,6 +23,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? pocketId,
     int? amountMin,
     int? amountMax,
+    String? dateFrom,
+    String? dateTo,
     int page = 0,
     int size = 20,
   }) async {
@@ -37,6 +39,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         pocketId: pocketId,
         amountMin: amountMin,
         amountMax: amountMax,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
         page: page,
         size: size,
       );
