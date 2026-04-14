@@ -134,3 +134,19 @@ data class SuggestionPattern(
     val paymentMethodName: String? = null,
     val count: Long
 )
+
+data class SettlementTransactionsResponse(
+    val totalAmount: Long,
+    val transactionCount: Int,
+    val transactions: List<SettlementTransactionItem>
+)
+
+data class SettlementTransactionItem(
+    val id: UUID,
+    val transactionDate: LocalDate,
+    val settlementDate: LocalDate?,
+    val description: String,
+    val amount: Long,
+    val categoryName: String?,
+    val categoryIcon: String?
+)

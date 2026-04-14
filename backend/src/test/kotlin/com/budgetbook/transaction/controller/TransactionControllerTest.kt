@@ -4,6 +4,8 @@ import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
+import com.budgetbook.transaction.dto.SettlementTransactionItem
+import com.budgetbook.transaction.dto.SettlementTransactionsResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.SuggestionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
@@ -206,6 +208,43 @@ class TransactionControllerTest : FunSpec({
 
         result.success shouldBe true
         result.data shouldBe emptyList()
+    }
+
+    test("getSettlementTransactions returns settlement data") {
+
+        val pmId = UUID.randomUUID()
+        val response = SettlementTransactionsResponse(
+            totalAmount = 30000,
+            transactionCount = 2,
+            transactions = listOf(
+                SettlementTransactionItem(
+                    id = UUID.randomUUID(),
+                    transactionDate = LocalDate.of(2024, 1, 5),
+                    settlementDate = LocalDate.of(2024, 2, 15),
+                    description = "점심",
+                    amount = 10000,
+                    categoryName = "식비",
+                    categoryIcon = "restaurant"
+                ),
+                SettlementTransactionItem(
+                    id = UUID.randomUUID(),
+                    transactionDate = LocalDate.of(2024, 1, 10),
+                    settlementDate = LocalDate.of(2024, 2, 15),
+                    description = "저녁",
+                    amount = 20000,
+                    categoryName = null,
+                    categoryIcon = null
+                )
+            )
+        )
+        every { transactionService.getSettlementTransactions(testUserId, pmId, 2024, 2) } returns response
+
+        val result = controller.getSettlementTransactions(testUserId, pmId, 2024, 2)
+
+        result.success shouldBe true
+        result.data!!.totalAmount shouldBe 30000
+        result.data!!.transactionCount shouldBe 2
+        result.data!!.transactions.size shouldBe 2
     }
 
     test("exportCsv returns CSV with correct headers") {

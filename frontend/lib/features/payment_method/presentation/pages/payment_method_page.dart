@@ -21,6 +21,18 @@ class PaymentMethodPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('결제수단 관리'),
         actions: [
+          BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+            builder: (context, state) {
+              final hasCredit = state is PaymentMethodLoaded &&
+                  state.paymentMethods.any((pm) => pm.isCredit);
+              if (!hasCredit) return const SizedBox.shrink();
+              return TextButton.icon(
+                onPressed: () => context.push('/card-settlement'),
+                icon: const Icon(Icons.credit_score, size: 20),
+                label: const Text('카드 결제'),
+              );
+            },
+          ),
           TextButton.icon(
             onPressed: () => context.push('/transfers'),
             icon: const Icon(Icons.swap_horiz, size: 20),

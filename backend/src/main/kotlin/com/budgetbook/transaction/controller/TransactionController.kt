@@ -7,6 +7,7 @@ import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.CsvImportResponse
 import com.budgetbook.transaction.dto.PageResponse
+import com.budgetbook.transaction.dto.SettlementTransactionsResponse
 import com.budgetbook.transaction.dto.TransactionResponse
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.transaction.service.TransactionExportService
@@ -88,6 +89,16 @@ class TransactionController(
     ): ResponseEntity<Void> {
         transactionService.deleteTransaction(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/settlement")
+    fun getSettlementTransactions(
+        @AuthUser userId: UUID,
+        @RequestParam paymentMethodId: UUID,
+        @RequestParam year: Int,
+        @RequestParam month: Int
+    ): ApiResponse<SettlementTransactionsResponse> {
+        return ApiResponse.ok(transactionService.getSettlementTransactions(userId, paymentMethodId, year, month))
     }
 
     @GetMapping("/suggestions")

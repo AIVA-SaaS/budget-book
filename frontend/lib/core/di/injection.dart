@@ -89,6 +89,10 @@ import 'package:budget_book/features/feedback/presentation/bloc/release_note_blo
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/ai/data/datasources/ai_remote_datasource.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
+import 'package:budget_book/features/card_settlement/data/datasources/card_settlement_remote_datasource.dart';
+import 'package:budget_book/features/card_settlement/data/repositories/card_settlement_repository_impl.dart';
+import 'package:budget_book/features/card_settlement/domain/repositories/card_settlement_repository.dart';
+import 'package:budget_book/features/card_settlement/presentation/bloc/card_settlement_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -422,6 +426,21 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<AiInsightBloc>(
     () => AiInsightBloc(remoteDataSource: getIt<AiRemoteDataSource>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Card Settlement feature
+  getIt.registerLazySingleton<CardSettlementRemoteDataSource>(
+    () => CardSettlementRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<CardSettlementRepository>(
+    () => CardSettlementRepositoryImpl(
+        remoteDataSource: getIt<CardSettlementRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<CardSettlementBloc>(
+    () => CardSettlementBloc(
+        cardSettlementRepository: getIt<CardSettlementRepository>(),
+        transferRepository: getIt<TransferRepository>()),
     dispose: (bloc) => bloc.close(),
   );
 

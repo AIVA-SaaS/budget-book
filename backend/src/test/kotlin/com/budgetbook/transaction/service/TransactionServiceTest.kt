@@ -635,6 +635,88 @@ class TransactionServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getSettlementTransactions ---
+
+    Given("a user requesting settlement transactions for a payment method") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val pm = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 25)
+        every { paymentMethodRepository.findById(pm.id) } returns Optional.of(pm)
+
+        When("transactions exist for the settlement period") {
+            val tx1 = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 10000, description = "점심", transactionDate = LocalDate.of(2024, 1, 5),
+                paymentMethod = pm, settlementDate = LocalDate.of(2024, 2, 15), category = category
+            )
+            val tx2 = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 20000, description = "저녁", transactionDate = LocalDate.of(2024, 1, 10),
+                paymentMethod = pm, settlementDate = LocalDate.of(2024, 2, 15)
+            )
+            every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
+                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id
+            ) } returns listOf(tx1, tx2)
+
+            val result = service.getSettlementTransactions(user1.id, pm.id, 2024, 2)
+
+            Then("returns settlement transactions with total and count") {
+                result.totalAmount shouldBe 30000
+                result.transactionCount shouldBe 2
+                result.transactions.size shouldBe 2
+                result.transactions[0].description shouldBe "점심"
+                result.transactions[0].categoryName shouldBe "식비"
+                result.transactions[0].categoryIcon shouldBe "restaurant"
+                result.transactions[1].description shouldBe "저녁"
+                result.transactions[1].categoryName shouldBe null
+            }
+        }
+
+        When("no transactions exist for the settlement period") {
+            every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
+                pm.id, LocalDate.of(2024, 3, 1), LocalDate.of(2024, 3, 31), user1.id
+            ) } returns emptyList()
+
+            val result = service.getSettlementTransactions(user1.id, pm.id, 2024, 3)
+
+            Then("returns empty response with zero totals") {
+                result.totalAmount shouldBe 0
+                result.transactionCount shouldBe 0
+                result.transactions shouldBe emptyList()
+            }
+        }
+    }
+
+    Given("a user requesting settlement transactions for another couple's payment method") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val otherCouple = Couple(user1 = user2, status = CoupleStatus.ACTIVE)
+        val otherPm = PaymentMethod(couple = otherCouple, name = "다른카드", type = PaymentMethodType.CREDIT)
+        every { paymentMethodRepository.findById(otherPm.id) } returns Optional.of(otherPm)
+
+        When("getSettlementTransactions is called") {
+            Then("throws ForbiddenException") {
+                val ex = shouldThrow<com.budgetbook.common.exception.ForbiddenException> {
+                    service.getSettlementTransactions(user1.id, otherPm.id, 2024, 2)
+                }
+                ex.code shouldBe "FORBIDDEN"
+            }
+        }
+    }
+
+    Given("a user requesting settlement transactions for a non-existent payment method") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val fakeId = UUID.randomUUID()
+        every { paymentMethodRepository.findById(fakeId) } returns Optional.empty()
+
+        When("getSettlementTransactions is called") {
+            Then("throws NotFoundException") {
+                val ex = shouldThrow<NotFoundException> {
+                    service.getSettlementTransactions(user1.id, fakeId, 2024, 2)
+                }
+                ex.code shouldBe "PAYMENT_METHOD_NOT_FOUND"
+            }
+        }
+    }
+
     Given("transactions exist and paymentMethodId filter is used") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
         val pmId = UUID.randomUUID()

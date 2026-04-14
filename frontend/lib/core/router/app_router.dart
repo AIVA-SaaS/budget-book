@@ -95,6 +95,8 @@ import 'package:budget_book/features/feedback/presentation/pages/feedback_detail
 import 'package:budget_book/features/feedback/presentation/pages/release_note_detail_page.dart';
 import 'package:budget_book/features/feedback/presentation/pages/admin_feedback_page.dart';
 import 'package:budget_book/features/feedback/presentation/pages/admin_release_note_page.dart';
+import 'package:budget_book/features/card_settlement/presentation/bloc/card_settlement_bloc.dart';
+import 'package:budget_book/features/card_settlement/presentation/pages/card_settlement_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
@@ -806,6 +808,32 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
           child: TransferFormPage(transferId: transferId),
+        );
+      },
+    ),
+    // Card Settlement
+    GoRoute(
+      path: '/card-settlement',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final cardId = state.uri.queryParameters['cardId'];
+        final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
+        final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<CardSettlementBloc>.value(
+              value: getIt<CardSettlementBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+          ],
+          child: CardSettlementPage(
+            initialCardId: cardId,
+            initialYear: year,
+            initialMonth: month,
+          ),
         );
       },
     ),
