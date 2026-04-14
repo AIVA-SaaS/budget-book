@@ -364,6 +364,34 @@ class TransactionService(
             }
     }
 
+    @Transactional(readOnly = true)
+    fun getSettlementTransactions(userId: UUID, paymentMethodId: UUID, year: Int, month: Int): com.budgetbook.transaction.dto.SettlementTransactionsResponse {
+        val couple = getActiveCouple(userId)
+        val pm = paymentMethodRepository.findById(paymentMethodId)
+            .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
+        OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
+
+        val yearMonth = YearMonth.of(year, month)
+        val transactions = transactionRepository.findByPaymentMethodAndSettlementDateRange(
+            paymentMethodId, yearMonth.atDay(1), yearMonth.atEndOfMonth(), userId
+        )
+        return com.budgetbook.transaction.dto.SettlementTransactionsResponse(
+            totalAmount = transactions.sumOf { it.amount },
+            transactionCount = transactions.size,
+            transactions = transactions.map { t ->
+                com.budgetbook.transaction.dto.SettlementTransactionItem(
+                    id = t.id,
+                    transactionDate = t.transactionDate,
+                    settlementDate = t.settlementDate,
+                    description = t.description,
+                    amount = t.amount,
+                    categoryName = t.category?.name,
+                    categoryIcon = t.category?.icon
+                )
+            }
+        )
+    }
+
     private fun calculateSettlementDate(
         paymentMethod: com.budgetbook.paymentmethod.domain.PaymentMethod,
         transactionDate: LocalDate
