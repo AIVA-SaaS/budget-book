@@ -422,12 +422,23 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 }
               }
 
+              // When serverTotalIncome/Expense are available (from /statistics/summary),
+              // they already include transfer amounts. Don't add transfers again.
+              // Only add transfers when using client-calculated totals (filters active).
+              final hasServerTotals = state.serverTotalIncome != null;
+              final displayIncome = hasServerTotals
+                  ? state.totalIncome
+                  : state.totalIncome + transferIn;
+              final displayExpense = hasServerTotals
+                  ? state.totalExpense
+                  : state.totalExpense + transferOut;
+
               return Column(
                 children: [
                   MonthSummaryBar(
-                    totalIncome: state.totalIncome + transferIn,
-                    totalExpense: state.totalExpense + transferOut,
-                    balance: state.balance + transferIn - transferOut,
+                    totalIncome: displayIncome,
+                    totalExpense: displayExpense,
+                    balance: displayIncome - displayExpense,
                     totalTransfer: transferIn + transferOut > 0 ? transferIn + transferOut : null,
                   ),
                   if (state.filteredTransactions.isEmpty && searchedTransfers.isEmpty)
