@@ -32,6 +32,8 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
@@ -258,19 +260,55 @@ class _TransactionListPageState extends State<TransactionListPage> {
           };
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final pmId = _filterState.paymentMethodIds.isNotEmpty
-              ? _filterState.paymentMethodIds.first
-              : null;
-          final pmParam = pmId != null
-              ? '&paymentMethodId=$pmId'
-              : '';
-          context.push('/transactions/create?tab=expense$pmParam');
-        },
-        tooltip: '거래 추가',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _buildFab(context),
+    );
+  }
+
+  bool get _isFilteredByCreditCard {
+    if (_filterState.paymentMethodIds.isEmpty) return false;
+    final pmId = _filterState.paymentMethodIds.first;
+    final pmState = getIt<PaymentMethodBloc>().state;
+    if (pmState is PaymentMethodLoaded) {
+      return pmState.paymentMethods.any((pm) => pm.id == pmId && pm.isCredit);
+    }
+    return false;
+  }
+
+  Widget _buildFab(BuildContext context) {
+    final pmId = _filterState.paymentMethodIds.isNotEmpty
+        ? _filterState.paymentMethodIds.first
+        : null;
+    final pmParam = pmId != null ? '&paymentMethodId=$pmId' : '';
+
+    if (_isFilteredByCreditCard) {
+      final state = context.read<TransactionBloc>().state;
+      final year = state is TransactionLoaded ? state.year : DateTime.now().year;
+      final month = state is TransactionLoaded ? state.month : DateTime.now().month;
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'settle',
+            onPressed: () => context.push('/card-settlement?cardId=$pmId&year=$year&month=$month'),
+            icon: const Icon(Icons.credit_score),
+            label: const Text('결제'),
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton(
+            heroTag: 'add',
+            onPressed: () => context.push('/transactions/create?tab=expense$pmParam'),
+            tooltip: '거래 추가',
+            child: const Icon(Icons.add),
+          ),
+        ],
+      );
+    }
+
+    return FloatingActionButton(
+      onPressed: () => context.push('/transactions/create?tab=expense$pmParam'),
+      tooltip: '거래 추가',
+      child: const Icon(Icons.add),
     );
   }
 
