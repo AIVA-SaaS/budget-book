@@ -32,6 +32,10 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
 
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
@@ -86,6 +90,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
         });
       }
     }
+    // Load card pending for the current month
+    final now = DateTime.now();
+    getIt<PaymentMethodBloc>().add(LoadCardPending(year: now.year, month: now.month));
   }
 
   @override
@@ -316,6 +323,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
             context.read<TransferBloc>().add(
                   LoadTransfers(year: m.year, month: m.month),
                 );
+            getIt<PaymentMethodBloc>().add(
+                  LoadCardPending(year: m.year, month: m.month),
+                );
           },
         ),
         // Search bar
@@ -440,6 +450,25 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     totalExpense: displayExpense,
                     balance: displayIncome - displayExpense,
                     totalTransfer: transferIn + transferOut > 0 ? transferIn + transferOut : null,
+                  ),
+                  // Card pending summary (credit card settlement)
+                  BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+                    bloc: getIt<PaymentMethodBloc>(),
+                    buildWhen: (prev, curr) =>
+                        prev is! PaymentMethodLoaded ||
+                        curr is! PaymentMethodLoaded ||
+                        prev.cardPendings != curr.cardPendings,
+                    builder: (context, pmState) {
+                      if (pmState is PaymentMethodLoaded &&
+                          pmState.cardPendings != null &&
+                          pmState.cardPendings!.any((cp) => cp.pendingAmount > 0)) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: CardPendingSummary(cardPendings: pmState.cardPendings!),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
                   ),
                   if (state.filteredTransactions.isEmpty && searchedTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
