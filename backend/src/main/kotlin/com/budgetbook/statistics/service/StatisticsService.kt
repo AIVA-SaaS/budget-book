@@ -19,6 +19,7 @@ import com.budgetbook.statistics.dto.StatisticsSummaryResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transaction.repository.TransactionSpecifications
 import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -253,53 +254,123 @@ class StatisticsService(
     ): PeriodSummaryResponse {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
+        val hasFilters = categoryId != null || paymentMethodId != null || pocketId != null
 
-        // 1. Total income / expense
-        val typeResults = transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, userId, visFilter)
-        var totalIncome = 0L
-        var totalExpense = 0L
-        for (row in typeResults) {
-            val type = row[0] as TransactionType
-            val sum = row[1] as Long
-            when (type) {
-                TransactionType.INCOME -> totalIncome = sum
-                TransactionType.EXPENSE -> totalExpense = sum
+        var totalIncome: Long
+        var totalExpense: Long
+        val byCategory: List<CategorySpending>
+
+        if (hasFilters) {
+            // Use Specifications-based query when filters are applied
+            val incomeSpec = TransactionSpecifications.withFilters(
+                coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
+                type = TransactionType.INCOME, categoryId = categoryId, keyword = null,
+                paymentMethodId = paymentMethodId, pocketId = pocketId,
+                amountMin = null, amountMax = null, userId = userId
+            )
+            val expenseSpec = TransactionSpecifications.withFilters(
+                coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
+                type = TransactionType.EXPENSE, categoryId = categoryId, keyword = null,
+                paymentMethodId = paymentMethodId, pocketId = pocketId,
+                amountMin = null, amountMax = null, userId = userId
+            )
+
+            val incomeTransactions = transactionRepository.findAll(incomeSpec)
+            val expenseTransactions = transactionRepository.findAll(expenseSpec)
+
+            totalIncome = incomeTransactions.sumOf { it.amount }
+            totalExpense = expenseTransactions.sumOf { it.amount }
+
+            // byCategory from filtered expense transactions
+            byCategory = expenseTransactions
+                .filter { it.category != null }
+                .groupBy { it.category!!.id }
+                .map { (_, txns) ->
+                    val first = txns.first()
+                    val cat = first.category!!
+                    val amount = txns.sumOf { it.amount }
+                    CategorySpending(
+                        categoryId = cat.id,
+                        categoryName = cat.name,
+                        groupId = cat.group?.id,
+                        groupName = cat.group?.name,
+                        icon = cat.icon,
+                        color = cat.color,
+                        amount = amount,
+                        count = txns.size,
+                        percentage = 0.0
+                    )
+                }
+                .sortedByDescending { it.amount }
+                .let { entries ->
+                    val total = entries.sumOf { it.amount }
+                    entries.map { entry ->
+                        entry.copy(
+                            percentage = if (total > 0) {
+                                Math.round(entry.amount.toDouble() / total * 1000) / 10.0
+                            } else 0.0
+                        )
+                    }
+                }
+        } else {
+            // No filters: use optimized JPQL queries (existing behavior)
+            val typeResults = transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, userId, visFilter)
+            totalIncome = 0L
+            totalExpense = 0L
+            for (row in typeResults) {
+                val type = row[0] as TransactionType
+                val sum = row[1] as Long
+                when (type) {
+                    TransactionType.INCOME -> totalIncome = sum
+                    TransactionType.EXPENSE -> totalExpense = sum
+                }
+            }
+
+            val categoryResults = transactionRepository.sumByCategoryForCouple(
+                couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId, visFilter
+            )
+            byCategory = categoryResults.map { row ->
+                val amount = row[0] as Long
+                val count = (row[1] as Long).toInt()
+                val catId = row[2] as UUID
+                val catName = row[3] as String
+                val catIcon = row[5] as? String
+                val catColor = row[6] as? String
+                val groupId = row[7] as? UUID
+                val groupName = row[8] as? String
+                CategorySpending(
+                    categoryId = catId,
+                    categoryName = catName,
+                    groupId = groupId,
+                    groupName = groupName,
+                    icon = catIcon,
+                    color = catColor,
+                    amount = amount,
+                    count = count,
+                    percentage = 0.0
+                )
+            }.let { entries ->
+                val total = entries.sumOf { it.amount }
+                entries.map { entry ->
+                    entry.copy(
+                        percentage = if (total > 0) {
+                            Math.round(entry.amount.toDouble() / total * 1000) / 10.0
+                        } else 0.0
+                    )
+                }
             }
         }
 
-        // 2. byCategory (expense only)
-        val categoryResults = transactionRepository.sumByCategoryForCouple(
-            couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId, visFilter
-        )
-        val byCategory = categoryResults.map { row ->
-            val amount = row[0] as Long
-            val count = (row[1] as Long).toInt()
-            val catId = row[2] as UUID
-            val catName = row[3] as String
-            val catIcon = row[5] as? String
-            val catColor = row[6] as? String
-            val groupId = row[7] as? UUID
-            val groupName = row[8] as? String
-            CategorySpending(
-                categoryId = catId,
-                categoryName = catName,
-                groupId = groupId,
-                groupName = groupName,
-                icon = catIcon,
-                color = catColor,
-                amount = amount,
-                count = count,
-                percentage = 0.0
-            )
-        }.let { entries ->
-            val total = entries.sumOf { it.amount }
-            entries.map { entry ->
-                entry.copy(
-                    percentage = if (total > 0) {
-                        Math.round(entry.amount.toDouble() / total * 1000) / 10.0
-                    } else 0.0
-                )
-            }
+        // Include transfer amounts (same as getMonthlySummary)
+        // Transfers have no category/paymentMethod/pocket, so skip when those filters are active
+        if (!hasFilters) {
+            val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
+            val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            val transferInTotal = transferInResults.sumOf { it[1] as Long }
+
+            totalExpense += transferOutTotal
+            totalIncome += transferInTotal
         }
 
         // 3. byBudget — find budgets covering this period

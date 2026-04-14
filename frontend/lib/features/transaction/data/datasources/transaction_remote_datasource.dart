@@ -15,6 +15,8 @@ abstract class TransactionRemoteDataSource {
     String? pocketId,
     int? amountMin,
     int? amountMax,
+    String? dateFrom,
+    String? dateTo,
     int page = 0,
     int size = 20,
   });
@@ -42,6 +44,8 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     String? pocketId,
     int? amountMin,
     int? amountMax,
+    String? dateFrom,
+    String? dateTo,
     int page = 0,
     int size = 20,
   }) async {
@@ -58,6 +62,8 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     if (pocketId != null) queryParams['pocketId'] = pocketId;
     if (amountMin != null) queryParams['amountMin'] = amountMin;
     if (amountMax != null) queryParams['amountMax'] = amountMax;
+    if (dateFrom != null) queryParams['dateFrom'] = dateFrom;
+    if (dateTo != null) queryParams['dateTo'] = dateTo;
 
     final response = await apiClient.dio.get(
       ApiEndpoints.transactions,

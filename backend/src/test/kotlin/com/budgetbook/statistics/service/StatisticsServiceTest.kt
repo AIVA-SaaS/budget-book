@@ -575,4 +575,169 @@ class StatisticsServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- getPeriodSummary: Transfer inclusion (matching getMonthlySummary behavior) ---
+
+    Given("a user for period summary with transfers") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+
+        When("transfers exist in the period") {
+            // Transaction totals
+            every {
+                transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns listOf(
+                arrayOf(TransactionType.INCOME, 5000000L, 10L),
+                arrayOf(TransactionType.EXPENSE, 3000000L, 30L)
+            )
+            every {
+                transactionRepository.sumByCategoryForCouple(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, any(), "ALL")
+            } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
+            every {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
+            } returns 3000000L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every {
+                transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+            every {
+                transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            // Transfer amounts: 200000 out (expense), 100000 in (income)
+            val pmId = UUID.randomUUID()
+            every {
+                transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            } returns listOf(arrayOf<Any>(pmId, 200000L))
+            every {
+                transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            } returns listOf(arrayOf<Any>(pmId, 100000L))
+
+            val result = service.getPeriodSummary(user1.id, dateFrom, dateTo)
+
+            Then("totalExpense includes transfer out amounts") {
+                result.totalExpense shouldBe 3200000L // 3000000 + 200000
+            }
+
+            Then("totalIncome includes transfer in amounts") {
+                result.totalIncome shouldBe 5100000L // 5000000 + 100000
+            }
+
+            Then("balance reflects transfer-adjusted totals") {
+                result.balance shouldBe 1900000L // 5100000 - 3200000
+            }
+        }
+    }
+
+    // --- getPeriodSummary: summary vs period-summary consistency ---
+
+    Given("consistency between getMonthlySummary and getPeriodSummary") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val dateFrom = LocalDate.of(2026, 4, 1)
+        val dateTo = LocalDate.of(2026, 4, 30)
+        val pmId = UUID.randomUUID()
+
+        When("same period data is queried via both endpoints") {
+            // Same transaction data for both
+            every {
+                transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns listOf(
+                arrayOf(TransactionType.INCOME, 4000000L, 8L),
+                arrayOf(TransactionType.EXPENSE, 2500000L, 20L)
+            )
+
+            // Transfers
+            every {
+                transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            } returns listOf(arrayOf<Any>(pmId, 300000L))
+            every {
+                transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            } returns listOf(arrayOf<Any>(pmId, 150000L))
+
+            // Additional mocks for getPeriodSummary
+            every {
+                transactionRepository.sumByCategoryForCouple(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, any(), "ALL")
+            } returns emptyList()
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-04", user1.id) } returns emptyList()
+            every {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
+            } returns 2500000L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every {
+                transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+            every {
+                transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            val summaryResult = service.getMonthlySummary(user1.id, 2026, 4, "ALL", dateFrom, dateTo)
+            val periodResult = service.getPeriodSummary(user1.id, dateFrom, dateTo)
+
+            Then("totalIncome matches between summary and period-summary") {
+                periodResult.totalIncome shouldBe summaryResult.totalIncome
+            }
+
+            Then("totalExpense matches between summary and period-summary") {
+                periodResult.totalExpense shouldBe summaryResult.totalExpense
+            }
+
+            Then("balance matches between summary and period-summary") {
+                periodResult.balance shouldBe summaryResult.balance
+            }
+        }
+    }
+
+    // --- getPeriodSummary: filters applied ---
+
+    Given("a user for period summary with filters") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val dateFrom = LocalDate.of(2026, 3, 1)
+        val dateTo = LocalDate.of(2026, 3, 31)
+        val filterCategoryId = UUID.randomUUID()
+
+        When("categoryId filter is applied") {
+            // When filters are active, findAll(spec) is used instead of sumByType
+            every {
+                transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<com.budgetbook.transaction.domain.Transaction>>())
+            } returns emptyList()
+
+            // Budget/plan/daily/pm mocks
+            every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id) } returns emptyList()
+            every {
+                transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
+            } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every {
+                transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+            every {
+                transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
+            } returns emptyList()
+
+            val result = service.getPeriodSummary(
+                user1.id, dateFrom, dateTo, "ALL",
+                categoryId = filterCategoryId
+            )
+
+            Then("uses Specifications-based query (returns filtered data)") {
+                result.totalIncome shouldBe 0L
+                result.totalExpense shouldBe 0L
+            }
+
+            Then("transfers are NOT included when filters are active") {
+                // Verify transfer repos were NOT called
+                verify(exactly = 0) {
+                    transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any())
+                }
+                verify(exactly = 0) {
+                    transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any())
+                }
+            }
+        }
+    }
 })

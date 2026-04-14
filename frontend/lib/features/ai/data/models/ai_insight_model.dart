@@ -6,6 +6,7 @@ class AiInsightModel extends AiInsight {
     required super.title,
     required super.description,
     required super.severity,
+    super.data,
   });
 
   factory AiInsightModel.fromJson(Map<String, dynamic> json) {
@@ -15,6 +16,7 @@ class AiInsightModel extends AiInsight {
       // Smart API uses 'message', legacy AI uses 'description'
       description: (json['message'] ?? json['description']) as String,
       severity: json['severity'] as String? ?? 'INFO',
+      data: json['data'] as Map<String, dynamic>?,
     );
   }
 }

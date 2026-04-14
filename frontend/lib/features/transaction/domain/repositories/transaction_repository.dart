@@ -14,6 +14,8 @@ abstract class TransactionRepository {
     String? pocketId,
     int? amountMin,
     int? amountMax,
+    String? dateFrom,
+    String? dateTo,
     int page = 0,
     int size = 20,
   });

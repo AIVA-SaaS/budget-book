@@ -89,6 +89,7 @@ class SmartAnalysisService(
                             "(${formatAmount(prevAmount)} -> ${formatAmount(entry.amount)})",
                         severity = "WARNING",
                         data = mapOf(
+                            "categoryId" to entry.category.id.toString(),
                             "categoryName" to entry.category.name,
                             "currentAmount" to entry.amount,
                             "previousAmount" to prevAmount,
@@ -141,6 +142,7 @@ class SmartAnalysisService(
                                 "남은 금액: ${formatAmount(effectiveAmount - spent)}",
                             severity = "WARNING",
                             data = mapOf(
+                                "budgetId" to budget.id.toString(),
                                 "budgetName" to budgetName,
                                 "budgetAmount" to effectiveAmount,
                                 "spent" to spent,
@@ -217,6 +219,7 @@ class SmartAnalysisService(
                                 "줄일 수 있는 방법을 찾아보세요.",
                             severity = "INFO",
                             data = mapOf(
+                                "categoryId" to entry.category.id.toString(),
                                 "categoryName" to entry.category.name,
                                 "avgAmount" to avgAmount
                             )
@@ -352,6 +355,7 @@ class SmartAnalysisService(
                             "예산(${formatAmount(effectiveAmount)})과 ${diffRate.toLong()}% 차이납니다.",
                         severity = "INFO",
                         data = mapOf(
+                            "budgetId" to budget.id.toString(),
                             "budgetName" to budgetName,
                             "budgetAmount" to effectiveAmount,
                             "avgSpending" to avgSpending,

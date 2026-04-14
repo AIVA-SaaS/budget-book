@@ -68,24 +68,11 @@ class TransactionLoaded extends TransactionState {
     return grouped;
   }
 
-  /// Returns transactions filtered by dateFrom/dateTo if set.
-  List<Transaction> get filteredTransactions {
-    if (dateFrom == null && dateTo == null) return transactions;
-    return transactions.where((t) {
-      if (dateFrom != null && t.transactionDate.compareTo(dateFrom!) < 0) return false;
-      if (dateTo != null && t.transactionDate.compareTo(dateTo!) > 0) return false;
-      return true;
-    }).toList();
-  }
+  /// Returns transactions as-is (server already filters by dateFrom/dateTo).
+  List<Transaction> get filteredTransactions => transactions;
 
-  Map<String, List<Transaction>> get filteredGroupedByDate {
-    final txns = filteredTransactions;
-    final grouped = <String, List<Transaction>>{};
-    for (final t in txns) {
-      grouped.putIfAbsent(t.transactionDate, () => []).add(t);
-    }
-    return grouped;
-  }
+  /// Alias for groupedByDate (server already filters by dateFrom/dateTo).
+  Map<String, List<Transaction>> get filteredGroupedByDate => groupedByDate;
 
   @override
   List<Object?> get props =>

@@ -885,16 +885,25 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
 
 **Query Parameters**
 
-| Parameter    | Type      | Required | Default | Description                                                        |
-|:-------------|:----------|:--------:|:--------|:-------------------------------------------------------------------|
-| `year`       | `integer` | No       | Current | Filter by year (e.g., `2024`)                                     |
-| `month`      | `integer` | No       | Current | Filter by month (1–12)                                            |
-| `type`       | `string`  | No       | All     | `INCOME` or `EXPENSE`                                             |
-| `categoryId` | `UUID`    | No       | All     | Filter by category                                                 |
-| `visibility` | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
-| `page`       | `integer` | No       | `0`     | Zero-based page number                                            |
-| `size`       | `integer` | No       | `20`    | Page size (max 100)                                               |
+| Parameter         | Type      | Required | Default | Description                                                        |
+|:------------------|:----------|:--------:|:--------|:-------------------------------------------------------------------|
+| `year`            | `integer` | No       | Current | Filter by year (e.g., `2024`)                                     |
+| `month`           | `integer` | No       | Current | Filter by month (1–12)                                            |
+| `dateFrom`        | `string`  | No       | —       | Start date (`YYYY-MM-DD`). When provided, overrides `year`/`month` |
+| `dateTo`          | `string`  | No       | —       | End date (`YYYY-MM-DD`). When provided, overrides `year`/`month`   |
+| `type`            | `string`  | No       | All     | `INCOME` or `EXPENSE`                                             |
+| `categoryId`      | `UUID`    | No       | All     | Filter by category                                                 |
+| `keyword`         | `string`  | No       | —       | Search in description and memo                                     |
+| `paymentMethodId` | `UUID`    | No       | All     | Filter by payment method                                           |
+| `pocketId`        | `UUID`    | No       | All     | Filter by pocket                                                   |
+| `amountMin`       | `integer` | No       | —       | Minimum amount filter                                              |
+| `amountMax`       | `integer` | No       | —       | Maximum amount filter                                              |
+| `visibility`      | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE) |
+| `page`            | `integer` | No       | `0`     | Zero-based page number                                            |
+| `size`            | `integer` | No       | `20`    | Page size (max 100)                                               |
 
+> **Date filtering**: When `dateFrom`/`dateTo` are provided, they override `year`/`month`. If only `dateFrom` is provided, `dateTo` defaults to `2099-12-31`; if only `dateTo`, `dateFrom` defaults to `2000-01-01`.
+>
 > **Visibility filtering**: `ALL` returns all SHARED transactions plus PRIVATE transactions owned by the caller. The caller never receives another member's PRIVATE transactions.
 
 **Response `200 OK`**: `ApiResponse<PageResponse<TransactionResponse>>`

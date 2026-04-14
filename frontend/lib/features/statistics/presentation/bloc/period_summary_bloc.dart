@@ -21,6 +21,9 @@ class PeriodSummaryBloc extends Bloc<PeriodSummaryEvent, PeriodSummaryState> {
       final result = await statisticsRepository.getPeriodSummary(
         dateFrom: event.dateFrom,
         dateTo: event.dateTo,
+        categoryId: event.categoryId,
+        paymentMethodId: event.paymentMethodId,
+        pocketId: event.pocketId,
       );
       result.fold(
         (failure) => emit(PeriodSummaryError(failure.message)),

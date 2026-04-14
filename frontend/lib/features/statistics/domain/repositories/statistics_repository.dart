@@ -39,5 +39,8 @@ abstract class StatisticsRepository {
   Future<Either<Failure, PeriodSummary>> getPeriodSummary({
     required String dateFrom,
     required String dateTo,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
   });
 }
