@@ -9,6 +9,7 @@ enum FilterType {
   keyword,
   visibility,
   status,
+  transactionType,
 }
 
 class UnifiedFilterState extends Equatable {
@@ -25,6 +26,7 @@ class UnifiedFilterState extends Equatable {
   final String? keyword;
   final String? visibility;
   final String? status;
+  final String? transactionType;
 
   const UnifiedFilterState({
     this.dateFrom,
@@ -40,6 +42,7 @@ class UnifiedFilterState extends Equatable {
     this.keyword,
     this.visibility,
     this.status,
+    this.transactionType,
   });
 
   bool get hasActiveFilters =>
@@ -52,7 +55,8 @@ class UnifiedFilterState extends Equatable {
       amountMax != null ||
       (keyword != null && keyword!.isNotEmpty) ||
       (visibility != null && visibility != 'ALL') ||
-      status != null;
+      status != null ||
+      transactionType != null;
 
   bool get hasDateRange => dateFrom != null && dateTo != null;
 
@@ -70,6 +74,7 @@ class UnifiedFilterState extends Equatable {
     String? keyword,
     String? visibility,
     String? status,
+    String? transactionType,
     bool clearDateRange = false,
     bool clearCategory = false,
     bool clearPaymentMethod = false,
@@ -78,6 +83,7 @@ class UnifiedFilterState extends Equatable {
     bool clearKeyword = false,
     bool clearVisibility = false,
     bool clearStatus = false,
+    bool clearTransactionType = false,
   }) {
     return UnifiedFilterState(
       dateFrom: clearDateRange ? null : (dateFrom ?? this.dateFrom),
@@ -101,6 +107,7 @@ class UnifiedFilterState extends Equatable {
       visibility:
           clearVisibility ? null : (visibility ?? this.visibility),
       status: clearStatus ? null : (status ?? this.status),
+      transactionType: clearTransactionType ? null : (transactionType ?? this.transactionType),
     );
   }
 
@@ -123,5 +130,6 @@ class UnifiedFilterState extends Equatable {
         keyword,
         visibility,
         status,
+        transactionType,
       ];
 }
