@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "description": "Budget Book 프로젝트 하네스 설정 — 공통 하네스(~/.claude/harness/) 위에 프로젝트 고유 설정",
+    "project": "budget-book",
+    "common_harness": "~/.claude/harness/"
+  },
+  "project_specific_patterns": {
+    "couple_visibility": {
+      "description": "커플 모드에서 SHARED/PRIVATE/ALL visibility 처리",
+      "grep_patterns": ["visFilter|visibility|SHARED|PRIVATE"],
+      "file_scopes": ["backend/src/main/kotlin/**/*Repository.kt", "backend/src/main/kotlin/**/*Service.kt"]
+    },
+    "transfer_consistency": {
+      "description": "이체(Transfer) 포함 여부 일관성",
+      "grep_patterns": ["transferRepository|TransferRepository|transferOut|transferIn"],
+      "file_scopes": ["backend/src/main/kotlin/**/*Service.kt"]
+    }
+  },
+  "test_commands": {
+    "backend": "./gradlew test",
+    "frontend_analyze": "flutter analyze",
+    "frontend_test": "flutter test",
+    "frontend_build": "flutter build web"
+  }
+}
