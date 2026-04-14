@@ -230,7 +230,7 @@ class PaymentMethodBloc
           : null;
 
       final result =
-          await paymentMethodRepository.getCardSettlementSummary();
+          await paymentMethodRepository.getCardSettlementSummary(year: event.year, month: event.month);
       result.fold(
         (failure) => emit(PaymentMethodLoaded(
           currentMethods,

@@ -86,7 +86,12 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   tooltip: '전월 예산 복사',
                 ),
                 IconButton(
-                  onPressed: () => context.push('/asset-management'),
+                  onPressed: () {
+                    final budgetState = context.read<BudgetBloc>().state;
+                    final year = budgetState is BudgetLoaded ? budgetState.year : DateTime.now().year;
+                    final month = budgetState is BudgetLoaded ? budgetState.month : DateTime.now().month;
+                    context.push('/asset-management?year=$year&month=$month');
+                  },
                   icon: const Icon(Icons.category),
                   tooltip: '자산 관리',
                 ),

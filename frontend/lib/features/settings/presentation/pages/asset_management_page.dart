@@ -28,7 +28,10 @@ import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class AssetManagementPage extends StatelessWidget {
-  const AssetManagementPage({super.key});
+  final int? initialYear;
+  final int? initialMonth;
+
+  const AssetManagementPage({super.key, this.initialYear, this.initialMonth});
 
   @override
   Widget build(BuildContext context) {

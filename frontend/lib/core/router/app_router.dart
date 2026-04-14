@@ -685,8 +685,13 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/asset-management',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
+        final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
+        final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        if (yearParam != null && monthParam != null) {
+          getIt<PaymentMethodBloc>().add(LoadCardSettlementSummary(year: yearParam, month: monthParam));
+        }
         getIt<PocketBloc>().add(const LoadPockets());
         getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
         return MultiBlocProvider(
@@ -704,7 +709,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
               value: getIt<CategoryGroupBloc>(),
             ),
           ],
-          child: const AssetManagementPage(),
+          child: AssetManagementPage(
+            initialYear: yearParam,
+            initialMonth: monthParam,
+          ),
         );
       },
     ),

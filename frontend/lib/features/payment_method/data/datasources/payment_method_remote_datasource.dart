@@ -11,7 +11,7 @@ abstract class PaymentMethodRemoteDataSource {
       String id, Map<String, dynamic> data);
   Future<void> deletePaymentMethod(String id);
   Future<List<CardPendingModel>> getCardPending(int year, int month);
-  Future<CardSettlementSummaryModel> getCardSettlementSummary();
+  Future<CardSettlementSummaryModel> getCardSettlementSummary({int? year, int? month});
   Future<void> reorderPaymentMethods(List<String> orderedIds);
 }
 
@@ -72,9 +72,13 @@ class PaymentMethodRemoteDataSourceImpl
   }
 
   @override
-  Future<CardSettlementSummaryModel> getCardSettlementSummary() async {
+  Future<CardSettlementSummaryModel> getCardSettlementSummary({int? year, int? month}) async {
+    final params = <String, dynamic>{};
+    if (year != null) params['year'] = year;
+    if (month != null) params['month'] = month;
     final response = await apiClient.dio.get(
       ApiEndpoints.paymentMethodsCardSettlementSummary,
+      queryParameters: params.isNotEmpty ? params : null,
     );
     return CardSettlementSummaryModel.fromJson(
       response.data['data'] as Map<String, dynamic>,

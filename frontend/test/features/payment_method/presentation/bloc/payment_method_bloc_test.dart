@@ -113,9 +113,9 @@ class MockPaymentMethodRepository extends Mock
 
   @override
   Future<Either<Failure, CardSettlementSummary>>
-      getCardSettlementSummary() =>
+      getCardSettlementSummary({int? year, int? month}) =>
           super.noSuchMethod(
-            Invocation.method(#getCardSettlementSummary, []),
+            Invocation.method(#getCardSettlementSummary, [], {#year: year, #month: month}),
             returnValue: Future.value(
               const Right<Failure, CardSettlementSummary>(
                 CardSettlementSummary(
