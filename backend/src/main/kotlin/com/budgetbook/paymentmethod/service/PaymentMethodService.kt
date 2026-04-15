@@ -279,11 +279,9 @@ class PaymentMethodService(
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
 
-            // Transfer OUT amounts (카드 결제 이체는 제외 — 이미 원본 거래로 계산됨, 이중 계산 방지)
-            val transferOutMap = transferRepository.sumAmountBySourceExcludingSettlement(
-                couple.id, startDate, endDate
-            ).associate { (it[0] as UUID) to (it[1] as Long) }
-
+            // 미결제는 '해당 월에 결제할 카드 청구액' — Transaction만 집계.
+            // 신용카드는 source로 이체가 불가능하고 Transfer(source=card)는 실제로 존재하지 않음.
+            // 설령 있더라도 카드 청구와 무관하므로 미결제에 포함 안 함.
             val cards = creditCards.map { card ->
                 val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                     paymentMethodId = card.id,
@@ -293,10 +291,9 @@ class PaymentMethodService(
                 )
                 val txnAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
                 val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
-                val transferOut = transferOutMap[card.id] ?: 0L
                 CardPendingResponse(
                     paymentMethod = card.toResponse(),
-                    pendingAmount = txnAmount + transferOut,
+                    pendingAmount = txnAmount,
                     settlementDate = if (card.settlementDay != null) {
                         LocalDate.of(yearMonth.year, yearMonth.month,
                             card.settlementDay!!.coerceAtMost(yearMonth.lengthOfMonth()))

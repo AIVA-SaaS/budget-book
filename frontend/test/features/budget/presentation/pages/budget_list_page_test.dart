@@ -20,6 +20,7 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 
 class MockBudgetBloc extends MockBloc<BudgetEvent, BudgetState>
     implements BudgetBloc {}
@@ -135,9 +136,17 @@ void main() {
     if (initialState != null) {
       when(() => mockBudgetBloc.state).thenReturn(initialState);
     }
+    // BudgetLoaded의 year/month와 MonthCubit state를 맞춰 UI가 기대값 표시
+    final monthCubit = MonthCubit();
+    if (initialState is BudgetLoaded) {
+      monthCubit.changeMonth(initialState.year, initialState.month);
+    }
     return MaterialApp(
-      home: BlocProvider<BudgetBloc>.value(
-        value: mockBudgetBloc,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<BudgetBloc>.value(value: mockBudgetBloc),
+          BlocProvider<MonthCubit>.value(value: monthCubit),
+        ],
         child: const BudgetListPage(),
       ),
     );
