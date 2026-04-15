@@ -11,9 +11,44 @@ import 'package:budget_book/features/payment_method/presentation/widgets/card_pe
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 
-class PaymentMethodPage extends StatelessWidget {
+class PaymentMethodPage extends StatefulWidget {
   const PaymentMethodPage({super.key});
+
+  @override
+  State<PaymentMethodPage> createState() => _PaymentMethodPageState();
+}
+
+class _PaymentMethodPageState extends State<PaymentMethodPage> {
+  late int _year;
+  late int _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _year = now.year;
+    _month = now.month;
+    // Load settlement summary with current month
+    final pmState = context.read<PaymentMethodBloc>().state;
+    if (pmState is PaymentMethodLoaded &&
+        pmState.paymentMethods.any((pm) => pm.isCredit)) {
+      context.read<PaymentMethodBloc>().add(
+            LoadCardSettlementSummary(year: _year, month: _month),
+          );
+    }
+  }
+
+  void _onMonthChanged(({int year, int month}) ym) {
+    setState(() {
+      _year = ym.year;
+      _month = ym.month;
+    });
+    context.read<PaymentMethodBloc>().add(
+          LoadCardSettlementSummary(year: _year, month: _month),
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,8 +135,13 @@ class PaymentMethodPage extends StatelessWidget {
       key: const PageStorageKey('payment_method_list'),
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        // Card settlement summary at the top if there are credit cards
-        if (methods.any((pm) => pm.isCredit))
+        // Month navigator + Card settlement summary if credit cards exist
+        if (methods.any((pm) => pm.isCredit)) ...[
+          MonthNavigator(
+            year: _year,
+            month: _month,
+            onMonthChanged: _onMonthChanged,
+          ),
           BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
             builder: (context, state) {
               if (state is! PaymentMethodLoaded) {
@@ -128,6 +168,7 @@ class PaymentMethodPage extends StatelessWidget {
               return const SizedBox.shrink();
             },
           ),
+        ],
         // Payment method list
         ...methods.map((pm) => _buildPaymentMethodTile(context, pm)),
         const SizedBox(height: 88),
@@ -206,14 +247,7 @@ class PaymentMethodPage extends StatelessWidget {
                 } else if (action == 'delete') {
                   _showDeleteDialog(context, method);
                 } else if (action == 'history') {
-                  final pmState = context.read<PaymentMethodBloc>().state;
-                  int year = DateTime.now().year;
-                  int month = DateTime.now().month;
-                  if (pmState is PaymentMethodLoaded && pmState.cardSettlementSummary != null) {
-                    year = pmState.cardSettlementSummary!.currentMonth.year;
-                    month = pmState.cardSettlementSummary!.currentMonth.month;
-                  }
-                  context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$year&month=$month');
+                  context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$_year&month=$_month');
                 }
               },
               itemBuilder: (_) => [
