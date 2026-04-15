@@ -63,7 +63,7 @@ class TransactionDetailPage extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.operationSuccess!)),
             );
-            context.go('/transactions');
+            context.go('/transactions?year=${state.year}&month=${state.month}');
           }
         },
         child: BlocBuilder<TransactionBloc, TransactionState>(

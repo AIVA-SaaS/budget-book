@@ -74,6 +74,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return _RecentTransactionsCard(
           transactions: state.recentTransactions,
           error: state.transactionsError,
+          year: state.year,
+          month: state.month,
         );
       case 'payment_breakdown':
         return _PaymentMethodStatsCard(
@@ -606,10 +608,14 @@ class _BudgetUsageCardState extends State<_BudgetUsageCard> {
 class _RecentTransactionsCard extends StatelessWidget {
   final List<Transaction> transactions;
   final String? error;
+  final int year;
+  final int month;
 
   const _RecentTransactionsCard({
     required this.transactions,
     this.error,
+    required this.year,
+    required this.month,
   });
 
   @override
@@ -635,7 +641,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                     if (shell != null) {
                       shell.goBranch(1);
                     } else {
-                      context.go('/transactions');
+                      context.go('/transactions?year=$year&month=$month');
                     }
                   },
                   child: const Text('더보기'),
@@ -664,7 +670,7 @@ class _RecentTransactionsCard extends StatelessWidget {
               ...transactions.map(
                 (txn) => TransactionListTile(
                   transaction: txn,
-                  onTap: () => context.push('/transactions/detail/${txn.id}'),
+                  onTap: () => context.push('/transactions/detail/${txn.id}?year=$year&month=$month'),
                 ),
               ),
           ],
@@ -1154,7 +1160,7 @@ class _AiInsightPreviewCardState extends State<_AiInsightPreviewCard> {
                   final categoryId = insight.data?['categoryId'];
                   final categoryName = insight.data?['categoryName'];
                   if (categoryId != null) {
-                    context.go('/transactions?categoryId=$categoryId&categoryName=${Uri.encodeComponent(categoryName?.toString() ?? '')}');
+                    context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=$categoryId&categoryName=${Uri.encodeComponent(categoryName?.toString() ?? '')}');
                     return;
                   }
                 } else if (insight.type == 'BUDGET_WARNING' || insight.type == 'BUDGET_ADJUST') {

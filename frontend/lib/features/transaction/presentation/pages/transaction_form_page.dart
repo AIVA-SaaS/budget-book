@@ -469,7 +469,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               } else if (isEditing) {
                 // After editing, go directly to transactions list
                 // to avoid stale edit page in browser history
-                context.go('/transactions');
+                context.go('/transactions?year=${state.year}&month=${state.month}');
               } else {
                 context.pop();
               }
