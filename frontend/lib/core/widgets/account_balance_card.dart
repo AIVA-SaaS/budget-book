@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
@@ -14,9 +15,17 @@ class AccountBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pmState = getIt<PaymentMethodBloc>().state;
-    if (pmState is! PaymentMethodLoaded) return const SizedBox.shrink();
+    // PaymentMethodBloc state 변경 시 자동 rebuild — 월 변경/결제/잔액 수정 반영
+    return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+      bloc: getIt<PaymentMethodBloc>(),
+      builder: (context, pmState) {
+        if (pmState is! PaymentMethodLoaded) return const SizedBox.shrink();
+        return _buildContent(context, pmState);
+      },
+    );
+  }
 
+  Widget _buildContent(BuildContext context, PaymentMethodLoaded pmState) {
     final methods = pmState.paymentMethods.where((pm) => pm.isActive).toList();
     if (methods.isEmpty) return const SizedBox.shrink();
 
