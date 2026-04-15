@@ -148,5 +148,6 @@ data class SettlementTransactionItem(
     val description: String,
     val amount: Long,
     val categoryName: String?,
-    val categoryIcon: String?
+    val categoryIcon: String?,
+    val type: String = "TRANSACTION" // TRANSACTION or TRANSFER
 )

@@ -32,7 +32,8 @@ class PaymentMethodBloc
           emit(PaymentMethodLoaded(methods));
           // Auto-load card settlement summary if credit cards exist
           if (methods.any((pm) => pm.isCredit)) {
-            add(const LoadCardSettlementSummary());
+            final now = DateTime.now();
+            add(LoadCardSettlementSummary(year: now.year, month: now.month));
           }
         },
       );

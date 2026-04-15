@@ -9,6 +9,7 @@ class SettlementTransactionModel extends SettlementTransaction {
     required super.amount,
     super.categoryName,
     super.categoryIcon,
+    super.type,
   });
 
   factory SettlementTransactionModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +21,7 @@ class SettlementTransactionModel extends SettlementTransaction {
       amount: json['amount'] as int,
       categoryName: json['categoryName'] as String?,
       categoryIcon: json['categoryIcon'] as String?,
+      type: json['type'] as String? ?? 'TRANSACTION',
     );
   }
 }

@@ -56,13 +56,14 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
 
   void _onTextChanged() {
     final text = widget.controller.text;
-    final hasOperator = text.contains('+') || text.contains('-');
+    final hasOperator = text.contains('+') || text.contains('-') ||
+        text.contains('*') || text.contains('/');
 
     // Detect if this is entering expression mode (has operator beyond just digits+commas)
     // But the first character '-' does not count (negative number, though we don't support negative)
     final cleanText = text.replaceAll(',', '');
     final isExpression = hasOperator && cleanText.length > 1 &&
-        RegExp(r'\d[+\-]').hasMatch(cleanText);
+        RegExp(r'\d[+\-*/]').hasMatch(cleanText);
 
     if (isExpression != _isExpressionMode) {
       setState(() {
@@ -101,33 +102,62 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
     });
   }
 
-  /// Evaluates a simple arithmetic expression with + and -.
+  /// Evaluates an arithmetic expression with +, -, *, /.
+  /// Respects operator precedence: * and / before + and -.
   /// Input should have commas already stripped.
-  /// e.g. "50000+3000-500" → 52500
+  /// e.g. "50000+3000*2" → 56000, "100000/4-5000" → 20000
   static int? evaluateExpression(String expr) {
     if (expr.isEmpty) return null;
 
-    // Split by + and - while keeping the operators
-    final tokens = <String>[];
+    // Tokenize: split into numbers and operators (+, -, *, /)
+    final numbers = <double>[];
+    final operators = <String>[];
     var current = '';
+
     for (var i = 0; i < expr.length; i++) {
       final ch = expr[i];
-      if ((ch == '+' || ch == '-') && i > 0) {
-        tokens.add(current);
-        current = ch; // start new token with operator
+      if ((ch == '+' || ch == '-' || ch == '*' || ch == '/') && i > 0 && current.isNotEmpty) {
+        final num = double.tryParse(current);
+        if (num == null) return null;
+        numbers.add(num);
+        operators.add(ch);
+        current = '';
       } else {
         current += ch;
       }
     }
-    if (current.isNotEmpty) tokens.add(current);
-
-    var sum = 0;
-    for (final token in tokens) {
-      final val = int.tryParse(token);
-      if (val == null) return null;
-      sum += val;
+    if (current.isNotEmpty) {
+      final num = double.tryParse(current);
+      if (num == null) return null;
+      numbers.add(num);
     }
-    return sum;
+    if (numbers.isEmpty) return null;
+
+    // Phase 1: process * and / (higher precedence)
+    final addNumbers = <double>[numbers[0]];
+    final addOperators = <String>[];
+    for (var i = 0; i < operators.length; i++) {
+      if (operators[i] == '*') {
+        addNumbers.last = addNumbers.last * numbers[i + 1];
+      } else if (operators[i] == '/') {
+        if (numbers[i + 1] == 0) return null; // division by zero
+        addNumbers.last = addNumbers.last / numbers[i + 1];
+      } else {
+        addOperators.add(operators[i]);
+        addNumbers.add(numbers[i + 1]);
+      }
+    }
+
+    // Phase 2: process + and -
+    var result = addNumbers[0];
+    for (var i = 0; i < addOperators.length; i++) {
+      if (addOperators[i] == '+') {
+        result += addNumbers[i + 1];
+      } else {
+        result -= addNumbers[i + 1];
+      }
+    }
+    return result.round();
   }
 
   @override
@@ -234,8 +264,8 @@ class _CalculatorInputFormatter extends TextInputFormatter {
 
     final text = newValue.text;
 
-    // Only allow digits, commas, +, -
-    final cleaned = text.replaceAll(RegExp(r'[^\d,+\-]'), '');
+    // Only allow digits, commas, +, -, *, /
+    final cleaned = text.replaceAll(RegExp(r'[^\d,+\-*/]'), '');
     if (cleaned != text) {
       return TextEditingValue(
         text: cleaned,
@@ -243,10 +273,10 @@ class _CalculatorInputFormatter extends TextInputFormatter {
       );
     }
 
-    // Check if expression mode (has + or - after a digit)
+    // Check if expression mode (has +, -, *, / after a digit)
     final noCommas = text.replaceAll(',', '');
     final isExpression =
-        noCommas.length > 1 && RegExp(r'\d[+\-]').hasMatch(noCommas);
+        noCommas.length > 1 && RegExp(r'\d[+\-*/]').hasMatch(noCommas);
 
     if (isExpression) {
       // In expression mode: format each numeric segment with commas
@@ -277,14 +307,14 @@ class _CalculatorInputFormatter extends TextInputFormatter {
     );
   }
 
-  /// Formats an expression like "50000+3000-500" → "50,000+3,000-500"
+  /// Formats an expression like "50000+3000*2" → "50,000+3,000*2"
   static String _formatExpression(String expr) {
     final buffer = StringBuffer();
     var currentNum = '';
 
     for (var i = 0; i < expr.length; i++) {
       final ch = expr[i];
-      if ((ch == '+' || ch == '-') && i > 0) {
+      if ((ch == '+' || ch == '-' || ch == '*' || ch == '/') && i > 0) {
         // Format the accumulated number
         final num = int.tryParse(currentNum);
         if (num != null) {
