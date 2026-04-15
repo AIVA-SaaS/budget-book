@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/current_week_summary.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
@@ -34,9 +35,10 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
       _year = value.year;
       _month = value.month;
     });
-    context.read<WeeklyBudgetBloc>()
-      ..add(LoadWeeklyOverview(year: _year, month: _month))
-      ..add(const LoadCurrentWeek());
+    // MonthCubit 동기화 (다른 페이지와 양방향 sync). WeeklyBudgetBloc 중 LoadCurrentWeek은
+    // MonthSyncHandler에 포함되지 않으므로 여기서 추가 dispatch.
+    context.read<MonthCubit>().changeMonth(value.year, value.month);
+    context.read<WeeklyBudgetBloc>().add(const LoadCurrentWeek());
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
@@ -122,6 +123,8 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
               _year = val.year;
               _month = val.month;
             });
+            // MonthCubit 동기화 (다른 페이지와 양방향 sync)
+            context.read<MonthCubit>().changeMonth(val.year, val.month);
             _loadPlans();
           },
         ),

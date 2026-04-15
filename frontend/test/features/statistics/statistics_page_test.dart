@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_state.dart';
@@ -47,8 +48,11 @@ void main() {
 
   Widget createTestWidget() {
     return MaterialApp(
-      home: BlocProvider<StatisticsBloc>.value(
-        value: mockBloc,
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<StatisticsBloc>.value(value: mockBloc),
+          BlocProvider<MonthCubit>(create: (_) => MonthCubit()),
+        ],
         child: const StatisticsPage(),
       ),
     );
@@ -195,34 +199,57 @@ void main() {
       expect(find.byIcon(Icons.chevron_right), findsOneWidget);
     });
 
-    testWidgets('navigates to previous month when left arrow tapped',
+    testWidgets('updates MonthCubit state to previous month when left arrow tapped',
         (tester) async {
       when(() => mockBloc.state).thenReturn(const StatisticsState(
         year: 2026,
         month: 3,
       ));
 
-      await tester.pumpWidget(createTestWidget());
+      // Custom widget with accessible MonthCubit
+      final monthCubit = MonthCubit();
+      addTearDown(monthCubit.close);
+      await tester.pumpWidget(MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<StatisticsBloc>.value(value: mockBloc),
+            BlocProvider<MonthCubit>.value(value: monthCubit),
+          ],
+          child: const StatisticsPage(),
+        ),
+      ));
       await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pump();
 
-      verify(() => mockBloc.add(
-            const LoadAllStatistics(year: 2026, month: 2),
-          )).called(1);
+      // MonthNavigator는 state.year/month(2026-3) 기준으로 계산 → 이전 달 2026-2
+      expect(monthCubit.state.year, 2026);
+      expect(monthCubit.state.month, 2);
     });
 
-    testWidgets('navigates to next month when right arrow tapped',
+    testWidgets('updates MonthCubit state to next month when right arrow tapped',
         (tester) async {
       when(() => mockBloc.state).thenReturn(const StatisticsState(
         year: 2026,
         month: 3,
       ));
 
-      await tester.pumpWidget(createTestWidget());
+      final monthCubit = MonthCubit();
+      addTearDown(monthCubit.close);
+      await tester.pumpWidget(MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<StatisticsBloc>.value(value: mockBloc),
+            BlocProvider<MonthCubit>.value(value: monthCubit),
+          ],
+          child: const StatisticsPage(),
+        ),
+      ));
       await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pump();
 
-      verify(() => mockBloc.add(
-            const LoadAllStatistics(year: 2026, month: 4),
-          )).called(1);
+      // MonthNavigator는 state.year/month(2026-3) 기준으로 계산 → 다음 달 2026-4
+      expect(monthCubit.state.year, 2026);
+      expect(monthCubit.state.month, 4);
     });
   });
 }
