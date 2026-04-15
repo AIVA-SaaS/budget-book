@@ -14,6 +14,7 @@ import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/account_balance_card.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_transactions_sheet.dart';
@@ -494,15 +495,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
         MonthNavigator(
           year: state.year,
           month: state.month,
-          onMonthChanged: (m) {
-            context.read<BudgetBloc>().add(
-                  LoadBudgets(year: m.year, month: m.month),
-                );
-            // 카드 결제 현황도 선택한 월 기준으로 재조회
-            getIt<PaymentMethodBloc>().add(
-                  LoadCardSettlementSummary(year: m.year, month: m.month),
-                );
-          },
+          // MonthCubit만 업데이트 — MonthSyncHandler가 BudgetBloc/DashboardBloc/
+          // PaymentMethodBloc reload를 자동 dispatch. 중앙화된 월 동기화.
+          onMonthChanged: (m) => context.read<MonthCubit>().changeMonth(m.year, m.month),
         ),
         if (state.summary != null)
           BudgetSummaryCard(summary: state.summary!),

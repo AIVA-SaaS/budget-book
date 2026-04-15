@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
+import 'package:budget_book/core/bloc/month_sync_handler.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/auth_interceptor.dart';
 import 'package:budget_book/core/router/app_router.dart';
@@ -44,6 +46,7 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
         BlocProvider<LocaleCubit>.value(value: getIt<LocaleCubit>()),
+        BlocProvider<MonthCubit>.value(value: getIt<MonthCubit>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
@@ -57,11 +60,13 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                 scaffoldMessengerKey: rootScaffoldMessengerKey,
                 routerConfig: _router,
                 builder: (context, child) {
+                  // MonthSyncHandler: 월 변경 시 관련 BLoC 자동 reload (중앙화)
+                  final wrapped = MonthSyncHandler(child: child!);
                   return LayoutBuilder(
                     builder: (context, constraints) {
                       // Mobile: no constraint, Web: centered with max width + background
                       if (constraints.maxWidth <= 768) {
-                        return child!;
+                        return wrapped;
                       }
                       final bgColor = Theme.of(context).colorScheme.surfaceContainerLowest;
                       return ColoredBox(
@@ -79,7 +84,7 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                                 ),
                               ],
                             ),
-                            child: child,
+                            child: wrapped,
                           ),
                         ),
                       );
