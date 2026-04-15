@@ -93,11 +93,8 @@ class _WeeklySettlementPageState extends State<WeeklySettlementPage> {
       ),
       body: Column(
         children: [
-          MonthNavigator(
-            year: _year,
-            month: _month,
-            onMonthChanged: _onMonthChanged,
-          ),
+          // MonthNavigator는 MonthCubit.state 자동 watch
+          MonthNavigator(onMonthChanged: _onMonthChanged),
           Expanded(
             child:
                 BlocBuilder<WeeklySettlementBloc, WeeklySettlementState>(

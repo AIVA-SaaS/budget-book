@@ -115,15 +115,13 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
     return Column(
       children: [
         // Month navigator
+        // MonthNavigator는 MonthCubit.state 자동 watch
         MonthNavigator(
-          year: _year,
-          month: _month,
           onMonthChanged: (val) {
             setState(() {
               _year = val.year;
               _month = val.month;
             });
-            // MonthCubit 동기화 (다른 페이지와 양방향 sync)
             context.read<MonthCubit>().changeMonth(val.year, val.month);
             _loadPlans();
           },

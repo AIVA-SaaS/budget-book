@@ -9,6 +9,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
@@ -21,34 +22,25 @@ class PaymentMethodPage extends StatefulWidget {
 }
 
 class _PaymentMethodPageState extends State<PaymentMethodPage> {
-  late int _year;
-  late int _month;
-
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _year = now.year;
-    _month = now.month;
-    // Load settlement summary with current month
+    // 초기 진입 시 현재 MonthCubit 월 기준으로 카드 결제 현황 로드.
+    // 이후 월 변경은 MonthSyncHandler가 자동 처리.
+    final monthState = context.read<MonthCubit>().state;
     final pmState = context.read<PaymentMethodBloc>().state;
     if (pmState is PaymentMethodLoaded &&
         pmState.paymentMethods.any((pm) => pm.isCredit)) {
       context.read<PaymentMethodBloc>().add(
-            LoadCardSettlementSummary(year: _year, month: _month),
+            LoadCardSettlementSummary(
+                year: monthState.year, month: monthState.month),
           );
     }
   }
 
-  void _onMonthChanged(({int year, int month}) ym) {
-    setState(() {
-      _year = ym.year;
-      _month = ym.month;
-    });
-    context.read<PaymentMethodBloc>().add(
-          LoadCardSettlementSummary(year: _year, month: _month),
-        );
-  }
+  /// 거래 이력 이동 시 사용할 현재 월 (MonthCubit.state).
+  int get _year => context.read<MonthCubit>().state.year;
+  int get _month => context.read<MonthCubit>().state.month;
 
   @override
   Widget build(BuildContext context) {
@@ -137,11 +129,8 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
       children: [
         // Month navigator + Card settlement summary if credit cards exist
         if (methods.any((pm) => pm.isCredit)) ...[
-          MonthNavigator(
-            year: _year,
-            month: _month,
-            onMonthChanged: _onMonthChanged,
-          ),
+          // MonthNavigator는 MonthCubit.state를 자동 watch
+          const MonthNavigator(),
           BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
             builder: (context, state) {
               if (state is! PaymentMethodLoaded) {

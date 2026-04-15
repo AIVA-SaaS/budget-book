@@ -74,9 +74,8 @@ class _ReportPageState extends State<ReportPage> {
         ),
         body: Column(
           children: [
+            // MonthNavigator는 MonthCubit.state 자동 watch
             MonthNavigator(
-              year: _year,
-              month: _month,
               onMonthChanged: (m) => _changeMonth(m.year, m.month),
             ),
             Expanded(

@@ -201,8 +201,9 @@ class _MonthHeader extends StatelessWidget {
   const _MonthHeader({required this.year, required this.month});
 
   void _goToPreviousMonth(BuildContext context) {
-    int newYear = year;
-    int newMonth = month - 1;
+    final monthState = context.read<MonthCubit>().state;
+    int newYear = monthState.year;
+    int newMonth = monthState.month - 1;
     if (newMonth < 1) {
       newMonth = 12;
       newYear -= 1;
@@ -213,8 +214,9 @@ class _MonthHeader extends StatelessWidget {
   }
 
   void _goToNextMonth(BuildContext context) {
-    int newYear = year;
-    int newMonth = month + 1;
+    final monthState = context.read<MonthCubit>().state;
+    int newYear = monthState.year;
+    int newMonth = monthState.month + 1;
     if (newMonth > 12) {
       newMonth = 1;
       newYear += 1;
@@ -224,6 +226,8 @@ class _MonthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MonthCubit state를 watch하여 다른 페이지의 월 변경과 sync
+    final monthState = context.watch<MonthCubit>().state;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -233,7 +237,7 @@ class _MonthHeader extends StatelessWidget {
           tooltip: '이전 달',
         ),
         Text(
-          '$year년 $month월',
+          '${monthState.year}년 ${monthState.month}월',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
