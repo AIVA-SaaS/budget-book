@@ -186,13 +186,26 @@ void main() {
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
 
-    testWidgets('shows month navigator with current month', (tester) async {
+    testWidgets('shows month navigator with MonthCubit current month',
+        (tester) async {
       when(() => mockBloc.state).thenReturn(const StatisticsState(
         year: 2026,
         month: 3,
       ));
 
-      await tester.pumpWidget(createTestWidget());
+      final monthCubit = MonthCubit();
+      addTearDown(monthCubit.close);
+      monthCubit.changeMonth(2026, 3);
+
+      await tester.pumpWidget(MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<StatisticsBloc>.value(value: mockBloc),
+            BlocProvider<MonthCubit>.value(value: monthCubit),
+          ],
+          child: const StatisticsPage(),
+        ),
+      ));
 
       expect(find.text('2026년 3월'), findsOneWidget);
       expect(find.byIcon(Icons.chevron_left), findsOneWidget);
@@ -206,9 +219,10 @@ void main() {
         month: 3,
       ));
 
-      // Custom widget with accessible MonthCubit
+      // Custom widget with accessible MonthCubit 초기값 2026-3
       final monthCubit = MonthCubit();
       addTearDown(monthCubit.close);
+      monthCubit.changeMonth(2026, 3);
       await tester.pumpWidget(MaterialApp(
         home: MultiBlocProvider(
           providers: [
@@ -221,7 +235,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.chevron_left));
       await tester.pump();
 
-      // MonthNavigator는 state.year/month(2026-3) 기준으로 계산 → 이전 달 2026-2
+      // MonthNavigator는 MonthCubit.state(2026-3) 기준 → 이전 달 2026-2
       expect(monthCubit.state.year, 2026);
       expect(monthCubit.state.month, 2);
     });
@@ -235,6 +249,7 @@ void main() {
 
       final monthCubit = MonthCubit();
       addTearDown(monthCubit.close);
+      monthCubit.changeMonth(2026, 3);
       await tester.pumpWidget(MaterialApp(
         home: MultiBlocProvider(
           providers: [
@@ -247,7 +262,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.chevron_right));
       await tester.pump();
 
-      // MonthNavigator는 state.year/month(2026-3) 기준으로 계산 → 다음 달 2026-4
+      // MonthNavigator는 MonthCubit.state(2026-3) 기준 → 다음 달 2026-4
       expect(monthCubit.state.year, 2026);
       expect(monthCubit.state.month, 4);
     });
