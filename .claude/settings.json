@@ -21,5 +21,20 @@
       "Bash(git clean -fd *)"
     ]
   },
-  "teammateMode": "auto"
+  "teammateMode": "auto",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/plan-audit.sh",
+            "statusMessage": "Harness: 기획서 자동 검토 중...",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
 }
