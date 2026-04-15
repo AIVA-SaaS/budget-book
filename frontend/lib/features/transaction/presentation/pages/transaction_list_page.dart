@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
@@ -332,6 +333,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
             setState(() {
               _filterState = _filterState.copyWith(clearDateRange: true);
             });
+            // MonthCubit 동기화 (다른 페이지와 양방향 sync)
+            context.read<MonthCubit>().changeMonth(m.year, m.month);
+            // 필터가 복잡하므로 페이지 자체에서도 dispatch (MonthSyncHandler가
+            // 먼저 기본 필터로 reload하지만, 페이지 고유 필터 적용 필요)
             final kw = _searchController.text.trim().isEmpty
                 ? null
                 : _searchController.text.trim();
@@ -351,9 +356,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     scrollToDate: _pendingScrollToDate,
                     type: _filterState.transactionType,
                   ),
-                );
-            context.read<TransferBloc>().add(
-                  LoadTransfers(year: m.year, month: m.month),
                 );
           },
         ),

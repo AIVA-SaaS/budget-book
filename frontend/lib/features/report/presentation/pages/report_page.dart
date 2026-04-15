@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 import 'package:budget_book/features/report/domain/entities/monthly_report.dart';
@@ -46,14 +47,14 @@ class _ReportPageState extends State<ReportPage> {
       _year = year;
       _month = month;
     });
+    // MonthCubit 동기화 — MonthSyncHandler가 ReportBloc.LoadMonthlyReport + AiInsightBloc 자동 처리
+    context.read<MonthCubit>().changeMonth(year, month);
+    // LoadWeeklyReport은 week 파라미터가 필요하므로 페이지 자체에서 dispatch
     final now = DateTime.now();
     final week = (year == now.year && month == now.month)
         ? _currentWeekOfMonth(now)
         : 1;
-    context.read<ReportBloc>()
-      ..add(LoadMonthlyReport(year: year, month: month))
-      ..add(LoadWeeklyReport(year: year, month: month, week: week));
-    getIt<AiInsightBloc>().add(LoadInsights(year: year, month: month));
+    context.read<ReportBloc>().add(LoadWeeklyReport(year: year, month: month, week: week));
   }
 
   @override
