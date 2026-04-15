@@ -92,15 +92,22 @@ class MonthSyncHandler extends StatelessWidget {
       statBloc.add(LoadYearComparison(year: year, month: month));
     } catch (_) {}
 
-    // Weekly budget overview
+    // Weekly budget overview + current week
     try {
       getIt<WeeklyBudgetBloc>()
-          .add(LoadWeeklyOverview(year: year, month: month));
+        ..add(LoadWeeklyOverview(year: year, month: month))
+        ..add(const LoadCurrentWeek());
     } catch (_) {}
 
-    // Monthly report
+    // Monthly + weekly report (주 계산: 현재 월이면 현재 주, 과거/미래 월이면 1주차)
     try {
-      getIt<ReportBloc>().add(LoadMonthlyReport(year: year, month: month));
+      final now = DateTime.now();
+      final week = (year == now.year && month == now.month)
+          ? _currentWeekOfMonth(now)
+          : 1;
+      getIt<ReportBloc>()
+        ..add(LoadMonthlyReport(year: year, month: month))
+        ..add(LoadWeeklyReport(year: year, month: month, week: week));
     } catch (_) {}
 
     // AI insights
@@ -120,5 +127,11 @@ class MonthSyncHandler extends StatelessWidget {
         LoadSpendingPlans(startDate: startDate, endDate: endDate),
       );
     } catch (_) {}
+  }
+
+  /// 해당 날짜가 월의 몇 번째 주인지 계산 (1-based).
+  static int _currentWeekOfMonth(DateTime date) {
+    final firstDay = DateTime(date.year, date.month, 1);
+    return ((date.day + firstDay.weekday - 2) ~/ 7) + 1;
   }
 }
