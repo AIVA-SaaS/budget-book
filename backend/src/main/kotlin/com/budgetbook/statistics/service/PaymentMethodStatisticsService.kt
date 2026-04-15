@@ -48,14 +48,14 @@ class PaymentMethodStatisticsService(
         }
 
         // 2. Transfer-based stats: source = outgoing (expense), dest = incoming
-        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(
+        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(
             couple.id, startDate, endDate
         )
         val transferOutMap = transferOutResults.associate { row ->
             (row[0] as UUID) to (row[1] as Long)
         }
 
-        val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(
+        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(
             couple.id, startDate, endDate
         )
         val transferInMap = transferInResults.associate { row ->

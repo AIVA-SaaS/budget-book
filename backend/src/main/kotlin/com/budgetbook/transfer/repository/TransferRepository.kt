@@ -61,6 +61,7 @@ interface TransferRepository : JpaRepository<Transfer, UUID> {
         SELECT tr FROM Transfer tr
         WHERE tr.sourcePaymentMethod.id = :paymentMethodId
         AND tr.transferDate BETWEEN :startDate AND :endDate
+        AND tr.isCardSettlement = false
         ORDER BY tr.transferDate ASC
     """)
     fun findBySourcePaymentMethodAndDateRange(
@@ -68,4 +69,34 @@ interface TransferRepository : JpaRepository<Transfer, UUID> {
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<Transfer>
+
+    // --- 통계용 쿼리 (카드 결제 이체 제외) ---
+
+    @Query("""
+        SELECT tr.sourcePaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr
+        WHERE tr.couple.id = :coupleId
+        AND tr.transferDate BETWEEN :startDate AND :endDate
+        AND tr.isCardSettlement = false
+        GROUP BY tr.sourcePaymentMethod.id
+    """)
+    fun sumAmountBySourceExcludingSettlement(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
+
+    @Query("""
+        SELECT tr.destinationPaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr
+        WHERE tr.couple.id = :coupleId
+        AND tr.transferDate BETWEEN :startDate AND :endDate
+        AND tr.isCardSettlement = false
+        GROUP BY tr.destinationPaymentMethod.id
+    """)
+    fun sumAmountByDestinationExcludingSettlement(
+        @Param("coupleId") coupleId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Array<Any>>
 }

@@ -242,8 +242,8 @@ class PaymentMethodService(
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
 
-            // Transfer OUT amounts per source payment method
-            val transferOutMap = transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            // Transfer OUT amounts (카드 결제 이체는 제외 — 이미 원본 거래로 계산됨, 이중 계산 방지)
+            val transferOutMap = transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id, startDate, endDate
             ).associate { (it[0] as UUID) to (it[1] as Long) }
 
@@ -279,8 +279,8 @@ class PaymentMethodService(
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
 
-            // Transfer OUT amounts per source payment method (same pattern as buildMonthByTransactionDate)
-            val transferOutMap = transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            // Transfer OUT amounts (카드 결제 이체는 제외 — 이미 원본 거래로 계산됨, 이중 계산 방지)
+            val transferOutMap = transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id, startDate, endDate
             ).associate { (it[0] as UUID) to (it[1] as Long) }
 

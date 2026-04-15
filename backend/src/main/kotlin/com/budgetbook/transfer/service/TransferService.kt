@@ -17,6 +17,7 @@ import com.budgetbook.transfer.dto.PaymentMethodSummary
 import com.budgetbook.transfer.dto.TransferResponse
 import com.budgetbook.transfer.dto.UpdateTransferRequest
 import com.budgetbook.transfer.repository.TransferRepository
+import com.budgetbook.transaction.repository.TransactionRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -29,7 +30,8 @@ class TransferService(
     override val coupleResolver: CoupleResolver,
     private val userRepository: UserRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
-    private val syncEventPublisher: SyncEventPublisher
+    private val syncEventPublisher: SyncEventPublisher,
+    private val transactionRepository: TransactionRepository
 ) : CoupleAwareService {
 
     @Transactional
@@ -190,6 +192,72 @@ class TransferService(
             authorId = authorId
         ))
         return saved
+    }
+
+    /**
+     * 카드 결제 처리 (구조적 수정):
+     * 1. is_card_settlement=true 인 Transfer 생성 (통계 이중 계산 방지)
+     * 2. 선택된 transactionIds의 paid_at을 결제일로 일괄 업데이트 (미결제 목록에서 제외)
+     *
+     * 한 트랜잭션 내에서 처리되어 원자성 보장.
+     */
+    @Transactional
+    fun createCardSettlement(
+        userId: UUID,
+        sourcePaymentMethodId: UUID,
+        destinationPaymentMethodId: UUID,
+        amount: Long,
+        transferDate: LocalDate,
+        description: String?,
+        transactionIds: List<UUID>
+    ): TransferResponse {
+        if (sourcePaymentMethodId == destinationPaymentMethodId) {
+            throw BusinessException("VALIDATION_ERROR", "Source and destination payment methods must be different.")
+        }
+
+        val couple = getActiveCouple(userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        val source = paymentMethodRepository.findById(sourcePaymentMethodId)
+            .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Source payment method does not exist.") }
+        OwnershipValidator.validateOwnership(source.couple.id, couple, "Payment method")
+
+        val destination = paymentMethodRepository.findById(destinationPaymentMethodId)
+            .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Destination payment method does not exist.") }
+        OwnershipValidator.validateOwnership(destination.couple.id, couple, "Payment method")
+
+        // 카드 결제는 반드시 destination이 CREDIT 카드여야 함
+        if (destination.type != PaymentMethodType.CREDIT) {
+            throw BusinessException("VALIDATION_ERROR", "카드 결제는 destination이 CREDIT 타입이어야 합니다.")
+        }
+
+        // 1. Transfer 생성 (is_card_settlement=true)
+        val transfer = Transfer(
+            couple = couple,
+            author = user,
+            sourcePaymentMethod = source,
+            destinationPaymentMethod = destination,
+            amount = amount,
+            description = description ?: "카드 결제",
+            transferDate = transferDate,
+            isCardSettlement = true
+        )
+        val saved = transferRepository.save(transfer)
+
+        // 2. 선택된 거래들의 paid_at 업데이트 (미결제 목록에서 제외)
+        if (transactionIds.isNotEmpty()) {
+            transactionRepository.markAsPaid(transactionIds, transferDate)
+        }
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "CARD_SETTLEMENT_CREATED",
+            entityType = "TRANSFER",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     private fun validateNotCreditToCredit(sourceType: PaymentMethodType, destType: PaymentMethodType) {

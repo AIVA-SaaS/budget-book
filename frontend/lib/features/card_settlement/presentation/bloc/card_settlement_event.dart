@@ -55,6 +55,7 @@ class SubmitSettlement extends CardSettlementEvent {
   final int amount;
   final String date;
   final String? description;
+  final List<String> transactionIds; // 결제 처리할 거래 ID 목록
 
   const SubmitSettlement({
     required this.sourcePaymentMethodId,
@@ -62,6 +63,7 @@ class SubmitSettlement extends CardSettlementEvent {
     required this.amount,
     required this.date,
     this.description,
+    this.transactionIds = const [],
   });
 
   @override
@@ -71,5 +73,6 @@ class SubmitSettlement extends CardSettlementEvent {
         amount,
         date,
         description,
+        transactionIds,
       ];
 }

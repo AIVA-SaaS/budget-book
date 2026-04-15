@@ -400,7 +400,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(150000L, 3L))
 
             // Previous month: transfer out
-            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            every { transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id,
                 prev.atDay(1),
                 prev.atEndOfMonth()
@@ -415,7 +415,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(200000L, 5L))
 
             // Current month: transfer out
-            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            every { transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id,
                 now.atDay(1),
                 now.atEndOfMonth()
@@ -474,7 +474,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(100000L, 2L))
 
             // Transfer out (no transfers for this card)
-            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            every { transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id,
                 prev.atDay(1),
                 prev.atEndOfMonth()
@@ -488,7 +488,7 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(50000L, 1L))
 
             // Transfer out (no transfers for this card)
-            every { transferRepository.sumAmountBySourceForCoupleAndPeriod(
+            every { transferRepository.sumAmountBySourceExcludingSettlement(
                 couple.id,
                 now.atDay(1),
                 now.atEndOfMonth()

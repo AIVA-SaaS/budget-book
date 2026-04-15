@@ -79,9 +79,9 @@ class StatisticsService(
         }
 
         // Include transfer amounts: OUT = expense, IN = income
-        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
         val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-        val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
         val transferInTotal = transferInResults.sumOf { it[1] as Long }
 
         totalExpense += transferOutTotal
@@ -141,7 +141,7 @@ class StatisticsService(
 
         // Include transfers as a virtual "이체" category
         if (transactionType == TransactionType.EXPENSE) {
-            val transferOutTotal = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+            val transferOutTotal = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
                 .sumOf { it[1] as Long }
             if (transferOutTotal > 0) {
                 categoryEntries.add(CategoryStatisticsResponse(
@@ -160,7 +160,7 @@ class StatisticsService(
                 ))
             }
         } else {
-            val transferInTotal = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+            val transferInTotal = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
                 .sumOf { it[1] as Long }
             if (transferInTotal > 0) {
                 categoryEntries.add(CategoryStatisticsResponse(
@@ -225,9 +225,9 @@ class StatisticsService(
             // Include transfer amounts for this month
             val monthStart = ym.atDay(1)
             val monthEnd = ym.atEndOfMonth()
-            val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, monthStart, monthEnd)
+            val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, monthStart, monthEnd)
             val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-            val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, monthStart, monthEnd)
+            val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, monthStart, monthEnd)
             val transferInTotal = transferInResults.sumOf { it[1] as Long }
 
             val adjustedIncome = income + transferInTotal
@@ -364,9 +364,9 @@ class StatisticsService(
         // Include transfer amounts (same as getMonthlySummary)
         // Transfers have no category/paymentMethod/pocket, so skip when those filters are active
         if (!hasFilters) {
-            val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, dateFrom, dateTo)
             val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-            val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+            val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, dateFrom, dateTo)
             val transferInTotal = transferInResults.sumOf { it[1] as Long }
 
             totalExpense += transferOutTotal

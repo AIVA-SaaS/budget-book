@@ -3,6 +3,7 @@ package com.budgetbook.transfer.controller
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
+import com.budgetbook.transfer.dto.CreateCardSettlementRequest
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.TransferResponse
 import com.budgetbook.transfer.dto.UpdateTransferRequest
@@ -34,6 +35,29 @@ class TransferController(
         @Valid @RequestBody request: CreateTransferRequest
     ): ResponseEntity<ApiResponse<TransferResponse>> {
         val result = transferService.createTransfer(userId, request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    /**
+     * 카드 결제 처리 전용 엔드포인트.
+     * - Transfer 생성 (is_card_settlement=true, 통계 이중 계산 방지)
+     * - 선택된 거래들의 paid_at 업데이트 (미결제 목록에서 제외)
+     */
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
+    @PostMapping("/card-settlement")
+    fun createCardSettlement(
+        @AuthUser userId: UUID,
+        @Valid @RequestBody request: CreateCardSettlementRequest
+    ): ResponseEntity<ApiResponse<TransferResponse>> {
+        val result = transferService.createCardSettlement(
+            userId = userId,
+            sourcePaymentMethodId = request.sourcePaymentMethodId,
+            destinationPaymentMethodId = request.destinationPaymentMethodId,
+            amount = request.amount,
+            transferDate = request.transferDate,
+            description = request.description,
+            transactionIds = request.transactionIds
+        )
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
     }
 
