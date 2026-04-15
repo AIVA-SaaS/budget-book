@@ -316,10 +316,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Widget _buildLoaded(BuildContext context, TransactionLoaded state) {
     return Column(
       children: [
-        // Month navigator
+        // Month navigator — MonthCubit.state를 자동 watch (year/month 파라미터 생략)
         MonthNavigator(
-          year: state.year,
-          month: state.month,
           onDatePicked: (picked) {
             // Store the target date for scroll-after-load
             final day = picked.day;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
@@ -67,13 +66,8 @@ class TransferListPage extends StatelessWidget {
   Widget _buildLoaded(BuildContext context, TransferLoaded state) {
     return Column(
       children: [
-        MonthNavigator(
-          year: state.year,
-          month: state.month,
-          // MonthCubit 업데이트 — MonthSyncHandler가 TransferBloc reload 자동 처리
-          onMonthChanged: (m) =>
-              context.read<MonthCubit>().changeMonth(m.year, m.month),
-        ),
+        // MonthNavigator는 MonthCubit.state를 자동 watch
+        const MonthNavigator(),
         // Total summary
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
