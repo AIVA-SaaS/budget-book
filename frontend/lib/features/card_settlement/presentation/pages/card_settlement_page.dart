@@ -308,7 +308,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '전월 사용액',
+                        '결제 대상 총액 (전월 사용)',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme
@@ -528,12 +528,24 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
       onChanged: (_) {
         context.read<CardSettlementBloc>().add(ToggleTransaction(tx.id));
       },
-      title: Text(
-        tx.description,
-        style: Theme.of(context).textTheme.bodyMedium,
+      title: Row(
+        children: [
+          if (tx.isTransfer)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Icon(Icons.swap_horiz, size: 16,
+                  color: Theme.of(context).colorScheme.tertiary),
+            ),
+          Expanded(
+            child: Text(
+              tx.description,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
       ),
       subtitle: Text(
-        tx.transactionDate,
+        '${tx.transactionDate}${tx.isTransfer ? ' (이체)' : ''}',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context)
                   .colorScheme

@@ -442,11 +442,11 @@ class PaymentMethodServiceTest : BehaviorSpec({
                 result.currentMonth.cards[0].pendingAmount shouldBe 220000
                 result.currentMonth.cards[0].transactionCount shouldBe 5
 
-                result.unpaidMonth.totalAmount shouldBe 80000
+                result.unpaidMonth.totalAmount shouldBe 100000  // 80000 txn + 20000 transfer
                 result.unpaidMonth.year shouldBe now.year
                 result.unpaidMonth.month shouldBe now.monthValue
                 result.unpaidMonth.cards shouldHaveSize 1
-                result.unpaidMonth.cards[0].pendingAmount shouldBe 80000
+                result.unpaidMonth.cards[0].pendingAmount shouldBe 100000  // 80000 txn + 20000 transfer
                 result.unpaidMonth.cards[0].transactionCount shouldBe 2
             }
         }

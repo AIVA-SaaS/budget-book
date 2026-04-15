@@ -408,6 +408,23 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): List<Transaction>
 
+    @Query("""
+        SELECT t FROM Transaction t
+        LEFT JOIN FETCH t.category
+        WHERE t.paymentMethod.id = :paymentMethodId
+        AND t.settlementDate IS NULL
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        ORDER BY t.transactionDate ASC
+    """)
+    fun findByPaymentMethodAndTransactionDateRangeWithNullSettlement(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID
+    ): List<Transaction>
+
     @Modifying
     @Query(
         value = """

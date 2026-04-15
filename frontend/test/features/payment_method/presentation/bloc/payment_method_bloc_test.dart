@@ -203,7 +203,7 @@ void main() {
           when(mockRepository.getPaymentMethods())
               .thenAnswer((_) async => Right(tMethods));
           // Stub settlement summary since bloc auto-loads it when credit cards exist
-          when(mockRepository.getCardSettlementSummary()).thenAnswer(
+          when(mockRepository.getCardSettlementSummary(year: anyNamed('year'), month: anyNamed('month'))).thenAnswer(
             (_) async => const Right(CardSettlementSummary(
               previousMonth: CardSettlementMonth(
                   year: 2026, month: 2, totalAmount: 0, cards: []),
