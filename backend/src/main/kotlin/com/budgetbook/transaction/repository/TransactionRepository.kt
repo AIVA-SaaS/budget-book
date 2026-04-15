@@ -180,6 +180,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.paymentMethod.id = :paymentMethodId
         AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND t.paidAt IS NULL
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
     """)
@@ -397,6 +398,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         LEFT JOIN FETCH t.category
         WHERE t.paymentMethod.id = :paymentMethodId
         AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND t.paidAt IS NULL
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
         ORDER BY t.transactionDate ASC
@@ -413,6 +415,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         LEFT JOIN FETCH t.category
         WHERE t.paymentMethod.id = :paymentMethodId
         AND t.settlementDate IS NULL
+        AND t.paidAt IS NULL
         AND t.transactionDate BETWEEN :startDate AND :endDate
         AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
         AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
@@ -424,6 +427,18 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("endDate") endDate: LocalDate,
         @Param("userId") userId: UUID
     ): List<Transaction>
+
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+        SET t.paidAt = :paidAt
+        WHERE t.id IN :ids
+        AND t.paidAt IS NULL
+    """)
+    fun markAsPaid(
+        @Param("ids") ids: List<UUID>,
+        @Param("paidAt") paidAt: LocalDate
+    ): Int
 
     @Modifying
     @Query(

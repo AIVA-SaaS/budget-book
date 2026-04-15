@@ -69,6 +69,33 @@ class TransferRepositoryImpl implements TransferRepository {
   }
 
   @override
+  Future<Either<Failure, Transfer>> createCardSettlement({
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    required int amount,
+    required String transferDate,
+    String? description,
+    required List<String> transactionIds,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'sourcePaymentMethodId': sourcePaymentMethodId,
+        'destinationPaymentMethodId': destinationPaymentMethodId,
+        'amount': amount,
+        'transferDate': transferDate,
+        'transactionIds': transactionIds,
+        if (description != null) 'description': description,
+      };
+      final result = await remoteDataSource.createCardSettlement(data);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '카드 결제를 처리하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('카드 결제를 처리하지 못했습니다'));
+    }
+  }
+
+  @override
   Future<Either<Failure, Transfer>> updateTransfer({
     required String id,
     String? sourcePaymentMethodId,

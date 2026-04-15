@@ -66,7 +66,7 @@ class ReportService(
         var totalSpent = weekTransactions.sumOf { it.amount }
 
         // Include transfer OUT amounts as spending
-        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, weekStart, weekEnd)
+        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, weekStart, weekEnd)
         val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
         totalSpent += transferOutTotal
 
@@ -141,9 +141,9 @@ class ReportService(
         }
 
         // Include transfer amounts: OUT = expense, IN = income
-        val transferOutResults = transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
         val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-        val transferInResults = transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, startDate, endDate)
+        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
         val transferInTotal = transferInResults.sumOf { it[1] as Long }
 
         totalExpense += transferOutTotal

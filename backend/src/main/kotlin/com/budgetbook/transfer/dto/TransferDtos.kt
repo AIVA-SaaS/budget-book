@@ -34,6 +34,30 @@ data class CreateTransferRequest(
     val memo: String? = null
 )
 
+data class CreateCardSettlementRequest(
+    @field:NotNull
+    val sourcePaymentMethodId: UUID,
+
+    @field:NotNull
+    val destinationPaymentMethodId: UUID,
+
+    @field:NotNull
+    @field:Min(1)
+    @field:Max(999_999_999)
+    val amount: Long,
+
+    @field:NotNull
+    val transferDate: LocalDate,
+
+    @field:Size(max = 255)
+    val description: String? = null,
+
+    /**
+     * 결제 처리할 거래 ID 목록. 빈 리스트면 이체만 생성 (기존 거래에 연결 안 함).
+     */
+    val transactionIds: List<UUID> = emptyList()
+)
+
 data class UpdateTransferRequest(
     @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
     val sourcePaymentMethodId: PatchValue<UUID>? = null,

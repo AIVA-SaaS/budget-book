@@ -150,12 +150,20 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
               Navigator.of(ctx).pop();
               final dateStr =
                   DateFormat('yyyy-MM-dd').format(_selectedDate);
+              // 선택된 거래 중 TRANSACTION 타입만 paid_at 업데이트 대상
+              // (TRANSFER는 이미 이체이므로 별도 결제 완료 처리 불필요)
+              final selectedTransactionIds = blocState.transactions
+                  .where((t) =>
+                      blocState.selectedIds.contains(t.id) && !t.isTransfer)
+                  .map((t) => t.id)
+                  .toList();
               context.read<CardSettlementBloc>().add(SubmitSettlement(
                     sourcePaymentMethodId: _selectedBankId!,
                     destinationPaymentMethodId: _selectedCardId!,
                     amount: amount,
                     date: dateStr,
                     description: '카드 결제',
+                    transactionIds: selectedTransactionIds,
                   ));
             },
             child: const Text('결제'),

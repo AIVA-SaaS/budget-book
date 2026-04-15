@@ -36,7 +36,8 @@ class TransferServiceTest : BehaviorSpec({
     val userRepository = mockk<UserRepository>()
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
-    val service = TransferService(transferRepository, coupleResolver, userRepository, paymentMethodRepository, syncEventPublisher)
+    val transactionRepository = mockk<com.budgetbook.transaction.repository.TransactionRepository>(relaxed = true)
+    val service = TransferService(transferRepository, coupleResolver, userRepository, paymentMethodRepository, syncEventPublisher, transactionRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")

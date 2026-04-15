@@ -48,5 +48,13 @@ class Transfer(
     var transferDate: LocalDate,
 
     @Column(name = "auto_settlement_key", length = 100, unique = true)
-    val autoSettlementKey: String? = null
+    val autoSettlementKey: String? = null,
+
+    /**
+     * 카드 대금 결제를 위한 이체 여부.
+     * true = bank→card 카드 결제. 통계에서 제외하여 이중 계산 방지.
+     * false = 일반 이체 (계좌 간 자금 이동).
+     */
+    @Column(name = "is_card_settlement", nullable = false)
+    val isCardSettlement: Boolean = false
 ) : BaseTimeEntity()

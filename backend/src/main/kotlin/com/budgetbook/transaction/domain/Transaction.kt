@@ -59,6 +59,13 @@ class Transaction(
     @Column(name = "settlement_date")
     var settlementDate: LocalDate? = null,
 
+    /**
+     * 카드 결제 완료 날짜. null이면 미결제 상태 (결제 대상).
+     * 결제 이체(Transfer with is_card_settlement=true) 생성 시 해당 거래들의 paid_at이 설정됨.
+     */
+    @Column(name = "paid_at")
+    var paidAt: LocalDate? = null,
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pocket_id")
     var pocket: MoneyPocket? = null,

@@ -57,8 +57,8 @@ class ReportServiceTest : BehaviorSpec({
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
 
     // Default: no transfers (individual tests can override)
-    every { transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
-    every { transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any()) } returns emptyList()
 
     val foodGroup = CategoryGroup(couple = couple, name = "Food", budgetType = BudgetType.WEEKLY)
     val monthlyGroup = CategoryGroup(couple = couple, name = "Fixed", budgetType = BudgetType.MONTHLY)

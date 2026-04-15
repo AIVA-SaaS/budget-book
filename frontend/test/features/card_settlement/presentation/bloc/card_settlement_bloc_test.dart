@@ -73,6 +73,40 @@ class MockTransferRepository extends Mock implements TransferRepository {
           )),
         ),
       ) as Future<Either<Failure, Transfer>>;
+
+  @override
+  Future<Either<Failure, Transfer>> createCardSettlement({
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    required int amount,
+    required String transferDate,
+    String? description,
+    required List<String> transactionIds,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(#createCardSettlement, [], {
+          #sourcePaymentMethodId: sourcePaymentMethodId,
+          #destinationPaymentMethodId: destinationPaymentMethodId,
+          #amount: amount,
+          #transferDate: transferDate,
+          #description: description,
+          #transactionIds: transactionIds,
+        }),
+        returnValue: Future.value(
+          Right<Failure, Transfer>(Transfer(
+            id: 'new',
+            coupleId: 'c1',
+            author: const TransactionAuthor(id: 'u1', nickname: 'User'),
+            sourcePaymentMethod:
+                const PaymentMethodRef(id: 's1', name: 'Bank', type: 'BANK'),
+            destinationPaymentMethod:
+                const PaymentMethodRef(id: 'd1', name: 'Card', type: 'CREDIT'),
+            amount: 100000,
+            transferDate: '2026-04-14',
+            createdAt: DateTime(2026, 4, 14),
+          )),
+        ),
+      ) as Future<Either<Failure, Transfer>>;
 }
 
 void main() {
@@ -289,12 +323,13 @@ void main() {
       blocTest<CardSettlementBloc, CardSettlementState>(
         'emits [Submitting, Success] on success',
         build: () {
-          when(mockTransferRepo.createTransfer(
+          when(mockTransferRepo.createCardSettlement(
             sourcePaymentMethodId: 'bank-1',
             destinationPaymentMethodId: 'card-1',
             amount: 85000,
             description: '카드 결제',
             transferDate: '2026-04-14',
+            transactionIds: [],
           )).thenAnswer((_) async => Right(Transfer(
                 id: 'new',
                 coupleId: 'c1',
@@ -330,14 +365,15 @@ void main() {
       blocTest<CardSettlementBloc, CardSettlementState>(
         'emits [Submitting, Error] on failure',
         build: () {
-          when(mockTransferRepo.createTransfer(
+          when(mockTransferRepo.createCardSettlement(
             sourcePaymentMethodId: 'bank-1',
             destinationPaymentMethodId: 'card-1',
             amount: 85000,
             description: '카드 결제',
             transferDate: '2026-04-14',
+            transactionIds: [],
           )).thenAnswer((_) async =>
-              const Left(ServerFailure('이체를 생성하지 못했습니다')));
+              const Left(ServerFailure('카드 결제를 처리하지 못했습니다')));
           return bloc;
         },
         seed: () => const CardSettlementLoaded(
@@ -354,7 +390,7 @@ void main() {
         )),
         expect: () => [
           const CardSettlementSubmitting(),
-          const CardSettlementError('이체를 생성하지 못했습니다'),
+          const CardSettlementError('카드 결제를 처리하지 못했습니다'),
         ],
       );
     });

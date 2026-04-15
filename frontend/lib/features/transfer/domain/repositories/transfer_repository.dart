@@ -19,6 +19,16 @@ abstract class TransferRepository {
     String? memo,
   });
 
+  /// 카드 결제 처리: Transfer 생성(is_card_settlement=true) + 거래 paid_at 일괄 업데이트
+  Future<Either<Failure, Transfer>> createCardSettlement({
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    required int amount,
+    required String transferDate,
+    String? description,
+    required List<String> transactionIds,
+  });
+
   Future<Either<Failure, Transfer>> updateTransfer({
     required String id,
     String? sourcePaymentMethodId,

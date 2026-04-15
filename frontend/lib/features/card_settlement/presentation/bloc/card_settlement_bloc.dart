@@ -104,12 +104,14 @@ class CardSettlementBloc
   ) async {
     emit(const CardSettlementSubmitting());
 
-    final result = await transferRepository.createTransfer(
+    // 신규 카드 결제 API: Transfer(is_card_settlement=true) + 거래 paid_at 일괄 업데이트
+    final result = await transferRepository.createCardSettlement(
       sourcePaymentMethodId: event.sourcePaymentMethodId,
       destinationPaymentMethodId: event.destinationPaymentMethodId,
       amount: event.amount,
       description: event.description,
       transferDate: event.date,
+      transactionIds: event.transactionIds,
     );
 
     result.fold(

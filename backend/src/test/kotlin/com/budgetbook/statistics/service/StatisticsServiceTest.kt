@@ -40,8 +40,8 @@ class StatisticsServiceTest : BehaviorSpec({
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
 
     // Default: no transfers (individual tests can override)
-    every { transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
-    every { transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any()) } returns emptyList()
 
     // --- getMonthlySummary ---
 
@@ -610,10 +610,10 @@ class StatisticsServiceTest : BehaviorSpec({
             // Transfer amounts: 200000 out (expense), 100000 in (income)
             val pmId = UUID.randomUUID()
             every {
-                transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountBySourceExcludingSettlement(couple.id, dateFrom, dateTo)
             } returns listOf(arrayOf<Any>(pmId, 200000L))
             every {
-                transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, dateFrom, dateTo)
             } returns listOf(arrayOf<Any>(pmId, 100000L))
 
             val result = service.getPeriodSummary(user1.id, dateFrom, dateTo)
@@ -652,10 +652,10 @@ class StatisticsServiceTest : BehaviorSpec({
 
             // Transfers
             every {
-                transferRepository.sumAmountBySourceForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountBySourceExcludingSettlement(couple.id, dateFrom, dateTo)
             } returns listOf(arrayOf<Any>(pmId, 300000L))
             every {
-                transferRepository.sumAmountByDestinationForCoupleAndPeriod(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, dateFrom, dateTo)
             } returns listOf(arrayOf<Any>(pmId, 150000L))
 
             // Additional mocks for getPeriodSummary
@@ -732,10 +732,10 @@ class StatisticsServiceTest : BehaviorSpec({
             Then("transfers are NOT included when filters are active") {
                 // Verify transfer repos were NOT called
                 verify(exactly = 0) {
-                    transferRepository.sumAmountBySourceForCoupleAndPeriod(any(), any(), any())
+                    transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any())
                 }
                 verify(exactly = 0) {
-                    transferRepository.sumAmountByDestinationForCoupleAndPeriod(any(), any(), any())
+                    transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any())
                 }
             }
         }
