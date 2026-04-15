@@ -24,10 +24,9 @@ import 'package:budget_book/features/spending_plan/presentation/bloc/spending_pl
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/features/home/presentation/widgets/monthly_trend_card.dart';
 import 'package:budget_book/features/home/presentation/widgets/category_breakdown_card.dart';
-import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
-import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -208,13 +207,9 @@ class _MonthHeader extends StatelessWidget {
       newMonth = 12;
       newYear -= 1;
     }
-    context.read<DashboardBloc>().add(
-          LoadDashboard(year: newYear, month: newMonth),
-        );
-    // 카드 결제 현황도 선택한 월 기준으로 재조회
-    getIt<PaymentMethodBloc>().add(
-          LoadCardSettlementSummary(year: newYear, month: newMonth),
-        );
+    // MonthCubit만 업데이트 — MonthSyncHandler가 DashboardBloc/BudgetBloc/
+    // PaymentMethodBloc reload를 자동 dispatch.
+    context.read<MonthCubit>().changeMonth(newYear, newMonth);
   }
 
   void _goToNextMonth(BuildContext context) {
@@ -224,13 +219,7 @@ class _MonthHeader extends StatelessWidget {
       newMonth = 1;
       newYear += 1;
     }
-    context.read<DashboardBloc>().add(
-          LoadDashboard(year: newYear, month: newMonth),
-        );
-    // 카드 결제 현황도 선택한 월 기준으로 재조회
-    getIt<PaymentMethodBloc>().add(
-          LoadCardSettlementSummary(year: newYear, month: newMonth),
-        );
+    context.read<MonthCubit>().changeMonth(newYear, newMonth);
   }
 
   @override
