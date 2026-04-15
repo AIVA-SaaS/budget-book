@@ -24,6 +24,7 @@ import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.UpdateTransactionRequest
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -50,7 +51,8 @@ class TransactionServiceTest : BehaviorSpec({
     val moneyPocketRepository = mockk<MoneyPocketRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val patternLearningService = mockk<PatternLearningService>(relaxed = true)
-    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService)
+    val transferRepository = mockk<TransferRepository>()
+    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService, transferRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -656,6 +658,10 @@ class TransactionServiceTest : BehaviorSpec({
             every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
                 pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id
             ) } returns listOf(tx1, tx2)
+            // Transfer from previous month (source = this card)
+            every { transferRepository.findBySourcePaymentMethodAndDateRange(
+                pm.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31)
+            ) } returns emptyList()
 
             val result = service.getSettlementTransactions(user1.id, pm.id, 2024, 2)
 
@@ -674,6 +680,14 @@ class TransactionServiceTest : BehaviorSpec({
         When("no transactions exist for the settlement period") {
             every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
                 pm.id, LocalDate.of(2024, 3, 1), LocalDate.of(2024, 3, 31), user1.id
+            ) } returns emptyList()
+            // Fallback query for null-settlementDate transactions from previous month
+            every { transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlement(
+                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id
+            ) } returns emptyList()
+            // Transfer from previous month (source = this card)
+            every { transferRepository.findBySourcePaymentMethodAndDateRange(
+                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29)
             ) } returns emptyList()
 
             val result = service.getSettlementTransactions(user1.id, pm.id, 2024, 3)

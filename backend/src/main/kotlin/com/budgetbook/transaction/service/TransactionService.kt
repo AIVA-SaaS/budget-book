@@ -26,6 +26,7 @@ import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.repository.TransactionSpecifications
+import com.budgetbook.transfer.repository.TransferRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -44,7 +45,8 @@ class TransactionService(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val moneyPocketRepository: MoneyPocketRepository,
     private val syncEventPublisher: SyncEventPublisher,
-    private val patternLearningService: PatternLearningService
+    private val patternLearningService: PatternLearningService,
+    private val transferRepository: TransferRepository
 ) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -372,23 +374,58 @@ class TransactionService(
         OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
 
         val yearMonth = YearMonth.of(year, month)
-        val transactions = transactionRepository.findByPaymentMethodAndSettlementDateRange(
+        val prevMonth = yearMonth.minusMonths(1)
+
+        // 1. Transactions with settlementDate in the requested month
+        val bySettlement = transactionRepository.findByPaymentMethodAndSettlementDateRange(
             paymentMethodId, yearMonth.atDay(1), yearMonth.atEndOfMonth(), userId
         )
+        // Fallback: transactions from previous month with null settlementDate
+        val transactions = if (bySettlement.isNotEmpty()) {
+            bySettlement
+        } else {
+            transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlement(
+                paymentMethodId, prevMonth.atDay(1), prevMonth.atEndOfMonth(), userId
+            )
+        }
+
+        // 2. Transfers where source = this card (카드에서 출금한 이체)
+        //    Previous month transfers represent card usage to be settled this month
+        val transfers = transferRepository.findBySourcePaymentMethodAndDateRange(
+            paymentMethodId, prevMonth.atDay(1), prevMonth.atEndOfMonth()
+        )
+
+        // 3. Combine transaction items + transfer items
+        val txnItems = transactions.map { t ->
+            com.budgetbook.transaction.dto.SettlementTransactionItem(
+                id = t.id,
+                transactionDate = t.transactionDate,
+                settlementDate = t.settlementDate,
+                description = t.description,
+                amount = t.amount,
+                categoryName = t.category?.name,
+                categoryIcon = t.category?.icon,
+                type = "TRANSACTION"
+            )
+        }
+        val transferItems = transfers.map { tr ->
+            com.budgetbook.transaction.dto.SettlementTransactionItem(
+                id = tr.id,
+                transactionDate = tr.transferDate,
+                settlementDate = null,
+                description = tr.description ?: "이체",
+                amount = tr.amount,
+                categoryName = null,
+                categoryIcon = null,
+                type = "TRANSFER"
+            )
+        }
+        val allItems = (txnItems + transferItems).sortedBy { it.transactionDate }
+
         return com.budgetbook.transaction.dto.SettlementTransactionsResponse(
-            totalAmount = transactions.sumOf { it.amount },
-            transactionCount = transactions.size,
-            transactions = transactions.map { t ->
-                com.budgetbook.transaction.dto.SettlementTransactionItem(
-                    id = t.id,
-                    transactionDate = t.transactionDate,
-                    settlementDate = t.settlementDate,
-                    description = t.description,
-                    amount = t.amount,
-                    categoryName = t.category?.name,
-                    categoryIcon = t.category?.icon
-                )
-            }
+            totalAmount = allItems.sumOf { it.amount },
+            transactionCount = allItems.size,
+            transactions = allItems
         )
     }
 

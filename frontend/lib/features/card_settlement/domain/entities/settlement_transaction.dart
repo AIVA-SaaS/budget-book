@@ -23,6 +23,7 @@ class SettlementTransaction extends Equatable {
   final int amount;
   final String? categoryName;
   final String? categoryIcon;
+  final String type; // TRANSACTION or TRANSFER
 
   const SettlementTransaction({
     required this.id,
@@ -32,7 +33,10 @@ class SettlementTransaction extends Equatable {
     required this.amount,
     this.categoryName,
     this.categoryIcon,
+    this.type = 'TRANSACTION',
   });
+
+  bool get isTransfer => type == 'TRANSFER';
 
   @override
   List<Object?> get props => [
@@ -43,5 +47,6 @@ class SettlementTransaction extends Equatable {
         amount,
         categoryName,
         categoryIcon,
+        type,
       ];
 }
