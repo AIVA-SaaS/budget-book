@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
@@ -51,12 +52,10 @@ class StatisticsPage extends StatelessWidget {
                   MonthNavigator(
                     year: state.year,
                     month: state.month,
-                    onMonthChanged: (m) {
-                      final bloc = context.read<StatisticsBloc>();
-                      bloc.add(LoadAllStatistics(year: m.year, month: m.month));
-                      bloc.add(LoadYearComparison(year: m.year, month: m.month));
-                      bloc.add(LoadPaymentMethodStats(year: m.year, month: m.month));
-                    },
+                    // MonthCubit 업데이트 — MonthSyncHandler가 StatisticsBloc reload 자동 처리
+                    onMonthChanged: (m) => context
+                        .read<MonthCubit>()
+                        .changeMonth(m.year, m.month),
                   ),
                 // Date range indicator (shown when active)
                 if (state.hasDateRange)
