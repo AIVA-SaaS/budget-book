@@ -56,4 +56,16 @@ interface TransferRepository : JpaRepository<Transfer, UUID> {
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
+
+    @Query("""
+        SELECT tr FROM Transfer tr
+        WHERE tr.sourcePaymentMethod.id = :paymentMethodId
+        AND tr.transferDate BETWEEN :startDate AND :endDate
+        ORDER BY tr.transferDate ASC
+    """)
+    fun findBySourcePaymentMethodAndDateRange(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
+    ): List<Transfer>
 }

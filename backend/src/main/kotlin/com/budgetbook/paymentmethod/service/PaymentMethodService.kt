@@ -278,6 +278,12 @@ class PaymentMethodService(
         fun buildMonthBySettlementDate(yearMonth: YearMonth): CardSettlementMonth {
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
+
+            // Transfer OUT amounts per source payment method (same pattern as buildMonthByTransactionDate)
+            val transferOutMap = transferRepository.sumAmountBySourceForCoupleAndPeriod(
+                couple.id, startDate, endDate
+            ).associate { (it[0] as UUID) to (it[1] as Long) }
+
             val cards = creditCards.map { card ->
                 val results = transactionRepository.sumByPaymentMethodAndSettlementDateRange(
                     paymentMethodId = card.id,
@@ -285,11 +291,12 @@ class PaymentMethodService(
                     endDate = endDate,
                     userId = userId
                 )
-                val totalAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
+                val txnAmount = results.firstOrNull()?.let { (it[0] as? Number)?.toLong() } ?: 0L
                 val count = results.firstOrNull()?.let { (it[1] as? Number)?.toInt() } ?: 0
+                val transferOut = transferOutMap[card.id] ?: 0L
                 CardPendingResponse(
                     paymentMethod = card.toResponse(),
-                    pendingAmount = totalAmount,
+                    pendingAmount = txnAmount + transferOut,
                     settlementDate = if (card.settlementDay != null) {
                         LocalDate.of(yearMonth.year, yearMonth.month,
                             card.settlementDay!!.coerceAtMost(yearMonth.lengthOfMonth()))
