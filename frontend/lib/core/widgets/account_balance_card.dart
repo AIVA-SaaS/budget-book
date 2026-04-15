@@ -122,12 +122,18 @@ class _AssetItem extends StatelessWidget {
 
     int prevAmount = 0;
     int currAmount = 0;
+    int unpaidAmount = 0;
     if (isCredit && settlement != null) {
       try {
         final prevCard = settlement.previousMonth.cards.where((c) => c.paymentMethodId == pm.id);
         if (prevCard.isNotEmpty) prevAmount = prevCard.first.amount as int;
         final currCard = settlement.currentMonth.cards.where((c) => c.paymentMethodId == pm.id);
         if (currCard.isNotEmpty) currAmount = currCard.first.amount as int;
+        // 미결제: buildMonthBySettlementDate (paid_at IS NULL 필터 적용됨)
+        if (settlement.unpaidMonth != null) {
+          final unpaidCard = settlement.unpaidMonth.cards.where((c) => c.paymentMethodId == pm.id);
+          if (unpaidCard.isNotEmpty) unpaidAmount = unpaidCard.first.amount as int;
+        }
       } catch (_) {}
     }
 
@@ -180,9 +186,9 @@ class _AssetItem extends StatelessWidget {
                     _chip('전월', CurrencyFormatter.format(prevAmount),
                         Colors.grey.shade200, context, textColor: Colors.grey.shade800),
                     const SizedBox(width: 3),
-                    _chip('미결제', CurrencyFormatter.format(prevAmount),
-                        prevAmount > 0 ? Colors.red.shade50 : Colors.green.shade50, context,
-                        textColor: prevAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
+                    _chip('미결제', CurrencyFormatter.format(unpaidAmount),
+                        unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50, context,
+                        textColor: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
                   ]),
                   const SizedBox(height: 2),
                   _chip('이번달', CurrencyFormatter.format(currAmount),

@@ -494,9 +494,15 @@ class _BudgetListPageState extends State<BudgetListPage> {
         MonthNavigator(
           year: state.year,
           month: state.month,
-          onMonthChanged: (m) => context.read<BudgetBloc>().add(
-                LoadBudgets(year: m.year, month: m.month),
-              ),
+          onMonthChanged: (m) {
+            context.read<BudgetBloc>().add(
+                  LoadBudgets(year: m.year, month: m.month),
+                );
+            // 카드 결제 현황도 선택한 월 기준으로 재조회
+            getIt<PaymentMethodBloc>().add(
+                  LoadCardSettlementSummary(year: m.year, month: m.month),
+                );
+          },
         ),
         if (state.summary != null)
           BudgetSummaryCard(summary: state.summary!),

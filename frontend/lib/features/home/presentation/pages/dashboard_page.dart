@@ -26,6 +26,8 @@ import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart'
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
 import 'package:budget_book/features/home/presentation/widgets/monthly_trend_card.dart';
 import 'package:budget_book/features/home/presentation/widgets/category_breakdown_card.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -209,6 +211,10 @@ class _MonthHeader extends StatelessWidget {
     context.read<DashboardBloc>().add(
           LoadDashboard(year: newYear, month: newMonth),
         );
+    // 카드 결제 현황도 선택한 월 기준으로 재조회
+    getIt<PaymentMethodBloc>().add(
+          LoadCardSettlementSummary(year: newYear, month: newMonth),
+        );
   }
 
   void _goToNextMonth(BuildContext context) {
@@ -220,6 +226,10 @@ class _MonthHeader extends StatelessWidget {
     }
     context.read<DashboardBloc>().add(
           LoadDashboard(year: newYear, month: newMonth),
+        );
+    // 카드 결제 현황도 선택한 월 기준으로 재조회
+    getIt<PaymentMethodBloc>().add(
+          LoadCardSettlementSummary(year: newYear, month: newMonth),
         );
   }
 
