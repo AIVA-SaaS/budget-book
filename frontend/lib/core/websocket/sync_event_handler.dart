@@ -68,6 +68,9 @@ class SyncEventHandler {
         _refreshPocketTransfers();
         _refreshDashboard();
       case 'TRANSFER':
+        // CARD_SETTLEMENT_CREATED 이벤트는 Transaction.paid_at 도 업데이트하므로
+        // Transaction BLoC 도 함께 갱신 (거래내역 페이지의 미결제 표시 반영)
+        _refreshTransactions();
         _refreshTransfers();
         _refreshPaymentMethods();
         _refreshDashboard();
