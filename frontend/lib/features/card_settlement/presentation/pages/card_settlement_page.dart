@@ -17,6 +17,8 @@ import 'package:budget_book/features/payment_method/domain/entities/payment_meth
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 
 class CardSettlementPage extends StatefulWidget {
   final String? initialCardId;
@@ -187,6 +189,13 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
           // Refresh related BLoCs
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(LoadCardSettlementSummary(
+            year: _selectedYear,
+            month: _selectedMonth,
+          ));
+          // 거래내역 갱신 — 결제 대상 거래들의 paid_at 이 업데이트되어
+          // 미결제 목록에서 제외되어야 하므로 셀프 경로에서도 즉시 갱신.
+          // (WebSocket 경로는 authorId 체크로 본인 이벤트 스킵)
+          getIt<TransactionBloc>().add(LoadTransactions(
             year: _selectedYear,
             month: _selectedMonth,
           ));
