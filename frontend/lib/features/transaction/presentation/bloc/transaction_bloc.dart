@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'transaction_event.dart';
@@ -22,6 +23,27 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   String? _currentDateFrom;
   String? _currentDateTo;
   String? _currentType;
+  String? _currentVisibility;
+
+  /// 전체 필터 상태의 단일 스냅샷.
+  /// MonthSyncHandler 등 외부 consumer 가 필드 drop 없이 전체 필터를 전파하도록
+  /// 반드시 이 getter 를 사용한다. 새 필터 추가 시 TransactionFilter 와
+  /// LoadTransactions 시그니처, 이 getter 세 군데를 함께 수정해야 컴파일 통과.
+  TransactionFilter get currentFilter => TransactionFilter(
+        keyword: _currentKeyword,
+        categoryId: _currentCategoryId,
+        paymentMethodId: _currentPaymentMethodId,
+        pocketId: _currentPocketId,
+        amountMin: _currentAmountMin,
+        amountMax: _currentAmountMax,
+        dateFrom: _currentDateFrom,
+        dateTo: _currentDateTo,
+        type: _currentType,
+        visibility: _currentVisibility,
+      );
+
+  int get currentYear => _currentYear;
+  int get currentMonth => _currentMonth;
 
   TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
@@ -51,6 +73,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentDateFrom = event.dateFrom;
       _currentDateTo = event.dateTo;
       _currentType = event.type;
+      _currentVisibility = event.visibility;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());

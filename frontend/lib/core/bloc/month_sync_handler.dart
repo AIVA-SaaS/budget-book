@@ -68,14 +68,26 @@ class MonthSyncHandler extends StatelessWidget {
       );
     } catch (_) {}
 
-    // Transaction list — 기존 필터(paymentMethodId/categoryId) 유지
+    // Transaction list — 전체 필터(currentFilter) 유지.
+    // 과거 인시던트(2026-04-15 월 이동 시 dateFrom/To/keyword/pocket/amount/type drop)
+    // 재발 방지를 위해 currentCategoryId/currentPaymentMethodId 만 꺼내던 것을
+    // TransactionFilter value object 전체로 교체.
     try {
       final txnBloc = getIt<TransactionBloc>();
+      final f = txnBloc.currentFilter;
       txnBloc.add(LoadTransactions(
         year: year,
         month: month,
-        categoryId: txnBloc.currentCategoryId,
-        paymentMethodId: txnBloc.currentPaymentMethodId,
+        keyword: f.keyword,
+        categoryId: f.categoryId,
+        paymentMethodId: f.paymentMethodId,
+        pocketId: f.pocketId,
+        amountMin: f.amountMin,
+        amountMax: f.amountMax,
+        dateFrom: f.dateFrom,
+        dateTo: f.dateTo,
+        type: f.type,
+        visibility: f.visibility,
       ));
     } catch (_) {}
 
