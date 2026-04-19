@@ -23,6 +23,19 @@
   },
   "teammateMode": "auto",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/pre-edit-guard.sh",
+            "statusMessage": "Harness: 기획서 선행 여부 검사...",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write",
