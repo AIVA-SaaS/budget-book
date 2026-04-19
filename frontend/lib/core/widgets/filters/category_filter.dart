@@ -28,14 +28,19 @@ class CategoryFilter extends StatelessWidget {
             selectedCategoryId: selectedCategoryId,
             categoryType: categoryType,
             onSelectedWithGroupName: (cat, groupName) {
-              onChanged(
-                cat?.id,
-                cat != null
-                    ? (groupName != null
-                        ? '$groupName > ${cat.name}'
-                        : cat.name)
-                    : null,
-              );
+              // 중첩 bottom sheet 의 Navigator.pop 과 parent 의 setSheetState
+              // 가 동시에 발생하면 레이아웃 측정 race 로 UI 크래시 발생.
+              // 다음 프레임으로 지연시켜 nested sheet dismiss → parent rebuild
+              // 순서를 강제한다.
+              final id = cat?.id;
+              final name = cat != null
+                  ? (groupName != null
+                      ? '$groupName > ${cat.name}'
+                      : cat.name)
+                  : null;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                onChanged(id, name);
+              });
             },
             onSelected: (_) {},
           ),
