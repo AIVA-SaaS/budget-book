@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
+import 'package:budget_book/core/bloc/unified_period_cubit.dart';
 import 'package:budget_book/core/bloc/month_sync_handler.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/auth_interceptor.dart';
@@ -47,6 +48,7 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
         BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
         BlocProvider<LocaleCubit>.value(value: getIt<LocaleCubit>()),
         BlocProvider<MonthCubit>.value(value: getIt<MonthCubit>()),
+        BlocProvider<UnifiedPeriodCubit>.value(value: getIt<UnifiedPeriodCubit>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {

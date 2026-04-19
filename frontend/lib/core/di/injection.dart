@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
+import 'package:budget_book/core/bloc/unified_period_cubit.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
 import 'package:budget_book/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -123,9 +124,16 @@ Future<void> configureDependencies() async {
     () => CacheService(),
   );
 
-  // Core — 전역 월 상태 (월 의존 BLoC들의 단일 소스)
+  // Core — 전역 월 상태 (month-only, deprecated — UnifiedPeriodCubit 사용 권장)
   getIt.registerLazySingleton<MonthCubit>(
     () => MonthCubit(),
+    dispose: (cubit) => cubit.close(),
+  );
+
+  // Core — 전역 기간(period) 상태: month + dateRange + week 의 단일 소스.
+  // 신규 코드는 이 Cubit 을 사용한다. MonthCubit 은 호환성 유지용.
+  getIt.registerLazySingleton<UnifiedPeriodCubit>(
+    () => UnifiedPeriodCubit(),
     dispose: (cubit) => cubit.close(),
   );
 
