@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/core/widgets/filters/category_filter.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/core/widgets/filters/amount_range_filter.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
+import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
+import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
+import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 
 /// A unified filter bar that shows active filter chips and provides
 /// filter controls based on the enabled filter types for each page.
+///
+/// PR-C3: 카테고리/결제수단/포켓을 **복수 선택** + 카테고리 그룹 선택 지원.
+/// displayLabel 규칙: 0개 = "전체", 1개 = 이름, 2개 이상 = "{이름} 외 N개".
 class UnifiedFilterBar extends StatelessWidget {
   final Set<FilterType> enabledFilters;
   final UnifiedFilterState state;
@@ -26,7 +38,10 @@ class UnifiedFilterBar extends StatelessWidget {
     int count = 0;
     if (enabledFilters.contains(FilterType.transactionType) && state.transactionType != null) count++;
     if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') count++;
-    if (enabledFilters.contains(FilterType.category) && state.categoryIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.category) &&
+        (state.categoryIds.isNotEmpty || state.categoryGroupIds.isNotEmpty)) {
+      count++;
+    }
     if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) count++;
     if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) count++;
     if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) count++;
@@ -48,21 +63,33 @@ class UnifiedFilterBar extends StatelessWidget {
         onRemove: () => onFilterChanged(state.copyWith(clearVisibility: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.category) && state.categoryIds.isNotEmpty) {
+    if (enabledFilters.contains(FilterType.category) &&
+        (state.categoryIds.isNotEmpty || state.categoryGroupIds.isNotEmpty)) {
+      // state.categoryName 이 명시되어 있으면 단수 fallback 으로 사용 (기존 호출처 호환).
+      final label = buildCategoryDisplayLabel(
+        state.categoryIds,
+        state.categoryGroupIds,
+        fallbackName: state.categoryName,
+      );
       chips.add(_ChipData(
-        label: '카테고리: ${state.categoryName ?? "선택됨"}',
+        label: '카테고리: $label',
         onRemove: () => onFilterChanged(state.copyWith(clearCategory: true)),
       ));
     }
     if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) {
+      final label = buildPaymentMethodDisplayLabel(
+        state.paymentMethodIds,
+        fallbackName: state.paymentMethodName,
+      );
       chips.add(_ChipData(
-        label: '결제수단: ${state.paymentMethodName ?? "선택됨"}',
+        label: '결제수단: $label',
         onRemove: () => onFilterChanged(state.copyWith(clearPaymentMethod: true)),
       ));
     }
     if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) {
+      final label = buildPocketDisplayLabel(state.pocketIds);
       chips.add(_ChipData(
-        label: '포켓',
+        label: '포켓: $label',
         onRemove: () => onFilterChanged(state.copyWith(clearPocket: true)),
       ));
     }
@@ -143,15 +170,12 @@ class UnifiedFilterBar extends StatelessWidget {
     final amountMaxController = TextEditingController(
       text: state.amountMax?.toString() ?? '',
     );
-    String? tempCategoryId =
-        state.categoryIds.isNotEmpty ? state.categoryIds.first : null;
-    String? tempCategoryName = state.categoryName;
-    String? tempPaymentMethodId =
-        state.paymentMethodIds.isNotEmpty
-            ? state.paymentMethodIds.first
-            : null;
-    String? tempPocketId =
-        state.pocketIds.isNotEmpty ? state.pocketIds.first : null;
+    // PR-C3: 단수 temp 변수 → Set 기반. CategoryFilter/PaymentMethodFilter/PocketFilter
+    // 는 multi 모드 트리거이므로 이 로컬 Set 을 직접 받아 `적용` 버튼에서 일괄 propagate.
+    Set<String> tempCategoryIds = {...state.categoryIds};
+    Set<String> tempCategoryGroupIds = {...state.categoryGroupIds};
+    Set<String> tempPaymentMethodIds = {...state.paymentMethodIds};
+    Set<String> tempPocketIds = {...state.pocketIds};
     String? tempTransactionType = state.transactionType;
     String? tempVisibility = state.visibility;
     // 기간도 다른 필터와 동일하게 임시 상태로 보관 → "적용" 버튼 클릭 시 일괄 propagate.
@@ -320,37 +344,45 @@ class UnifiedFilterBar extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        // Category selector
+                        // Category selector (multi + group)
                         if (enabledFilters.contains(FilterType.category)) ...[
                           CategoryFilter(
-                            selectedCategoryId: tempCategoryId,
-                            selectedCategoryName: tempCategoryName,
+                            selectedCategoryIds: tempCategoryIds,
+                            selectedGroupIds: tempCategoryGroupIds,
+                            displayLabel: buildCategoryDisplayLabel(
+                              tempCategoryIds,
+                              tempCategoryGroupIds,
+                            ),
                             categoryType: categoryType,
-                            onChanged: (id, name) {
+                            onChanged: (cats, groups) {
                               setSheetState(() {
-                                tempCategoryId = id;
-                                tempCategoryName = name;
+                                tempCategoryIds = cats;
+                                tempCategoryGroupIds = groups;
                               });
                             },
                           ),
                           const SizedBox(height: 16),
                         ],
-                        // Payment method dropdown
+                        // Payment method multi-selector
                         if (enabledFilters
                             .contains(FilterType.paymentMethod)) ...[
                           PaymentMethodFilter(
-                            selectedId: tempPaymentMethodId,
-                            onChanged: (value) => setSheetState(
-                                () => tempPaymentMethodId = value),
+                            selectedIds: tempPaymentMethodIds,
+                            displayLabel: buildPaymentMethodDisplayLabel(
+                                tempPaymentMethodIds),
+                            onChanged: (ids) => setSheetState(
+                                () => tempPaymentMethodIds = ids),
                           ),
                           const SizedBox(height: 16),
                         ],
-                        // Pocket dropdown
+                        // Pocket multi-selector
                         if (enabledFilters.contains(FilterType.pocket)) ...[
                           PocketFilter(
-                            selectedId: tempPocketId,
-                            onChanged: (value) =>
-                                setSheetState(() => tempPocketId = value),
+                            selectedIds: tempPocketIds,
+                            displayLabel:
+                                buildPocketDisplayLabel(tempPocketIds),
+                            onChanged: (ids) =>
+                                setSheetState(() => tempPocketIds = ids),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -392,22 +424,14 @@ class UnifiedFilterBar extends StatelessWidget {
                                     dateRangeLabel: tempDateCleared
                                         ? null
                                         : tempDateRangeLabel,
-                                    categoryIds: tempCategoryId != null
-                                        ? {tempCategoryId!}
-                                        : const {},
-                                    categoryName: tempCategoryName,
-                                    paymentMethodIds:
-                                        tempPaymentMethodId != null
-                                            ? {tempPaymentMethodId!}
-                                            : const {},
-                                    paymentMethodName:
-                                        tempPaymentMethodId != null
-                                            ? _resolvePaymentMethodName(
-                                                tempPaymentMethodId!)
-                                            : null,
-                                    pocketIds: tempPocketId != null
-                                        ? {tempPocketId!}
-                                        : const {},
+                                    categoryIds: tempCategoryIds,
+                                    categoryGroupIds: tempCategoryGroupIds,
+                                    // categoryName/paymentMethodName 은 displayLabel 유틸로
+                                    // 대체 — 저장값으로 유지할 이유가 없으므로 null.
+                                    categoryName: null,
+                                    paymentMethodIds: tempPaymentMethodIds,
+                                    paymentMethodName: null,
+                                    pocketIds: tempPocketIds,
                                     amountMin: minText.isEmpty
                                         ? null
                                         : int.tryParse(minText),
@@ -436,13 +460,90 @@ class UnifiedFilterBar extends StatelessWidget {
       },
     );
   }
+}
 
-  String? _resolvePaymentMethodName(String pmId) {
-    // The payment method name will be resolved by the PaymentMethodFilter
-    // For now, we keep the existing name if the ID hasn't changed
-    if (state.paymentMethodIds.contains(pmId)) {
-      return state.paymentMethodName;
+/// 카테고리 필터 display label 생성기.
+///
+/// 0개 → "전체", 1개 → 이름, 2개 이상 → "{이름} 외 N개".
+/// 그룹과 카테고리가 혼재하면 그룹 이름에 " 그룹" 접미사 (예: "식비 그룹 외 2개").
+///
+/// [fallbackName] — BLoC 상태에서 이름을 찾지 못할 때 사용 (예: state.categoryName).
+String buildCategoryDisplayLabel(
+  Set<String> categoryIds,
+  Set<String> categoryGroupIds, {
+  String? fallbackName,
+}) {
+  final total = categoryIds.length + categoryGroupIds.length;
+  if (total == 0) return '전체';
+  String? firstName;
+  bool fromGroup = false;
+  if (categoryGroupIds.isNotEmpty) {
+    final gState = _safeBlocState<CategoryGroupBloc>();
+    if (gState is CategoryGroupLoaded) {
+      final g = gState.groups
+          .where((g) => g.id == categoryGroupIds.first)
+          .firstOrNull;
+      firstName = g?.name;
+      fromGroup = g != null;
     }
+  } else {
+    final cState = _safeBlocState<CategoryBloc>();
+    if (cState is CategoryLoaded) {
+      final all = [...cState.expenseCategories, ...cState.incomeCategories];
+      final c = all.where((c) => c.id == categoryIds.first).firstOrNull;
+      firstName = c?.name;
+    }
+  }
+  firstName ??= fallbackName;
+  if (total == 1) {
+    if (firstName == null) return '선택됨';
+    return fromGroup ? '$firstName 그룹' : firstName;
+  }
+  final base = firstName != null
+      ? (fromGroup ? '$firstName 그룹' : firstName)
+      : '선택됨';
+  return '$base 외 ${total - 1}개';
+}
+
+/// 결제수단 필터 display label 생성기.
+String buildPaymentMethodDisplayLabel(
+  Set<String> ids, {
+  String? fallbackName,
+}) {
+  if (ids.isEmpty) return '전체';
+  String? firstName;
+  final pmState = _safeBlocState<PaymentMethodBloc>();
+  if (pmState is PaymentMethodLoaded) {
+    final first =
+        pmState.activePaymentMethods.where((pm) => pm.id == ids.first).firstOrNull;
+    firstName = first?.name;
+  }
+  firstName ??= fallbackName;
+  if (firstName == null) return ids.length == 1 ? '선택됨' : '${ids.length}개';
+  return ids.length == 1 ? firstName : '$firstName 외 ${ids.length - 1}개';
+}
+
+/// 포켓 필터 display label 생성기.
+String buildPocketDisplayLabel(Set<String> ids) {
+  if (ids.isEmpty) return '전체';
+  final pState = _safeBlocState<PocketBloc>();
+  if (pState is PocketLoaded) {
+    final first =
+        pState.activePockets.where((p) => p.id == ids.first).firstOrNull;
+    if (first != null) {
+      return ids.length == 1 ? first.name : '${first.name} 외 ${ids.length - 1}개';
+    }
+  }
+  return ids.length == 1 ? '선택됨' : '${ids.length}개';
+}
+
+/// getIt 에서 BLoC 상태를 안전하게 조회 (미등록/에러 시 null).
+/// 테스트 환경에서 BLoC 이 등록되지 않은 경우가 있어 try/catch 감싸기.
+Object? _safeBlocState<T extends Object>() {
+  try {
+    final bloc = getIt<T>();
+    return (bloc as dynamic).state;
+  } catch (_) {
     return null;
   }
 }

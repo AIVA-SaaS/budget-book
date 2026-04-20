@@ -22,8 +22,12 @@ class PeriodSummaryBloc extends Bloc<PeriodSummaryEvent, PeriodSummaryState> {
         dateFrom: event.dateFrom,
         dateTo: event.dateTo,
         categoryId: event.categoryId,
+        categoryIds: event.categoryIds,
+        categoryGroupIds: event.categoryGroupIds,
         paymentMethodId: event.paymentMethodId,
+        paymentMethodIds: event.paymentMethodIds,
         pocketId: event.pocketId,
+        pocketIds: event.pocketIds,
       );
       result.fold(
         (failure) => emit(PeriodSummaryError(failure.message)),
