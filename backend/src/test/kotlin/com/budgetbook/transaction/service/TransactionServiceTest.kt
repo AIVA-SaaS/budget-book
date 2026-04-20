@@ -383,7 +383,7 @@ class TransactionServiceTest : BehaviorSpec({
         ) } returns page
 
         When("listTransactions is called for January 2024 without extended filters") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, null, 0, 20)
 
             Then("returns paginated results using legacy query") {
                 result.content.size shouldBe 2
@@ -406,7 +406,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with keyword filter") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, "점심", null, null, null, null, null, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
@@ -426,7 +426,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with amountMin and amountMax") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
@@ -579,7 +579,7 @@ class TransactionServiceTest : BehaviorSpec({
         When("listTransactions is called with dateFrom and dateTo spanning multiple months") {
             val result = service.listTransactions(
                 user1.id, null, null, null, null, null, null, null, null, null,
-                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 31), 0, 20
+                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 31), null, 0, 20
             )
 
             Then("returns transactions in the date range, ignoring year/month") {
@@ -604,7 +604,7 @@ class TransactionServiceTest : BehaviorSpec({
         When("listTransactions is called with dateFrom only") {
             val result = service.listTransactions(
                 user1.id, null, null, null, null, null, null, null, null, null,
-                LocalDate.of(2024, 6, 1), null, 0, 20
+                LocalDate.of(2024, 6, 1), null, null, 0, 20
             )
 
             Then("returns transactions from dateFrom onwards") {
@@ -628,7 +628,7 @@ class TransactionServiceTest : BehaviorSpec({
         When("listTransactions is called with dateTo only") {
             val result = service.listTransactions(
                 user1.id, null, null, null, null, null, null, null, null, null,
-                null, LocalDate.of(2024, 3, 31), 0, 20
+                null, LocalDate.of(2024, 3, 31), null, 0, 20
             )
 
             Then("returns transactions up to dateTo") {
@@ -743,10 +743,102 @@ class TransactionServiceTest : BehaviorSpec({
         every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
 
         When("listTransactions is called with paymentMethodId") {
-            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, pmId, null, null, null, null, null, 0, 20)
+            val result = service.listTransactions(user1.id, 2024, 1, null, null, null, pmId, null, null, null, null, null, null, 0, 20)
 
             Then("returns filtered results via specification") {
                 result.content.size shouldBe 1
+            }
+        }
+    }
+
+    // --- visibility 필터 (P6) ---
+
+    Given("transactions exist and visibility filter SHARED is used") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val sharedTx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "공유 지출", transactionDate = LocalDate.of(2024, 1, 15),
+            visibility = Visibility.SHARED, owner = null
+        )
+        val page = PageImpl(listOf(sharedTx), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with visibility='SHARED'") {
+            val result = service.listTransactions(
+                user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, "SHARED", 0, 20
+            )
+
+            Then("routes through Specification and returns shared-only transactions") {
+                result.content.size shouldBe 1
+                result.totalElements shouldBe 1
+                verify { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) }
+            }
+        }
+    }
+
+    Given("transactions exist and visibility filter PRIVATE is used") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val privateTx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 5000, description = "개인 지출", transactionDate = LocalDate.of(2024, 1, 10),
+            visibility = Visibility.PRIVATE, owner = user1
+        )
+        val page = PageImpl(listOf(privateTx), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with visibility='PRIVATE'") {
+            val result = service.listTransactions(
+                user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, "PRIVATE", 0, 20
+            )
+
+            Then("routes through Specification and returns owner's private transactions") {
+                result.content.size shouldBe 1
+                result.totalElements shouldBe 1
+                verify { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) }
+            }
+        }
+    }
+
+    Given("transactions exist and visibility filter ALL is used") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "거래", transactionDate = LocalDate.of(2024, 1, 15),
+            visibility = Visibility.SHARED, owner = null
+        )
+        val page = PageImpl(listOf(tx), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findByCoupleIdAndFilters(
+            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
+        ) } returns page
+
+        When("listTransactions is called with visibility='ALL'") {
+            val result = service.listTransactions(
+                user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, "ALL", 0, 20
+            )
+
+            Then("falls back to legacy JPQL path (ALL == default behavior)") {
+                result.content.size shouldBe 1
+                verify { transactionRepository.findByCoupleIdAndFilters(
+                    couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
+                ) }
+            }
+        }
+    }
+
+    Given("an invalid visibility value is provided") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("listTransactions is called with visibility='INVALID'") {
+            Then("throws BusinessException with VALIDATION_ERROR") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.listTransactions(
+                        user1.id, 2024, 1, null, null, null, null, null, null, null, null, null, "INVALID", 0, 20
+                    )
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
             }
         }
     }
