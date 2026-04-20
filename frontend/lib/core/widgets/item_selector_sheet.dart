@@ -30,11 +30,38 @@ class SelectorItem {
   });
 }
 
-class ItemSelectorSheet extends StatelessWidget {
+/// Selection mode for [ItemSelectorSheet].
+///
+/// - [single]: Legacy behavior — tapping an item fires [ItemSelectorSheet.onSelected]
+///   and immediately pops the sheet.
+/// - [multi]: Each tile renders a checkbox; tapping toggles membership in an
+///   internal [Set]; a bottom apply bar invokes [ItemSelectorSheet.onApplyMulti]
+///   with the final selection and then pops.
+enum SelectionMode { single, multi }
+
+class ItemSelectorSheet extends StatefulWidget {
   final String title;
   final List<SelectorItem> items;
+
+  /// Selection mode. Defaults to [SelectionMode.single] for backward compatibility.
+  final SelectionMode mode;
+
+  /// Single-select: currently selected id (highlighted).
   final String? selectedId;
-  final ValueChanged<SelectorItem?> onSelected;
+
+  /// Single-select callback. Required when [mode] == [SelectionMode.single].
+  final ValueChanged<SelectorItem?>? onSelected;
+
+  /// Multi-select: initially selected ids.
+  final Set<String> initialSelectedIds;
+
+  /// Multi-select callback. Required when [mode] == [SelectionMode.multi].
+  /// Called once with the final set when the user presses the apply button.
+  final void Function(Set<String> ids)? onApplyMulti;
+
+  /// Multi-select upper bound. Beyond this, further checks are refused with a SnackBar.
+  final int maxSelection;
+
   final ValueChanged<String>? onDelete;
   final ValueChanged<SelectorItem>? onEdit;
   final VoidCallback? onCreate;
@@ -59,8 +86,12 @@ class ItemSelectorSheet extends StatelessWidget {
     super.key,
     required this.title,
     required this.items,
+    this.mode = SelectionMode.single,
     this.selectedId,
-    required this.onSelected,
+    this.onSelected,
+    this.initialSelectedIds = const {},
+    this.onApplyMulti,
+    this.maxSelection = 50,
     this.onDelete,
     this.onEdit,
     this.onCreate,
@@ -71,12 +102,99 @@ class ItemSelectorSheet extends StatelessWidget {
     this.favoriteType,
     this.reorderRoute,
     this.groupLabels,
-  });
+  })  : assert(
+          mode == SelectionMode.single ? onSelected != null : true,
+          'SelectionMode.single requires onSelected',
+        ),
+        assert(
+          mode == SelectionMode.multi ? onApplyMulti != null : true,
+          'SelectionMode.multi requires onApplyMulti',
+        );
+
+  @override
+  State<ItemSelectorSheet> createState() => _ItemSelectorSheetState();
+}
+
+class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
+  late Set<String> _tempSelectedIds;
+
+  bool get _isMulti => widget.mode == SelectionMode.multi;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelectedIds = {...widget.initialSelectedIds};
+  }
+
+  void _toggleItem(String id) {
+    setState(() {
+      if (_tempSelectedIds.contains(id)) {
+        _tempSelectedIds.remove(id);
+      } else {
+        if (_tempSelectedIds.length >= widget.maxSelection) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('최대 ${widget.maxSelection}개까지 선택할 수 있습니다.'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        _tempSelectedIds.add(id);
+      }
+    });
+  }
+
+  void _setGroupSelection(Iterable<String> groupItemIds, bool select) {
+    setState(() {
+      if (select) {
+        for (final id in groupItemIds) {
+          if (_tempSelectedIds.contains(id)) continue;
+          if (_tempSelectedIds.length >= widget.maxSelection) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('최대 ${widget.maxSelection}개까지 선택할 수 있습니다.'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            break;
+          }
+          _tempSelectedIds.add(id);
+        }
+      } else {
+        _tempSelectedIds.removeAll(groupItemIds);
+      }
+    });
+  }
+
+  void _selectAll(List<SelectorItem> sortedItems) {
+    setState(() {
+      final toAdd = sortedItems
+          .map((e) => e.id)
+          .where((id) => !_tempSelectedIds.contains(id))
+          .take(widget.maxSelection - _tempSelectedIds.length);
+      _tempSelectedIds.addAll(toAdd);
+      if (sortedItems.length > widget.maxSelection) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('최대 ${widget.maxSelection}개까지 선택되었습니다.'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  void _clearAll() {
+    setState(() {
+      _tempSelectedIds.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     // Sort items by displayOrder
-    final sortedItems = List<SelectorItem>.from(items)
+    final sortedItems = List<SelectorItem>.from(widget.items)
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
     return BlocProvider<FavoritesBloc>.value(
@@ -102,7 +220,7 @@ class ItemSelectorSheet extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      title,
+                      widget.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -122,7 +240,7 @@ class ItemSelectorSheet extends StatelessWidget {
                 child: BlocBuilder<FavoritesBloc, FavoritesState>(
                   builder: (context, favState) {
                     final favIds = _getFavoriteIds(favState);
-                    final favoriteItems = favoriteType != null
+                    final favoriteItems = widget.favoriteType != null
                         ? sortedItems.where((item) => favIds.contains(item.id)).toList()
                         : <SelectorItem>[];
 
@@ -152,20 +270,31 @@ class ItemSelectorSheet extends StatelessWidget {
                             child: Wrap(
                               spacing: 8,
                               runSpacing: 4,
-                              children: favoriteItems.map((item) => ActionChip(
-                                label: Text(item.label),
-                                avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
-                                onPressed: () {
-                                  onSelected(item);
-                                  Navigator.of(context).pop();
-                                },
-                              )).toList(),
+                              children: favoriteItems.map((item) {
+                                if (_isMulti) {
+                                  final selected = _tempSelectedIds.contains(item.id);
+                                  return FilterChip(
+                                    label: Text(item.label),
+                                    avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                                    selected: selected,
+                                    onSelected: (_) => _toggleItem(item.id),
+                                  );
+                                }
+                                return ActionChip(
+                                  label: Text(item.label),
+                                  avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                                  onPressed: () {
+                                    widget.onSelected!(item);
+                                    Navigator.of(context).pop();
+                                  },
+                                );
+                              }).toList(),
                             ),
                           ),
                           const Divider(),
                         ],
-                        // Null option
-                        if (allowNull)
+                        // Null option — hidden in multi mode
+                        if (widget.allowNull && !_isMulti)
                           ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Theme.of(context)
@@ -173,24 +302,24 @@ class ItemSelectorSheet extends StatelessWidget {
                                   .surfaceContainerHighest,
                               child: const Icon(Icons.block, size: 20),
                             ),
-                            title: Text(nullLabel),
-                            selected: selectedId == null,
+                            title: Text(widget.nullLabel),
+                            selected: widget.selectedId == null,
                             selectedTileColor: Theme.of(context)
                                 .colorScheme
                                 .primaryContainer
                                 .withValues(alpha: 0.3),
                             onTap: () {
-                              onSelected(null);
+                              widget.onSelected!(null);
                               Navigator.of(context).pop();
                             },
                           ),
                         // Items
-                        if (sortedItems.isEmpty && emptyLabel != null)
+                        if (sortedItems.isEmpty && widget.emptyLabel != null)
                           Padding(
                             padding: const EdgeInsets.all(24),
                             child: Center(
                               child: Text(
-                                emptyLabel!,
+                                widget.emptyLabel!,
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       color: Theme.of(context)
                                           .colorScheme
@@ -201,8 +330,8 @@ class ItemSelectorSheet extends StatelessWidget {
                             ),
                           ),
                         ..._buildGroupedItems(context, sortedItems, favIds),
-                        // Create option
-                        if (onCreate != null) ...[
+                        // Create option — hidden in multi mode (filter context)
+                        if (widget.onCreate != null && !_isMulti) ...[
                           const Divider(height: 1),
                           ListTile(
                             leading: CircleAvatar(
@@ -217,7 +346,7 @@ class ItemSelectorSheet extends StatelessWidget {
                               ),
                             ),
                             title: Text(
-                              createLabel,
+                              widget.createLabel,
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w500,
@@ -225,7 +354,7 @@ class ItemSelectorSheet extends StatelessWidget {
                             ),
                             onTap: () {
                               Navigator.of(context).pop();
-                              onCreate!();
+                              widget.onCreate!();
                             },
                           ),
                         ],
@@ -234,8 +363,42 @@ class ItemSelectorSheet extends StatelessWidget {
                   },
                 ),
               ),
-              // Reorder management link
-              if (reorderRoute != null) ...[
+              // Multi-mode apply bar
+              if (_isMulti) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _selectAll(sortedItems),
+                          child: const Text('전체 선택'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _clearAll,
+                          child: const Text('전체 해제'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            widget.onApplyMulti!({..._tempSelectedIds});
+                            Navigator.of(context).pop();
+                          },
+                          child: Text('적용 (${_tempSelectedIds.length})'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              // Reorder management link — hidden in multi mode (filter context)
+              if (widget.reorderRoute != null && !_isMulti) ...[
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -244,7 +407,7 @@ class ItemSelectorSheet extends StatelessWidget {
                     child: TextButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        context.push(reorderRoute!);
+                        context.push(widget.reorderRoute!);
                       },
                       child: const Text('순서 관리 >'),
                     ),
@@ -265,27 +428,24 @@ class ItemSelectorSheet extends StatelessWidget {
     List<SelectorItem> sortedItems,
     List<String> favIds,
   ) {
-    if (groupLabels == null || groupLabels!.isEmpty) {
+    if (widget.groupLabels == null || widget.groupLabels!.isEmpty) {
       return sortedItems.map((item) => _buildItemTile(context, item, favIds)).toList();
+    }
+
+    // Pre-group items by their group key so we can offer "group-all" checkbox in multi mode.
+    final itemsByGroup = <String, List<SelectorItem>>{};
+    for (final item in sortedItems) {
+      final key = item.group ?? '';
+      itemsByGroup.putIfAbsent(key, () => []).add(item);
     }
 
     final widgets = <Widget>[];
     String? lastGroup;
     for (final item in sortedItems) {
       if (item.group != null && item.group != lastGroup) {
-        final label = groupLabels![item.group] ?? item.group!;
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-          ),
-        );
+        final label = widget.groupLabels![item.group] ?? item.group!;
+        final groupItems = itemsByGroup[item.group!] ?? const <SelectorItem>[];
+        widgets.add(_buildGroupHeader(context, item.group!, label, groupItems));
         lastGroup = item.group;
       }
       widgets.add(_buildItemTile(context, item, favIds));
@@ -293,33 +453,104 @@ class ItemSelectorSheet extends StatelessWidget {
     return widgets;
   }
 
+  Widget _buildGroupHeader(
+    BuildContext context,
+    String groupKey,
+    String label,
+    List<SelectorItem> groupItems,
+  ) {
+    if (!_isMulti) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
+      );
+    }
+
+    final groupIds = groupItems.map((e) => e.id).toList();
+    final selectedInGroup =
+        groupIds.where((id) => _tempSelectedIds.contains(id)).length;
+    final allSelected =
+        groupIds.isNotEmpty && selectedInGroup == groupIds.length;
+    final someSelected = selectedInGroup > 0 && !allSelected;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
+      child: Row(
+        children: [
+          Checkbox(
+            value: allSelected ? true : (someSelected ? null : false),
+            tristate: true,
+            onChanged: (_) =>
+                _setGroupSelection(groupIds, !allSelected),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              '$label (그룹 전체)',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<String> _getFavoriteIds(FavoritesState state) {
-    if (state is! FavoritesLoaded || favoriteType == null) return [];
-    if (favoriteType == 'PAYMENT_METHOD') {
+    if (state is! FavoritesLoaded || widget.favoriteType == null) return [];
+    if (widget.favoriteType == 'PAYMENT_METHOD') {
       return state.favorites.paymentMethodIds;
-    } else if (favoriteType == 'CATEGORY') {
+    } else if (widget.favoriteType == 'CATEGORY') {
       return state.favorites.categoryIds;
     }
     return [];
   }
 
   Widget _buildItemTile(BuildContext context, SelectorItem item, List<String> favIds) {
-    final isSelected = item.id == selectedId;
+    final isSingleSelected = !_isMulti && item.id == widget.selectedId;
+    final isMultiSelected = _isMulti && _tempSelectedIds.contains(item.id);
     final isFavorite = favIds.contains(item.id);
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor:
-            (item.leadingColor ?? Colors.grey).withValues(alpha: 0.15),
-        child: Icon(
-          item.leadingIcon ?? Icons.label,
-          color: item.leadingColor ?? Colors.grey,
-          size: 20,
-        ),
-      ),
+      leading: _isMulti
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: isMultiSelected,
+                  onChanged: (_) => _toggleItem(item.id),
+                ),
+                CircleAvatar(
+                  backgroundColor:
+                      (item.leadingColor ?? Colors.grey).withValues(alpha: 0.15),
+                  child: Icon(
+                    item.leadingIcon ?? Icons.label,
+                    color: item.leadingColor ?? Colors.grey,
+                    size: 20,
+                  ),
+                ),
+              ],
+            )
+          : CircleAvatar(
+              backgroundColor:
+                  (item.leadingColor ?? Colors.grey).withValues(alpha: 0.15),
+              child: Icon(
+                item.leadingIcon ?? Icons.label,
+                color: item.leadingColor ?? Colors.grey,
+                size: 20,
+              ),
+            ),
       title: Text(item.label),
       subtitle: item.subtitle != null ? Text(item.subtitle!) : null,
-      selected: isSelected,
+      selected: isSingleSelected || isMultiSelected,
       selectedTileColor: Theme.of(context)
           .colorScheme
           .primaryContainer
@@ -328,11 +559,11 @@ class ItemSelectorSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Favorite star toggle
-          if (favoriteType != null)
+          if (widget.favoriteType != null)
             GestureDetector(
               onTap: () {
                 getIt<FavoritesBloc>().add(ToggleFavorite(
-                  type: favoriteType!,
+                  type: widget.favoriteType!,
                   itemId: item.id,
                 ));
               },
@@ -347,12 +578,12 @@ class ItemSelectorSheet extends StatelessWidget {
                 ),
               ),
             ),
-          // Edit button
-          if (onEdit != null)
+          // Edit button — hidden in multi mode (filter context)
+          if (widget.onEdit != null && !_isMulti)
             GestureDetector(
               onTap: () {
                 Navigator.of(context).pop();
-                onEdit!(item);
+                widget.onEdit!(item);
               },
               child: Padding(
                 padding: const EdgeInsets.all(4),
@@ -363,13 +594,14 @@ class ItemSelectorSheet extends StatelessWidget {
                 ),
               ),
             ),
-          if (isSelected)
+          if (isSingleSelected)
             Icon(
               Icons.check,
               color: Theme.of(context).colorScheme.primary,
               size: 20,
             ),
-          if (item.isDeletable && onDelete != null)
+          // Delete button — hidden in multi mode (filter context)
+          if (item.isDeletable && widget.onDelete != null && !_isMulti)
             IconButton(
               icon: Icon(
                 Icons.delete_outline,
@@ -382,8 +614,12 @@ class ItemSelectorSheet extends StatelessWidget {
         ],
       ),
       onTap: () {
-        onSelected(item);
-        Navigator.of(context).pop();
+        if (_isMulti) {
+          _toggleItem(item.id);
+        } else {
+          widget.onSelected!(item);
+          Navigator.of(context).pop();
+        }
       },
     );
   }
@@ -408,7 +644,7 @@ class ItemSelectorSheet extends StatelessWidget {
       ),
     );
     if (confirmed == true) {
-      onDelete!(item.id);
+      widget.onDelete!(item.id);
     }
   }
 }
