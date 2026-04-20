@@ -99,16 +99,24 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
     required String dateFrom,
     required String dateTo,
     String? categoryId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
     String? paymentMethodId,
+    Set<String> paymentMethodIds = const {},
     String? pocketId,
+    Set<String> pocketIds = const {},
   }) async {
     try {
       final result = await remoteDataSource.getPeriodSummary(
         dateFrom: dateFrom,
         dateTo: dateTo,
         categoryId: categoryId,
+        categoryIds: categoryIds,
+        categoryGroupIds: categoryGroupIds,
         paymentMethodId: paymentMethodId,
+        paymentMethodIds: paymentMethodIds,
         pocketId: pocketId,
+        pocketIds: pocketIds,
       );
       return Right(result);
     } on DioException catch (e) {

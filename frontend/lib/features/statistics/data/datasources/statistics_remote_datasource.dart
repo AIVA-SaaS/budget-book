@@ -39,8 +39,12 @@ abstract class StatisticsRemoteDataSource {
     required String dateFrom,
     required String dateTo,
     String? categoryId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
     String? paymentMethodId,
+    Set<String> paymentMethodIds = const {},
     String? pocketId,
+    Set<String> pocketIds = const {},
   });
 }
 
@@ -138,15 +142,27 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     required String dateFrom,
     required String dateTo,
     String? categoryId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
     String? paymentMethodId,
+    Set<String> paymentMethodIds = const {},
     String? pocketId,
+    Set<String> pocketIds = const {},
   }) async {
+    // PR-C3: 복수 필드 직렬화. ApiClient BaseOptions(listFormat: ListFormat.multi)
+    // 에 의해 `?categoryIds=a&categoryIds=b` 형식으로 전달 (Spring 호환).
     final params = <String, dynamic>{
       'dateFrom': dateFrom,
       'dateTo': dateTo,
       if (categoryId != null) 'categoryId': categoryId,
       if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
       if (pocketId != null) 'pocketId': pocketId,
+      if (categoryIds.isNotEmpty) 'categoryIds': categoryIds.toList(),
+      if (categoryGroupIds.isNotEmpty)
+        'categoryGroupIds': categoryGroupIds.toList(),
+      if (paymentMethodIds.isNotEmpty)
+        'paymentMethodIds': paymentMethodIds.toList(),
+      if (pocketIds.isNotEmpty) 'pocketIds': pocketIds.toList(),
     };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsPeriodSummary,
