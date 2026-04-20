@@ -17,25 +17,63 @@ import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
 
+/// Selection mode for [CategoryGroupSelectorSheet].
+///
+/// - [singleCategory]: Legacy behavior — tapping a category fires
+///   [CategoryGroupSelectorSheet.onSelected] and pops the sheet.
+/// - [multiCategoryWithGroup]: Checkboxes on every category and group header.
+///   Selecting a group checkbox cascades to its categories (both the group id
+///   is kept in `_tempGroupIds` and all child category ids are added to
+///   `_tempCategoryIds`). On apply, [CategoryGroupSelectorSheet.onApplyMulti]
+///   is invoked with `(categoryIds, groupIds)`.
+enum CategorySelectionMode { singleCategory, multiCategoryWithGroup }
+
 /// Hierarchical category selector: groups -> sub-categories.
 /// Groups are expandable headers, only sub-categories are selectable.
 /// Groups are separated into SHARED and PRIVATE sections.
 class CategoryGroupSelectorSheet extends StatefulWidget {
   final String? selectedCategoryId;
   final String categoryType; // 'INCOME' or 'EXPENSE'
-  final ValueChanged<Category?> onSelected;
+
+  /// Selection mode. Defaults to [CategorySelectionMode.singleCategory].
+  final CategorySelectionMode mode;
+
+  /// Single-mode selection callback.
+  final ValueChanged<Category?>? onSelected;
   final ValueChanged<String>? onDelete;
   /// Called with (category, groupName) for display purposes.
   final void Function(Category? category, String? groupName)? onSelectedWithGroupName;
+
+  /// Multi-mode: initially checked category ids.
+  final Set<String> initialCategoryIds;
+
+  /// Multi-mode: initially checked group ids.
+  final Set<String> initialGroupIds;
+
+  /// Multi-mode apply callback with `(categoryIds, groupIds)`.
+  final void Function(Set<String> categoryIds, Set<String> groupIds)? onApplyMulti;
 
   const CategoryGroupSelectorSheet({
     super.key,
     this.selectedCategoryId,
     required this.categoryType,
-    required this.onSelected,
+    this.mode = CategorySelectionMode.singleCategory,
+    this.onSelected,
     this.onDelete,
     this.onSelectedWithGroupName,
-  });
+    this.initialCategoryIds = const {},
+    this.initialGroupIds = const {},
+    this.onApplyMulti,
+  })  : assert(
+          mode == CategorySelectionMode.singleCategory ? onSelected != null : true,
+          'CategorySelectionMode.singleCategory requires onSelected',
+        ),
+        assert(
+          mode == CategorySelectionMode.multiCategoryWithGroup
+              ? onApplyMulti != null
+              : true,
+          'CategorySelectionMode.multiCategoryWithGroup requires onApplyMulti',
+        );
 
   @override
   State<CategoryGroupSelectorSheet> createState() =>
@@ -49,13 +87,54 @@ class _CategoryGroupSelectorSheetState
   final _categoryNameController = TextEditingController();
   bool _autoExpandedOnce = false;
 
+  late Set<String> _tempCategoryIds;
+  late Set<String> _tempGroupIds;
+
+  bool get _isMulti =>
+      widget.mode == CategorySelectionMode.multiCategoryWithGroup;
+
   @override
   void initState() {
     super.initState();
+    _tempCategoryIds = {...widget.initialCategoryIds};
+    _tempGroupIds = {...widget.initialGroupIds};
     final bloc = getIt<CategoryGroupBloc>();
     if (bloc.state is! CategoryGroupLoaded) {
       bloc.add(const LoadCategoryGroups());
     }
+  }
+
+  void _toggleCategory(String id) {
+    setState(() {
+      if (_tempCategoryIds.contains(id)) {
+        _tempCategoryIds.remove(id);
+      } else {
+        _tempCategoryIds.add(id);
+      }
+    });
+  }
+
+  void _setGroupCheckedCascade(CategoryGroup group, bool checked) {
+    final childIds = group.categories
+        .where((c) => c.type == widget.categoryType)
+        .map((c) => c.id)
+        .toList();
+    setState(() {
+      if (checked) {
+        _tempGroupIds.add(group.id);
+        _tempCategoryIds.addAll(childIds);
+      } else {
+        _tempGroupIds.remove(group.id);
+        _tempCategoryIds.removeAll(childIds);
+      }
+    });
+  }
+
+  void _clearAllMulti() {
+    setState(() {
+      _tempCategoryIds.clear();
+      _tempGroupIds.clear();
+    });
   }
 
   @override
@@ -137,19 +216,50 @@ class _CategoryGroupSelectorSheetState
                   ),
                 ),
                 const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        context.push('/asset-management');
-                      },
-                      child: const Text('순서 관리 >'),
+                if (_isMulti)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _clearAllMulti,
+                            child: const Text('전체 해제'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: () {
+                              widget.onApplyMulti!(
+                                {..._tempCategoryIds},
+                                {..._tempGroupIds},
+                              );
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(
+                              '적용 (${_tempCategoryIds.length + _tempGroupIds.length})',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          context.push('/asset-management');
+                        },
+                        child: const Text('순서 관리 >'),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -236,11 +346,20 @@ class _CategoryGroupSelectorSheetState
                       break;
                     }
                   }
+                  if (_isMulti) {
+                    final selected = _tempCategoryIds.contains(cat.id);
+                    return FilterChip(
+                      label: Text(cat.name),
+                      avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                      selected: selected,
+                      onSelected: (_) => _toggleCategory(cat.id),
+                    );
+                  }
                   return ActionChip(
                     label: Text(cat.name),
                     avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
                     onPressed: () {
-                      widget.onSelected(cat);
+                      widget.onSelected!(cat);
                       widget.onSelectedWithGroupName?.call(cat, groupName);
                       Navigator.of(context).pop();
                     },
@@ -272,25 +391,27 @@ class _CategoryGroupSelectorSheetState
           ));
         }
 
-        // Add shared group button
-        children.add(
-          ListTile(
-            dense: true,
-            leading: Icon(
-              Icons.add,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            title: Text(
-              '공유 그룹 추가',
-              style: TextStyle(
-                fontSize: 13,
+        // Add shared group button — hidden in multi mode (filter context)
+        if (!_isMulti) {
+          children.add(
+            ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.add,
+                size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
+              title: Text(
+                '공유 그룹 추가',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              onTap: () => _showAddGroupDialog(context),
             ),
-            onTap: () => _showAddGroupDialog(context),
-          ),
-        );
+          );
+        }
 
         // Private section (couple mode only)
         if (coupled && (privateGroups.isNotEmpty || true)) {
@@ -353,8 +474,8 @@ class _CategoryGroupSelectorSheetState
           ));
         }
 
-        // Add private group button (couple mode only)
-        if (coupled) {
+        // Add private group button (couple mode only, hidden in multi)
+        if (coupled && !_isMulti) {
           children.add(
             ListTile(
               dense: true,
@@ -392,6 +513,8 @@ class _CategoryGroupSelectorSheetState
   ) {
     final color = UIHelpers.parseColor(group.color);
 
+    final groupChecked = _isMulti && _tempGroupIds.contains(group.id);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -415,6 +538,15 @@ class _CategoryGroupSelectorSheetState
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
+                if (_isMulti)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Checkbox(
+                      value: groupChecked,
+                      onChanged: (value) =>
+                          _setGroupCheckedCascade(group, value ?? false),
+                    ),
+                  ),
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: color.withValues(alpha: 0.15),
@@ -477,26 +609,27 @@ class _CategoryGroupSelectorSheetState
         // Expanded sub-categories
         if (isExpanded) ...[
           ...categories.map((c) => _buildCategoryTile(context, c, group.name, favCategoryIds)),
-          // Add sub-category button
-          Padding(
-            padding: const EdgeInsets.only(left: 24),
-            child: ListTile(
-              dense: true,
-              leading: Icon(
-                Icons.add,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              title: Text(
-                '하위 카테고리 추가',
-                style: TextStyle(
-                  fontSize: 13,
+          // Add sub-category button — hidden in multi mode (filter context)
+          if (!_isMulti)
+            Padding(
+              padding: const EdgeInsets.only(left: 24),
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.add,
+                  size: 18,
                   color: Theme.of(context).colorScheme.primary,
                 ),
+                title: Text(
+                  '하위 카테고리 추가',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                onTap: () => _showAddCategoryDialog(context, group),
               ),
-              onTap: () => _showAddCategoryDialog(context, group),
             ),
-          ),
         ],
         const Divider(height: 1),
       ],
@@ -509,7 +642,9 @@ class _CategoryGroupSelectorSheetState
     String groupName,
     List<String> favCategoryIds,
   ) {
-    final isSelected = category.id == widget.selectedCategoryId;
+    final isSingleSelected =
+        !_isMulti && category.id == widget.selectedCategoryId;
+    final isMultiSelected = _isMulti && _tempCategoryIds.contains(category.id);
     final color = UIHelpers.parseColor(category.color);
     final isFavorite = favCategoryIds.contains(category.id);
 
@@ -517,22 +652,42 @@ class _CategoryGroupSelectorSheetState
       padding: const EdgeInsets.only(left: 24),
       child: ListTile(
         dense: true,
-        leading: CircleAvatar(
-          radius: 14,
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(
-            Icons.label,
-            color: color,
-            size: 16,
-          ),
-        ),
+        leading: _isMulti
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Checkbox(
+                    value: isMultiSelected,
+                    onChanged: (_) => _toggleCategory(category.id),
+                  ),
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    child: Icon(
+                      Icons.label,
+                      color: color,
+                      size: 16,
+                    ),
+                  ),
+                ],
+              )
+            : CircleAvatar(
+                radius: 14,
+                backgroundColor: color.withValues(alpha: 0.15),
+                child: Icon(
+                  Icons.label,
+                  color: color,
+                  size: 16,
+                ),
+              ),
         title: Text(
           category.name,
           style: TextStyle(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight:
+                (isSingleSelected || isMultiSelected) ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-        selected: isSelected,
+        selected: isSingleSelected || isMultiSelected,
         selectedTileColor: Theme.of(context)
             .colorScheme
             .primaryContainer
@@ -557,25 +712,27 @@ class _CategoryGroupSelectorSheetState
                 ),
               ),
             ),
-            // Edit button
-            GestureDetector(
-              onTap: () => _showEditCategoryDialog(context, category),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(
-                  Icons.edit_outlined,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+            // Edit button — hidden in multi mode (filter context)
+            if (!_isMulti)
+              GestureDetector(
+                onTap: () => _showEditCategoryDialog(context, category),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
                 ),
               ),
-            ),
-            if (isSelected)
+            if (isSingleSelected)
               Icon(
                 Icons.check,
                 size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
-            if (widget.onDelete != null)
+            // Delete button — hidden in multi mode (filter context)
+            if (widget.onDelete != null && !_isMulti)
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
@@ -588,9 +745,13 @@ class _CategoryGroupSelectorSheetState
           ],
         ),
         onTap: () {
-          widget.onSelected(category);
-          widget.onSelectedWithGroupName?.call(category, groupName);
-          Navigator.of(context).pop();
+          if (_isMulti) {
+            _toggleCategory(category.id);
+          } else {
+            widget.onSelected!(category);
+            widget.onSelectedWithGroupName?.call(category, groupName);
+            Navigator.of(context).pop();
+          }
         },
       ),
     );
