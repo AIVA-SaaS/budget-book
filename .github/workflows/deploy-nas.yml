@@ -48,18 +48,15 @@ jobs:
           script: |
             set -e
             export PATH=/usr/local/bin:$PATH
-            export DOCKER_BUILDKIT=1
             cd /volume1/docker/budget-book
 
             git fetch origin main --depth=1
             git reset --hard origin/main
 
             cd backend
-            # BuildKit + cache reuse (이전 이미지 layer 활용)
-            docker build \
-              --cache-from bb-backend:latest \
-              --build-arg BUILDKIT_INLINE_CACHE=1 \
-              -t bb-backend:latest .
+            # NAS Docker 엔진에 buildx 미설치 → legacy builder 사용.
+            # 동일 태그 재사용으로 Docker 가 layer cache 자동 활용.
+            docker build -t bb-backend:latest .
 
             cat > /tmp/bb_env << 'ENVEOF'
             SPRING_PROFILES_ACTIVE=prod
