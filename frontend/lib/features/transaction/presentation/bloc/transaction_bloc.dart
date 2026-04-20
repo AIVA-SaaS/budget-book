@@ -112,6 +112,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         dateFrom: event.dateFrom,
         dateTo: event.dateTo,
         type: event.type,
+        visibility: event.visibility,
         page: 0,
         size: _pageSize,
       );
@@ -255,6 +256,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         dateFrom: _currentDateFrom,
         dateTo: _currentDateTo,
         type: _currentType,
+        visibility: _currentVisibility,
         page: nextPage,
         size: _pageSize,
       );
@@ -344,6 +346,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
               type: _currentType,
+              visibility: _currentVisibility,
             )),
       );
     } catch (e) {
@@ -395,6 +398,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
               type: _currentType,
+              visibility: _currentVisibility,
             )),
       );
     } catch (e) {

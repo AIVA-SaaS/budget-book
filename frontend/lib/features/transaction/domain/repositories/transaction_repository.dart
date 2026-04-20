@@ -16,6 +16,7 @@ abstract class TransactionRepository {
     int? amountMax,
     String? dateFrom,
     String? dateTo,
+    String? visibility,
     int page = 0,
     int size = 20,
   });

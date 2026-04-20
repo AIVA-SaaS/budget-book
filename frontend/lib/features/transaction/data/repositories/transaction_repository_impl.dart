@@ -25,6 +25,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     int? amountMax,
     String? dateFrom,
     String? dateTo,
+    String? visibility,
     int page = 0,
     int size = 20,
   }) async {
@@ -41,6 +42,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         amountMax: amountMax,
         dateFrom: dateFrom,
         dateTo: dateTo,
+        visibility: visibility,
         page: page,
         size: size,
       );

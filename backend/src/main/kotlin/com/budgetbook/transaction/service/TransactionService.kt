@@ -65,6 +65,7 @@ class TransactionService(
         amountMax: Long? = null,
         dateFrom: LocalDate? = null,
         dateTo: LocalDate? = null,
+        visibility: String? = null,
         page: Int,
         size: Int
     ): PageResponse<TransactionResponse> {
@@ -91,12 +92,21 @@ class TransactionService(
             }
         }
 
+        // visibility 필터: 'ALL'/null 은 기본 동작(공유 + 본인 개인), 'SHARED'/'PRIVATE' 는 명시적 필터.
+        // 유효하지 않은 값은 VALIDATION_ERROR.
+        val visibilityFilter = visibility?.uppercase()?.takeIf { it != "ALL" }
+        if (visibilityFilter != null && visibilityFilter != "SHARED" && visibilityFilter != "PRIVATE") {
+            throw BusinessException("VALIDATION_ERROR", "Invalid visibility: $visibility")
+        }
+
         val pageSize = size.coerceIn(1, 100)
         val sort = Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt"))
         val pageable = PageRequest.of(page, pageSize, sort)
 
+        // SHARED/PRIVATE visibility 필터가 들어오면 legacy JPQL 경로는 지원하지 않으므로 Spec 경로로 강제.
         val hasExtendedFilters = keyword != null || paymentMethodId != null ||
-            pocketId != null || amountMin != null || amountMax != null
+            pocketId != null || amountMin != null || amountMax != null ||
+            visibilityFilter != null
 
         val result = if (hasExtendedFilters) {
             val spec = TransactionSpecifications.withFilters(
@@ -110,7 +120,8 @@ class TransactionService(
                 pocketId = pocketId,
                 amountMin = amountMin,
                 amountMax = amountMax,
-                userId = userId
+                userId = userId,
+                visibility = visibilityFilter
             )
             transactionRepository.findAll(spec, pageable)
         } else {

@@ -49,7 +49,7 @@ class TransactionController(
         return ApiResponse.ok(transactionService.listTransactions(
             userId, filter.year, filter.month, filter.type, filter.categoryId,
             filter.keyword, filter.paymentMethodId, filter.pocketId, filter.amountMin, filter.amountMax,
-            filter.dateFrom, filter.dateTo, page, size
+            filter.dateFrom, filter.dateTo, filter.visibility, page, size
         ))
     }
 
