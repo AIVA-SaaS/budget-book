@@ -245,12 +245,19 @@ class UnifiedFilterBar extends StatelessWidget {
                           icon: const Icon(Icons.date_range, size: 18),
                           label: const Text('기간 변경'),
                           onPressed: () {
-                            Navigator.of(ctx).pop();
+                            // 외부 필터 시트를 pop 하지 않고 그 위에 date-range 시트를
+                            // 쌓는다. date range 시트의 preset 을 탭하면 내부에서
+                            // Navigator.pop 으로 자기 자신을 닫고 onApply 호출 →
+                            // 여기서 외부 필터 시트도 함께 pop + onFilterChanged.
+                            // (이전엔 외부 시트 먼저 pop → context deactivated →
+                            //  date range 시트가 아예 navigate 못 하고 onApply 미발화 →
+                            //  네트워크 요청 안 뜨는 버그)
                             showDateRangeFilterSheet(
-                              context: context,
+                              context: ctx,
                               currentFrom: state.dateFrom,
                               currentTo: state.dateTo,
                               onApply: (label, from, to) {
+                                if (Navigator.canPop(ctx)) Navigator.of(ctx).pop();
                                 onFilterChanged(state.copyWith(
                                   dateFrom: from,
                                   dateTo: to,
@@ -258,6 +265,7 @@ class UnifiedFilterBar extends StatelessWidget {
                                 ));
                               },
                               onClear: () {
+                                if (Navigator.canPop(ctx)) Navigator.of(ctx).pop();
                                 onFilterChanged(state.copyWith(clearDateRange: true));
                               },
                             );
