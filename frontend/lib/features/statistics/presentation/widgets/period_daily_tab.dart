@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/date_helpers.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 
@@ -52,7 +53,6 @@ class PeriodDailyTab extends StatelessWidget {
       return m > max ? m : max;
     });
     final maxY = maxAmount > 0 ? maxAmount * 1.2 : 100000.0;
-    final df = DateFormat('M/d');
 
     return SizedBox(
       height: 200,
@@ -95,7 +95,7 @@ class PeriodDailyTab extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      date != null ? df.format(date) : '',
+                      date != null ? DateHelper.formatDateShort(date) : '',
                       style: const TextStyle(fontSize: 10),
                     ),
                   );

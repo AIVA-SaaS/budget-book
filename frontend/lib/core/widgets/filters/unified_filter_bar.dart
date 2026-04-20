@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
+import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/core/widgets/filters/category_filter.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
@@ -67,8 +68,14 @@ class UnifiedFilterBar extends StatelessWidget {
       ));
     }
     if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) {
+      final minStr = state.amountMin != null
+          ? CurrencyFormatter.format(state.amountMin!)
+          : '0';
+      final maxStr = state.amountMax != null
+          ? CurrencyFormatter.format(state.amountMax!)
+          : '\u221E';
       chips.add(_ChipData(
-        label: '금액: ${state.amountMin ?? 0}~${state.amountMax ?? "\u221E"}원',
+        label: '금액: $minStr~$maxStr원',
         onRemove: () => onFilterChanged(state.copyWith(clearAmount: true)),
       ));
     }

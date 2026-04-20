@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/date_helpers.dart';
 
 /// Shows a date range filter bottom sheet with presets and custom range picker.
 ///
@@ -12,7 +12,6 @@ void showDateRangeFilterSheet({
   required VoidCallback onClear,
 }) {
   final now = DateTime.now();
-  final fmtShort = DateFormat('M/d');
 
   // This week (Monday ~ Sunday)
   final weekday = now.weekday;
@@ -59,14 +58,14 @@ void showDateRangeFilterSheet({
               leading: const Icon(Icons.today),
               title: const Text('이번 주'),
               subtitle: Text(
-                  '${fmtShort.format(thisWeekStart)} ~ ${fmtShort.format(thisWeekEnd)}'),
+                  '${DateHelper.formatDateShort(thisWeekStart)} ~ ${DateHelper.formatDateShort(thisWeekEnd)}'),
               onTap: () => apply('이번 주', thisWeekStart, thisWeekEnd),
             ),
             ListTile(
               leading: const Icon(Icons.history),
               title: const Text('지난 주'),
               subtitle: Text(
-                  '${fmtShort.format(lastWeekStart)} ~ ${fmtShort.format(lastWeekEnd)}'),
+                  '${DateHelper.formatDateShort(lastWeekStart)} ~ ${DateHelper.formatDateShort(lastWeekEnd)}'),
               onTap: () => apply('지난 주', lastWeekStart, lastWeekEnd),
             ),
             ListTile(
@@ -108,7 +107,7 @@ void showDateRangeFilterSheet({
                 );
                 if (range != null && context.mounted) {
                   final label =
-                      '${fmtShort.format(range.start)} ~ ${fmtShort.format(range.end)}';
+                      '${DateHelper.formatDateShort(range.start)} ~ ${DateHelper.formatDateShort(range.end)}';
                   onApply(label, range.start, range.end);
                 }
               },

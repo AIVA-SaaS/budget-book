@@ -582,7 +582,6 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               final targetMonth = '${_targetDate.year}-${_targetDate.month.toString().padLeft(2, '0')}';
               final filteredBudgets = budgets.where((b) => b.yearMonth == targetMonth).toList();
               final weekRanges = DateHelper.calculateWeekRanges(_targetDate.year, _targetDate.month);
-              final dateFormat = DateFormat('M/d');
 
               // Build dropdown items: monthly budgets as-is, weekly budgets expanded per week
               final dropdownItems = <DropdownMenuItem<String>>[
@@ -597,8 +596,8 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   // Expand weekly budget into per-week items
                   for (final week in weekRanges) {
                     final proRata = DateHelper.calculateProRataBudget(b.weeklyAmount!, week);
-                    final startStr = dateFormat.format(week.start);
-                    final endStr = dateFormat.format(week.end);
+                    final startStr = DateHelper.formatDateShort(week.start);
+                    final endStr = DateHelper.formatDateShort(week.end);
                     final isTargetWeek = DateHelper.isDateInWeekRange(_targetDate, week);
                     final label = '${b.targetLabel} — ${week.weekNumber}주차 ($startStr~$endStr) ${CurrencyFormatter.format(proRata)}원';
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/utils/date_helpers.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 
 /// Period type enum for budget period selection.
@@ -253,7 +254,6 @@ class _PeriodSelectorState extends State<PeriodSelector> {
     final monthStr = DateFormat('yyyy년 M월')
         .format(DateTime(_weekYear, _weekMonth));
     final weekRanges = calculateWeekRanges(_weekYear, _weekMonth);
-    final dayFormat = DateFormat('M/d');
 
     return Column(
       children: [
@@ -356,7 +356,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                           ),
                         ),
                         Text(
-                          '${dayFormat.format(start)} ~ ${dayFormat.format(end)}',
+                          '${DateHelper.formatDateShort(start)} ~ ${DateHelper.formatDateShort(end)}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],

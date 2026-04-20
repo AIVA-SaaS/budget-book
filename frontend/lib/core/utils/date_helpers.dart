@@ -35,6 +35,22 @@ class DateHelper {
     return DateFormat('yyyy-MM-dd HH:mm').format(dt);
   }
 
+  /// 짧은 형식 "M/d" — 필터/차트/주간 리스트용.
+  /// 이전엔 각 파일마다 `DateFormat('M/d')` 를 로컬 인스턴스로 썼음. 중앙화.
+  static String formatDateShort(DateTime date) {
+    return DateFormat('M/d').format(date);
+  }
+
+  /// 짧은 형식 문자열 입력 지원 (yyyy-MM-dd → M/d).
+  static String formatDateShortFromStr(String dateStr) {
+    return formatDateShort(DateTime.parse(dateStr));
+  }
+
+  /// 내부 저장/API 포맷 "yyyy-MM-dd".
+  static String formatIso(DateTime dt) {
+    return DateFormat('yyyy-MM-dd').format(dt);
+  }
+
   /// Calculate Monday-Sunday week ranges for a given month,
   /// clipped to month boundaries. Mirrors BE WeeklyBudgetService.calculateWeekRanges.
   static List<WeekRange> calculateWeekRanges(int year, int month) {
