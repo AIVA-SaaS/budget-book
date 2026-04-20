@@ -1,9 +1,8 @@
 name: Backend CI
 
+# PR only — feature 브랜치 push 와 PR 트리거 중복 제거
+# main push 는 deploy-nas.yml 의 health check 로 검증
 on:
-  push:
-    branches: [main, 'feature/**', 'fix/**', 'chore/**']
-    paths: ['backend/**']
   pull_request:
     branches: [main]
     paths: ['backend/**']
