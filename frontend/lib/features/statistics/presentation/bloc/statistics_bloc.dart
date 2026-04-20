@@ -2,12 +2,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import 'package:budget_book/features/statistics/domain/entities/statistics_filter.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'statistics_event.dart';
 import 'statistics_state.dart';
 
 class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
   final StatisticsRepository statisticsRepository;
+
+  /// 현재 전체 통계 필터 상태의 단일 스냅샷.
+  /// TransactionBloc.currentFilter 와 같은 패턴 — MonthSyncHandler 등 외부 consumer 가
+  /// 개별 필드(visibilityFilter/dateFrom/dateTo) 를 따로 꺼내지 말고 이 getter 사용.
+  /// 신규 필터 추가 시 StatisticsFilter / StatisticsState / 이 getter 를 동시 수정.
+  StatisticsFilter get currentFilter => StatisticsFilter(
+        categoryType: state.categoryType,
+        visibilityFilter: state.visibilityFilter,
+        dateFrom: state.dateFrom,
+        dateTo: state.dateTo,
+        dateRangeLabel: state.dateRangeLabel,
+      );
 
   StatisticsBloc({required this.statisticsRepository})
       : super(StatisticsState(
