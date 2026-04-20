@@ -154,6 +154,11 @@ class UnifiedFilterBar extends StatelessWidget {
         state.pocketIds.isNotEmpty ? state.pocketIds.first : null;
     String? tempTransactionType = state.transactionType;
     String? tempVisibility = state.visibility;
+    // 기간도 다른 필터와 동일하게 임시 상태로 보관 → "적용" 버튼 클릭 시 일괄 propagate.
+    DateTime? tempDateFrom = state.dateFrom;
+    DateTime? tempDateTo = state.dateTo;
+    String? tempDateRangeLabel = state.dateRangeLabel;
+    bool tempDateCleared = false;
 
     showModalBottomSheet(
       context: context,
@@ -161,236 +166,269 @@ class UnifiedFilterBar extends StatelessWidget {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '필터',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Transaction type selector
-                  if (enabledFilters.contains(FilterType.transactionType)) ...[
-                    Text('거래 유형', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    SegmentedButton<String?>(
-                      segments: const [
-                        ButtonSegment(value: null, label: Text('전체')),
-                        ButtonSegment(value: 'EXPENSE', label: Text('지출')),
-                        ButtonSegment(value: 'INCOME', label: Text('수입')),
-                      ],
-                      selected: {tempTransactionType},
-                      onSelectionChanged: (values) {
-                        setSheetState(() => tempTransactionType = values.first);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Visibility selector
-                  if (enabledFilters.contains(FilterType.visibility)) ...[
-                    Text('공개 범위', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    SegmentedButton<String?>(
-                      segments: const [
-                        ButtonSegment(value: null, label: Text('전체')),
-                        ButtonSegment(value: 'SHARED', label: Text('공유')),
-                        ButtonSegment(value: 'PRIVATE', label: Text('개인')),
-                      ],
-                      selected: {tempVisibility},
-                      onSelectionChanged: (values) {
-                        setSheetState(() => tempVisibility = values.first);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Date range
-                  if (enabledFilters.contains(FilterType.dateRange)) ...[
-                    Text('기간', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    Row(
+            final bool tempHasDateRange =
+                !tempDateCleared && tempDateFrom != null && tempDateTo != null;
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Text(
-                            state.hasDateRange
-                                ? (state.dateRangeLabel ?? '기간 설정됨')
-                                : '전체 기간',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.date_range, size: 18),
-                          label: const Text('기간 변경'),
-                          onPressed: () {
-                            // 외부 필터 시트를 pop 하지 않고 그 위에 date-range 시트를
-                            // 쌓는다. date range 시트의 preset 을 탭하면 내부에서
-                            // Navigator.pop 으로 자기 자신을 닫고 onApply 호출 →
-                            // 여기서 외부 필터 시트도 함께 pop + onFilterChanged.
-                            // (이전엔 외부 시트 먼저 pop → context deactivated →
-                            //  date range 시트가 아예 navigate 못 하고 onApply 미발화 →
-                            //  네트워크 요청 안 뜨는 버그)
-                            showDateRangeFilterSheet(
-                              context: ctx,
-                              currentFrom: state.dateFrom,
-                              currentTo: state.dateTo,
-                              onApply: (label, from, to) {
-                                if (Navigator.canPop(ctx)) Navigator.of(ctx).pop();
-                                onFilterChanged(state.copyWith(
-                                  dateFrom: from,
-                                  dateTo: to,
-                                  dateRangeLabel: label,
-                                ));
-                              },
-                              onClear: () {
-                                if (Navigator.canPop(ctx)) Navigator.of(ctx).pop();
-                                onFilterChanged(state.copyWith(clearDateRange: true));
-                              },
-                            );
-                          },
+                        const SizedBox(height: 16),
+                        Text(
+                          '필터',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        if (state.hasDateRange)
-                          IconButton(
-                            icon: Icon(Icons.clear, size: 18,
-                              color: Theme.of(context).colorScheme.error),
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              onFilterChanged(state.copyWith(clearDateRange: true));
+                        const SizedBox(height: 24),
+                        // Transaction type selector
+                        if (enabledFilters
+                            .contains(FilterType.transactionType)) ...[
+                          Text('거래 유형',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 8),
+                          SegmentedButton<String?>(
+                            segments: const [
+                              ButtonSegment(value: null, label: Text('전체')),
+                              ButtonSegment(
+                                  value: 'EXPENSE', label: Text('지출')),
+                              ButtonSegment(
+                                  value: 'INCOME', label: Text('수입')),
+                            ],
+                            selected: {tempTransactionType},
+                            onSelectionChanged: (values) {
+                              setSheetState(
+                                  () => tempTransactionType = values.first);
                             },
-                            tooltip: '기간 초기화',
-                            visualDensity: VisualDensity.compact,
                           ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Visibility selector
+                        if (enabledFilters
+                            .contains(FilterType.visibility)) ...[
+                          Text('공개 범위',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 8),
+                          SegmentedButton<String?>(
+                            segments: const [
+                              ButtonSegment(value: null, label: Text('전체')),
+                              ButtonSegment(
+                                  value: 'SHARED', label: Text('공유')),
+                              ButtonSegment(
+                                  value: 'PRIVATE', label: Text('개인')),
+                            ],
+                            selected: {tempVisibility},
+                            onSelectionChanged: (values) {
+                              setSheetState(
+                                  () => tempVisibility = values.first);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Date range
+                        if (enabledFilters
+                            .contains(FilterType.dateRange)) ...[
+                          Text('기간',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  tempHasDateRange
+                                      ? (tempDateRangeLabel ?? '기간 설정됨')
+                                      : '전체 기간',
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.date_range, size: 18),
+                                label: const Text('기간 변경'),
+                                onPressed: () {
+                                  // 기간 프리셋 시트를 외부 필터 시트 위에 쌓기만 하고,
+                                  // 프리셋 선택 시 tempXxx 로컬 상태만 갱신한다.
+                                  // 외부 필터 시트는 pop 하지 않고, onFilterChanged 는
+                                  // 하단 "적용" 버튼에서 일괄 호출된다.
+                                  showDateRangeFilterSheet(
+                                    context: ctx,
+                                    currentFrom: tempDateFrom,
+                                    currentTo: tempDateTo,
+                                    onApply: (label, from, to) {
+                                      setSheetState(() {
+                                        tempDateFrom = from;
+                                        tempDateTo = to;
+                                        tempDateRangeLabel = label;
+                                        tempDateCleared = false;
+                                      });
+                                    },
+                                    onClear: () {
+                                      setSheetState(() {
+                                        tempDateCleared = true;
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                              if (tempHasDateRange)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    size: 18,
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                  onPressed: () {
+                                    setSheetState(() {
+                                      tempDateCleared = true;
+                                    });
+                                  },
+                                  tooltip: '기간 초기화',
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Amount range
+                        if (enabledFilters
+                            .contains(FilterType.amountRange)) ...[
+                          AmountRangeFilter(
+                            minController: amountMinController,
+                            maxController: amountMaxController,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Category selector
+                        if (enabledFilters.contains(FilterType.category)) ...[
+                          CategoryFilter(
+                            selectedCategoryId: tempCategoryId,
+                            selectedCategoryName: tempCategoryName,
+                            categoryType: categoryType,
+                            onChanged: (id, name) {
+                              setSheetState(() {
+                                tempCategoryId = id;
+                                tempCategoryName = name;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Payment method dropdown
+                        if (enabledFilters
+                            .contains(FilterType.paymentMethod)) ...[
+                          PaymentMethodFilter(
+                            selectedId: tempPaymentMethodId,
+                            onChanged: (value) => setSheetState(
+                                () => tempPaymentMethodId = value),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Pocket dropdown
+                        if (enabledFilters.contains(FilterType.pocket)) ...[
+                          PocketFilter(
+                            selectedId: tempPocketId,
+                            onChanged: (value) =>
+                                setSheetState(() => tempPocketId = value),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  Navigator.of(ctx).pop();
+                                  onFilterChanged(state.copyWith(
+                                    clearCategory: true,
+                                    clearPaymentMethod: true,
+                                    clearPocket: true,
+                                    clearAmount: true,
+                                    clearDateRange: true,
+                                    clearTransactionType: true,
+                                    clearVisibility: true,
+                                  ));
+                                },
+                                child: const Text('초기화'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () {
+                                  final minText =
+                                      amountMinController.text.trim();
+                                  final maxText =
+                                      amountMaxController.text.trim();
+                                  Navigator.of(ctx).pop();
+                                  onFilterChanged(UnifiedFilterState(
+                                    dateFrom: tempDateCleared
+                                        ? null
+                                        : tempDateFrom,
+                                    dateTo:
+                                        tempDateCleared ? null : tempDateTo,
+                                    dateRangeLabel: tempDateCleared
+                                        ? null
+                                        : tempDateRangeLabel,
+                                    categoryIds: tempCategoryId != null
+                                        ? {tempCategoryId!}
+                                        : const {},
+                                    categoryName: tempCategoryName,
+                                    paymentMethodIds:
+                                        tempPaymentMethodId != null
+                                            ? {tempPaymentMethodId!}
+                                            : const {},
+                                    paymentMethodName:
+                                        tempPaymentMethodId != null
+                                            ? _resolvePaymentMethodName(
+                                                tempPaymentMethodId!)
+                                            : null,
+                                    pocketIds: tempPocketId != null
+                                        ? {tempPocketId!}
+                                        : const {},
+                                    amountMin: minText.isEmpty
+                                        ? null
+                                        : int.tryParse(minText),
+                                    amountMax: maxText.isEmpty
+                                        ? null
+                                        : int.tryParse(maxText),
+                                    keyword: state.keyword,
+                                    transactionType: tempTransactionType,
+                                    visibility: tempVisibility,
+                                    status: state.status,
+                                  ));
+                                },
+                                child: const Text('적용'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Amount range
-                  if (enabledFilters.contains(FilterType.amountRange)) ...[
-                    AmountRangeFilter(
-                      minController: amountMinController,
-                      maxController: amountMaxController,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Category selector
-                  if (enabledFilters.contains(FilterType.category)) ...[
-                    CategoryFilter(
-                      selectedCategoryId: tempCategoryId,
-                      selectedCategoryName: tempCategoryName,
-                      categoryType: categoryType,
-                      onChanged: (id, name) {
-                        setSheetState(() {
-                          tempCategoryId = id;
-                          tempCategoryName = name;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Payment method dropdown
-                  if (enabledFilters.contains(FilterType.paymentMethod)) ...[
-                    PaymentMethodFilter(
-                      selectedId: tempPaymentMethodId,
-                      onChanged: (value) =>
-                          setSheetState(() => tempPaymentMethodId = value),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Pocket dropdown
-                  if (enabledFilters.contains(FilterType.pocket)) ...[
-                    PocketFilter(
-                      selectedId: tempPocketId,
-                      onChanged: (value) =>
-                          setSheetState(() => tempPocketId = value),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.of(ctx).pop();
-                            onFilterChanged(state.copyWith(
-                              clearCategory: true,
-                              clearPaymentMethod: true,
-                              clearPocket: true,
-                              clearAmount: true,
-                              clearDateRange: true,
-                              clearTransactionType: true,
-                              clearVisibility: true,
-                            ));
-                          },
-                          child: const Text('초기화'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () {
-                            final minText = amountMinController.text.trim();
-                            final maxText = amountMaxController.text.trim();
-                            Navigator.of(ctx).pop();
-                            onFilterChanged(UnifiedFilterState(
-                              dateFrom: state.dateFrom,
-                              dateTo: state.dateTo,
-                              dateRangeLabel: state.dateRangeLabel,
-                              categoryIds: tempCategoryId != null
-                                  ? {tempCategoryId!}
-                                  : const {},
-                              categoryName: tempCategoryName,
-                              paymentMethodIds: tempPaymentMethodId != null
-                                  ? {tempPaymentMethodId!}
-                                  : const {},
-                              paymentMethodName:
-                                  tempPaymentMethodId != null
-                                      ? _resolvePaymentMethodName(
-                                          tempPaymentMethodId!)
-                                      : null,
-                              pocketIds: tempPocketId != null
-                                  ? {tempPocketId!}
-                                  : const {},
-                              amountMin: minText.isEmpty
-                                  ? null
-                                  : int.tryParse(minText),
-                              amountMax: maxText.isEmpty
-                                  ? null
-                                  : int.tryParse(maxText),
-                              keyword: state.keyword,
-                              transactionType: tempTransactionType,
-                              visibility: tempVisibility,
-                              status: state.status,
-                            ));
-                          },
-                          child: const Text('적용'),
-                        ),
-                      ),
-                    ],
                   ),
-                ],
+                ),
               ),
             );
           },
