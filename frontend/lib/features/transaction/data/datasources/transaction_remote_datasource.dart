@@ -2,6 +2,7 @@ import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/transaction/data/models/transaction_model.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
 abstract class TransactionRemoteDataSource {
@@ -17,6 +18,7 @@ abstract class TransactionRemoteDataSource {
     int? amountMax,
     String? dateFrom,
     String? dateTo,
+    String? visibility,
     int page = 0,
     int size = 20,
   });
@@ -46,24 +48,31 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     int? amountMax,
     String? dateFrom,
     String? dateTo,
+    String? visibility,
     int page = 0,
     int size = 20,
   }) async {
+    // S2 구조적 수정: 개별 필드 인라인 조립 제거, TransactionFilter.toQueryParams() 로 중앙화.
+    // 신규 필터는 TransactionFilter VO + toQueryParams() 한 곳만 수정하면 FE→BE 전달 자동 반영.
+    final filter = TransactionFilter(
+      keyword: keyword,
+      categoryId: categoryId,
+      paymentMethodId: paymentMethodId,
+      pocketId: pocketId,
+      amountMin: amountMin,
+      amountMax: amountMax,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      type: type,
+      visibility: visibility,
+    );
     final queryParams = <String, dynamic>{
       'page': page,
       'size': size,
+      ...filter.toQueryParams(),
     };
     if (year != null) queryParams['year'] = year;
     if (month != null) queryParams['month'] = month;
-    if (type != null) queryParams['type'] = type;
-    if (categoryId != null) queryParams['categoryId'] = categoryId;
-    if (keyword != null && keyword.isNotEmpty) queryParams['keyword'] = keyword;
-    if (paymentMethodId != null) queryParams['paymentMethodId'] = paymentMethodId;
-    if (pocketId != null) queryParams['pocketId'] = pocketId;
-    if (amountMin != null) queryParams['amountMin'] = amountMin;
-    if (amountMax != null) queryParams['amountMax'] = amountMax;
-    if (dateFrom != null) queryParams['dateFrom'] = dateFrom;
-    if (dateTo != null) queryParams['dateTo'] = dateTo;
 
     final response = await apiClient.dio.get(
       ApiEndpoints.transactions,

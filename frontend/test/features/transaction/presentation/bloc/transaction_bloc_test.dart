@@ -27,6 +27,7 @@ class MockTransactionRepository extends Mock
     int? amountMax,
     String? dateFrom,
     String? dateTo,
+    String? visibility,
     int page = 0,
     int size = 20,
   }) =>
@@ -43,6 +44,7 @@ class MockTransactionRepository extends Mock
           #amountMax: amountMax,
           #dateFrom: dateFrom,
           #dateTo: dateTo,
+          #visibility: visibility,
           #page: page,
           #size: size,
         }),

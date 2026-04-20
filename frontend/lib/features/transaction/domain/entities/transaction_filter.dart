@@ -88,3 +88,30 @@ class TransactionFilter extends Equatable {
         visibility,
       ];
 }
+
+/// 필터 VO → 네트워크 queryParams 변환의 단일 접근점.
+///
+/// DataSource 가 개별 필드를 인라인으로 조립하다가 한 필드를 빠뜨리는 사고
+/// (예: 2026-04-20 visibility 필터 BE 미전달, 4회째 재발) 재발 방지를 위한
+/// S2 구조적 수정. 신규 필터 추가 시 이 한 곳만 수정하면 FE→BE 전달이 보장된다.
+///
+/// 주의: 'ALL' visibility 는 BE 기본 동작(공유 + 본인 개인)과 동일하므로
+/// queryParams 에 포함하지 않는다 (불필요한 네트워크 바이트 + BE 와일드카드 방지).
+extension TransactionFilterQueryParams on TransactionFilter {
+  Map<String, dynamic> toQueryParams() {
+    final params = <String, dynamic>{};
+    if (type != null) params['type'] = type;
+    if (categoryId != null) params['categoryId'] = categoryId;
+    if (keyword != null && keyword!.isNotEmpty) params['keyword'] = keyword;
+    if (paymentMethodId != null) params['paymentMethodId'] = paymentMethodId;
+    if (pocketId != null) params['pocketId'] = pocketId;
+    if (amountMin != null) params['amountMin'] = amountMin;
+    if (amountMax != null) params['amountMax'] = amountMax;
+    if (dateFrom != null) params['dateFrom'] = dateFrom;
+    if (dateTo != null) params['dateTo'] = dateTo;
+    if (visibility != null && visibility != 'ALL') {
+      params['visibility'] = visibility;
+    }
+    return params;
+  }
+}
