@@ -79,14 +79,19 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         emit(const TransactionLoading());
       }
 
+      // 결제수단만 필터 (BE getPaymentMethodStats 는 dateRange 미지원 → dateRange 없을 때만).
       final hasOnlyPaymentMethodFilter = event.paymentMethodId != null &&
           event.keyword == null &&
           event.categoryId == null &&
           event.pocketId == null &&
           event.amountMin == null &&
           event.amountMax == null &&
-          event.type == null;
+          event.type == null &&
+          event.dateFrom == null &&
+          event.dateTo == null;
 
+      // 필터 없음 — 월 summary 또는 dateRange summary 호출.
+      // getSummary 는 dateFrom/To 를 수용하므로 dateRange 만 설정된 경우도 여기 포함.
       final hasNoFilters = event.keyword == null &&
           event.categoryId == null &&
           event.paymentMethodId == null &&
@@ -116,9 +121,16 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       int? serverExpense;
 
       if (hasNoFilters && statisticsRepository != null) {
+        // 날짜 범위(dateFrom/dateTo)가 설정되면 해당 범위로 summary 재조회.
+        // 없으면 월 기준. BE 는 둘 다 수용 (dateFrom/dateTo 가 있으면 year/month 무시).
         final results = await Future.wait([
           txnFuture,
-          statisticsRepository!.getSummary(year: event.year, month: event.month),
+          statisticsRepository!.getSummary(
+            year: event.year,
+            month: event.month,
+            dateFrom: event.dateFrom,
+            dateTo: event.dateTo,
+          ),
         ]);
         final txnResult = results[0] as Either;
         final summaryResult = results[1] as Either;
@@ -145,6 +157,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       }
 
       if (hasOnlyPaymentMethodFilter && statisticsRepository != null) {
+        // 결제수단만 필터 — BE getPaymentMethodStats 는 현재 dateFrom/To 미지원.
+        // 날짜 범위 설정된 상황은 hasOnlyPaymentMethodFilter 조건을 벗어나므로
+        // 아래 일반 경로(Future<Either>.txnFuture) 로 떨어짐 (client-side 계산).
         final results = await Future.wait([
           txnFuture,
           statisticsRepository!.getPaymentMethodStats(year: event.year, month: event.month),
