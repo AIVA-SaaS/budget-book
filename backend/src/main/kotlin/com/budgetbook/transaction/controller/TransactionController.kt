@@ -47,9 +47,26 @@ class TransactionController(
         @RequestParam(defaultValue = "20") size: Int
     ): ApiResponse<PageResponse<TransactionResponse>> {
         return ApiResponse.ok(transactionService.listTransactions(
-            userId, filter.year, filter.month, filter.type, filter.categoryId,
-            filter.keyword, filter.paymentMethodId, filter.pocketId, filter.amountMin, filter.amountMax,
-            filter.dateFrom, filter.dateTo, filter.visibility, page, size
+            userId = userId,
+            year = filter.year,
+            month = filter.month,
+            type = filter.type,
+            categoryId = filter.categoryId,
+            keyword = filter.keyword,
+            paymentMethodId = filter.paymentMethodId,
+            pocketId = filter.pocketId,
+            amountMin = filter.amountMin,
+            amountMax = filter.amountMax,
+            dateFrom = filter.dateFrom,
+            dateTo = filter.dateTo,
+            visibility = filter.visibility,
+            page = page,
+            size = size,
+            // PR-C2 다중/그룹 필터 (Spring `categoryIds=a&categoryIds=b` 자동 바인딩)
+            categoryIds = filter.categoryIds,
+            categoryGroupIds = filter.categoryGroupIds,
+            paymentMethodIds = filter.paymentMethodIds,
+            pocketIds = filter.pocketIds
         ))
     }
 

@@ -67,7 +67,13 @@ class TransactionService(
         dateTo: LocalDate? = null,
         visibility: String? = null,
         page: Int,
-        size: Int
+        size: Int,
+        // PR-C2 다중/그룹 필터. 단수 파라미터는 호환성을 위해 유지되며,
+        // 내부에서 Set 으로 합쳐 TransactionSpecifications 에 전달된다.
+        categoryIds: List<UUID> = emptyList(),
+        categoryGroupIds: List<UUID> = emptyList(),
+        paymentMethodIds: List<UUID> = emptyList(),
+        pocketIds: List<UUID> = emptyList()
     ): PageResponse<TransactionResponse> {
         val couple = getActiveCouple(userId)
 
@@ -99,29 +105,58 @@ class TransactionService(
             throw BusinessException("VALIDATION_ERROR", "Invalid visibility: $visibility")
         }
 
+        // PR-C2: 다중/그룹 필터 병합.
+        // 단수 파라미터는 복수 Set 에 합쳐 TransactionSpecifications 로 한 번에 전달.
+        // categoryGroupIds 는 BE 에서 하위 카테고리로 펼친 뒤 categoryIds Set 에 합쳐 IN-clause 적용 (원칙 1.4 — B-tree 인덱스 스캔 1회).
+        val effectiveCategoryIds = categoryIds.toMutableSet().also { set ->
+            categoryId?.let { set.add(it) }
+            if (categoryGroupIds.isNotEmpty()) {
+                // 그룹 펼치기: SELECT id FROM categories WHERE group_id IN (:groupIds) 한 번 호출.
+                set.addAll(categoryRepository.findByGroupIdIn(categoryGroupIds).map { it.id })
+            }
+        }
+        val effectivePaymentMethodIds = paymentMethodIds.toMutableSet().also { set ->
+            paymentMethodId?.let { set.add(it) }
+        }
+        val effectivePocketIds = pocketIds.toMutableSet().also { set ->
+            pocketId?.let { set.add(it) }
+        }
+
         val pageSize = size.coerceIn(1, 100)
         val sort = Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt"))
         val pageable = PageRequest.of(page, pageSize, sort)
 
-        // SHARED/PRIVATE visibility 필터가 들어오면 legacy JPQL 경로는 지원하지 않으므로 Spec 경로로 강제.
+        // SHARED/PRIVATE visibility 필터, extended 필터, 또는 다중/그룹 필터가 들어오면 Spec 경로로 강제.
+        // (legacy JPQL 은 단일 categoryId/type 만 지원)
+        val hasMultiFilters = effectiveCategoryIds.isNotEmpty() ||
+            effectivePaymentMethodIds.isNotEmpty() ||
+            effectivePocketIds.isNotEmpty()
         val hasExtendedFilters = keyword != null || paymentMethodId != null ||
             pocketId != null || amountMin != null || amountMax != null ||
-            visibilityFilter != null
+            visibilityFilter != null || hasMultiFilters
 
         val result = if (hasExtendedFilters) {
+            // 단수 categoryId 는 Set 에 이미 합쳐졌으므로 Spec 에는 Set 만 전달 (중복 조건 방지).
+            // paymentMethod/pocket 도 동일하게 Set 에 합침.
+            val specCategoryId = if (effectiveCategoryIds.isNotEmpty()) null else categoryId
+            val specPaymentMethodId = if (effectivePaymentMethodIds.isNotEmpty()) null else paymentMethodId
+            val specPocketId = if (effectivePocketIds.isNotEmpty()) null else pocketId
             val spec = TransactionSpecifications.withFilters(
                 coupleId = couple.id,
                 startDate = startDate,
                 endDate = endDate,
                 type = transactionType,
-                categoryId = categoryId,
+                categoryId = specCategoryId,
                 keyword = keyword,
-                paymentMethodId = paymentMethodId,
-                pocketId = pocketId,
+                paymentMethodId = specPaymentMethodId,
+                pocketId = specPocketId,
                 amountMin = amountMin,
                 amountMax = amountMax,
                 userId = userId,
-                visibility = visibilityFilter
+                visibility = visibilityFilter,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds
             )
             transactionRepository.findAll(spec, pageable)
         } else {
