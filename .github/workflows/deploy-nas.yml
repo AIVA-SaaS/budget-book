@@ -1,5 +1,8 @@
 name: Deploy to NAS
 
+# 변경 부위만 배포 (frontend/backend 독립). CI 에서 이미 검증된 코드 가정.
+# Test gates 제거 — ci-backend.yml / ci-frontend.yml 가 PR 단계에서 차단.
+# 직접 main push 시에도 deploy 자체가 health check 로 fail-fast 가능.
 on:
   push:
     branches: [main]
@@ -9,80 +12,29 @@ permissions:
   issues: write
 
 jobs:
-  # ── Gate: Backend tests must pass before deploy ──
-  test-backend:
+  # ── 변경 감지: backend/frontend 영역별 분리 ──
+  changes:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: budgetbook_test
-          POSTGRES_USER: budgetbook
-          POSTGRES_PASSWORD: budgetbook
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup JDK 21
-        uses: actions/setup-java@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          distribution: temurin
-          java-version: 21
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/deploy-nas.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/deploy-nas.yml'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build and Test
-        run: ./gradlew build
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
-          SPRING_DATASOURCE_USERNAME: budgetbook
-          SPRING_DATASOURCE_PASSWORD: budgetbook
-
-  # ── Gate: Frontend analysis + build must pass before deploy ──
-  test-frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
-
-      - name: Test
-        run: |
-          if find test -name "*_test.dart" | grep -q .; then
-            flutter test --no-pub
-          else
-            echo "No test files found, skipping"
-          fi
-
-      - name: Build Web
-        run: flutter build web --release
-
-  # ── Deploy Backend (only after tests pass) ──
+  # ── Backend 배포 (변경 시에만) ──
   deploy-backend:
-    needs: [test-backend]
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Backend to NAS
@@ -94,21 +46,21 @@ jobs:
           port: ${{ secrets.NAS_SSH_PORT }}
           command_timeout: 10m
           script: |
+            set -e
             export PATH=/usr/local/bin:$PATH
+            export DOCKER_BUILDKIT=1
             cd /volume1/docker/budget-book
 
-            echo "=== Fixing permissions ==="
-            sudo chown -R admin:users /volume1/docker/budget-book
-
-            echo "=== Pulling latest code ==="
-            git fetch origin main
+            git fetch origin main --depth=1
             git reset --hard origin/main
 
-            echo "=== Building backend Docker image ==="
             cd backend
-            docker build -t bb-backend .
+            # BuildKit + cache reuse (이전 이미지 layer 활용)
+            docker build \
+              --cache-from bb-backend:latest \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t bb-backend:latest .
 
-            echo "=== Writing env file ==="
             cat > /tmp/bb_env << 'ENVEOF'
             SPRING_PROFILES_ACTIVE=prod
             SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable
@@ -128,38 +80,33 @@ jobs:
             ENVEOF
             sed -i 's/^            //' /tmp/bb_env
 
-            echo "=== Restarting backend container ==="
-            docker stop bb_app || true
-            docker rm bb_app || true
+            docker stop bb_app 2>/dev/null || true
+            docker rm bb_app 2>/dev/null || true
             docker run -d \
               --name bb_app \
               --restart unless-stopped \
               --add-host=host.docker.internal:host-gateway \
               -p 8081:8080 \
               --env-file /tmp/bb_env \
-              bb-backend
+              bb-backend:latest
 
-            echo "=== Waiting for startup ==="
-            sleep 15
-
-            echo "=== Health check ==="
-            for i in $(seq 1 12); do
+            # Health check — 빠른 실패 (5회 × 6s = 30s 안에 결정)
+            for i in $(seq 1 5); do
+              sleep 6
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
               if [ "$STATUS" = "200" ]; then
-                echo "Backend is UP!"
-                docker logs --tail 5 bb_app
+                echo "Backend UP (attempt $i)"
                 exit 0
               fi
-              echo "Waiting... ($i/12)"
-              sleep 10
             done
             echo "FAILED: Backend did not start"
             docker logs --tail 30 bb_app
             exit 1
 
-  # ── Deploy Frontend (only after tests pass) ──
+  # ── Frontend 배포 (변경 시에만) ──
   deploy-frontend:
-    needs: [test-frontend]
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -172,11 +119,13 @@ jobs:
         with:
           channel: stable
           cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
+          pub-cache-key: 'flutter-pub-:os:-:channel:-:version:-:arch:-:hash:'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Web
+      - name: Build Web (release, tree-shake)
         run: flutter build web --release --dart-define=API_BASE_URL=https://aiva-bb.duckdns.org
 
       - name: Setup SSH key
@@ -190,56 +139,25 @@ jobs:
         run: |
           cd build/web
           tar czf /tmp/bb-web.tar.gz .
-
-          echo "=== Uploading build ==="
           scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
             /tmp/bb-web.tar.gz ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/bb-web.tar.gz
-
-          echo "=== Extracting on NAS ==="
           ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
             ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
-            "sudo rm -rf /var/services/web_bb/* && \
-             cd /var/services/web_bb && \
-             sudo tar xzf /tmp/bb-web.tar.gz && \
-             sudo chown -R admin:users /var/services/web_bb && \
-             rm /tmp/bb-web.tar.gz"
+            "sudo rm -rf /var/services/web_bb/* && cd /var/services/web_bb && sudo tar xzf /tmp/bb-web.tar.gz && sudo chown -R admin:users /var/services/web_bb && rm /tmp/bb-web.tar.gz && test -f /var/services/web_bb/index.html && echo 'Frontend deployed'"
 
-          echo "=== Verifying ==="
-          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
-            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
-            "test -f /var/services/web_bb/index.html && echo 'Frontend deployed successfully!' || (echo 'FAILED: index.html not found' && exit 1)"
-
-  # ── Verify live site ──
+  # ── Verify (실제 배포된 작업이 있을 때만) ──
   verify:
-    needs: [deploy-backend, deploy-frontend]
-    if: always() && (needs.deploy-backend.result != 'failure' || needs.deploy-frontend.result != 'failure')
+    needs: [changes, deploy-backend, deploy-frontend]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
-      - name: Wait for services to stabilize
-        run: sleep 10
-
       - name: Verify live site
         run: |
-          echo "=== Checking https://aiva-bb.duckdns.org ==="
-          STATUS=$(curl -s -o /tmp/site.html -w "%{http_code}" \
-            --connect-timeout 10 --max-time 30 \
-            https://aiva-bb.duckdns.org/ 2>/dev/null || echo "000")
-          echo "Site status: $STATUS"
-
-          if [ "$STATUS" = "200" ]; then
-            if grep -q "flutter" /tmp/site.html 2>/dev/null; then
-              echo "Frontend: OK (Flutter app detected)"
-            fi
-          fi
-
-          echo "=== Checking API health ==="
-          API_STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" \
-            --connect-timeout 10 --max-time 30 \
-            https://aiva-bb.duckdns.org/actuator/health 2>/dev/null || echo "000")
-          echo "API health status: $API_STATUS"
-          cat /tmp/health.json 2>/dev/null || true
+          sleep 5
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://aiva-bb.duckdns.org/ || echo "000")
+          API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://aiva-bb.duckdns.org/actuator/health || echo "000")
+          echo "Site=$STATUS API=$API"
+          [ "$STATUS" = "200" ] && [ "$API" = "200" ]
 
       - name: Create Issue on Failure
         if: failure()
@@ -247,22 +165,17 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const title = `[DEPLOY FAIL] NAS deployment failed - ${context.sha.substring(0, 7)}`;
-            const body = [
-              '## NAS Deployment Failure',
-              '',
-              `**Commit:** ${context.sha}`,
-              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              '',
-              '### Action Required',
-              '- [ ] SSH into NAS and check Docker logs: `docker logs bb_app`',
-              '- [ ] Check nginx: `nginx -t`',
-              '- [ ] Verify DB is running: `docker ps | grep postgres`',
-            ].join('\n');
+            const {data: issues} = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'deploy-failure', state: 'open', per_page: 1,
+            });
+            if (issues.length > 0) {
+              console.log(`Skipping: open issue #${issues[0].number}`);
+              return;
+            }
             await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['ci-failure', 'deploy'],
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[DEPLOY FAIL] ${context.sha.substring(0, 7)}`,
+              body: `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['deploy-failure'],
             });
