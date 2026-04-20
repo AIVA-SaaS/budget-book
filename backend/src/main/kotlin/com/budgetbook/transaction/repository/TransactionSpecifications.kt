@@ -24,7 +24,10 @@ object TransactionSpecifications {
         pocketId: UUID?,
         amountMin: Long?,
         amountMax: Long?,
-        userId: UUID? = null
+        userId: UUID? = null,
+        // null/"ALL": 기본 동작(공유 + 본인 개인). "SHARED": 공유 거래만. "PRIVATE": 본인 개인만.
+        // 호출자(Service) 단계에서 이미 uppercase 정규화 + 유효성 검증된 값.
+        visibility: String? = null
     ): Specification<Transaction> {
         return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
@@ -60,14 +63,30 @@ object TransactionSpecifications {
                 predicates.add(cb.lessThanOrEqualTo(root.get("amount"), it))
             }
 
-            // Visibility filter: SHARED or owned by current user
-            userId?.let { uid ->
-                predicates.add(
-                    cb.or(
-                        cb.equal(root.get<Visibility>("visibility"), Visibility.SHARED),
-                        cb.equal(root.get<Any>("owner").get<UUID>("id"), uid)
-                    )
-                )
+            // Visibility 필터:
+            //   - "SHARED": 커플 공유 거래만
+            //   - "PRIVATE": 본인 소유 개인 거래만 (커플 모드에서 상대방 PRIVATE 은 자연스럽게 제외)
+            //   - null/"ALL": 기본 정책(공유 + 본인 개인)
+            when (visibility) {
+                "SHARED" -> {
+                    predicates.add(cb.equal(root.get<Visibility>("visibility"), Visibility.SHARED))
+                }
+                "PRIVATE" -> {
+                    predicates.add(cb.equal(root.get<Visibility>("visibility"), Visibility.PRIVATE))
+                    userId?.let { uid ->
+                        predicates.add(cb.equal(root.get<Any>("owner").get<UUID>("id"), uid))
+                    }
+                }
+                else -> {
+                    userId?.let { uid ->
+                        predicates.add(
+                            cb.or(
+                                cb.equal(root.get<Visibility>("visibility"), Visibility.SHARED),
+                                cb.equal(root.get<Any>("owner").get<UUID>("id"), uid)
+                            )
+                        )
+                    }
+                }
             }
 
             cb.and(*predicates.toTypedArray())

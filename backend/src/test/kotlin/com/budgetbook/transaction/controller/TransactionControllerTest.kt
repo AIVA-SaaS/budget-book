@@ -55,7 +55,7 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, null, 0, 20) } returns pageResponse
 
         val filter = CommonFilterParams(year = 2024, month = 1)
         val result = controller.listTransactions(testUserId, filter, 0, 20)
@@ -70,7 +70,7 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, "점심", null, null, null, null, null, null, null, 0, 20) } returns pageResponse
 
         val filter = CommonFilterParams(year = 2024, month = 1, keyword = "점심")
         val result = controller.listTransactions(testUserId, filter, 0, 20)
@@ -85,7 +85,7 @@ class TransactionControllerTest : FunSpec({
             content = listOf(sampleTransactionResponse()),
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
-        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, 10000, 50000, null, null, null, 0, 20) } returns pageResponse
 
         val filter = CommonFilterParams(year = 2024, month = 1, amountMin = 10000, amountMax = 50000)
         val result = controller.listTransactions(testUserId, filter, 0, 20)
@@ -102,7 +102,7 @@ class TransactionControllerTest : FunSpec({
         )
         val from = LocalDate.of(2024, 1, 1)
         val to = LocalDate.of(2024, 3, 31)
-        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, to, null, 0, 20) } returns pageResponse
 
         val filter = CommonFilterParams(dateFrom = from, dateTo = to)
         val result = controller.listTransactions(testUserId, filter, 0, 20)
@@ -118,13 +118,46 @@ class TransactionControllerTest : FunSpec({
             page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
         )
         val from = LocalDate.of(2024, 1, 1)
-        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, 0, 20) } returns pageResponse
+        every { transactionService.listTransactions(testUserId, null, null, null, null, null, null, null, null, null, from, null, null, 0, 20) } returns pageResponse
 
         val filter = CommonFilterParams(dateFrom = from)
         val result = controller.listTransactions(testUserId, filter, 0, 20)
 
         result.success shouldBe true
         result.data!!.totalElements shouldBe 1
+    }
+
+    test("listTransactions forwards visibility='SHARED' from filter to service (P6)") {
+
+        val pageResponse = PageResponse(
+            content = listOf(sampleTransactionResponse()),
+            page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
+        )
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, "SHARED", 0, 20) } returns pageResponse
+
+        val filter = CommonFilterParams(year = 2024, month = 1, visibility = "SHARED")
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
+
+        result.success shouldBe true
+        verify(exactly = 1) {
+            transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, "SHARED", 0, 20)
+        }
+    }
+
+    test("listTransactions forwards visibility='PRIVATE' from filter to service (P6)") {
+
+        val pageResponse = PageResponse(
+            content = emptyList<TransactionResponse>(),
+            page = 0, size = 20, totalElements = 0, totalPages = 0, first = true, last = true
+        )
+        every { transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, "PRIVATE", 0, 20) } returns pageResponse
+
+        val filter = CommonFilterParams(year = 2024, month = 1, visibility = "PRIVATE")
+        controller.listTransactions(testUserId, filter, 0, 20)
+
+        verify(exactly = 1) {
+            transactionService.listTransactions(testUserId, 2024, 1, null, null, null, null, null, null, null, null, null, "PRIVATE", 0, 20)
+        }
     }
 
     test("createTransaction returns 201") {
