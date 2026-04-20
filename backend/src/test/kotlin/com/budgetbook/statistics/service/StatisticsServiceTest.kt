@@ -3,6 +3,7 @@ package com.budgetbook.statistics.service
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
@@ -33,7 +34,8 @@ class StatisticsServiceTest : BehaviorSpec({
     val coupleResolver = mockk<CoupleResolver>()
     val budgetRepository = mockk<MonthlyBudgetRepository>()
     val spendingPlanRepository = mockk<SpendingPlanRepository>()
-    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver, budgetRepository, spendingPlanRepository)
+    val categoryRepository = mockk<CategoryRepository>()
+    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver, budgetRepository, spendingPlanRepository, categoryRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
