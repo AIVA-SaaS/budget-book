@@ -150,9 +150,10 @@ jobs:
     steps:
       - name: Verify live site
         run: |
-          sleep 5
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://aiva-bb.duckdns.org/ || echo "000")
-          API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://aiva-bb.duckdns.org/actuator/health || echo "000")
+          # nginx reload / JVM warm-up 대기 (기존 5초 → 2초)
+          sleep 2
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aiva-bb.duckdns.org/ || echo "000")
+          API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aiva-bb.duckdns.org/actuator/health || echo "000")
           echo "Site=$STATUS API=$API"
           [ "$STATUS" = "200" ] && [ "$API" = "200" ]
 
