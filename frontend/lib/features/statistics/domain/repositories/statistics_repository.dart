@@ -40,7 +40,11 @@ abstract class StatisticsRepository {
     required String dateFrom,
     required String dateTo,
     String? categoryId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
     String? paymentMethodId,
+    Set<String> paymentMethodIds = const {},
     String? pocketId,
+    Set<String> pocketIds = const {},
   });
 }

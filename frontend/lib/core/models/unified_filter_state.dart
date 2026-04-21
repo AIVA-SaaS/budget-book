@@ -17,6 +17,7 @@ class UnifiedFilterState extends Equatable {
   final DateTime? dateTo;
   final String? dateRangeLabel;
   final Set<String> categoryIds;
+  final Set<String> categoryGroupIds;
   final String? categoryName;
   final Set<String> paymentMethodIds;
   final String? paymentMethodName;
@@ -33,6 +34,7 @@ class UnifiedFilterState extends Equatable {
     this.dateTo,
     this.dateRangeLabel,
     this.categoryIds = const {},
+    this.categoryGroupIds = const {},
     this.categoryName,
     this.paymentMethodIds = const {},
     this.paymentMethodName,
@@ -49,6 +51,7 @@ class UnifiedFilterState extends Equatable {
       dateFrom != null ||
       dateTo != null ||
       categoryIds.isNotEmpty ||
+      categoryGroupIds.isNotEmpty ||
       paymentMethodIds.isNotEmpty ||
       pocketIds.isNotEmpty ||
       amountMin != null ||
@@ -65,6 +68,7 @@ class UnifiedFilterState extends Equatable {
     DateTime? dateTo,
     String? dateRangeLabel,
     Set<String>? categoryIds,
+    Set<String>? categoryGroupIds,
     String? categoryName,
     Set<String>? paymentMethodIds,
     String? paymentMethodName,
@@ -92,6 +96,9 @@ class UnifiedFilterState extends Equatable {
           clearDateRange ? null : (dateRangeLabel ?? this.dateRangeLabel),
       categoryIds:
           clearCategory ? const {} : (categoryIds ?? this.categoryIds),
+      categoryGroupIds: clearCategory
+          ? const {}
+          : (categoryGroupIds ?? this.categoryGroupIds),
       categoryName:
           clearCategory ? null : (categoryName ?? this.categoryName),
       paymentMethodIds: clearPaymentMethod
@@ -123,6 +130,7 @@ class UnifiedFilterState extends Equatable {
         dateTo,
         dateRangeLabel,
         categoryIds,
+        categoryGroupIds,
         categoryName,
         paymentMethodIds,
         paymentMethodName,
