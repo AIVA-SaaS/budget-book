@@ -15,9 +15,17 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   String? _currentKeyword;
   String? _currentCategoryId;
   String? get currentCategoryId => _currentCategoryId;
+  Set<String> _currentCategoryIds = const {};
+  Set<String> get currentCategoryIds => _currentCategoryIds;
+  Set<String> _currentCategoryGroupIds = const {};
+  Set<String> get currentCategoryGroupIds => _currentCategoryGroupIds;
   String? _currentPaymentMethodId;
   String? get currentPaymentMethodId => _currentPaymentMethodId;
+  Set<String> _currentPaymentMethodIds = const {};
+  Set<String> get currentPaymentMethodIds => _currentPaymentMethodIds;
   String? _currentPocketId;
+  Set<String> _currentPocketIds = const {};
+  Set<String> get currentPocketIds => _currentPocketIds;
   int? _currentAmountMin;
   int? _currentAmountMax;
   String? _currentDateFrom;
@@ -32,8 +40,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   TransactionFilter get currentFilter => TransactionFilter(
         keyword: _currentKeyword,
         categoryId: _currentCategoryId,
+        categoryIds: _currentCategoryIds,
+        categoryGroupIds: _currentCategoryGroupIds,
         paymentMethodId: _currentPaymentMethodId,
+        paymentMethodIds: _currentPaymentMethodIds,
         pocketId: _currentPocketId,
+        pocketIds: _currentPocketIds,
         amountMin: _currentAmountMin,
         amountMax: _currentAmountMax,
         dateFrom: _currentDateFrom,
@@ -66,8 +78,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentMonth = event.month;
       _currentKeyword = event.keyword;
       _currentCategoryId = event.categoryId;
+      _currentCategoryIds = event.categoryIds;
+      _currentCategoryGroupIds = event.categoryGroupIds;
       _currentPaymentMethodId = event.paymentMethodId;
+      _currentPaymentMethodIds = event.paymentMethodIds;
       _currentPocketId = event.pocketId;
+      _currentPocketIds = event.pocketIds;
       _currentAmountMin = event.amountMin;
       _currentAmountMax = event.amountMax;
       _currentDateFrom = event.dateFrom;
@@ -80,10 +96,17 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       }
 
       // 결제수단만 필터 (BE getPaymentMethodStats 는 dateRange 미지원 → dateRange 없을 때만).
-      final hasOnlyPaymentMethodFilter = event.paymentMethodId != null &&
+      // PR-C3: 복수 필드(categoryIds 등) 도 hasOnlyPaymentMethodFilter 판정에 포함.
+      //        단수 paymentMethodId 또는 복수 paymentMethodIds.length == 1 일 때만
+      //        BE 엔드포인트가 정확히 집계 가능.
+      final hasOnlyPaymentMethodFilter = (event.paymentMethodId != null ||
+              event.paymentMethodIds.length == 1) &&
           event.keyword == null &&
           event.categoryId == null &&
+          event.categoryIds.isEmpty &&
+          event.categoryGroupIds.isEmpty &&
           event.pocketId == null &&
+          event.pocketIds.isEmpty &&
           event.amountMin == null &&
           event.amountMax == null &&
           event.type == null &&
@@ -94,8 +117,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       // getSummary 는 dateFrom/To 를 수용하므로 dateRange 만 설정된 경우도 여기 포함.
       final hasNoFilters = event.keyword == null &&
           event.categoryId == null &&
+          event.categoryIds.isEmpty &&
+          event.categoryGroupIds.isEmpty &&
           event.paymentMethodId == null &&
+          event.paymentMethodIds.isEmpty &&
           event.pocketId == null &&
+          event.pocketIds.isEmpty &&
           event.amountMin == null &&
           event.amountMax == null &&
           event.type == null;
@@ -105,8 +132,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         month: event.month,
         keyword: event.keyword,
         categoryId: event.categoryId,
+        categoryIds: event.categoryIds,
+        categoryGroupIds: event.categoryGroupIds,
         paymentMethodId: event.paymentMethodId,
+        paymentMethodIds: event.paymentMethodIds,
         pocketId: event.pocketId,
+        pocketIds: event.pocketIds,
         amountMin: event.amountMin,
         amountMax: event.amountMax,
         dateFrom: event.dateFrom,
@@ -167,10 +198,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         ]);
         final txnResult = results[0] as Either;
         final pmStatsResult = results[1] as Either;
+        // PR-C3: 단수 paymentMethodId 또는 paymentMethodIds.first (len==1 가드 위에서 처리).
+        final targetPmId = event.paymentMethodId ??
+            (event.paymentMethodIds.isNotEmpty
+                ? event.paymentMethodIds.first
+                : null);
         pmStatsResult.fold((_) {}, (statsList) {
           for (final stat in (statsList as List)) {
             final pmStat = stat as dynamic;
-            if (pmStat.paymentMethodId == event.paymentMethodId) {
+            if (pmStat.paymentMethodId == targetPmId) {
               serverExpense = pmStat.totalAmount as int;
               serverIncome = 0;
               break;
@@ -249,8 +285,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         month: _currentMonth,
         keyword: _currentKeyword,
         categoryId: _currentCategoryId,
+        categoryIds: _currentCategoryIds,
+        categoryGroupIds: _currentCategoryGroupIds,
         paymentMethodId: _currentPaymentMethodId,
+        paymentMethodIds: _currentPaymentMethodIds,
         pocketId: _currentPocketId,
+        pocketIds: _currentPocketIds,
         amountMin: _currentAmountMin,
         amountMax: _currentAmountMax,
         dateFrom: _currentDateFrom,
@@ -338,8 +378,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               month: _currentMonth,
               keyword: _currentKeyword,
               categoryId: _currentCategoryId,
+              categoryIds: _currentCategoryIds,
+              categoryGroupIds: _currentCategoryGroupIds,
               paymentMethodId: _currentPaymentMethodId,
+              paymentMethodIds: _currentPaymentMethodIds,
               pocketId: _currentPocketId,
+              pocketIds: _currentPocketIds,
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
               scrollToDate: event.transactionDate,
@@ -390,8 +434,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               month: _currentMonth,
               keyword: _currentKeyword,
               categoryId: _currentCategoryId,
+              categoryIds: _currentCategoryIds,
+              categoryGroupIds: _currentCategoryGroupIds,
               paymentMethodId: _currentPaymentMethodId,
+              paymentMethodIds: _currentPaymentMethodIds,
               pocketId: _currentPocketId,
+              pocketIds: _currentPocketIds,
               amountMin: _currentAmountMin,
               amountMax: _currentAmountMax,
               scrollToDate: event.transactionDate,
