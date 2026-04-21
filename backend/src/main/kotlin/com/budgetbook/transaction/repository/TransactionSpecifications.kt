@@ -27,7 +27,12 @@ object TransactionSpecifications {
         userId: UUID? = null,
         // null/"ALL": 기본 동작(공유 + 본인 개인). "SHARED": 공유 거래만. "PRIVATE": 본인 개인만.
         // 호출자(Service) 단계에서 이미 uppercase 정규화 + 유효성 검증된 값.
-        visibility: String? = null
+        visibility: String? = null,
+        // PR-C2 다중/그룹 필터. 빈 Set 은 무조건부 (필터 없음). 단수 categoryId/paymentMethodId/pocketId 와
+        // 병존 시 호출자(Service) 에서 합집합 Set 을 만들어 단수는 null 로 넘기고 Set 만 사용하도록 권장.
+        categoryIds: Set<UUID> = emptySet(),
+        paymentMethodIds: Set<UUID> = emptySet(),
+        pocketIds: Set<UUID> = emptySet()
     ): Specification<Transaction> {
         return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
@@ -43,6 +48,10 @@ object TransactionSpecifications {
                 predicates.add(cb.equal(root.get<Any>("category").get<UUID>("id"), it))
             }
 
+            if (categoryIds.isNotEmpty()) {
+                predicates.add(root.get<Any>("category").get<UUID>("id").`in`(categoryIds))
+            }
+
             keyword?.takeIf { it.isNotBlank() }?.let {
                 predicates.add(cb.like(cb.lower(root.get("description")), "%${it.lowercase()}%"))
             }
@@ -51,8 +60,16 @@ object TransactionSpecifications {
                 predicates.add(cb.equal(root.get<Any>("paymentMethod").get<UUID>("id"), it))
             }
 
+            if (paymentMethodIds.isNotEmpty()) {
+                predicates.add(root.get<Any>("paymentMethod").get<UUID>("id").`in`(paymentMethodIds))
+            }
+
             pocketId?.let {
                 predicates.add(cb.equal(root.get<Any>("pocket").get<UUID>("id"), it))
+            }
+
+            if (pocketIds.isNotEmpty()) {
+                predicates.add(root.get<Any>("pocket").get<UUID>("id").`in`(pocketIds))
             }
 
             amountMin?.let {

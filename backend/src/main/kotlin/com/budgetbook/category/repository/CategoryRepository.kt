@@ -71,4 +71,11 @@ interface CategoryRepository : JpaRepository<Category, UUID> {
     fun findByCoupleIdAndGroupIsNull(coupleId: UUID): List<Category>
 
     fun findByCoupleIdAndNameIn(coupleId: UUID, names: List<String>): List<Category>
+
+    /**
+     * 다중 그룹 ID 로 속한 카테고리 일괄 조회 (PR-C2 다중/그룹 필터).
+     * 필터에서 "식비 그룹 전체" 같은 그룹 선택 시 하위 카테고리를 펼치기 위해 사용.
+     * 빈 리스트로 호출 시 빈 결과 반환 (호출부에서 체크하여 쿼리 호출 자체를 스킵하는 것을 권장).
+     */
+    fun findByGroupIdIn(groupIds: List<UUID>): List<Category>
 }

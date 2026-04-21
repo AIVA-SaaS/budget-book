@@ -91,7 +91,12 @@ class StatisticsController(
             visibility = filter.visibility ?: "ALL",
             categoryId = filter.categoryId,
             paymentMethodId = filter.paymentMethodId,
-            pocketId = filter.pocketId
+            pocketId = filter.pocketId,
+            // PR-C2 다중/그룹 필터 전달 (하위 Service 에서 합집합으로 처리)
+            categoryIds = filter.categoryIds,
+            categoryGroupIds = filter.categoryGroupIds,
+            paymentMethodIds = filter.paymentMethodIds,
+            pocketIds = filter.pocketIds
         ))
     }
 }
