@@ -2,6 +2,7 @@ package com.budgetbook.statistics.service
 
 import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
+import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
@@ -33,7 +34,8 @@ class StatisticsService(
     private val transferRepository: TransferRepository,
     override val coupleResolver: CoupleResolver,
     private val budgetRepository: MonthlyBudgetRepository,
-    private val spendingPlanRepository: SpendingPlanRepository
+    private val spendingPlanRepository: SpendingPlanRepository,
+    private val categoryRepository: CategoryRepository
 ) : CoupleAwareService {
 
     companion object {
@@ -250,11 +252,32 @@ class StatisticsService(
         visibility: String = "ALL",
         categoryId: UUID? = null,
         paymentMethodId: UUID? = null,
-        pocketId: UUID? = null
+        pocketId: UUID? = null,
+        // PR-C2 다중/그룹 필터. 단수 필드와 합쳐 Set 으로 전달됨.
+        categoryIds: List<UUID> = emptyList(),
+        categoryGroupIds: List<UUID> = emptyList(),
+        paymentMethodIds: List<UUID> = emptyList(),
+        pocketIds: List<UUID> = emptyList()
     ): PeriodSummaryResponse {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
-        val hasFilters = categoryId != null || paymentMethodId != null || pocketId != null
+
+        // PR-C2: 단수 + 복수 병합, 그룹 펼치기
+        val effectiveCategoryIds = categoryIds.toMutableSet().also { set ->
+            categoryId?.let { set.add(it) }
+            if (categoryGroupIds.isNotEmpty()) {
+                set.addAll(categoryRepository.findByGroupIdIn(categoryGroupIds).map { it.id })
+            }
+        }
+        val effectivePaymentMethodIds = paymentMethodIds.toMutableSet().also { set ->
+            paymentMethodId?.let { set.add(it) }
+        }
+        val effectivePocketIds = pocketIds.toMutableSet().also { set ->
+            pocketId?.let { set.add(it) }
+        }
+        val hasFilters = effectiveCategoryIds.isNotEmpty() ||
+            effectivePaymentMethodIds.isNotEmpty() ||
+            effectivePocketIds.isNotEmpty()
 
         var totalIncome: Long
         var totalExpense: Long
@@ -264,15 +287,21 @@ class StatisticsService(
             // Use Specifications-based query when filters are applied
             val incomeSpec = TransactionSpecifications.withFilters(
                 coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
-                type = TransactionType.INCOME, categoryId = categoryId, keyword = null,
-                paymentMethodId = paymentMethodId, pocketId = pocketId,
-                amountMin = null, amountMax = null, userId = userId
+                type = TransactionType.INCOME, categoryId = null, keyword = null,
+                paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, userId = userId,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds
             )
             val expenseSpec = TransactionSpecifications.withFilters(
                 coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
-                type = TransactionType.EXPENSE, categoryId = categoryId, keyword = null,
-                paymentMethodId = paymentMethodId, pocketId = pocketId,
-                amountMin = null, amountMax = null, userId = userId
+                type = TransactionType.EXPENSE, categoryId = null, keyword = null,
+                paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, userId = userId,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds
             )
 
             val incomeTransactions = transactionRepository.findAll(incomeSpec)
