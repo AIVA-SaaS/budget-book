@@ -1,118 +1,75 @@
 name: Backend CI
 
-# PR only — feature 브랜치 push 와 PR 트리거 중복 제거
-# main push 는 deploy-nas.yml 의 health check 로 검증
+# 모든 PR 에서 실행 — 내부에서 paths-filter 로 실제 작업만 조건부 실행.
+# 이유: Branch protection required check 가 "PR 에서 무조건 보고" 되어야 하므로,
+# BE 변경 없는 PR 에서도 job 이 실행되어 즉시 success 로 끝나야 한다.
 on:
   pull_request:
     branches: [main]
-    paths: ['backend/**']
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  build:
+  backend-ci:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: budgetbook_test
-          POSTGRES_USER: budgetbook
-          POSTGRES_PASSWORD: budgetbook
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci-backend.yml'
+
       - name: Setup JDK 21
+        if: steps.filter.outputs.backend == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
       - name: Setup Gradle
+        if: steps.filter.outputs.backend == 'true'
         uses: gradle/actions/setup-gradle@v3
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      # Task #15: Merged Build + Test into one step.
-      # ./gradlew build already runs all tests; running ./gradlew test separately
-      # caused a second full compilation cycle. Env vars are passed here so the
-      # test phase inside build can reach the Postgres service container.
-      #
-      # Task #29: No Redis service container is intentional.
-      # application.yml globally excludes RedisAutoConfiguration and
-      # RedisRepositoriesAutoConfiguration, so tests pass without Redis.
-      # Redis (Upstash) is only required at runtime in the prod environment.
+      # Postgres service container — `services:` 블록은 conditional 불가. 대체로 docker run 을
+      # 조건부로 실행한다. BE 변경 없을 때 컨테이너 미기동 → 리소스 절약.
+      - name: Start Postgres
+        if: steps.filter.outputs.backend == 'true'
+        run: |
+          docker run -d --name postgres-ci \
+            -e POSTGRES_DB=budgetbook_test \
+            -e POSTGRES_USER=budgetbook \
+            -e POSTGRES_PASSWORD=budgetbook \
+            -p 5432:5432 \
+            postgres:16-alpine
+          for i in $(seq 1 10); do
+            if docker exec postgres-ci pg_isready -U budgetbook -d budgetbook_test &>/dev/null; then
+              echo "Postgres ready (attempt $i)"
+              break
+            fi
+            sleep 1
+          done
+
+      # ./gradlew build 가 test + bootJar(assemble) 을 모두 수행.
+      # 기존 'Validate prod profile JAR assembly' 단계는 제거 — assemble 결과물은 profile 에
+      # 무관하고, runtime @Value/@ConfigurationProperties 검증은 deploy health check 에서 수행됨.
       - name: Build and Test
+        if: steps.filter.outputs.backend == 'true'
         run: ./gradlew build
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
           SPRING_DATASOURCE_USERNAME: budgetbook
           SPRING_DATASOURCE_PASSWORD: budgetbook
 
-      # Validates that prod profile can assemble a bootable JAR.
-      # Note: This does NOT validate runtime @Value/@ConfigurationProperties bindings
-      # (those resolve at Spring container startup, not at build time).
-      # It does catch: missing classes, resource filtering issues, manifest errors.
-      - name: Validate prod profile JAR assembly
-        run: ./gradlew bootJar
-        env:
-          SPRING_PROFILES_ACTIVE: prod
-          JWT_SECRET: ci-test-secret-key-that-is-at-least-256-bits-long-for-validation
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: budgetbook_test
-          DB_USERNAME: budgetbook
-          DB_PASSWORD: budgetbook
-          FRONTEND_URL: http://localhost:5000
-          GOOGLE_CLIENT_ID: fake-google-id
-          GOOGLE_CLIENT_SECRET: fake-google-secret
-          KAKAO_CLIENT_ID: fake-kakao-id
-          KAKAO_CLIENT_SECRET: fake-kakao-secret
-
-      - name: Create Issue on Failure (main only, skip if open issue exists)
-        if: failure() && github.ref == 'refs/heads/main'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const {data: issues} = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'ci-failure,backend',
-              state: 'open',
-              per_page: 1,
-            });
-            if (issues.length > 0) {
-              console.log(`Skipping: open issue #${issues[0].number} already exists`);
-              return;
-            }
-            const title = `[CI FAIL] Backend - ${context.sha.substring(0, 7)}`;
-            const body = [
-              '## CI Failure Report',
-              '',
-              `**Commit:** ${context.sha}`,
-              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              '',
-              '### Action Required',
-              '- [ ] 에러 로그 확인 후 수정',
-            ].join('\n');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['ci-failure', 'backend'],
-            });
+      - name: Skipped (no backend changes)
+        if: steps.filter.outputs.backend != 'true'
+        run: echo "No backend changes — skipped."
