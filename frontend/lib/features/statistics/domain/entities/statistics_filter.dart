@@ -7,6 +7,8 @@ import 'package:equatable/equatable.dart';
 /// - 신규 필터 추가 시 여기와 `LoadAllStatistics` / `StatisticsState` / `currentFilter`
 ///   getter 를 **동시 수정** 하지 않으면 round-trip 테스트 실패 → PR CI 차단
 /// - MonthSyncHandler 등 외부 consumer 가 "필드 한 개만 꺼내 전달" 하는 패턴 금지
+///
+/// PR-C3: 복수 카테고리/카테고리 그룹/결제수단/포켓 지원을 위한 `Set<String>` 필드 추가.
 class StatisticsFilter extends Equatable {
   /// 'EXPENSE' / 'INCOME' — 카테고리 분포 조회 시 사용.
   final String categoryType;
@@ -23,12 +25,28 @@ class StatisticsFilter extends Equatable {
   /// 날짜 범위 라벨 (예: "3/5~3/20"). UI 표시용.
   final String? dateRangeLabel;
 
+  /// 복수 카테고리 ID (PR-C3).
+  final Set<String> categoryIds;
+
+  /// 복수 카테고리 그룹 ID (PR-C3).
+  final Set<String> categoryGroupIds;
+
+  /// 복수 결제수단 ID (PR-C3).
+  final Set<String> paymentMethodIds;
+
+  /// 복수 포켓 ID (PR-C3).
+  final Set<String> pocketIds;
+
   const StatisticsFilter({
     this.categoryType = 'EXPENSE',
     this.visibilityFilter = 'ALL',
     this.dateFrom,
     this.dateTo,
     this.dateRangeLabel,
+    this.categoryIds = const {},
+    this.categoryGroupIds = const {},
+    this.paymentMethodIds = const {},
+    this.pocketIds = const {},
   });
 
   static const StatisticsFilter initial = StatisticsFilter();
@@ -40,7 +58,11 @@ class StatisticsFilter extends Equatable {
   bool get hasAny =>
       categoryType != 'EXPENSE' ||
       visibilityFilter != 'ALL' ||
-      hasDateRange;
+      hasDateRange ||
+      categoryIds.isNotEmpty ||
+      categoryGroupIds.isNotEmpty ||
+      paymentMethodIds.isNotEmpty ||
+      pocketIds.isNotEmpty;
 
   StatisticsFilter copyWith({
     String? categoryType,
@@ -48,6 +70,10 @@ class StatisticsFilter extends Equatable {
     String? dateFrom,
     String? dateTo,
     String? dateRangeLabel,
+    Set<String>? categoryIds,
+    Set<String>? categoryGroupIds,
+    Set<String>? paymentMethodIds,
+    Set<String>? pocketIds,
     bool clearDateRange = false,
   }) {
     return StatisticsFilter(
@@ -57,10 +83,38 @@ class StatisticsFilter extends Equatable {
       dateTo: clearDateRange ? null : (dateTo ?? this.dateTo),
       dateRangeLabel:
           clearDateRange ? null : (dateRangeLabel ?? this.dateRangeLabel),
+      categoryIds: categoryIds ?? this.categoryIds,
+      categoryGroupIds: categoryGroupIds ?? this.categoryGroupIds,
+      paymentMethodIds: paymentMethodIds ?? this.paymentMethodIds,
+      pocketIds: pocketIds ?? this.pocketIds,
     );
   }
 
+  /// 복수 필드 → 네트워크 queryParams 공통 직렬화.
+  /// Dio `ListFormat.multi` 기준 → `?categoryIds=a&categoryIds=b` (Spring 호환).
+  Map<String, dynamic> toMultiParams() {
+    final params = <String, dynamic>{};
+    if (categoryIds.isNotEmpty) params['categoryIds'] = categoryIds.toList();
+    if (categoryGroupIds.isNotEmpty) {
+      params['categoryGroupIds'] = categoryGroupIds.toList();
+    }
+    if (paymentMethodIds.isNotEmpty) {
+      params['paymentMethodIds'] = paymentMethodIds.toList();
+    }
+    if (pocketIds.isNotEmpty) params['pocketIds'] = pocketIds.toList();
+    return params;
+  }
+
   @override
-  List<Object?> get props =>
-      [categoryType, visibilityFilter, dateFrom, dateTo, dateRangeLabel];
+  List<Object?> get props => [
+        categoryType,
+        visibilityFilter,
+        dateFrom,
+        dateTo,
+        dateRangeLabel,
+        categoryIds,
+        categoryGroupIds,
+        paymentMethodIds,
+        pocketIds,
+      ];
 }
