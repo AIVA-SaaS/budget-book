@@ -1,19 +1,20 @@
 name: Frontend CI
 
-# PR 에서만 실행 (main push 는 deploy-nas.yml 이 test-frontend + build 수행 — 중복 제거).
-# build 는 deploy-nas 에서만. CI 는 analyze/test 만 → 수 분 → 1분 내외.
+# 모든 PR 에서 실행 (paths 제거) — 내부에서 paths-filter 로 실제 작업만 조건부 실행.
+# 이유: Branch protection required check 가 "PR 에서 무조건 보고" 되어야 하므로,
+# FE 변경 없는 PR 에서도 job 이 실행되어 즉시 success 로 끝나야 한다.
+# 기존: FE 변경 없을 때 workflow 미트리거 → required check 영원히 pending → PR 블록.
 on:
   pull_request:
     branches: [main]
-    paths: ['frontend/**']
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  # analyze / test 를 독립 job 으로 분리 → 병렬 실행 (GitHub 가 자동 병렬)
-  analyze:
+  # 단일 job 으로 통합 (기존 analyze / test 분리 → Setup Flutter + pub get 반복으로 시간 낭비).
+  # Setup 1회, analyze + test 순차 실행.
+  frontend-ci:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,7 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci-frontend.yml'
+
       - name: Setup Flutter
+        if: steps.filter.outputs.frontend == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -30,31 +40,15 @@ jobs:
           pub-cache-key: 'flutter-pub-:os:-:channel:-:version:-:arch:-:hash:'
 
       - name: Install dependencies
+        if: steps.filter.outputs.frontend == 'true'
         run: flutter pub get
 
       - name: Analyze
+        if: steps.filter.outputs.frontend == 'true'
         run: flutter analyze --no-fatal-infos --no-congratulate
 
-  test:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
-          pub-cache-key: 'flutter-pub-:os:-:channel:-:version:-:arch:-:hash:'
-
-      - name: Install dependencies
-        run: flutter pub get
-
       - name: Test
+        if: steps.filter.outputs.frontend == 'true'
         run: |
           if find test -name "*_test.dart" | grep -q .; then
             flutter test --no-pub --concurrency=4
@@ -62,6 +56,6 @@ jobs:
             echo "No test files found, skipping"
           fi
 
-  # 둘 다 실패 시에만 한 번의 CI 실패 이슈 (main 에서만).
-  # 현재 workflow 는 PR 전용이므로 이슈 자동 생성은 제거
-  # (리뷰어가 PR 체크 상태로 확인 가능).
+      - name: Skipped (no frontend changes)
+        if: steps.filter.outputs.frontend != 'true'
+        run: echo "No frontend changes — skipped."
