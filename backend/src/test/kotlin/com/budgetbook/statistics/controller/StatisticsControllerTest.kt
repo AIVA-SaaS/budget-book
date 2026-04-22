@@ -30,6 +30,7 @@ class StatisticsControllerTest : FunSpec({
             yearMonth = "2026-03",
             totalIncome = 5000000,
             totalExpense = 3200000,
+            totalTransfer = 0,
             balance = 1800000,
             transactionCount = 45
         )
@@ -48,7 +49,7 @@ class StatisticsControllerTest : FunSpec({
 
     test("getMonthlySummary passes visibility SHARED to service") {
 
-        val summary = StatisticsSummaryResponse("2026-03", 1000000, 500000, 500000, 10)
+        val summary = StatisticsSummaryResponse("2026-03", 1000000, 500000, 0, 500000, 10)
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) } returns summary
 
         val filter = CommonFilterParams(visibility = "SHARED")
@@ -60,7 +61,7 @@ class StatisticsControllerTest : FunSpec({
 
     test("getMonthlySummary passes visibility PRIVATE to service") {
 
-        val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 100000, 5)
+        val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 0, 100000, 5)
         every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null) } returns summary
 
         val filter = CommonFilterParams(visibility = "PRIVATE")
@@ -136,9 +137,9 @@ class StatisticsControllerTest : FunSpec({
     test("getMonthlyTrend returns trend data with default visibility") {
 
         val trend = listOf(
-            MonthlyTrendResponse("2025-10", 4500000, 3100000, 1400000),
-            MonthlyTrendResponse("2025-11", 4800000, 3400000, 1400000),
-            MonthlyTrendResponse("2025-12", 5200000, 4100000, 1100000)
+            MonthlyTrendResponse("2025-10", 4500000, 3100000, 0, 1400000),
+            MonthlyTrendResponse("2025-11", 4800000, 3400000, 0, 1400000),
+            MonthlyTrendResponse("2025-12", 5200000, 4100000, 0, 1100000)
         )
         every { statisticsService.getMonthlyTrend(testUserId, 3, "ALL") } returns trend
 
@@ -152,7 +153,7 @@ class StatisticsControllerTest : FunSpec({
 
     test("getMonthlyTrend passes visibility SHARED to service") {
 
-        val trend = listOf(MonthlyTrendResponse("2026-03", 1000000, 500000, 500000))
+        val trend = listOf(MonthlyTrendResponse("2026-03", 1000000, 500000, 0, 500000))
         every { statisticsService.getMonthlyTrend(testUserId, 6, "SHARED") } returns trend
 
         val filter = CommonFilterParams(visibility = "SHARED")
@@ -165,7 +166,7 @@ class StatisticsControllerTest : FunSpec({
     test("getMonthlyTrend uses default months value of 6") {
 
         val trend = (1..6).map {
-            MonthlyTrendResponse("2025-${it.toString().padStart(2, '0')}", 0, 0, 0)
+            MonthlyTrendResponse("2025-${it.toString().padStart(2, '0')}", 0, 0, 0, 0)
         }
         every { statisticsService.getMonthlyTrend(testUserId, 6, "ALL") } returns trend
 
@@ -184,6 +185,7 @@ class StatisticsControllerTest : FunSpec({
             dateTo = "2026-03-31",
             totalIncome = 5000000,
             totalExpense = 3200000,
+            totalTransfer = 0,
             balance = 1800000,
             byCategory = emptyList(),
             byBudget = emptyList(),
@@ -211,6 +213,7 @@ class StatisticsControllerTest : FunSpec({
             dateTo = "2026-03-31",
             totalIncome = 1000000,
             totalExpense = 500000,
+            totalTransfer = 0,
             balance = 500000,
             byCategory = emptyList(),
             byBudget = emptyList(),
@@ -237,6 +240,7 @@ class StatisticsControllerTest : FunSpec({
             dateTo = "2026-03-31",
             totalIncome = 0,
             totalExpense = 800000,
+            totalTransfer = 0,
             balance = -800000,
             byCategory = emptyList(),
             byBudget = emptyList(),

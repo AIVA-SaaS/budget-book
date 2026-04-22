@@ -33,6 +33,7 @@ class TransferControllerTest : FunSpec({
         description = "ATM 출금",
         memo = null,
         transferDate = LocalDate.of(2026, 3, 25),
+        kind = com.budgetbook.transfer.domain.TransferKind.GENERIC,
         createdAt = Instant.now()
     )
 

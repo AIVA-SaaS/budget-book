@@ -4,6 +4,10 @@ import com.budgetbook.common.dto.PatchValue
 import com.budgetbook.common.dto.StringPatchValueDeserializer
 import com.budgetbook.common.dto.UUIDPatchValueDeserializer
 import com.budgetbook.couple.dto.UserSummary
+import com.budgetbook.transfer.domain.TransferKind
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -31,7 +35,15 @@ data class CreateTransferRequest(
     @field:NotNull
     val transferDate: LocalDate,
 
-    val memo: String? = null
+    val memo: String? = null,
+
+    /**
+     * 이체 종류. null 이면 src/dst 타입으로 자동 판정 (§2.1 표).
+     * - BANK → CREDIT: CARD_SETTLEMENT 기본
+     * - 나머지: GENERIC 기본
+     * EXPENSE_TRANSFER / INCOME_TRANSFER 는 사용자 명시 필요.
+     */
+    val kind: TransferKind? = null
 )
 
 data class CreateCardSettlementRequest(
@@ -75,8 +87,36 @@ data class UpdateTransferRequest(
     val transferDate: LocalDate? = null,
 
     @JsonDeserialize(using = StringPatchValueDeserializer::class)
-    val memo: PatchValue<String>? = null
+    val memo: PatchValue<String>? = null,
+
+    /**
+     * 이체 종류 변경 (Phase 22).
+     * - 필드 미포함: 변경 없음 (null)
+     * - 필드 포함 + null: 허용되지 않음 (kind 는 nullable 아님)
+     * - 필드 포함 + 값: 해당 값으로 변경
+     */
+    @JsonDeserialize(using = TransferKindPatchValueDeserializer::class)
+    val kind: PatchValue<TransferKind>? = null
 )
+
+class TransferKindPatchValueDeserializer : JsonDeserializer<PatchValue<TransferKind>>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): PatchValue<TransferKind> {
+        val text = p.valueAsString
+        return PatchValue(
+            if (text != null) {
+                try {
+                    TransferKind.valueOf(text)
+                } catch (e: IllegalArgumentException) {
+                    throw ctxt.weirdStringException(text, TransferKind::class.java, "Invalid TransferKind: $text")
+                }
+            } else null
+        )
+    }
+
+    override fun getNullValue(ctxt: DeserializationContext): PatchValue<TransferKind> {
+        return PatchValue(null)
+    }
+}
 
 data class PaymentMethodSummary(
     val id: UUID,
@@ -94,5 +134,6 @@ data class TransferResponse(
     val description: String?,
     val memo: String?,
     val transferDate: LocalDate,
+    val kind: TransferKind,
     val createdAt: Instant
 )

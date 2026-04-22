@@ -5,6 +5,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.statistics.dto.PaymentMethodStatResponse
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.domain.TransferKinds
 import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -47,16 +48,17 @@ class PaymentMethodStatisticsService(
             (row[0] as UUID) to Pair(row[2] as Long, (row[3] as Long).toInt())
         }
 
-        // 2. Transfer-based stats: source = outgoing (expense), dest = incoming
-        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(
-            couple.id, startDate, endDate
+        // 2. Transfer-based stats: Phase 22 — CARD_SETTLEMENT 은 통계 제외, 나머지 모두 포함.
+        //    과거 `sumAmount...ExcludingSettlement` 는 kind 기반 쿼리로 대체.
+        val transferOutResults = transferRepository.sumAmountBySourceByKind(
+            couple.id, startDate, endDate, TransferKinds.NON_CARD_SETTLEMENT
         )
         val transferOutMap = transferOutResults.associate { row ->
             (row[0] as UUID) to (row[1] as Long)
         }
 
-        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(
-            couple.id, startDate, endDate
+        val transferInResults = transferRepository.sumAmountByDestinationByKind(
+            couple.id, startDate, endDate, TransferKinds.NON_CARD_SETTLEMENT
         )
         val transferInMap = transferInResults.associate { row ->
             (row[0] as UUID) to (row[1] as Long)
