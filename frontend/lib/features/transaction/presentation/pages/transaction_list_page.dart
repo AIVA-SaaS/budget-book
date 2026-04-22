@@ -16,6 +16,7 @@ import 'package:budget_book/core/utils/web_download_stub.dart'
     as web_download;
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/ledger_item.dart';
+import 'package:budget_book/features/statistics/domain/entities/ledger_summary.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
@@ -136,7 +137,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           amountMax: _filterState.amountMax,
           dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
           dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
-          type: _filterState.transactionType,
+          transactionTypes: _filterState.transactionTypes,
           visibility: _filterState.visibility,
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
@@ -355,7 +356,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
                     dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
                     scrollToDate: _pendingScrollToDate,
-                    type: _filterState.transactionType,
+                    transactionTypes: _filterState.transactionTypes,
                     visibility: _filterState.visibility,
                   ),
                 );
@@ -447,41 +448,33 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           dst.contains(keyword);
                     }).toList();
 
-              // Calculate transfer in/out relative to current payment method filter
-              // Card settlement (BANK→CREDIT): BE 가 이미 원본 EXPENSE 를 지출로 집계함.
-              // 집계에서 제외해 이중 계산 방지. (Phase 22 PR-A hotfix)
-              int transferIn = 0;
-              int transferOut = 0;
-              for (final t in searchedTransfers) {
-                final isCardSettlement = t.sourcePaymentMethod.type == 'BANK' &&
-                    t.destinationPaymentMethod.type == 'CREDIT';
-                if (isCardSettlement) {
-                  continue;
-                }
-                if (filterPmId != null) {
-                  // Per-payment-method view: in/out relative to this method
-                  if (t.sourcePaymentMethod.id == filterPmId) {
-                    transferOut += t.amount;
-                  }
-                  if (t.destinationPaymentMethod.id == filterPmId) {
-                    transferIn += t.amount;
-                  }
-                } else {
-                  // Global view: transfers are internal moves
-                  transferOut += t.amount;
-                }
-              }
+              // S2: single aggregation entry point via LedgerSummary.from
+              // kind/type branching lives inside the factory, including
+              // CARD_SETTLEMENT exclusion (supersedes PR-A heuristic).
+              final summary = LedgerSummary.from(
+                txs: state.filteredTransactions,
+                tfs: searchedTransfers,
+                pmFilter: filterPmId,
+              );
 
-              // When serverTotalIncome/Expense are available (from /statistics/summary),
-              // they already include transfer amounts. Don't add transfers again.
-              // Only add transfers when using client-calculated totals (filters active).
+              // When serverTotalIncome/Expense are available (no client filter),
+              // prefer the server values for income/expense and keep the
+              // client-side transfer total (server summary may lack it).
               final hasServerTotals = state.serverTotalIncome != null;
               final displayIncome = hasServerTotals
                   ? state.totalIncome
-                  : state.totalIncome + transferIn;
+                  : summary.totalIncome;
               final displayExpense = hasServerTotals
                   ? state.totalExpense
-                  : state.totalExpense + transferOut;
+                  : summary.totalExpense;
+              final displayTransfer = summary.totalTransfer;
+
+              // Gate transfer display by filter: if user picked EXPENSE/INCOME
+              // without TRANSFER, hide transfers from the merged list.
+              final types = _filterState.transactionTypes;
+              final showTransfers =
+                  types.isEmpty || types.contains('TRANSFER');
+              final listTransfers = showTransfers ? searchedTransfers : const <Transfer>[];
 
               return Column(
                 children: [
@@ -489,12 +482,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     totalIncome: displayIncome,
                     totalExpense: displayExpense,
                     balance: displayIncome - displayExpense,
-                    totalTransfer: transferIn + transferOut > 0 ? transferIn + transferOut : null,
+                    totalTransfer: displayTransfer > 0 ? displayTransfer : null,
                   ),
-                  if (state.filteredTransactions.isEmpty && searchedTransfers.isEmpty)
+                  if (state.filteredTransactions.isEmpty && listTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
                   else
-                    Expanded(child: _buildGroupedList(context, state, searchedTransfers)),
+                    Expanded(child: _buildGroupedList(context, state, listTransfers)),
                 ],
               );
             },
