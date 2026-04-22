@@ -8,6 +8,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
+import 'package:budget_book/features/payment_method/presentation/widgets/balance_adjustment_dialog.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
@@ -237,6 +238,8 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                   _showDeleteDialog(context, method);
                 } else if (action == 'history') {
                   context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$_year&month=$_month');
+                } else if (action == 'adjust_balance') {
+                  _showBalanceAdjustment(context, method);
                 }
               },
               itemBuilder: (_) => [
@@ -250,6 +253,20 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                     ],
                   ),
                 ),
+                // 잔액 수정 is only meaningful for methods that track a balance
+                // (bank/cash/debit). Credit cards derive usage from pending
+                // transactions and do not expose a mutable balance.
+                if (!method.isCredit)
+                  const PopupMenuItem(
+                    value: 'adjust_balance',
+                    child: Row(
+                      children: [
+                        Icon(Icons.tune, size: 20),
+                        SizedBox(width: 8),
+                        Text('잔액 수정'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
                   value: 'edit',
                   child: Row(
@@ -478,6 +495,18 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
           },
         ),
       ),
+    );
+  }
+
+  void _showBalanceAdjustment(BuildContext context, PaymentMethod method) {
+    final bloc = context.read<PaymentMethodBloc>();
+    BalanceAdjustmentDialog.show(
+      context,
+      paymentMethod: method,
+      onSuccess: () {
+        // Reload payment methods so the new balance reflects on the tile.
+        bloc.add(const LoadPaymentMethods());
+      },
     );
   }
 
