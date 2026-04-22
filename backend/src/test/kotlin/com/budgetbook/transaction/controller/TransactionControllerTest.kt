@@ -144,6 +144,44 @@ class TransactionControllerTest : FunSpec({
         }
     }
 
+    test("listTransactions forwards transactionTypes multi filter from filter to service (Phase 22 T10)") {
+
+        val pageResponse = PageResponse(
+            content = listOf(sampleTransactionResponse()),
+            page = 0, size = 20, totalElements = 1, totalPages = 1, first = true, last = true
+        )
+        every {
+            transactionService.listTransactions(
+                userId = testUserId, year = 2024, month = 1, type = null, categoryId = null,
+                keyword = null, paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                visibility = null, page = 0, size = 20,
+                categoryIds = emptyList(), categoryGroupIds = emptyList(),
+                paymentMethodIds = emptyList(), pocketIds = emptyList(),
+                transactionTypes = listOf("EXPENSE", "INCOME")
+            )
+        } returns pageResponse
+
+        val filter = CommonFilterParams(
+            year = 2024, month = 1,
+            transactionTypes = listOf("EXPENSE", "INCOME")
+        )
+        val result = controller.listTransactions(testUserId, filter, 0, 20)
+
+        result.success shouldBe true
+        verify(exactly = 1) {
+            transactionService.listTransactions(
+                userId = testUserId, year = 2024, month = 1, type = null, categoryId = null,
+                keyword = null, paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                visibility = null, page = 0, size = 20,
+                categoryIds = emptyList(), categoryGroupIds = emptyList(),
+                paymentMethodIds = emptyList(), pocketIds = emptyList(),
+                transactionTypes = listOf("EXPENSE", "INCOME")
+            )
+        }
+    }
+
     test("listTransactions forwards visibility='PRIVATE' from filter to service (P6)") {
 
         val pageResponse = PageResponse(
