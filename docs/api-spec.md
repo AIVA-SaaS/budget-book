@@ -6,6 +6,59 @@
 
 ---
 
+## Phase 22 Changes (2026-04)
+
+Summary of contract changes introduced in Phase 22. See the referenced sections for full details.
+
+### TransferKind enum (new)
+
+Transfers now carry a semantic classification `kind` that controls how they flow into statistics. Replaces the legacy boolean `Transfer.isCardSettlement` (deprecated, retained until V55 migration).
+
+| Value              | Aggregation behaviour                                                                   |
+|:-------------------|:----------------------------------------------------------------------------------------|
+| `CARD_SETTLEMENT`  | Excluded from both `totalIncome` and `totalExpense` (underlying EXPENSE already counted). Updates source transactions' `paid_at`. |
+| `EXPENSE_TRANSFER` | Added to `totalExpense` (OUT amount). Not counted as income.                            |
+| `INCOME_TRANSFER`  | Added to `totalIncome` (IN amount). Not counted as expense.                             |
+| `GENERIC`          | Excluded from income and expense. Counted only in `totalTransfer`.                      |
+
+### Transfer DTO changes
+
+- `TransferResponse.kind: TransferKind` — always present (non-null).
+- `CreateTransferRequest.kind: TransferKind?` — optional. When omitted, the server auto-resolves:
+  - `BANK → CREDIT` → `CARD_SETTLEMENT`
+  - any other combination → `GENERIC`
+  - `EXPENSE_TRANSFER` / `INCOME_TRANSFER` must be explicitly supplied by the client.
+- `UpdateTransferRequest.kind: PatchValue<TransferKind>?` — follows the PatchValue pattern:
+  - field absent → no change
+  - field present with a valid enum string → updated to that value
+  - field present with JSON `null` → rejected (`kind` on the entity is non-nullable)
+
+### Statistics additions
+
+`StatisticsSummaryResponse` and `MonthlyTrendResponse` gain a new field:
+
+- `totalTransfer: Long` — sum of `TransferKind.GENERIC` transfers for the period. Always present. Disjoint from `totalIncome`/`totalExpense`.
+
+`PeriodSummaryResponse` (period-summary endpoint) also adds `totalTransfer`. When category/payment-method/pocket filters are active, `totalTransfer` is always `0` (transfers are not subject to those filters).
+
+### TransactionType.ADJUSTMENT (new)
+
+`TransactionType` enum expands to `INCOME | EXPENSE | ADJUSTMENT`.
+
+- `ADJUSTMENT` is a balance-correction record used by `PaymentMethodService.recomputeBalance`.
+- Excluded from all statistics (`totalIncome`, `totalExpense`, `totalTransfer`, category breakdowns, monthly trend, period summary).
+- Included in payment-method balance computation: `balance += INCOME - EXPENSE + ADJUSTMENT`.
+- CSV export renders ADJUSTMENT rows as `조정`.
+- `/api/v1/statistics/by-category?type=ADJUSTMENT` returns `400 VALIDATION_ERROR`.
+
+> **Known gap (2026-04-22):** `CreateTransactionRequest.amount` and `UpdateTransactionRequest.amount` are still constrained `@Min(0) @Max(999_999_999)`. The `Transaction.type = ADJUSTMENT` domain comment documents `amount` as a **signed** delta (positive = increase, negative = decrease), but the DTO validation currently rejects negative values. Clients must submit a positive `amount` for ADJUSTMENT and express direction via separate INCOME/EXPENSE entries until the validation is relaxed or a signed-amount DTO is introduced. Track as a follow-up to Phase 22.
+
+### Transaction list filter — multi-value type
+
+The current backend accepts only the singular `type` query parameter (see §Transactions › List Transactions). The Phase 22 frontend filter UI renders multi-select chips for `EXPENSE`/`INCOME`; today the client collapses the selection client-side and either sends one `type` or omits the filter. A future change to accept `?type=EXPENSE&type=INCOME` (Spring's list binding) is tracked as a follow-up — the contract for that will be: query param name stays `type` (or new `types`), repeatable, and values drawn from `TransactionType`. **Not yet implemented in backend.**
+
+---
+
 ## Table of Contents
 
 - [Common Response Format](#common-response-format)
@@ -891,7 +944,7 @@ Retrieves paginated transactions for the caller's couple. Default sort: `transac
 | `month`           | `integer` | No       | Current | Filter by month (1–12)                                            |
 | `dateFrom`        | `string`  | No       | —       | Start date (`YYYY-MM-DD`). When provided, overrides `year`/`month` |
 | `dateTo`          | `string`  | No       | —       | End date (`YYYY-MM-DD`). When provided, overrides `year`/`month`   |
-| `type`            | `string`  | No       | All     | `INCOME` or `EXPENSE`                                             |
+| `type`            | `string`  | No       | All     | `INCOME`, `EXPENSE`, or `ADJUSTMENT`. Single value only — multi-select is not yet supported server-side (see Phase 22 Changes › Transaction list filter). |
 | `categoryId`      | `UUID`    | No       | All     | Filter by category                                                 |
 | `keyword`         | `string`  | No       | —       | Search in description and memo                                     |
 | `paymentMethodId` | `UUID`    | No       | All     | Filter by payment method                                           |
@@ -1010,14 +1063,16 @@ Creates a new income or expense transaction.
 
 | Field             | Type     | Required | Description                                                         |
 |:------------------|:---------|:--------:|:--------------------------------------------------------------------|
-| `type`            | `string` | Yes      | `INCOME` or `EXPENSE`                                               |
-| `amount`          | `long`   | Yes      | Amount in KRW (must be > 0)                                         |
+| `type`            | `string` | Yes      | `INCOME`, `EXPENSE`, or `ADJUSTMENT` (Phase 22)                     |
+| `amount`          | `long`   | Yes      | Amount in KRW. Constraint: `0 ≤ amount ≤ 999_999_999`. For `ADJUSTMENT` the value is the **unsigned magnitude** of a balance-correction delta. (See Phase 22 Changes › Known gap — the domain treats ADJUSTMENT amount as signed, but DTO validation currently blocks negatives.) |
 | `description`     | `string` | Yes      | Short description (max 255 chars)                                   |
 | `categoryId`      | `UUID`   | No       | Category ID (must belong to couple)                                 |
 | `transactionDate` | `string` | Yes      | ISO 8601 date: `YYYY-MM-DD`                                         |
 | `memo`            | `string` | No       | Optional longer note                                                |
 | `paymentMethodId` | `UUID`   | No       | Payment method ID (must belong to couple)                           |
 | `visibility`      | `string` | No       | `SHARED` (default) or `PRIVATE`. Private transactions are only visible to the creator. |
+
+> **ADJUSTMENT semantics**: `ADJUSTMENT` transactions do not appear in `totalIncome`, `totalExpense`, `totalTransfer`, category breakdowns, monthly trend, or period summaries. They **do** contribute to the payment method's running balance via `recomputeBalance` (formula: `balance += INCOME − EXPENSE + ADJUSTMENT`). Use ADJUSTMENT when correcting an observed balance discrepancy against the real-world account.
 
 **Response `201 Created`**: `ApiResponse<TransactionResponse>`
 
@@ -1483,6 +1538,7 @@ Returns total income, total expense, balance, and transaction count for a given 
     "yearMonth": "2026-03",
     "totalIncome": 5000000,
     "totalExpense": 3200000,
+    "totalTransfer": 250000,
     "balance": 1800000,
     "transactionCount": 45
   },
@@ -1574,36 +1630,42 @@ Returns month-over-month income, expense, and balance for the last N months incl
       "yearMonth": "2025-10",
       "totalIncome": 4500000,
       "totalExpense": 3100000,
+      "totalTransfer": 0,
       "balance": 1400000
     },
     {
       "yearMonth": "2025-11",
       "totalIncome": 4800000,
       "totalExpense": 3400000,
+      "totalTransfer": 150000,
       "balance": 1400000
     },
     {
       "yearMonth": "2025-12",
       "totalIncome": 5200000,
       "totalExpense": 4100000,
+      "totalTransfer": 0,
       "balance": 1100000
     },
     {
       "yearMonth": "2026-01",
       "totalIncome": 5000000,
       "totalExpense": 3200000,
+      "totalTransfer": 100000,
       "balance": 1800000
     },
     {
       "yearMonth": "2026-02",
       "totalIncome": 4900000,
       "totalExpense": 3050000,
+      "totalTransfer": 200000,
       "balance": 1850000
     },
     {
       "yearMonth": "2026-03",
       "totalIncome": 5000000,
       "totalExpense": 3200000,
+      "totalTransfer": 250000,
       "balance": 1800000
     }
   ],
@@ -2220,6 +2282,25 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ## Common Data Types
 
+### TransactionType (enum)
+
+| Value        | Stats inclusion                                      | Balance inclusion                    |
+|:-------------|:-----------------------------------------------------|:-------------------------------------|
+| `INCOME`     | `totalIncome`, category/trend/period                 | `+amount`                            |
+| `EXPENSE`    | `totalExpense`, category/trend/period                | `-amount`                            |
+| `ADJUSTMENT` | **Excluded from all statistics** (Phase 22)          | `+amount` (signed delta — see Known gap in Phase 22 Changes) |
+
+### TransferKind (enum)
+
+Semantic classification of a transfer. See Phase 22 Changes › TransferKind for complete aggregation rules.
+
+| Value              | totalIncome | totalExpense | totalTransfer | Notes                                             |
+|:-------------------|:-----------:|:------------:|:-------------:|:--------------------------------------------------|
+| `CARD_SETTLEMENT`  | —           | —            | —             | Excluded — underlying EXPENSE already counted. Marks source transactions as paid. |
+| `EXPENSE_TRANSFER` | —           | +OUT         | —             | Records a transfer-shaped expense in one row.     |
+| `INCOME_TRANSFER`  | +IN         | —            | —             | Records a transfer-shaped income in one row.     |
+| `GENERIC`          | —           | —            | +amount       | Pure internal movement (bank↔bank, cash↔bank).    |
+
 ### TokenResponse
 
 | Field          | Type     | Description                                |
@@ -2417,10 +2498,11 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | Field              | Type      | Description                                  |
 |:-------------------|:----------|:---------------------------------------------|
 | `yearMonth`        | `string`  | Target month in `YYYY-MM` format             |
-| `totalIncome`      | `long`    | Sum of all income transactions               |
-| `totalExpense`     | `long`    | Sum of all expense transactions              |
+| `totalIncome`      | `long`    | Sum of INCOME transactions + INCOME_TRANSFER IN amounts. Excludes ADJUSTMENT. |
+| `totalExpense`     | `long`    | Sum of EXPENSE transactions + EXPENSE_TRANSFER OUT amounts. Excludes ADJUSTMENT. |
+| `totalTransfer`    | `long`    | **Phase 22** — Sum of `TransferKind.GENERIC` transfers for the month. Disjoint from `totalIncome` / `totalExpense`. |
 | `balance`          | `long`    | `totalIncome - totalExpense`                 |
-| `transactionCount` | `integer` | Total number of transactions in the month    |
+| `transactionCount` | `integer` | Number of INCOME/EXPENSE transactions in the month (excludes ADJUSTMENT). |
 
 ### CategoryStatisticsResponse
 
@@ -2433,12 +2515,13 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 
 ### MonthlyTrendResponse
 
-| Field          | Type     | Description                          |
-|:---------------|:---------|:-------------------------------------|
-| `yearMonth`    | `string` | Month in `YYYY-MM` format            |
-| `totalIncome`  | `long`   | Sum of all income transactions       |
-| `totalExpense` | `long`   | Sum of all expense transactions      |
-| `balance`      | `long`   | `totalIncome - totalExpense`         |
+| Field           | Type     | Description                          |
+|:----------------|:---------|:-------------------------------------|
+| `yearMonth`     | `string` | Month in `YYYY-MM` format            |
+| `totalIncome`   | `long`   | Sum of INCOME + INCOME_TRANSFER IN for the month. Excludes ADJUSTMENT. |
+| `totalExpense`  | `long`   | Sum of EXPENSE + EXPENSE_TRANSFER OUT for the month. Excludes ADJUSTMENT. |
+| `totalTransfer` | `long`   | **Phase 22** — Sum of `TransferKind.GENERIC` transfers for the month. |
+| `balance`       | `long`   | `totalIncome - totalExpense`         |
 
 ### PocketResponse
 
@@ -2501,6 +2584,7 @@ Abbreviated pocket reference used within transfer responses.
 | `description`                | `string`                  | Yes      | Short label for the transfer (max 255)                                   |
 | `memo`                       | `string`                  | Yes      | Optional additional notes                                                |
 | `transferDate`               | `string`                  | No       | ISO 8601 date: `YYYY-MM-DD`                                              |
+| `kind`                       | `enum`                    | No       | **Phase 22** — `CARD_SETTLEMENT`, `EXPENSE_TRANSFER`, `INCOME_TRANSFER`, or `GENERIC`. See Phase 22 Changes › TransferKind. |
 | `autoSettlementKey`          | `string`                  | Yes      | Deduplication key for system-generated auto-settlement transfers (null for manual transfers) |
 | `createdAt`                  | `string`                  | No       | ISO 8601 timestamp                                                       |
 
@@ -2917,6 +3001,7 @@ Records money moved between payment methods (e.g., bank account to cash withdraw
 | `description`                | `string` | No       | max=255                  | Short label for the transfer              |
 | `transferDate`               | `string` | Yes      | `YYYY-MM-DD`             | Date of the transfer                      |
 | `memo`                       | `string` | No       |                          | Optional additional notes                 |
+| `kind`                       | `enum`   | No       | `TransferKind`           | **Phase 22** — `CARD_SETTLEMENT`, `EXPENSE_TRANSFER`, `INCOME_TRANSFER`, or `GENERIC`. When omitted (`null`), the server auto-resolves from source/destination payment method types (see Phase 22 Changes). `EXPENSE_TRANSFER` / `INCOME_TRANSFER` must be explicitly supplied — they are never chosen by auto-resolution. |
 
 **Request Example**
 
@@ -2927,7 +3012,8 @@ Records money moved between payment methods (e.g., bank account to cash withdraw
   "amount": 100000,
   "description": "신한→현금 ATM 출금",
   "transferDate": "2026-03-25",
-  "memo": null
+  "memo": null,
+  "kind": null
 }
 ```
 
@@ -2957,6 +3043,7 @@ Records money moved between payment methods (e.g., bank account to cash withdraw
     "description": "신한→현금 ATM 출금",
     "memo": null,
     "transferDate": "2026-03-25",
+    "kind": "GENERIC",
     "autoSettlementKey": null,
     "createdAt": "2026-03-25T10:00:00"
   },
@@ -2968,7 +3055,7 @@ Records money moved between payment methods (e.g., bank account to cash withdraw
 
 | Status | Error Code                    | Description                                              |
 |:------:|:------------------------------|:---------------------------------------------------------|
-| `400`  | `VALIDATION_ERROR`            | Missing required fields, amount out of range, source == destination, or both source and destination are CREDIT type |
+| `400`  | `VALIDATION_ERROR`            | Missing required fields, amount out of range, source == destination, both source and destination are CREDIT type, or invalid `TransferKind` value |
 | `404`  | `PAYMENT_METHOD_NOT_FOUND`    | Source or destination payment method does not exist      |
 | `403`  | `FORBIDDEN`                   | Payment method belongs to another couple                 |
 
@@ -3018,6 +3105,7 @@ Returns transfers for the couple filtered by month.
       "description": "신한→현금 ATM 출금",
       "memo": null,
       "transferDate": "2026-03-25",
+      "kind": "GENERIC",
       "autoSettlementKey": null,
       "createdAt": "2026-03-25T10:00:00"
     }
@@ -3084,6 +3172,7 @@ All fields are optional (partial update). Omitted fields retain their current va
 | `description`                | `string` | max=255                  | New short label (pass `null` to clear)    |
 | `transferDate`               | `string` | `YYYY-MM-DD`             | New transfer date                         |
 | `memo`                       | `string` |                          | New memo (pass `null` to clear)           |
+| `kind`                       | `enum`   | `TransferKind`           | **Phase 22** — new kind. Omit the field to keep the current value. Supplying JSON `null` is **rejected** (`kind` is non-nullable on the entity). Supplying a valid enum string updates the kind. |
 
 **Response `200 OK`**: `ApiResponse<TransferResponse>`
 
