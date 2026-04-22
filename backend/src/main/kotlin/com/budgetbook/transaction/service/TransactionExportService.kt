@@ -79,6 +79,7 @@ class TransactionExportService(
             val typeName = when (tx.type) {
                 TransactionType.INCOME -> "수입"
                 TransactionType.EXPENSE -> "지출"
+                TransactionType.ADJUSTMENT -> "조정"
             }
             val category = tx.category?.name ?: ""
             val description = escapeCsvField(tx.description)
