@@ -32,7 +32,9 @@ object TransactionSpecifications {
         // 병존 시 호출자(Service) 에서 합집합 Set 을 만들어 단수는 null 로 넘기고 Set 만 사용하도록 권장.
         categoryIds: Set<UUID> = emptySet(),
         paymentMethodIds: Set<UUID> = emptySet(),
-        pocketIds: Set<UUID> = emptySet()
+        pocketIds: Set<UUID> = emptySet(),
+        // Phase 22 T10 다중 타입 필터. 단수 `type` 과 병존 시 호출자(Service) 에서 단수를 null 로 넘김.
+        types: Set<TransactionType> = emptySet()
     ): Specification<Transaction> {
         return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
@@ -42,6 +44,10 @@ object TransactionSpecifications {
 
             type?.let {
                 predicates.add(cb.equal(root.get<TransactionType>("type"), it))
+            }
+
+            if (types.isNotEmpty()) {
+                predicates.add(root.get<TransactionType>("type").`in`(types))
             }
 
             categoryId?.let {
