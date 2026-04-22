@@ -214,6 +214,8 @@ class TransactionService(
             throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: ${request.type}")
         }
 
+        validateAmountForType(transactionType, request.amount)
+
         val category = request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
                 .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
@@ -294,7 +296,10 @@ class TransactionService(
         OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
         validatePrivateOwner(transaction.visibility, transaction.owner?.id, userId)
 
-        request.amount?.let { transaction.amount = it }
+        request.amount?.let {
+            validateAmountForType(transaction.type, it)
+            transaction.amount = it
+        }
         request.description?.let { transaction.description = it }
         request.transactionDate?.let { transaction.transactionDate = it }
         request.memo?.let { transaction.memo = it.value }
@@ -493,6 +498,36 @@ class TransactionService(
             transactionCount = allItems.size,
             transactions = allItems
         )
+    }
+
+    /**
+     * Phase 22 T11: type 별 amount 부호 검증.
+     *
+     * - `EXPENSE` / `INCOME`: 양수만 허용 (> 0). DTO 의 `@Min(0)` 을 대체.
+     * - `ADJUSTMENT`: 부호 있는 증감값. 0 은 의미 없는 조정이므로 거부.
+     *
+     * DB CHECK 제약(`ck_transactions_amount`, V54) 과 일치하며,
+     * DTO 에서 일괄 `@Min(0)` 하는 대신 type 별로 정밀하게 검증한다.
+     */
+    private fun validateAmountForType(type: TransactionType, amount: Long) {
+        when (type) {
+            TransactionType.EXPENSE, TransactionType.INCOME -> {
+                if (amount <= 0) {
+                    throw BusinessException(
+                        "VALIDATION_ERROR",
+                        "${type.name} amount 는 0 보다 커야 합니다. (입력: $amount)"
+                    )
+                }
+            }
+            TransactionType.ADJUSTMENT -> {
+                if (amount == 0L) {
+                    throw BusinessException(
+                        "VALIDATION_ERROR",
+                        "ADJUSTMENT amount 는 0 이 될 수 없습니다. 잔액 조정 증감값을 입력하세요."
+                    )
+                }
+            }
+        }
     }
 
     private fun calculateSettlementDate(
