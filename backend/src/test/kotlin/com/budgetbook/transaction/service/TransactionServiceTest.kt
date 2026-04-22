@@ -972,4 +972,145 @@ class TransactionServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- Phase 22 T11: type 별 amount 부호 검증 ---
+
+    Given("a user in an active couple creating transactions with signed amounts") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        When("creating an EXPENSE with negative amount") {
+            val request = CreateTransactionRequest(
+                type = "EXPENSE", amount = -100, description = "잘못된 지출",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+
+            Then("throws BusinessException with VALIDATION_ERROR and does not persist") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.createTransaction(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+
+        When("creating an INCOME with zero amount") {
+            val request = CreateTransactionRequest(
+                type = "INCOME", amount = 0, description = "0원 수입",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+
+            Then("throws BusinessException with VALIDATION_ERROR") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.createTransaction(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+
+        When("creating an ADJUSTMENT with negative amount (잔액 하향 조정)") {
+            val request = CreateTransactionRequest(
+                type = "ADJUSTMENT", amount = -100, description = "실잔액 보정 (하향)",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
+
+            val result = service.createTransaction(user1.id, request)
+
+            Then("creates the transaction with negative amount — PaymentMethod 잔액 계산에서 -100 만큼 차감") {
+                result.type shouldBe "ADJUSTMENT"
+                result.amount shouldBe -100
+                // TransactionRepository.netAmountByPaymentMethodForCouple 은 ADJUSTMENT.amount 를
+                // 그대로 SUM 하므로 (V54 + plan §2.5), 음수 ADJUSTMENT 는 잔액을 그만큼 감소시킨다.
+                txSlot.captured.amount shouldBe -100
+                txSlot.captured.type shouldBe TransactionType.ADJUSTMENT
+                verify(exactly = 1) { transactionRepository.save(any()) }
+            }
+        }
+
+        When("creating an ADJUSTMENT with positive amount (잔액 상향 조정)") {
+            val request = CreateTransactionRequest(
+                type = "ADJUSTMENT", amount = 500, description = "실잔액 보정 (상향)",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
+
+            val result = service.createTransaction(user1.id, request)
+
+            Then("creates the transaction with positive signed amount") {
+                result.type shouldBe "ADJUSTMENT"
+                result.amount shouldBe 500
+                txSlot.captured.amount shouldBe 500
+            }
+        }
+
+        When("creating an ADJUSTMENT with zero amount") {
+            val request = CreateTransactionRequest(
+                type = "ADJUSTMENT", amount = 0, description = "의미 없는 조정",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+
+            Then("throws BusinessException with VALIDATION_ERROR and does not persist") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.createTransaction(user1.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+    }
+
+    Given("an existing ADJUSTMENT transaction being updated") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.ADJUSTMENT,
+            amount = 100, description = "잔액 보정", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+        every { transactionRepository.save(tx) } returns tx
+
+        When("updateTransaction is called with amount = -200 (상→하향 전환)") {
+            val request = UpdateTransactionRequest(amount = -200)
+            val result = service.updateTransaction(user1.id, tx.id, request)
+
+            Then("accepts the negative amount") {
+                result.amount shouldBe -200
+            }
+        }
+
+        When("updateTransaction is called with amount = 0") {
+            val request = UpdateTransactionRequest(amount = 0)
+
+            Then("throws BusinessException with VALIDATION_ERROR") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateTransaction(user1.id, tx.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+    }
+
+    Given("an existing EXPENSE transaction being updated with negative amount") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "지출", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+
+        When("updateTransaction is called with amount = -100") {
+            val request = UpdateTransactionRequest(amount = -100)
+
+            Then("throws BusinessException with VALIDATION_ERROR and does not save") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateTransaction(user1.id, tx.id, request)
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+    }
 })
