@@ -25,8 +25,22 @@ class TransactionListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isExpense = transaction.isExpense;
-    final amountColor = isExpense ? Colors.red : Colors.blue;
-    final amountPrefix = isExpense ? '-' : '+';
+    final isAdjustment = transaction.isAdjustment;
+    // ADJUSTMENT amount is signed (positive=increase, negative=decrease).
+    // Use its sign for color and explicit + / - prefix.
+    final Color amountColor;
+    final String amountPrefix;
+    if (isAdjustment) {
+      amountColor =
+          transaction.amount >= 0 ? Colors.green.shade700 : Colors.red.shade700;
+      amountPrefix = transaction.amount >= 0 ? '+' : '-';
+    } else if (isExpense) {
+      amountColor = Colors.red;
+      amountPrefix = '-';
+    } else {
+      amountColor = Colors.blue;
+      amountPrefix = '+';
+    }
     final category = transaction.category;
     final iconColor = UIHelpers.parseColor(category?.color);
 
@@ -95,6 +109,28 @@ class TransactionListTile extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
+            ],
+            if (isAdjustment) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .tertiaryContainer
+                      .withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '조정',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
             ],
             Expanded(
               child: Text(
@@ -175,7 +211,7 @@ class TransactionListTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              '$amountPrefix${CurrencyFormatter.format(transaction.amount)}원',
+              '$amountPrefix${CurrencyFormatter.format(transaction.amount.abs())}원',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: amountColor,
                     fontWeight: FontWeight.w600,

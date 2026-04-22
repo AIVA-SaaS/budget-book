@@ -25,7 +25,10 @@ class UnifiedFilterState extends Equatable {
   final int? amountMin;
   final int? amountMax;
   final String? keyword;
-  final String? transactionType;
+
+  /// Multi-select transaction types. Values: 'EXPENSE', 'INCOME', 'TRANSFER'.
+  /// Empty set means "all types" (no filter). Phase 22 §3.
+  final Set<String> transactionTypes;
   final String? visibility;
   final String? status;
 
@@ -42,10 +45,15 @@ class UnifiedFilterState extends Equatable {
     this.amountMin,
     this.amountMax,
     this.keyword,
-    this.transactionType,
+    this.transactionTypes = const {},
     this.visibility,
     this.status,
   });
+
+  /// Legacy single-value accessor. Returns the first selected type, or null.
+  /// Kept for transitional callers; new code should read [transactionTypes].
+  String? get transactionType =>
+      transactionTypes.isEmpty ? null : transactionTypes.first;
 
   bool get hasActiveFilters =>
       dateFrom != null ||
@@ -57,7 +65,7 @@ class UnifiedFilterState extends Equatable {
       amountMin != null ||
       amountMax != null ||
       (keyword != null && keyword!.isNotEmpty) ||
-      transactionType != null ||
+      transactionTypes.isNotEmpty ||
       (visibility != null && visibility != 'ALL') ||
       status != null;
 
@@ -76,7 +84,7 @@ class UnifiedFilterState extends Equatable {
     int? amountMin,
     int? amountMax,
     String? keyword,
-    String? transactionType,
+    Set<String>? transactionTypes,
     String? visibility,
     String? status,
     bool clearDateRange = false,
@@ -111,9 +119,9 @@ class UnifiedFilterState extends Equatable {
       amountMin: clearAmount ? null : (amountMin ?? this.amountMin),
       amountMax: clearAmount ? null : (amountMax ?? this.amountMax),
       keyword: clearKeyword ? null : (keyword ?? this.keyword),
-      transactionType: clearTransactionType
-          ? null
-          : (transactionType ?? this.transactionType),
+      transactionTypes: clearTransactionType
+          ? const {}
+          : (transactionTypes ?? this.transactionTypes),
       visibility:
           clearVisibility ? null : (visibility ?? this.visibility),
       status: clearStatus ? null : (status ?? this.status),
@@ -138,7 +146,7 @@ class UnifiedFilterState extends Equatable {
         amountMin,
         amountMax,
         keyword,
-        transactionType,
+        transactionTypes,
         visibility,
         status,
       ];

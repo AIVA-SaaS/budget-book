@@ -48,6 +48,7 @@ class MockTransferRepository extends Mock implements TransferRepository {
     String? description,
     required String transferDate,
     String? memo,
+    TransferKind kind = TransferKind.generic,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createTransfer, [], {
@@ -57,6 +58,7 @@ class MockTransferRepository extends Mock implements TransferRepository {
           #description: description,
           #transferDate: transferDate,
           #memo: memo,
+          #kind: kind,
         }),
         returnValue: Future.value(
           Right<Failure, Transfer>(Transfer(

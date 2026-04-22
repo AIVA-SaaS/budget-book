@@ -23,7 +23,16 @@ class TransactionFilter extends Equatable {
   final int? amountMax;
   final String? dateFrom;
   final String? dateTo;
+
+  /// Legacy single-value type filter (deprecated). Prefer [transactionTypes].
+  /// Kept for transitional callers; when both are set, [transactionTypes]
+  /// wins in [toQueryParams].
   final String? type;
+
+  /// Multi-select transaction types. Values: 'EXPENSE', 'INCOME', 'TRANSFER'.
+  /// Phase 22 §3: Transfer 포함 시 FE 는 `/transfers` 와 병합해 LedgerItem 으로 표시한다.
+  /// 빈 셋은 "전체" 를 의미한다.
+  final Set<String> transactionTypes;
   final String? visibility;
 
   const TransactionFilter({
@@ -40,6 +49,7 @@ class TransactionFilter extends Equatable {
     this.dateFrom,
     this.dateTo,
     this.type,
+    this.transactionTypes = const {},
     this.visibility,
   });
 
@@ -61,6 +71,7 @@ class TransactionFilter extends Equatable {
       dateFrom != null ||
       dateTo != null ||
       type != null ||
+      transactionTypes.isNotEmpty ||
       visibility != null;
 
   TransactionFilter copyWith({
@@ -77,6 +88,7 @@ class TransactionFilter extends Equatable {
     String? dateFrom,
     String? dateTo,
     String? type,
+    Set<String>? transactionTypes,
     String? visibility,
   }) {
     return TransactionFilter(
@@ -93,6 +105,7 @@ class TransactionFilter extends Equatable {
       dateFrom: dateFrom ?? this.dateFrom,
       dateTo: dateTo ?? this.dateTo,
       type: type ?? this.type,
+      transactionTypes: transactionTypes ?? this.transactionTypes,
       visibility: visibility ?? this.visibility,
     );
   }
@@ -112,6 +125,7 @@ class TransactionFilter extends Equatable {
         dateFrom,
         dateTo,
         type,
+        transactionTypes,
         visibility,
       ];
 }
@@ -128,10 +142,30 @@ class TransactionFilter extends Equatable {
 /// PR-C3: 복수 필드(`categoryIds`, `categoryGroupIds`, `paymentMethodIds`,
 /// `pocketIds`)도 함께 직렬화한다. Dio ListFormat.multi 기준으로
 /// `?categoryIds=a&categoryIds=b` 형식으로 전달되어 Spring `@RequestParam List<UUID>` 와 호환.
+///
+/// Phase 22: 'TRANSFER' is a FE-only pseudo-type — it is NOT sent to BE
+/// `/transactions` (which knows only EXPENSE/INCOME/ADJUSTMENT). The FE
+/// merges /transfers results client-side when 'TRANSFER' is in the set.
 extension TransactionFilterQueryParams on TransactionFilter {
   Map<String, dynamic> toQueryParams() {
     final params = <String, dynamic>{};
-    if (type != null) params['type'] = type;
+
+    // Multi-select wins over legacy singular `type`.
+    // Strip TRANSFER (FE-only pseudo-type) before sending.
+    final beTypes = transactionTypes
+        .where((t) => t == 'EXPENSE' || t == 'INCOME' || t == 'ADJUSTMENT')
+        .toList();
+    if (beTypes.isNotEmpty) {
+      params['transactionTypes'] = beTypes;
+      // Also send `type` for single-value backward compatibility with any
+      // BE endpoint not yet updated.
+      if (beTypes.length == 1) {
+        params['type'] = beTypes.first;
+      }
+    } else if (type != null) {
+      params['type'] = type;
+    }
+
     if (categoryId != null) params['categoryId'] = categoryId;
     if (categoryIds.isNotEmpty) params['categoryIds'] = categoryIds.toList();
     if (categoryGroupIds.isNotEmpty) {
@@ -153,4 +187,15 @@ extension TransactionFilterQueryParams on TransactionFilter {
     }
     return params;
   }
+
+  /// Does this filter want transfers included in the merged ledger view?
+  /// True when the multi-select explicitly contains 'TRANSFER', OR when no
+  /// type filter is set (which means "all", implicitly including transfers).
+  bool get includeTransfers =>
+      transactionTypes.isEmpty || transactionTypes.contains('TRANSFER');
+
+  /// True when the multi-select contains *any* transaction-type filter that
+  /// excludes transfers. Used to gate display in the merged list.
+  bool get transactionOnly =>
+      transactionTypes.isNotEmpty && !transactionTypes.contains('TRANSFER');
 }

@@ -29,9 +29,20 @@ class TransferModel extends Transfer {
     super.memo,
     required super.transferDate,
     required super.createdAt,
+    super.kind,
   });
 
   factory TransferModel.fromJson(Map<String, dynamic> json) {
+    // BE contract (PR-B): TransferResponse has `kind` field with values
+    // CARD_SETTLEMENT | EXPENSE_TRANSFER | INCOME_TRANSFER | GENERIC.
+    // For backward compatibility, fall back to legacy `isCardSettlement`.
+    final rawKind = json['kind'] as String?;
+    final legacySettlement = json['isCardSettlement'] as bool? ?? false;
+    final TransferKind kind = rawKind != null
+        ? TransferKind.fromWire(rawKind)
+        : (legacySettlement
+            ? TransferKind.cardSettlement
+            : TransferKind.generic);
     return TransferModel(
       id: json['id'] as String,
       coupleId: json['coupleId'] as String,
@@ -46,6 +57,7 @@ class TransferModel extends Transfer {
       memo: json['memo'] as String?,
       transferDate: json['transferDate'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      kind: kind,
     );
   }
 }

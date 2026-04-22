@@ -36,7 +36,7 @@ class UnifiedFilterBar extends StatelessWidget {
 
   int get _activeFilterCount {
     int count = 0;
-    if (enabledFilters.contains(FilterType.transactionType) && state.transactionType != null) count++;
+    if (enabledFilters.contains(FilterType.transactionType) && state.transactionTypes.isNotEmpty) count++;
     if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') count++;
     if (enabledFilters.contains(FilterType.category) &&
         (state.categoryIds.isNotEmpty || state.categoryGroupIds.isNotEmpty)) {
@@ -49,11 +49,21 @@ class UnifiedFilterBar extends StatelessWidget {
     return count;
   }
 
+  static const Map<String, String> _typeLabels = {
+    'EXPENSE': '지출',
+    'INCOME': '수입',
+    'TRANSFER': '이체',
+  };
+
   List<_ChipData> get _allChips {
     final chips = <_ChipData>[];
-    if (enabledFilters.contains(FilterType.transactionType) && state.transactionType != null) {
+    if (enabledFilters.contains(FilterType.transactionType) &&
+        state.transactionTypes.isNotEmpty) {
+      final labels = state.transactionTypes
+          .map((t) => _typeLabels[t] ?? t)
+          .join('/');
       chips.add(_ChipData(
-        label: state.transactionType == 'EXPENSE' ? '지출' : '수입',
+        label: labels,
         onRemove: () => onFilterChanged(state.copyWith(clearTransactionType: true)),
       ));
     }
@@ -176,7 +186,8 @@ class UnifiedFilterBar extends StatelessWidget {
     Set<String> tempCategoryGroupIds = {...state.categoryGroupIds};
     Set<String> tempPaymentMethodIds = {...state.paymentMethodIds};
     Set<String> tempPocketIds = {...state.pocketIds};
-    String? tempTransactionType = state.transactionType;
+    // PR-C: Multi-select transaction types (EXPENSE/INCOME/TRANSFER).
+    final Set<String> tempTransactionTypes = Set.of(state.transactionTypes);
     String? tempVisibility = state.visibility;
     // 기간도 다른 필터와 동일하게 임시 상태로 보관 → "적용" 버튼 클릭 시 일괄 propagate.
     DateTime? tempDateFrom = state.dateFrom;
@@ -226,25 +237,36 @@ class UnifiedFilterBar extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 24),
-                        // Transaction type selector
+                        // Transaction type selector (multi-select)
                         if (enabledFilters
                             .contains(FilterType.transactionType)) ...[
-                          Text('거래 유형',
+                          Text('거래 유형 (중복 선택 가능)',
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 8),
-                          SegmentedButton<String?>(
-                            segments: const [
-                              ButtonSegment(value: null, label: Text('전체')),
-                              ButtonSegment(
-                                  value: 'EXPENSE', label: Text('지출')),
-                              ButtonSegment(
-                                  value: 'INCOME', label: Text('수입')),
-                            ],
-                            selected: {tempTransactionType},
-                            onSelectionChanged: (values) {
-                              setSheetState(
-                                  () => tempTransactionType = values.first);
-                            },
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: const [
+                              _TypeChoice(value: 'EXPENSE', label: '지출'),
+                              _TypeChoice(value: 'INCOME', label: '수입'),
+                              _TypeChoice(value: 'TRANSFER', label: '이체'),
+                            ].map((c) {
+                              final selected =
+                                  tempTransactionTypes.contains(c.value);
+                              return FilterChip(
+                                label: Text(c.label),
+                                selected: selected,
+                                onSelected: (on) {
+                                  setSheetState(() {
+                                    if (on) {
+                                      tempTransactionTypes.add(c.value);
+                                    } else {
+                                      tempTransactionTypes.remove(c.value);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -439,7 +461,7 @@ class UnifiedFilterBar extends StatelessWidget {
                                         ? null
                                         : int.tryParse(maxText),
                                     keyword: state.keyword,
-                                    transactionType: tempTransactionType,
+                                    transactionTypes: tempTransactionTypes,
                                     visibility: tempVisibility,
                                     status: state.status,
                                   ));
@@ -552,6 +574,12 @@ class _ChipData {
   final String label;
   final VoidCallback onRemove;
   const _ChipData({required this.label, required this.onRemove});
+}
+
+class _TypeChoice {
+  final String value;
+  final String label;
+  const _TypeChoice({required this.value, required this.label});
 }
 
 class _ActiveFilterChip extends StatelessWidget {

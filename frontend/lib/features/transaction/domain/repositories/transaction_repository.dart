@@ -8,6 +8,7 @@ abstract class TransactionRepository {
     int? year,
     int? month,
     String? type,
+    Set<String> transactionTypes,
     String? categoryId,
     Set<String> categoryIds = const {},
     Set<String> categoryGroupIds = const {},

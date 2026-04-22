@@ -48,6 +48,7 @@ void main() {
         dateFrom: '2026-01-01',
         dateTo: '2026-01-31',
         type: 'EXPENSE',
+        transactionTypes: {'EXPENSE', 'TRANSFER'},
         visibility: 'SHARED',
       );
       // copyWith without any change = identity
@@ -62,7 +63,69 @@ void main() {
       expect(full.dateFrom, '2026-01-01');
       expect(full.dateTo, '2026-01-31');
       expect(full.type, 'EXPENSE');
+      expect(full.transactionTypes, {'EXPENSE', 'TRANSFER'});
       expect(full.visibility, 'SHARED');
+    });
+
+    group('toQueryParams — Phase 22 multi transactionTypes', () {
+      test('EXPENSE+INCOME multi sends list, not singular', () {
+        const f = TransactionFilter(
+          transactionTypes: {'EXPENSE', 'INCOME'},
+        );
+        final params = f.toQueryParams();
+        expect(params['transactionTypes'], isA<List>());
+        final list = (params['transactionTypes'] as List).cast<String>();
+        expect(list, containsAll(<String>['EXPENSE', 'INCOME']));
+        // Multi (length > 1) should not set the singular backward-compat key.
+        expect(params.containsKey('type'), isFalse);
+      });
+
+      test('TRANSFER pseudo-type is stripped before hitting BE', () {
+        const f = TransactionFilter(
+          transactionTypes: {'EXPENSE', 'TRANSFER'},
+        );
+        final params = f.toQueryParams();
+        final list = (params['transactionTypes'] as List).cast<String>();
+        expect(list, equals(<String>['EXPENSE']));
+      });
+
+      test('single-value multi sets both `transactionTypes` and legacy `type`',
+          () {
+        const f = TransactionFilter(transactionTypes: {'INCOME'});
+        final params = f.toQueryParams();
+        expect(params['type'], 'INCOME');
+        expect(
+          (params['transactionTypes'] as List).cast<String>(),
+          equals(<String>['INCOME']),
+        );
+      });
+
+      test('only TRANSFER (pseudo) → BE gets no type filter', () {
+        const f = TransactionFilter(transactionTypes: {'TRANSFER'});
+        final params = f.toQueryParams();
+        expect(params.containsKey('transactionTypes'), isFalse);
+        expect(params.containsKey('type'), isFalse);
+      });
+
+      test('includeTransfers / transactionOnly gating', () {
+        expect(const TransactionFilter().includeTransfers, isTrue);
+        expect(const TransactionFilter().transactionOnly, isFalse);
+        expect(
+          const TransactionFilter(transactionTypes: {'EXPENSE'})
+              .includeTransfers,
+          isFalse,
+        );
+        expect(
+          const TransactionFilter(transactionTypes: {'EXPENSE'})
+              .transactionOnly,
+          isTrue,
+        );
+        expect(
+          const TransactionFilter(transactionTypes: {'EXPENSE', 'TRANSFER'})
+              .includeTransfers,
+          isTrue,
+        );
+      });
     });
   });
 }

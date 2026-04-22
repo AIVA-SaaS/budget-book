@@ -47,6 +47,7 @@ class Transaction extends Equatable {
 
   bool get isIncome => type == 'INCOME';
   bool get isExpense => type == 'EXPENSE';
+  bool get isAdjustment => type == 'ADJUSTMENT';
   bool get isPrivate => visibility == 'PRIVATE';
   bool get isShared => visibility == 'SHARED';
 
