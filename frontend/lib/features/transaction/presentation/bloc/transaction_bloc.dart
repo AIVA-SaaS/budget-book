@@ -31,6 +31,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   String? _currentDateFrom;
   String? _currentDateTo;
   String? _currentType;
+  Set<String> _currentTransactionTypes = const {};
   String? _currentVisibility;
 
   /// 전체 필터 상태의 단일 스냅샷.
@@ -51,6 +52,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         dateFrom: _currentDateFrom,
         dateTo: _currentDateTo,
         type: _currentType,
+        transactionTypes: _currentTransactionTypes,
         visibility: _currentVisibility,
       );
 
@@ -89,6 +91,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentDateFrom = event.dateFrom;
       _currentDateTo = event.dateTo;
       _currentType = event.type;
+      _currentTransactionTypes = event.transactionTypes;
       _currentVisibility = event.visibility;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
@@ -110,6 +113,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           event.amountMin == null &&
           event.amountMax == null &&
           event.type == null &&
+          event.transactionTypes.isEmpty &&
           event.dateFrom == null &&
           event.dateTo == null;
 
@@ -125,7 +129,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           event.pocketIds.isEmpty &&
           event.amountMin == null &&
           event.amountMax == null &&
-          event.type == null;
+          event.type == null &&
+          event.transactionTypes.isEmpty;
 
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
@@ -143,6 +148,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         dateFrom: event.dateFrom,
         dateTo: event.dateTo,
         type: event.type,
+        transactionTypes: event.transactionTypes,
         visibility: event.visibility,
         page: 0,
         size: _pageSize,
@@ -296,6 +302,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         dateFrom: _currentDateFrom,
         dateTo: _currentDateTo,
         type: _currentType,
+        transactionTypes: _currentTransactionTypes,
         visibility: _currentVisibility,
         page: nextPage,
         size: _pageSize,
@@ -390,6 +397,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
               type: _currentType,
+              transactionTypes: _currentTransactionTypes,
               visibility: _currentVisibility,
             )),
       );
@@ -446,6 +454,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               dateFrom: _currentDateFrom,
               dateTo: _currentDateTo,
               type: _currentType,
+              transactionTypes: _currentTransactionTypes,
               visibility: _currentVisibility,
             )),
       );

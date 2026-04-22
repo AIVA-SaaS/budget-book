@@ -17,6 +17,7 @@ abstract class TransferRepository {
     String? description,
     required String transferDate,
     String? memo,
+    TransferKind kind = TransferKind.generic,
   });
 
   /// 카드 결제 처리: Transfer 생성(is_card_settlement=true) + 거래 paid_at 일괄 업데이트
@@ -39,6 +40,7 @@ abstract class TransferRepository {
     String? transferDate,
     String? memo,
     bool clearMemo = false,
+    TransferKind? kind,
   });
 
   Future<Either<Failure, void>> deleteTransfer(String id);

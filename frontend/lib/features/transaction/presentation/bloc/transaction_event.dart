@@ -24,6 +24,7 @@ class LoadTransactions extends TransactionEvent {
   final String? dateFrom;
   final String? dateTo;
   final String? type;
+  final Set<String> transactionTypes;
   final String? visibility;
 
   const LoadTransactions({
@@ -43,6 +44,7 @@ class LoadTransactions extends TransactionEvent {
     this.dateFrom,
     this.dateTo,
     this.type,
+    this.transactionTypes = const {},
     this.visibility,
   });
 
@@ -64,6 +66,7 @@ class LoadTransactions extends TransactionEvent {
         dateFrom,
         dateTo,
         type,
+        transactionTypes,
         visibility,
       ];
 }

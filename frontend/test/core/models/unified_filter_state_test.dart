@@ -41,9 +41,20 @@ void main() {
       expect(state.hasActiveFilters, isFalse);
     });
 
-    test('hasActiveFilters returns true when transactionType is set', () {
-      const state = UnifiedFilterState(transactionType: 'EXPENSE');
+    test('hasActiveFilters returns true when transactionTypes is non-empty',
+        () {
+      const state = UnifiedFilterState(transactionTypes: {'EXPENSE'});
       expect(state.hasActiveFilters, isTrue);
+      // Legacy singular getter still reports the first selection.
+      expect(state.transactionType, 'EXPENSE');
+    });
+
+    test('transactionTypes multi-select preserves all values', () {
+      const state = UnifiedFilterState(
+        transactionTypes: {'EXPENSE', 'INCOME', 'TRANSFER'},
+      );
+      expect(state.hasActiveFilters, isTrue);
+      expect(state.transactionTypes, {'EXPENSE', 'INCOME', 'TRANSFER'});
     });
 
     test('hasActiveFilters returns true when visibility is not ALL', () {
@@ -124,9 +135,10 @@ void main() {
       expect(cleared.amountMax, isNull);
     });
 
-    test('copyWith clearTransactionType clears transactionType', () {
-      const state = UnifiedFilterState(transactionType: 'EXPENSE');
+    test('copyWith clearTransactionType empties transactionTypes', () {
+      const state = UnifiedFilterState(transactionTypes: {'EXPENSE'});
       final cleared = state.copyWith(clearTransactionType: true);
+      expect(cleared.transactionTypes, isEmpty);
       expect(cleared.transactionType, isNull);
     });
 
