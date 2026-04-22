@@ -383,10 +383,19 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): List<Array<Any>>
 
+    /**
+     * 결제수단 별 순잔액 (Phase 22 수정):
+     * - INCOME:     +amount
+     * - EXPENSE:    -amount
+     * - ADJUSTMENT: +amount (amount 는 부호 있는 증감값. 양수=증가, 음수=감소)
+     *
+     * ADJUSTMENT 는 통계에서 제외되지만 잔액 계산에는 반드시 포함된다 (plan §2.5).
+     */
     @Query("""
         SELECT t.paymentMethod.id,
             COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.INCOME THEN t.amount ELSE 0L END), 0L) -
-            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE THEN t.amount ELSE 0L END), 0L)
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE THEN t.amount ELSE 0L END), 0L) +
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.ADJUSTMENT THEN t.amount ELSE 0L END), 0L)
         FROM Transaction t
         WHERE t.couple.id = :coupleId AND t.paymentMethod IS NOT NULL
         GROUP BY t.paymentMethod.id

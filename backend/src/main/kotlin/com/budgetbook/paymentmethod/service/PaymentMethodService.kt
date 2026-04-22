@@ -242,9 +242,10 @@ class PaymentMethodService(
             val startDate = yearMonth.atDay(1)
             val endDate = yearMonth.atEndOfMonth()
 
-            // Transfer OUT amounts (카드 결제 이체는 제외 — 이미 원본 거래로 계산됨, 이중 계산 방지)
-            val transferOutMap = transferRepository.sumAmountBySourceExcludingSettlement(
-                couple.id, startDate, endDate
+            // Transfer OUT amounts (카드 결제 이체는 제외 — 이미 원본 거래로 계산됨, 이중 계산 방지).
+            // Phase 22: kind 기반 쿼리로 전환. CARD_SETTLEMENT 제외.
+            val transferOutMap = transferRepository.sumAmountBySourceByKind(
+                couple.id, startDate, endDate, com.budgetbook.transfer.domain.TransferKinds.NON_CARD_SETTLEMENT
             ).associate { (it[0] as UUID) to (it[1] as Long) }
 
             val cards = creditCards.map { card ->

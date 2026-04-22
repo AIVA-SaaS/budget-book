@@ -21,6 +21,7 @@ import com.budgetbook.report.dto.WeeklyReportResponse
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.domain.TransferKinds
 import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -65,8 +66,10 @@ class ReportService(
 
         var totalSpent = weekTransactions.sumOf { it.amount }
 
-        // Include transfer OUT amounts as spending
-        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, weekStart, weekEnd)
+        // Phase 22: 지출로 분류되는 이체(EXPENSE_TRANSFER) 만 합산. GENERIC/CARD_SETTLEMENT 제외.
+        val transferOutResults = transferRepository.sumAmountBySourceByKind(
+            couple.id, weekStart, weekEnd, TransferKinds.EXPENSE_AFFECTING
+        )
         val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
         totalSpent += transferOutTotal
 
@@ -137,17 +140,20 @@ class ReportService(
             when (type) {
                 TransactionType.INCOME -> totalIncome = sum
                 TransactionType.EXPENSE -> totalExpense = sum
+                TransactionType.ADJUSTMENT -> {} // Phase 22: 통계 제외
             }
         }
 
-        // Include transfer amounts: OUT = expense, IN = income
-        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
-        val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
-        val transferInTotal = transferInResults.sumOf { it[1] as Long }
+        // Phase 22: kind 기반 집계. EXPENSE_TRANSFER 만 지출로, INCOME_TRANSFER 만 수입으로.
+        val transferExpense = transferRepository
+            .sumAmountBySourceByKind(couple.id, startDate, endDate, TransferKinds.EXPENSE_AFFECTING)
+            .sumOf { it[1] as Long }
+        val transferIncome = transferRepository
+            .sumAmountByDestinationByKind(couple.id, startDate, endDate, TransferKinds.INCOME_AFFECTING)
+            .sumOf { it[1] as Long }
 
-        totalExpense += transferOutTotal
-        totalIncome += transferInTotal
+        totalExpense += transferExpense
+        totalIncome += transferIncome
 
         val balance = totalIncome - totalExpense
 
@@ -414,6 +420,7 @@ class ReportService(
             when (type) {
                 TransactionType.INCOME -> prevIncome = sum
                 TransactionType.EXPENSE -> prevExpense = sum
+                TransactionType.ADJUSTMENT -> {} // Phase 22: 통계 제외
             }
         }
 
