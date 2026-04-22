@@ -73,7 +73,10 @@ class TransactionService(
         categoryIds: List<UUID> = emptyList(),
         categoryGroupIds: List<UUID> = emptyList(),
         paymentMethodIds: List<UUID> = emptyList(),
-        pocketIds: List<UUID> = emptyList()
+        pocketIds: List<UUID> = emptyList(),
+        // Phase 22 T10: 다중 타입 필터. null/빈 리스트 = 필터 없음.
+        // 단수 `type` 과 병존 시 `transactionTypes` 우선 (FE toQueryParams 와 일치).
+        transactionTypes: List<String>? = null
     ): PageResponse<TransactionResponse> {
         val couple = getActiveCouple(userId)
 
@@ -92,6 +95,19 @@ class TransactionService(
             endDate = yearMonth.atEndOfMonth()
         }
 
+        // Phase 22 T10: 다중 타입 우선 파싱.
+        // 각 원소는 EXPENSE/INCOME/ADJUSTMENT 여야 하며, 그 외(예: FE-only TRANSFER) 는 400.
+        val effectiveTransactionTypes: Set<TransactionType> = transactionTypes
+            ?.filter { it.isNotBlank() }
+            ?.map { raw ->
+                try { TransactionType.valueOf(raw) } catch (e: IllegalArgumentException) {
+                    throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: $raw")
+                }
+            }
+            ?.toSet()
+            ?: emptySet()
+
+        // 단수 `type` 파싱 — `transactionTypes` 가 비어있을 때만 의미 있음.
         val transactionType = type?.let {
             try { TransactionType.valueOf(it) } catch (e: IllegalArgumentException) {
                 throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: $it")
@@ -130,7 +146,8 @@ class TransactionService(
         // (legacy JPQL 은 단일 categoryId/type 만 지원)
         val hasMultiFilters = effectiveCategoryIds.isNotEmpty() ||
             effectivePaymentMethodIds.isNotEmpty() ||
-            effectivePocketIds.isNotEmpty()
+            effectivePocketIds.isNotEmpty() ||
+            effectiveTransactionTypes.isNotEmpty()
         val hasExtendedFilters = keyword != null || paymentMethodId != null ||
             pocketId != null || amountMin != null || amountMax != null ||
             visibilityFilter != null || hasMultiFilters
@@ -138,14 +155,16 @@ class TransactionService(
         val result = if (hasExtendedFilters) {
             // 단수 categoryId 는 Set 에 이미 합쳐졌으므로 Spec 에는 Set 만 전달 (중복 조건 방지).
             // paymentMethod/pocket 도 동일하게 Set 에 합침.
+            // 단수 `type` 은 `transactionTypes` 가 비어있을 때만 사용 (FE `toQueryParams` 우선순위와 일치).
             val specCategoryId = if (effectiveCategoryIds.isNotEmpty()) null else categoryId
             val specPaymentMethodId = if (effectivePaymentMethodIds.isNotEmpty()) null else paymentMethodId
             val specPocketId = if (effectivePocketIds.isNotEmpty()) null else pocketId
+            val specType = if (effectiveTransactionTypes.isNotEmpty()) null else transactionType
             val spec = TransactionSpecifications.withFilters(
                 coupleId = couple.id,
                 startDate = startDate,
                 endDate = endDate,
-                type = transactionType,
+                type = specType,
                 categoryId = specCategoryId,
                 keyword = keyword,
                 paymentMethodId = specPaymentMethodId,
@@ -156,7 +175,8 @@ class TransactionService(
                 visibility = visibilityFilter,
                 categoryIds = effectiveCategoryIds,
                 paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds
+                pocketIds = effectivePocketIds,
+                types = effectiveTransactionTypes
             )
             transactionRepository.findAll(spec, pageable)
         } else {
