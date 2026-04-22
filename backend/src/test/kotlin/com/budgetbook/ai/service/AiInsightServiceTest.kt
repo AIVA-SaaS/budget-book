@@ -47,8 +47,8 @@ class AiInsightServiceTest : BehaviorSpec({
 
     every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
-    val currentSummary = StatisticsSummaryResponse("2026-04", 5000000, 3000000, 2000000, 50)
-    val prevSummary = StatisticsSummaryResponse("2026-03", 5000000, 2500000, 2500000, 45)
+    val currentSummary = StatisticsSummaryResponse("2026-04", 5000000, 3000000, 0, 2000000, 50)
+    val prevSummary = StatisticsSummaryResponse("2026-03", 5000000, 2500000, 0, 2500000, 45)
     val catId = UUID.randomUUID()
     val currentBreakdown = listOf(
         CategoryStatisticsResponse(
