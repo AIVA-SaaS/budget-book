@@ -87,8 +87,9 @@ jobs:
               --env-file /tmp/bb_env \
               bb-backend:latest
 
-            # Health check — 빠른 실패 (5회 × 6s = 30s 안에 결정)
-            for i in $(seq 1 5); do
+            # Health check — V54 같은 무거운 마이그레이션/Hibernate 스키마 검증
+            # 여유 확보 (10회 × 6s = 60s). 실제 장애 시에만 fail.
+            for i in $(seq 1 10); do
               sleep 6
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
               if [ "$STATUS" = "200" ]; then
@@ -97,7 +98,7 @@ jobs:
               fi
             done
             echo "FAILED: Backend did not start"
-            docker logs --tail 30 bb_app
+            docker logs --tail 60 bb_app
             exit 1
 
   # ── Frontend 배포 (변경 시에만) ──
@@ -150,18 +151,18 @@ jobs:
     steps:
       - name: Verify live site
         run: |
-          # Retry 루프: happy path 2초, V54 등 무거운 마이그레이션 + JVM warm-up 시
-          # 최대 30초 대기. 실제 장애 시에만 fail 하여 false positive 방지.
-          for i in $(seq 1 15); do
+          # Retry 루프: happy path 즉시 종료, 실제 장애 시에만 fail.
+          # deploy-backend 내부 wait (60s) 이후에도 reverse proxy warm-up 여유.
+          for i in $(seq 1 20); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://aiva-bb.duckdns.org/ || echo "000")
             API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://aiva-bb.duckdns.org/actuator/health || echo "000")
-            echo "[$i/15] Site=$STATUS API=$API"
+            echo "[$i/20] Site=$STATUS API=$API"
             if [ "$STATUS" = "200" ] && [ "$API" = "200" ]; then
               exit 0
             fi
-            sleep 2
+            sleep 3
           done
-          echo "Health check failed after 30s"
+          echo "Health check failed after 60s"
           exit 1
 
       - name: Create Issue on Failure
