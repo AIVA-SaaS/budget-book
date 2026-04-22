@@ -35,15 +35,29 @@ class StatisticsServiceTest : BehaviorSpec({
     val budgetRepository = mockk<MonthlyBudgetRepository>()
     val spendingPlanRepository = mockk<SpendingPlanRepository>()
     val categoryRepository = mockk<CategoryRepository>()
-    val service = StatisticsService(transactionRepository, transferRepository, coupleResolver, budgetRepository, spendingPlanRepository, categoryRepository)
+    // Phase 22: StatisticsService 는 ExpenseCalculator 를 통해 집계. 실제 ExpenseCalculator 주입하면
+    // 내부적으로 transactionRepository + transferRepository 를 다시 사용한다.
+    val expenseCalculator = com.budgetbook.statistics.service.ExpenseCalculator(transactionRepository, transferRepository)
+    val service = StatisticsService(
+        transactionRepository,
+        transferRepository,
+        coupleResolver,
+        budgetRepository,
+        spendingPlanRepository,
+        categoryRepository,
+        expenseCalculator,
+    )
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
 
     // Default: no transfers (individual tests can override)
+    // Phase 22: kind 기반 쿼리로 전환. 기존 ExcludingSettlement 계열은 deprecated 지만 호환을 위해 유지.
     every { transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any()) } returns emptyList()
     every { transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountBySourceByKind(any(), any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationByKind(any(), any(), any(), any()) } returns emptyList()
 
     // --- getMonthlySummary ---
 
@@ -609,26 +623,38 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.dailySummaryForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
             } returns emptyList()
 
-            // Transfer amounts: 200000 out (expense), 100000 in (income)
+            // Phase 22: kind 기반. EXPENSE_TRANSFER=200000 OUT, INCOME_TRANSFER=100000 IN, GENERIC=없음.
             val pmId = UUID.randomUUID()
             every {
-                transferRepository.sumAmountBySourceExcludingSettlement(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountBySourceByKind(
+                    couple.id, dateFrom, dateTo,
+                    com.budgetbook.transfer.domain.TransferKinds.EXPENSE_AFFECTING
+                )
             } returns listOf(arrayOf<Any>(pmId, 200000L))
             every {
-                transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, dateFrom, dateTo)
+                transferRepository.sumAmountByDestinationByKind(
+                    couple.id, dateFrom, dateTo,
+                    com.budgetbook.transfer.domain.TransferKinds.INCOME_AFFECTING
+                )
             } returns listOf(arrayOf<Any>(pmId, 100000L))
+            every {
+                transferRepository.sumAmountBySourceByKind(
+                    couple.id, dateFrom, dateTo,
+                    com.budgetbook.transfer.domain.TransferKinds.TRANSFER_ONLY
+                )
+            } returns emptyList()
 
             val result = service.getPeriodSummary(user1.id, dateFrom, dateTo)
 
-            Then("totalExpense includes transfer out amounts") {
+            Then("totalExpense includes EXPENSE_TRANSFER amounts") {
                 result.totalExpense shouldBe 3200000L // 3000000 + 200000
             }
 
-            Then("totalIncome includes transfer in amounts") {
+            Then("totalIncome includes INCOME_TRANSFER amounts") {
                 result.totalIncome shouldBe 5100000L // 5000000 + 100000
             }
 
-            Then("balance reflects transfer-adjusted totals") {
+            Then("balance reflects kind-adjusted totals") {
                 result.balance shouldBe 1900000L // 5100000 - 3200000
             }
         }
@@ -732,12 +758,12 @@ class StatisticsServiceTest : BehaviorSpec({
             }
 
             Then("transfers are NOT included when filters are active") {
-                // Verify transfer repos were NOT called
+                // Phase 22: kind 기반 쿼리가 호출되지 않아야 함.
                 verify(exactly = 0) {
-                    transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any())
+                    transferRepository.sumAmountBySourceByKind(any(), any(), any(), any())
                 }
                 verify(exactly = 0) {
-                    transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any())
+                    transferRepository.sumAmountByDestinationByKind(any(), any(), any(), any())
                 }
             }
         }

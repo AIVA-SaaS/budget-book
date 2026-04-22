@@ -4,8 +4,6 @@ import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.exception.BusinessException
-import com.budgetbook.common.exception.NotFoundException
-import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
@@ -21,7 +19,6 @@ import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.repository.TransactionSpecifications
-import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -31,11 +28,12 @@ import java.util.UUID
 @Service
 class StatisticsService(
     private val transactionRepository: TransactionRepository,
-    private val transferRepository: TransferRepository,
+    private val transferRepository: com.budgetbook.transfer.repository.TransferRepository,
     override val coupleResolver: CoupleResolver,
     private val budgetRepository: MonthlyBudgetRepository,
     private val spendingPlanRepository: SpendingPlanRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val expenseCalculator: ExpenseCalculator,
 ) : CoupleAwareService {
 
     companion object {
@@ -60,39 +58,26 @@ class StatisticsService(
 
         val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId, visFilter)
 
-        var totalIncome = 0L
-        var totalExpense = 0L
+        // Phase 22: ADJUSTMENT 는 집계/카운트 모두 제외. EXPENSE/INCOME 의 Transaction 건수만 카운트.
         var transactionCount = 0
-
         for (row in results) {
             val type = row[0] as TransactionType
-            val sum = row[1] as Long
             val count = (row[2] as Long).toInt()
-            when (type) {
-                TransactionType.INCOME -> {
-                    totalIncome = sum
-                    transactionCount += count
-                }
-                TransactionType.EXPENSE -> {
-                    totalExpense = sum
-                    transactionCount += count
-                }
+            if (type == TransactionType.INCOME || type == TransactionType.EXPENSE) {
+                transactionCount += count
             }
         }
 
-        // Include transfer amounts: OUT = expense, IN = income
-        val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
-        val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-        val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
-        val transferInTotal = transferInResults.sumOf { it[1] as Long }
-
-        totalExpense += transferOutTotal
-        totalIncome += transferInTotal
+        // Phase 22 S1: 집계는 ExpenseCalculator 단일 진입점 사용.
+        val totalIncome = expenseCalculator.totalIncome(couple.id, startDate, endDate, userId, visFilter)
+        val totalExpense = expenseCalculator.totalExpense(couple.id, startDate, endDate, userId, visFilter)
+        val totalTransfer = expenseCalculator.totalTransfer(couple.id, startDate, endDate)
 
         return StatisticsSummaryResponse(
             yearMonth = yearMonth.toString(),
             totalIncome = totalIncome,
             totalExpense = totalExpense,
+            totalTransfer = totalTransfer,
             balance = totalIncome - totalExpense,
             transactionCount = transactionCount
         )
@@ -110,6 +95,10 @@ class StatisticsService(
             TransactionType.valueOf(type ?: "EXPENSE")
         } catch (e: IllegalArgumentException) {
             throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: $type")
+        }
+        // Phase 22: ADJUSTMENT 는 카테고리 통계 범주 밖.
+        if (transactionType == TransactionType.ADJUSTMENT) {
+            throw BusinessException("VALIDATION_ERROR", "ADJUSTMENT 는 카테고리 통계에 집계되지 않습니다.")
         }
 
         val results = transactionRepository.sumByCategoryForCouple(couple.id, startDate, endDate, transactionType, userId, visFilter)
@@ -141,11 +130,13 @@ class StatisticsService(
             )
         }.toMutableList()
 
-        // Include transfers as a virtual "이체" category
+        // Phase 22: "이체" 가상 카테고리는 EXPENSE_TRANSFER / INCOME_TRANSFER 만 반영.
+        // GENERIC 은 수입/지출 범주 밖이므로 카테고리 브레이크다운에 포함하지 않는다.
         if (transactionType == TransactionType.EXPENSE) {
-            val transferOutTotal = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, startDate, endDate)
+            val transferExpense = transferRepository
+                .sumAmountBySourceByKind(couple.id, startDate, endDate, com.budgetbook.transfer.domain.TransferKinds.EXPENSE_AFFECTING)
                 .sumOf { it[1] as Long }
-            if (transferOutTotal > 0) {
+            if (transferExpense > 0) {
                 categoryEntries.add(CategoryStatisticsResponse(
                     category = CategorySummary(
                         id = UUID(0, 0),
@@ -156,15 +147,16 @@ class StatisticsService(
                         groupId = null,
                         groupName = null
                     ),
-                    amount = transferOutTotal,
+                    amount = transferExpense,
                     percentage = 0.0,
                     transactionCount = 0
                 ))
             }
         } else {
-            val transferInTotal = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, startDate, endDate)
+            val transferIncome = transferRepository
+                .sumAmountByDestinationByKind(couple.id, startDate, endDate, com.budgetbook.transfer.domain.TransferKinds.INCOME_AFFECTING)
                 .sumOf { it[1] as Long }
-            if (transferInTotal > 0) {
+            if (transferIncome > 0) {
                 categoryEntries.add(CategoryStatisticsResponse(
                     category = CategorySummary(
                         id = UUID(0, 0),
@@ -175,7 +167,7 @@ class StatisticsService(
                         groupId = null,
                         groupName = null
                     ),
-                    amount = transferInTotal,
+                    amount = transferIncome,
                     percentage = 0.0,
                     transactionCount = 0
                 ))
@@ -215,31 +207,37 @@ class StatisticsService(
             trendMap[ym] = when (typeName) {
                 "INCOME" -> sum to current.second
                 "EXPENSE" -> current.first to sum
-                else -> current
+                else -> current // ADJUSTMENT 기타: 트렌드 제외
             }
         }
 
         return (0 until validMonths).map { offset ->
             val ym = startMonth.plusMonths(offset.toLong())
             val ymStr = ym.toString()
-            val (income, expense) = trendMap.getOrDefault(ymStr, 0L to 0L)
+            val (txIncome, txExpense) = trendMap.getOrDefault(ymStr, 0L to 0L)
 
-            // Include transfer amounts for this month
+            // Phase 22 S1: Transfer 는 kind 기반으로 합산. Transaction 은 bulk trendMap 재사용.
             val monthStart = ym.atDay(1)
             val monthEnd = ym.atEndOfMonth()
-            val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, monthStart, monthEnd)
-            val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-            val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, monthStart, monthEnd)
-            val transferInTotal = transferInResults.sumOf { it[1] as Long }
+            val transferExpense = transferRepository
+                .sumAmountBySourceByKind(couple.id, monthStart, monthEnd, com.budgetbook.transfer.domain.TransferKinds.EXPENSE_AFFECTING)
+                .sumOf { it[1] as Long }
+            val transferIncome = transferRepository
+                .sumAmountByDestinationByKind(couple.id, monthStart, monthEnd, com.budgetbook.transfer.domain.TransferKinds.INCOME_AFFECTING)
+                .sumOf { it[1] as Long }
+            val totalTransfer = transferRepository
+                .sumAmountBySourceByKind(couple.id, monthStart, monthEnd, com.budgetbook.transfer.domain.TransferKinds.TRANSFER_ONLY)
+                .sumOf { it[1] as Long }
 
-            val adjustedIncome = income + transferInTotal
-            val adjustedExpense = expense + transferOutTotal
+            val totalIncome = txIncome + transferIncome
+            val totalExpense = txExpense + transferExpense
 
             MonthlyTrendResponse(
                 yearMonth = ymStr,
-                totalIncome = adjustedIncome,
-                totalExpense = adjustedExpense,
-                balance = adjustedIncome - adjustedExpense
+                totalIncome = totalIncome,
+                totalExpense = totalExpense,
+                totalTransfer = totalTransfer,
+                balance = totalIncome - totalExpense
             )
         }
     }
@@ -281,6 +279,7 @@ class StatisticsService(
 
         var totalIncome: Long
         var totalExpense: Long
+        var totalTransfer = 0L
         val byCategory: List<CategorySpending>
 
         if (hasFilters) {
@@ -309,6 +308,8 @@ class StatisticsService(
 
             totalIncome = incomeTransactions.sumOf { it.amount }
             totalExpense = expenseTransactions.sumOf { it.amount }
+            // Transfer 는 카테고리/결제수단/포켓 필드가 없으므로 필터 활성 시 집계에서 제외됨.
+            // totalTransfer 도 0 유지.
 
             // byCategory from filtered expense transactions
             byCategory = expenseTransactions
@@ -342,18 +343,10 @@ class StatisticsService(
                     }
                 }
         } else {
-            // No filters: use optimized JPQL queries (existing behavior)
-            val typeResults = transactionRepository.sumByTypeForCouple(couple.id, dateFrom, dateTo, userId, visFilter)
-            totalIncome = 0L
-            totalExpense = 0L
-            for (row in typeResults) {
-                val type = row[0] as TransactionType
-                val sum = row[1] as Long
-                when (type) {
-                    TransactionType.INCOME -> totalIncome = sum
-                    TransactionType.EXPENSE -> totalExpense = sum
-                }
-            }
+            // No filters: ExpenseCalculator 로 일원화 (Phase 22 S1).
+            totalIncome = expenseCalculator.totalIncome(couple.id, dateFrom, dateTo, userId, visFilter)
+            totalExpense = expenseCalculator.totalExpense(couple.id, dateFrom, dateTo, userId, visFilter)
+            totalTransfer = expenseCalculator.totalTransfer(couple.id, dateFrom, dateTo)
 
             val categoryResults = transactionRepository.sumByCategoryForCouple(
                 couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId, visFilter
@@ -388,18 +381,6 @@ class StatisticsService(
                     )
                 }
             }
-        }
-
-        // Include transfer amounts (same as getMonthlySummary)
-        // Transfers have no category/paymentMethod/pocket, so skip when those filters are active
-        if (!hasFilters) {
-            val transferOutResults = transferRepository.sumAmountBySourceExcludingSettlement(couple.id, dateFrom, dateTo)
-            val transferOutTotal = transferOutResults.sumOf { it[1] as Long }
-            val transferInResults = transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, dateFrom, dateTo)
-            val transferInTotal = transferInResults.sumOf { it[1] as Long }
-
-            totalExpense += transferOutTotal
-            totalIncome += transferInTotal
         }
 
         // 3. byBudget — find budgets covering this period
@@ -506,7 +487,7 @@ class StatisticsService(
             dailyMap[date] = when (typeName) {
                 "INCOME" -> sum to current.second
                 "EXPENSE" -> current.first to sum
-                else -> current
+                else -> current // ADJUSTMENT 제외
             }
         }
         val byDate = dailyMap.entries.sortedBy { it.key }.map { (date, pair) ->
@@ -522,6 +503,7 @@ class StatisticsService(
             dateTo = dateTo.toString(),
             totalIncome = totalIncome,
             totalExpense = totalExpense,
+            totalTransfer = totalTransfer,
             balance = totalIncome - totalExpense,
             byCategory = byCategory,
             byBudget = byBudget,

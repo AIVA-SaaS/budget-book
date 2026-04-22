@@ -6,6 +6,11 @@ data class StatisticsSummaryResponse(
     val yearMonth: String,
     val totalIncome: Long,
     val totalExpense: Long,
+    /**
+     * Phase 22 신규 — 순수 내부 이체(TransferKind.GENERIC) 합계.
+     * 지출/수입 통계와 분리된 별도 지표.
+     */
+    val totalTransfer: Long,
     val balance: Long,
     val transactionCount: Int
 )
@@ -21,6 +26,8 @@ data class MonthlyTrendResponse(
     val yearMonth: String,
     val totalIncome: Long,
     val totalExpense: Long,
+    /** Phase 22 신규 — 해당 월의 GENERIC 이체 합계. */
+    val totalTransfer: Long,
     val balance: Long
 )
 
@@ -42,6 +49,11 @@ data class PeriodSummaryResponse(
     val dateTo: String,
     val totalIncome: Long,
     val totalExpense: Long,
+    /**
+     * Phase 22 신규 — 순수 내부 이체(TransferKind.GENERIC) 합계.
+     * 필터 활성 시 0 (이체는 카테고리/결제수단/포켓 필터와 무관).
+     */
+    val totalTransfer: Long,
     val balance: Long,
     val byCategory: List<CategorySpending>,
     val byBudget: List<BudgetSpending>,

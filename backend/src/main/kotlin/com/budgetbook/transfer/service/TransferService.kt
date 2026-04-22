@@ -12,6 +12,7 @@ import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transfer.domain.Transfer
+import com.budgetbook.transfer.domain.TransferKind
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.PaymentMethodSummary
 import com.budgetbook.transfer.dto.TransferResponse
@@ -25,6 +26,7 @@ import java.time.YearMonth
 import java.util.UUID
 
 @Service
+@Suppress("DEPRECATION") // Transfer.isCardSettlement 는 V55 까지 유지.
 class TransferService(
     private val transferRepository: TransferRepository,
     override val coupleResolver: CoupleResolver,
@@ -54,6 +56,9 @@ class TransferService(
 
         validateNotCreditToCredit(source.type, destination.type)
 
+        // Phase 22: TransferKind 자동 판정. 사용자 명시 값이 있으면 우선.
+        val resolvedKind = request.kind ?: resolveDefaultKind(source.type, destination.type)
+
         val transfer = Transfer(
             couple = couple,
             author = user,
@@ -62,7 +67,9 @@ class TransferService(
             amount = request.amount,
             description = request.description,
             memo = request.memo,
-            transferDate = request.transferDate
+            transferDate = request.transferDate,
+            kind = resolvedKind,
+            isCardSettlement = resolvedKind == TransferKind.CARD_SETTLEMENT
         )
 
         val saved = transferRepository.save(transfer)
@@ -131,6 +138,14 @@ class TransferService(
 
         validateNotCreditToCredit(transfer.sourcePaymentMethod.type, transfer.destinationPaymentMethod.type)
 
+        // Phase 22: kind 변경 반영. PatchValue<TransferKind> 는 null 값을 허용하지 않음.
+        request.kind?.let { patchValue ->
+            val newKind = patchValue.value
+                ?: throw BusinessException("VALIDATION_ERROR", "Transfer kind cannot be null.")
+            transfer.kind = newKind
+            transfer.isCardSettlement = newKind == TransferKind.CARD_SETTLEMENT
+        }
+
         val saved = transferRepository.save(transfer)
         syncEventPublisher.publish(SyncEvent(
             type = "TRANSFER_UPDATED",
@@ -172,6 +187,8 @@ class TransferService(
         val author = userRepository.findById(authorId)
             .orElseThrow { NotFoundException("USER_NOT_FOUND", "System user not found.") }
 
+        val resolvedKind = resolveDefaultKind(source.type, destination.type)
+
         val transfer = Transfer(
             couple = couple,
             author = author,
@@ -180,7 +197,9 @@ class TransferService(
             amount = amount,
             description = description,
             transferDate = transferDate,
-            autoSettlementKey = autoSettlementKey
+            autoSettlementKey = autoSettlementKey,
+            kind = resolvedKind,
+            isCardSettlement = resolvedKind == TransferKind.CARD_SETTLEMENT
         )
 
         val saved = transferRepository.save(transfer)
@@ -196,7 +215,7 @@ class TransferService(
 
     /**
      * 카드 결제 처리 (구조적 수정):
-     * 1. is_card_settlement=true 인 Transfer 생성 (통계 이중 계산 방지)
+     * 1. kind=CARD_SETTLEMENT 인 Transfer 생성 (통계 이중 계산 방지)
      * 2. 선택된 transactionIds의 paid_at을 결제일로 일괄 업데이트 (미결제 목록에서 제외)
      *
      * 한 트랜잭션 내에서 처리되어 원자성 보장.
@@ -232,7 +251,7 @@ class TransferService(
             throw BusinessException("VALIDATION_ERROR", "카드 결제는 destination이 CREDIT 타입이어야 합니다.")
         }
 
-        // 1. Transfer 생성 (is_card_settlement=true)
+        // 1. Transfer 생성 (kind=CARD_SETTLEMENT)
         val transfer = Transfer(
             couple = couple,
             author = user,
@@ -241,11 +260,13 @@ class TransferService(
             amount = amount,
             description = description ?: "카드 결제",
             transferDate = transferDate,
+            kind = TransferKind.CARD_SETTLEMENT,
             isCardSettlement = true
         )
         val saved = transferRepository.save(transfer)
 
         // 2. 선택된 거래들의 paid_at 업데이트 (미결제 목록에서 제외)
+        //    markAsPaid 는 kind=CARD_SETTLEMENT 일 때만 동작해야 함 (Phase 22).
         if (transactionIds.isNotEmpty()) {
             transactionRepository.markAsPaid(transactionIds, transferDate)
         }
@@ -264,6 +285,22 @@ class TransferService(
         if (sourceType == PaymentMethodType.CREDIT && destType == PaymentMethodType.CREDIT) {
             throw BusinessException("TRANSFER_CREDIT_TO_CREDIT_NOT_ALLOWED", "카드 간 이체는 불가합니다")
         }
+    }
+
+    /**
+     * Phase 22 §2.1 — TransferKind 자동 판정.
+     *
+     * 규칙:
+     * - BANK → CREDIT: 카드 결제 흐름 (CARD_SETTLEMENT 기본)
+     * - CREDIT → CREDIT: 금지 (이 메서드 호출 전에 [validateNotCreditToCredit] 에서 차단됨)
+     * - 나머지(CREDIT→BANK, BANK↔BANK, CASH↔BANK 등): GENERIC
+     *
+     * EXPENSE_TRANSFER / INCOME_TRANSFER 는 의미상 자동 판정 불가능 — 사용자가 명시적으로
+     * 지정해야 함(요청 본문의 `kind` 필드). 즉 이 함수는 EXPENSE/INCOME_TRANSFER 를 리턴하지 않는다.
+     */
+    internal fun resolveDefaultKind(sourceType: PaymentMethodType, destType: PaymentMethodType): TransferKind = when {
+        sourceType == PaymentMethodType.BANK && destType == PaymentMethodType.CREDIT -> TransferKind.CARD_SETTLEMENT
+        else -> TransferKind.GENERIC
     }
 
     private fun Transfer.toResponse() = TransferResponse(
@@ -288,6 +325,7 @@ class TransferService(
         description = description,
         memo = memo,
         transferDate = transferDate,
+        kind = kind,
         createdAt = createdAt
     )
 }

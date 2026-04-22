@@ -400,10 +400,11 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(150000L, 3L))
 
             // Previous month: transfer out
-            every { transferRepository.sumAmountBySourceExcludingSettlement(
+            every { transferRepository.sumAmountBySourceByKind(
                 couple.id,
                 prev.atDay(1),
-                prev.atEndOfMonth()
+                prev.atEndOfMonth(),
+                com.budgetbook.transfer.domain.TransferKinds.NON_CARD_SETTLEMENT
             ) } returns listOf(arrayOf<Any>(creditCard.id, 10000L))
 
             // Current month: query by transactionDate range
@@ -415,10 +416,11 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(200000L, 5L))
 
             // Current month: transfer out
-            every { transferRepository.sumAmountBySourceExcludingSettlement(
+            every { transferRepository.sumAmountBySourceByKind(
                 couple.id,
                 now.atDay(1),
-                now.atEndOfMonth()
+                now.atEndOfMonth(),
+                com.budgetbook.transfer.domain.TransferKinds.NON_CARD_SETTLEMENT
             ) } returns listOf(arrayOf<Any>(creditCard.id, 20000L))
 
             // Unpaid month: query by settlementDate range (current month)
@@ -474,10 +476,11 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(100000L, 2L))
 
             // Transfer out (no transfers for this card)
-            every { transferRepository.sumAmountBySourceExcludingSettlement(
+            every { transferRepository.sumAmountBySourceByKind(
                 couple.id,
                 prev.atDay(1),
-                prev.atEndOfMonth()
+                prev.atEndOfMonth(),
+                com.budgetbook.transfer.domain.TransferKinds.NON_CARD_SETTLEMENT
             ) } returns emptyList()
 
             every { transactionRepository.sumByPaymentMethodAndTransactionDateRange(
@@ -488,10 +491,11 @@ class PaymentMethodServiceTest : BehaviorSpec({
             ) } returns listOf(arrayOf<Any?>(50000L, 1L))
 
             // Transfer out (no transfers for this card)
-            every { transferRepository.sumAmountBySourceExcludingSettlement(
+            every { transferRepository.sumAmountBySourceByKind(
                 couple.id,
                 now.atDay(1),
-                now.atEndOfMonth()
+                now.atEndOfMonth(),
+                com.budgetbook.transfer.domain.TransferKinds.NON_CARD_SETTLEMENT
             ) } returns emptyList()
 
             // settlementDate query returns 0 since no settlementDate set on transactions
