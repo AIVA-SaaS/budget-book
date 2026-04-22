@@ -444,9 +444,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     }).toList();
 
               // Calculate transfer in/out relative to current payment method filter
+              // Card settlement (BANK→CREDIT): BE 가 이미 원본 EXPENSE 를 지출로 집계함.
+              // 집계에서 제외해 이중 계산 방지. (Phase 22 PR-A hotfix)
               int transferIn = 0;
               int transferOut = 0;
               for (final t in searchedTransfers) {
+                final isCardSettlement = t.sourcePaymentMethod.type == 'BANK' &&
+                    t.destinationPaymentMethod.type == 'CREDIT';
+                if (isCardSettlement) {
+                  continue;
+                }
                 if (filterPmId != null) {
                   // Per-payment-method view: in/out relative to this method
                   if (t.sourcePaymentMethod.id == filterPmId) {
