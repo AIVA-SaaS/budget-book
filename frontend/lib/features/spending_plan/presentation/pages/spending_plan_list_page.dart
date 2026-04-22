@@ -16,7 +16,7 @@ import 'package:budget_book/features/spending_plan/presentation/widgets/spending
 import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/link_transaction_sheet.dart';
-import 'package:budget_book/core/widgets/filters/filter_chip_group.dart';
+import 'package:budget_book/core/widgets/filters/selectable_chip_group.dart';
 
 class SpendingPlanListPage extends StatefulWidget {
   const SpendingPlanListPage({super.key});
@@ -32,12 +32,11 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
   String? _statusFilter;
   late final TabController _tabController;
 
-  static const _filterItems = <FilterChipItem>[
-    FilterChipItem(value: null, label: '전체'),
-    FilterChipItem(value: 'PLANNED', label: '계획됨'),
-    FilterChipItem(value: 'COMPLETED', label: '완료'),
-    FilterChipItem(value: 'SKIPPED', label: '건너뜀'),
-    FilterChipItem(value: 'OVERDUE', label: '기한초과'),
+  static const _filterItems = <ChipItem<String>>[
+    ChipItem(value: 'PLANNED', label: '계획됨'),
+    ChipItem(value: 'COMPLETED', label: '완료'),
+    ChipItem(value: 'SKIPPED', label: '건너뜀'),
+    ChipItem(value: 'OVERDUE', label: '기한초과'),
   ];
 
   @override
@@ -170,10 +169,10 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
   }
 
   Widget _buildFilterChips() {
-    return FilterChipGroup(
+    return SelectableChipGroup<String>.single(
       items: _filterItems,
-      selectedValue: _statusFilter,
-      onSelected: (value) {
+      selected: _statusFilter,
+      onChanged: (value) {
         setState(() => _statusFilter = value);
         _loadPlans();
       },
