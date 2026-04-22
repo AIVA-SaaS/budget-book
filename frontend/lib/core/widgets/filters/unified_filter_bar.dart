@@ -5,6 +5,7 @@ import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/core/widgets/filters/category_filter.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/core/widgets/filters/amount_range_filter.dart';
+import 'package:budget_book/core/widgets/filters/selectable_chip_group.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
@@ -243,52 +244,43 @@ class UnifiedFilterBar extends StatelessWidget {
                           Text('거래 유형 (중복 선택 가능)',
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: const [
-                              _TypeChoice(value: 'EXPENSE', label: '지출'),
-                              _TypeChoice(value: 'INCOME', label: '수입'),
-                              _TypeChoice(value: 'TRANSFER', label: '이체'),
-                            ].map((c) {
-                              final selected =
-                                  tempTransactionTypes.contains(c.value);
-                              return FilterChip(
-                                label: Text(c.label),
-                                selected: selected,
-                                onSelected: (on) {
-                                  setSheetState(() {
-                                    if (on) {
-                                      tempTransactionTypes.add(c.value);
-                                    } else {
-                                      tempTransactionTypes.remove(c.value);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
+                          SelectableChipGroup<String>.multi(
+                            items: const [
+                              ChipItem(value: 'EXPENSE', label: '지출'),
+                              ChipItem(value: 'INCOME', label: '수입'),
+                              ChipItem(value: 'TRANSFER', label: '이체'),
+                            ],
+                            selected: tempTransactionTypes,
+                            onChanged: (next) {
+                              setSheetState(() {
+                                tempTransactionTypes
+                                  ..clear()
+                                  ..addAll(next);
+                              });
+                            },
+                            direction: ChipGroupDirection.wrap,
                           ),
                           const SizedBox(height: 16),
                         ],
-                        // Visibility selector
+                        // Visibility selector (single-select with "전체" chip)
                         if (enabledFilters
                             .contains(FilterType.visibility)) ...[
                           Text('공개 범위',
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 8),
-                          SegmentedButton<String?>(
-                            segments: const [
-                              ButtonSegment(value: null, label: Text('전체')),
-                              ButtonSegment(
-                                  value: 'SHARED', label: Text('공유')),
-                              ButtonSegment(
-                                  value: 'PRIVATE', label: Text('개인')),
+                          SelectableChipGroup<String>.single(
+                            items: const [
+                              ChipItem(value: 'SHARED', label: '공유'),
+                              ChipItem(value: 'PRIVATE', label: '개인'),
                             ],
-                            selected: {tempVisibility},
-                            onSelectionChanged: (values) {
-                              setSheetState(
-                                  () => tempVisibility = values.first);
+                            selected: (tempVisibility == null ||
+                                    tempVisibility == 'ALL')
+                                ? null
+                                : tempVisibility,
+                            onChanged: (v) {
+                              setSheetState(() => tempVisibility = v);
                             },
+                            direction: ChipGroupDirection.wrap,
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -574,12 +566,6 @@ class _ChipData {
   final String label;
   final VoidCallback onRemove;
   const _ChipData({required this.label, required this.onRemove});
-}
-
-class _TypeChoice {
-  final String value;
-  final String label;
-  const _TypeChoice({required this.value, required this.label});
 }
 
 class _ActiveFilterChip extends StatelessWidget {
