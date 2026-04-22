@@ -87,12 +87,25 @@ void main() {
       expect(find.text('이번 달'), findsOneWidget);
     });
 
-    testWidgets('shows active transactionType chip', (tester) async {
+    testWidgets('shows active transactionType chip (multi)', (tester) async {
       await tester.pumpWidget(createWidget(
         enabledFilters: {FilterType.transactionType},
-        state: const UnifiedFilterState(transactionType: 'EXPENSE'),
+        state: const UnifiedFilterState(transactionTypes: {'EXPENSE'}),
       ));
       expect(find.text('지출'), findsOneWidget);
+    });
+
+    testWidgets('shows combined label when multiple types selected',
+        (tester) async {
+      await tester.pumpWidget(createWidget(
+        enabledFilters: {FilterType.transactionType},
+        state: const UnifiedFilterState(
+          transactionTypes: {'EXPENSE', 'TRANSFER'},
+        ),
+      ));
+      // Combined chip label joins selected type labels with '/'.
+      expect(find.textContaining('지출'), findsOneWidget);
+      expect(find.textContaining('이체'), findsOneWidget);
     });
 
     testWidgets('shows active visibility chip', (tester) async {
@@ -125,7 +138,7 @@ void main() {
           FilterType.paymentMethod,
         },
         state: const UnifiedFilterState(
-          transactionType: 'EXPENSE',
+          transactionTypes: {'EXPENSE'},
           visibility: 'SHARED',
           categoryIds: {'cat-1'},
           categoryName: '식비',
