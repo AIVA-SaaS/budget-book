@@ -72,6 +72,7 @@ class SmartAnalysisServiceTest : BehaviorSpec({
         yearMonth = ym,
         totalIncome = income,
         totalExpense = expense,
+        totalTransfer = 0,
         balance = income - expense,
         transactionCount = 0
     )

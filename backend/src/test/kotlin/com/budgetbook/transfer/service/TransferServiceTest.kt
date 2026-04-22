@@ -14,6 +14,7 @@ import com.budgetbook.paymentmethod.domain.PaymentMethodType
 import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transfer.domain.Transfer
+import com.budgetbook.transfer.domain.TransferKind
 import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
@@ -350,6 +351,205 @@ class TransferServiceTest : BehaviorSpec({
                 shouldThrow<NotFoundException> {
                     service.deleteTransfer(user1.id, fakeId)
                 }
+            }
+        }
+    }
+
+    // --- Phase 22: TransferKind 자동 판정 (§2.1) ---
+
+    Given("a user creating a transfer without specifying kind") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        // 다양한 결제수단 타입 준비
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val bankPm2 = PaymentMethod(couple = couple, name = "국민은행", type = PaymentMethodType.BANK)
+        val cashPm = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+
+        fun makeRequest(src: PaymentMethod, dst: PaymentMethod) =
+            com.budgetbook.transfer.dto.CreateTransferRequest(
+                sourcePaymentMethodId = src.id,
+                destinationPaymentMethodId = dst.id,
+                amount = 100000,
+                transferDate = LocalDate.of(2026, 4, 1)
+            )
+
+        When("src=BANK, dst=CREDIT (카드 결제 흐름)") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createTransfer(user1.id, makeRequest(bankPm, creditPm))
+
+            Then("auto-resolves to CARD_SETTLEMENT") {
+                result.kind shouldBe TransferKind.CARD_SETTLEMENT
+                @Suppress("DEPRECATION")
+                transferSlot.captured.isCardSettlement shouldBe true
+            }
+        }
+
+        When("src=CREDIT, dst=BANK (카드→은행 환급성 이체)") {
+            every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createTransfer(user1.id, makeRequest(creditPm, bankPm))
+
+            Then("auto-resolves to GENERIC (사용자 명시로 INCOME_TRANSFER 전환 가능)") {
+                result.kind shouldBe TransferKind.GENERIC
+                @Suppress("DEPRECATION")
+                transferSlot.captured.isCardSettlement shouldBe false
+            }
+        }
+
+        When("src=BANK, dst=BANK (순수 내부 이동)") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(bankPm2.id) } returns Optional.of(bankPm2)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createTransfer(user1.id, makeRequest(bankPm, bankPm2))
+
+            Then("auto-resolves to GENERIC") {
+                result.kind shouldBe TransferKind.GENERIC
+            }
+        }
+
+        When("src=CASH, dst=BANK (현금→은행)") {
+            every { paymentMethodRepository.findById(cashPm.id) } returns Optional.of(cashPm)
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createTransfer(user1.id, makeRequest(cashPm, bankPm))
+
+            Then("auto-resolves to GENERIC") {
+                result.kind shouldBe TransferKind.GENERIC
+            }
+        }
+
+        When("src=BANK, dst=CASH (은행→현금)") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(cashPm.id) } returns Optional.of(cashPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createTransfer(user1.id, makeRequest(bankPm, cashPm))
+
+            Then("auto-resolves to GENERIC") {
+                result.kind shouldBe TransferKind.GENERIC
+            }
+        }
+    }
+
+    Given("a user explicitly specifying kind overrides auto-judgment") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val cashPm = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH)
+
+        When("BANK → CASH 이체에 kind=EXPENSE_TRANSFER 명시") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(cashPm.id) } returns Optional.of(cashPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val request = com.budgetbook.transfer.dto.CreateTransferRequest(
+                sourcePaymentMethodId = bankPm.id,
+                destinationPaymentMethodId = cashPm.id,
+                amount = 50000,
+                transferDate = LocalDate.of(2026, 4, 1),
+                kind = TransferKind.EXPENSE_TRANSFER
+            )
+            val result = service.createTransfer(user1.id, request)
+
+            Then("uses explicitly-specified EXPENSE_TRANSFER, not GENERIC") {
+                result.kind shouldBe TransferKind.EXPENSE_TRANSFER
+            }
+        }
+
+        When("CASH → BANK 이체에 kind=INCOME_TRANSFER 명시") {
+            every { paymentMethodRepository.findById(cashPm.id) } returns Optional.of(cashPm)
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val request = com.budgetbook.transfer.dto.CreateTransferRequest(
+                sourcePaymentMethodId = cashPm.id,
+                destinationPaymentMethodId = bankPm.id,
+                amount = 50000,
+                transferDate = LocalDate.of(2026, 4, 1),
+                kind = TransferKind.INCOME_TRANSFER
+            )
+            val result = service.createTransfer(user1.id, request)
+
+            Then("uses explicitly-specified INCOME_TRANSFER") {
+                result.kind shouldBe TransferKind.INCOME_TRANSFER
+            }
+        }
+    }
+
+    Given("createCardSettlement always forces kind=CARD_SETTLEMENT") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+
+        When("creating a card settlement") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
+            val transferSlot = slot<Transfer>()
+            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+
+            val result = service.createCardSettlement(
+                userId = user1.id,
+                sourcePaymentMethodId = bankPm.id,
+                destinationPaymentMethodId = creditPm.id,
+                amount = 500000,
+                transferDate = LocalDate.of(2026, 4, 15),
+                description = "카드 결제",
+                transactionIds = emptyList()
+            )
+
+            Then("saved Transfer has kind=CARD_SETTLEMENT and isCardSettlement=true") {
+                result.kind shouldBe TransferKind.CARD_SETTLEMENT
+                @Suppress("DEPRECATION")
+                transferSlot.captured.isCardSettlement shouldBe true
+            }
+        }
+    }
+
+    Given("updateTransfer allows changing kind") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val transfer = Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = sourcePm, destinationPaymentMethod = destPm,
+            amount = 100000, transferDate = LocalDate.of(2026, 4, 1),
+            kind = TransferKind.GENERIC
+        )
+        every { transferRepository.findByIdAndCoupleId(transfer.id, couple.id) } returns transfer
+        every { transferRepository.save(any()) } answers { firstArg() }
+
+        When("kind is patched to EXPENSE_TRANSFER") {
+            val request = com.budgetbook.transfer.dto.UpdateTransferRequest(
+                kind = com.budgetbook.common.dto.PatchValue(TransferKind.EXPENSE_TRANSFER)
+            )
+            val result = service.updateTransfer(user1.id, transfer.id, request)
+
+            Then("kind is updated") {
+                result.kind shouldBe TransferKind.EXPENSE_TRANSFER
             }
         }
     }

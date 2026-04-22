@@ -50,8 +50,11 @@ class PaymentMethodStatisticsServiceTest : BehaviorSpec({
 
     // Helper: mock empty transfers by default
     fun mockEmptyTransfers() {
+        // Legacy + Phase 22 kind 기반 모두 모킹
         every { transferRepository.sumAmountBySourceExcludingSettlement(couple.id, any(), any()) } returns emptyList()
         every { transferRepository.sumAmountByDestinationExcludingSettlement(couple.id, any(), any()) } returns emptyList()
+        every { transferRepository.sumAmountBySourceByKind(couple.id, any(), any(), any()) } returns emptyList()
+        every { transferRepository.sumAmountByDestinationByKind(couple.id, any(), any(), any()) } returns emptyList()
     }
 
     Given("a user in an active couple with payment method spending") {

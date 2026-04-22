@@ -57,8 +57,11 @@ class ReportServiceTest : BehaviorSpec({
     val couple = Couple(user1 = user1, user2 = user2, status = CoupleStatus.ACTIVE)
 
     // Default: no transfers (individual tests can override)
+    // Phase 22: 이제 kind 기반 쿼리를 사용. any<Set>() 으로 모든 kind 조합에 대응.
     every { transferRepository.sumAmountBySourceExcludingSettlement(any(), any(), any()) } returns emptyList()
     every { transferRepository.sumAmountByDestinationExcludingSettlement(any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountBySourceByKind(any(), any(), any(), any()) } returns emptyList()
+    every { transferRepository.sumAmountByDestinationByKind(any(), any(), any(), any()) } returns emptyList()
 
     val foodGroup = CategoryGroup(couple = couple, name = "Food", budgetType = BudgetType.WEEKLY)
     val monthlyGroup = CategoryGroup(couple = couple, name = "Fixed", budgetType = BudgetType.MONTHLY)
