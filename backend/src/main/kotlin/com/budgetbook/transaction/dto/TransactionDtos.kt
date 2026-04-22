@@ -50,8 +50,10 @@ data class CreateTransactionRequest(
     @field:NotBlank
     val type: String,
 
+    // Phase 22 T11: @Min(0) 제거. ADJUSTMENT 는 잔액 하향 조정 시 음수 필요.
+    // 부호 검증은 TransactionService 에서 type 별로 수행한다.
     @field:NotNull
-    @field:Min(0)
+    @field:Min(-999_999_999)
     @field:Max(999_999_999)
     val amount: Long,
 
@@ -75,7 +77,9 @@ data class CreateTransactionRequest(
 )
 
 data class UpdateTransactionRequest(
-    @field:Min(0)
+    // Phase 22 T11: @Min(0) 제거. ADJUSTMENT 는 잔액 하향 조정 시 음수 필요.
+    // 부호 검증은 TransactionService 에서 type 별로 수행한다.
+    @field:Min(-999_999_999)
     @field:Max(999_999_999)
     val amount: Long? = null,
 
