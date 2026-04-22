@@ -10,6 +10,7 @@ abstract class TransactionRemoteDataSource {
     int? year,
     int? month,
     String? type,
+    Set<String> transactionTypes,
     String? categoryId,
     Set<String> categoryIds = const {},
     Set<String> categoryGroupIds = const {},
@@ -44,6 +45,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     int? year,
     int? month,
     String? type,
+    Set<String> transactionTypes = const {},
     String? categoryId,
     Set<String> categoryIds = const {},
     Set<String> categoryGroupIds = const {},
@@ -77,6 +79,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       dateFrom: dateFrom,
       dateTo: dateTo,
       type: type,
+      transactionTypes: transactionTypes,
       visibility: visibility,
     );
     final queryParams = <String, dynamic>{
