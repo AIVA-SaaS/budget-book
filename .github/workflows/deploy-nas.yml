@@ -150,12 +150,19 @@ jobs:
     steps:
       - name: Verify live site
         run: |
-          # nginx reload / JVM warm-up 대기 (기존 5초 → 2초)
-          sleep 2
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aiva-bb.duckdns.org/ || echo "000")
-          API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aiva-bb.duckdns.org/actuator/health || echo "000")
-          echo "Site=$STATUS API=$API"
-          [ "$STATUS" = "200" ] && [ "$API" = "200" ]
+          # Retry 루프: happy path 2초, V54 등 무거운 마이그레이션 + JVM warm-up 시
+          # 최대 30초 대기. 실제 장애 시에만 fail 하여 false positive 방지.
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://aiva-bb.duckdns.org/ || echo "000")
+            API=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://aiva-bb.duckdns.org/actuator/health || echo "000")
+            echo "[$i/15] Site=$STATUS API=$API"
+            if [ "$STATUS" = "200" ] && [ "$API" = "200" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed after 30s"
+          exit 1
 
       - name: Create Issue on Failure
         if: failure()
