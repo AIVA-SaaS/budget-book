@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 sealed class TransferEvent extends Equatable {
   const TransferEvent();
@@ -24,6 +25,7 @@ class CreateTransfer extends TransferEvent {
   final String? description;
   final String transferDate;
   final String? memo;
+  final TransferKind kind;
 
   const CreateTransfer({
     required this.sourcePaymentMethodId,
@@ -32,6 +34,7 @@ class CreateTransfer extends TransferEvent {
     this.description,
     required this.transferDate,
     this.memo,
+    this.kind = TransferKind.generic,
   });
 
   @override
@@ -42,6 +45,7 @@ class CreateTransfer extends TransferEvent {
         description,
         transferDate,
         memo,
+        kind,
       ];
 }
 
@@ -55,6 +59,7 @@ class UpdateTransfer extends TransferEvent {
   final String? transferDate;
   final String? memo;
   final bool clearMemo;
+  final TransferKind? kind;
 
   const UpdateTransfer({
     required this.id,
@@ -66,6 +71,7 @@ class UpdateTransfer extends TransferEvent {
     this.transferDate,
     this.memo,
     this.clearMemo = false,
+    this.kind,
   });
 
   @override
@@ -79,6 +85,7 @@ class UpdateTransfer extends TransferEvent {
         transferDate,
         memo,
         clearMemo,
+        kind,
       ];
 }
 
