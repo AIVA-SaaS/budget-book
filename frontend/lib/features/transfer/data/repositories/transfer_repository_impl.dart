@@ -49,6 +49,7 @@ class TransferRepositoryImpl implements TransferRepository {
     String? description,
     required String transferDate,
     String? memo,
+    TransferKind kind = TransferKind.generic,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -56,6 +57,7 @@ class TransferRepositoryImpl implements TransferRepository {
         'destinationPaymentMethodId': destinationPaymentMethodId,
         'amount': amount,
         'transferDate': transferDate,
+        'kind': kind.wire,
         if (description != null) 'description': description,
         if (memo != null) 'memo': memo,
       };
@@ -106,6 +108,7 @@ class TransferRepositoryImpl implements TransferRepository {
     String? transferDate,
     String? memo,
     bool clearMemo = false,
+    TransferKind? kind,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -123,6 +126,7 @@ class TransferRepositoryImpl implements TransferRepository {
           'memo': memo
         else if (clearMemo)
           'memo': null,
+        if (kind != null) 'kind': kind.wire,
       };
       final result = await remoteDataSource.updateTransfer(id, data);
       return Right(result);

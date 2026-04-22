@@ -57,6 +57,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
         description: event.description,
         transferDate: event.transferDate,
         memo: event.memo,
+        kind: event.kind,
       );
       result.fold(
         (failure) {
@@ -99,6 +100,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
         transferDate: event.transferDate,
         memo: event.memo,
         clearMemo: event.clearMemo,
+        kind: event.kind,
       );
       result.fold(
         (failure) {
