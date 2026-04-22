@@ -6,6 +6,8 @@ import com.budgetbook.couple.domain.Couple
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
@@ -51,10 +53,24 @@ class Transfer(
     val autoSettlementKey: String? = null,
 
     /**
-     * 카드 대금 결제를 위한 이체 여부.
-     * true = bank→card 카드 결제. 통계에서 제외하여 이중 계산 방지.
-     * false = 일반 이체 (계좌 간 자금 이동).
+     * 이체 의미 분류 (Phase 22).
+     * - CARD_SETTLEMENT: 카드 결제 (통계 제외)
+     * - EXPENSE_TRANSFER: 지출 집계
+     * - INCOME_TRANSFER: 수입 집계
+     * - GENERIC: 순수 내부 이동 (이체 별도 집계)
      */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 20)
+    var kind: TransferKind = TransferKind.GENERIC,
+
+    /**
+     * @deprecated Phase 22: `kind == CARD_SETTLEMENT` 로 대체. V55 에서 컬럼 DROP 예정.
+     * 백워드 호환용으로 DB 컬럼은 유지하되 신규 코드는 `kind` 를 사용할 것.
+     */
+    @Deprecated(
+        message = "Use kind == TransferKind.CARD_SETTLEMENT. Column will be dropped in V55.",
+        replaceWith = ReplaceWith("kind == TransferKind.CARD_SETTLEMENT")
+    )
     @Column(name = "is_card_settlement", nullable = false)
-    val isCardSettlement: Boolean = false
+    var isCardSettlement: Boolean = false
 ) : BaseTimeEntity()

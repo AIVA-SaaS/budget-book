@@ -79,4 +79,13 @@ class Transaction(
     var owner: User? = null
 ) : BaseTimeEntity()
 
-enum class TransactionType { INCOME, EXPENSE }
+/**
+ * 거래 유형.
+ *
+ * - `INCOME` / `EXPENSE`: 통상 수입/지출 — 모든 통계에 집계됨
+ * - `ADJUSTMENT` (Phase 22): 실잔액 보정용. `amount` 는 부호 있는 증감값.
+ *   - 모든 통계(totalExpense/totalIncome/totalTransfer) 에서 **제외**
+ *   - 잔액 계산(`PaymentMethodService.recomputeBalance`) 에는 **포함**
+ */
+enum class TransactionType { INCOME, EXPENSE, ADJUSTMENT }
+
