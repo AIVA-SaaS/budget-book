@@ -842,4 +842,134 @@ class TransactionServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- transactionTypes 다중 필터 (Phase 22 T10) ---
+
+    Given("transactions exist and transactionTypes=[EXPENSE, INCOME] multi filter is used") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val expenseTx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "지출", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val incomeTx = Transaction(
+            couple = couple, author = user2, type = TransactionType.INCOME,
+            amount = 3000000, description = "급여", transactionDate = LocalDate.of(2024, 1, 25)
+        )
+        val specSlot = slot<org.springframework.data.jpa.domain.Specification<Transaction>>()
+        val page = PageImpl(listOf(incomeTx, expenseTx), PageRequest.of(0, 20), 2)
+        every { transactionRepository.findAll(capture(specSlot), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions is called with transactionTypes=[EXPENSE, INCOME]") {
+            val result = service.listTransactions(
+                userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                keyword = null, paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                visibility = null, page = 0, size = 20,
+                transactionTypes = listOf("EXPENSE", "INCOME")
+            )
+
+            Then("routes through Specification (IN-clause) and returns filtered results") {
+                result.content.size shouldBe 2
+                result.totalElements shouldBe 2
+                // Spec 경로가 실제로 호출되었는지 확인 (legacy JPQL 은 단일 type 만 지원하므로 호출되면 안됨)
+                verify(exactly = 1) { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) }
+                verify(exactly = 0) { transactionRepository.findByCoupleIdAndFilters(any(), any(), any(), any(), any(), any(), any()) }
+                specSlot.isCaptured shouldBe true
+            }
+        }
+    }
+
+    Given("transactionTypes contains FE-only TRANSFER value") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("listTransactions is called with transactionTypes=[TRANSFER]") {
+            Then("throws BusinessException with VALIDATION_ERROR (TRANSFER 는 FE 의사-타입)") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.listTransactions(
+                        userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                        keyword = null, paymentMethodId = null, pocketId = null,
+                        amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                        visibility = null, page = 0, size = 20,
+                        transactionTypes = listOf("TRANSFER")
+                    )
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("listTransactions is called with transactionTypes=[EXPENSE, BOGUS]") {
+            Then("throws BusinessException with VALIDATION_ERROR (하나라도 잘못되면 400)") {
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.listTransactions(
+                        userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                        keyword = null, paymentMethodId = null, pocketId = null,
+                        amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                        visibility = null, page = 0, size = 20,
+                        transactionTypes = listOf("EXPENSE", "BOGUS")
+                    )
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+    }
+
+    Given("both singular `type` and multi `transactionTypes` are set") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.INCOME,
+            amount = 3000000, description = "급여", transactionDate = LocalDate.of(2024, 1, 25)
+        )
+        val page = PageImpl(listOf(tx), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) } returns page
+
+        When("listTransactions receives type=EXPENSE AND transactionTypes=[EXPENSE, INCOME]") {
+            val result = service.listTransactions(
+                userId = user1.id, year = 2024, month = 1, type = "EXPENSE", categoryId = null,
+                keyword = null, paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                visibility = null, page = 0, size = 20,
+                transactionTypes = listOf("EXPENSE", "INCOME")
+            )
+
+            Then("multi `transactionTypes` takes precedence (matches FE toQueryParams)") {
+                // 단수 type=EXPENSE 는 무시되고 IN-clause(EXPENSE, INCOME) 로 조회.
+                // 결과로 INCOME 거래(급여) 가 포함됨 — 단수가 우선이었다면 걸러졌을 것.
+                result.content.size shouldBe 1
+                result.content[0].type shouldBe "INCOME"
+                verify(exactly = 1) { transactionRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Transaction>>(), any<org.springframework.data.domain.Pageable>()) }
+            }
+        }
+    }
+
+    Given("transactionTypes is empty list") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val tx = Transaction(
+            couple = couple, author = user1, type = TransactionType.EXPENSE,
+            amount = 15000, description = "점심", transactionDate = LocalDate.of(2024, 1, 15)
+        )
+        val page = PageImpl(listOf(tx), PageRequest.of(0, 20), 1)
+        every { transactionRepository.findByCoupleIdAndFilters(
+            couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
+        ) } returns page
+
+        When("listTransactions is called with transactionTypes=emptyList()") {
+            val result = service.listTransactions(
+                userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                keyword = null, paymentMethodId = null, pocketId = null,
+                amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                visibility = null, page = 0, size = 20,
+                transactionTypes = emptyList()
+            )
+
+            Then("falls back to legacy JPQL path (빈 리스트 = 필터 없음)") {
+                result.content.size shouldBe 1
+                verify { transactionRepository.findByCoupleIdAndFilters(
+                    couple.id, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31), null, null, user1.id, any()
+                ) }
+            }
+        }
+    }
 })

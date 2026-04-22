@@ -27,6 +27,10 @@ data class CommonFilterParams(
     val keyword: String? = null,
     val visibility: String? = null,
     val type: String? = null,
+    // 복수 타입 필터 (Phase 22 T10). FE 가 `transactionTypes=EXPENSE&transactionTypes=INCOME` 포맷으로 전송.
+    // 단수 `type` 과 병존 시 Service 계층에서 `transactionTypes` 우선 (FE `toQueryParams` 와 일치).
+    // 빈/null = 필터 없음. 유효 값: EXPENSE / INCOME / ADJUSTMENT (TRANSFER 는 FE 의사-타입).
+    val transactionTypes: List<String>? = null,
     val status: String? = null
 ) {
     /**
