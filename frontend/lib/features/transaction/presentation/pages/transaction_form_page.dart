@@ -42,6 +42,7 @@ import 'package:budget_book/features/ai/domain/entities/ai_classify_result.dart'
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
@@ -134,6 +135,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   late DateTime _transferDate;
   bool _isTransferSubmitting = false;
   int _swapCounter = 0;
+  // Phase 23 PR-X2: TransferKind dropdown in embedded Tab 2.
+  // Default GENERIC; no auto-recommendation (user-driven choice).
+  TransferKind _transferKind = TransferKind.generic;
 
   bool get isEditing => widget.transactionId != null;
 
@@ -870,6 +874,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       description: description,
       transferDate: dateStr,
       memo: memo,
+      kind: _transferKind,
     ));
   }
 
@@ -893,9 +898,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     final destIsCredit = selectedDest?.isCredit ?? false;
     final sourceIsCredit = selectedSource?.isCredit ?? false;
 
-    final sourceMethods = destIsCredit
-        ? methods.where((pm) => !pm.isCredit).toList()
-        : methods;
+    // Bidirectional same-PM filter: exclude the other side's selection.
+    final sourceMethods = methods
+        .where((pm) => pm.id != _transferDestinationPaymentMethodId)
+        .where((pm) => !destIsCredit || !pm.isCredit)
+        .toList();
     final destMethods = methods
         .where((pm) => pm.id != _transferSourcePaymentMethodId)
         .where((pm) => !sourceIsCredit || !pm.isCredit)
@@ -957,6 +964,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               onChanged: (value) {
                 setState(() {
                   _transferSourcePaymentMethodId = value;
+                  // Clear dest if it matches new source (bidirectional guard).
+                  if (value != null &&
+                      _transferDestinationPaymentMethodId == value) {
+                    _transferDestinationPaymentMethodId = null;
+                  }
                   final newSource =
                       methods.where((pm) => pm.id == value).firstOrNull;
                   if (newSource?.isCredit == true &&
@@ -1009,6 +1021,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               onChanged: (value) {
                 setState(() {
                   _transferDestinationPaymentMethodId = value;
+                  // Clear source if it matches new dest (bidirectional guard).
+                  if (value != null &&
+                      _transferSourcePaymentMethodId == value) {
+                    _transferSourcePaymentMethodId = null;
+                    _swapCounter++;
+                  }
                   final newDest =
                       methods.where((pm) => pm.id == value).firstOrNull;
                   if (newDest?.isCredit == true &&
@@ -1020,6 +1038,37 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               },
               validator: (value) =>
                   value == null ? '입금 결제수단을 선택하세요' : null,
+            ),
+            const SizedBox(height: 16),
+            // Transfer kind (Phase 23 PR-X2) — matches transfer_form_page.
+            // Default GENERIC; no auto-recommendation. Card settlement
+            // (BANK→CREDIT) is handled via its dedicated flow.
+            DropdownButtonFormField<TransferKind>(
+              initialValue: _transferKind,
+              decoration: const InputDecoration(
+                labelText: '종류',
+                prefixIcon: Icon(Icons.category_outlined),
+                helperText: '이체의 성격을 선택하세요. 기본은 "순수 이체" 입니다.',
+              ),
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(
+                  value: TransferKind.generic,
+                  child: Text('순수 이체 (통계 제외)'),
+                ),
+                DropdownMenuItem(
+                  value: TransferKind.expenseTransfer,
+                  child: Text('지출로 반영'),
+                ),
+                DropdownMenuItem(
+                  value: TransferKind.incomeTransfer,
+                  child: Text('수입으로 반영'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _transferKind = value);
+              },
             ),
             const SizedBox(height: 16),
             // Description
