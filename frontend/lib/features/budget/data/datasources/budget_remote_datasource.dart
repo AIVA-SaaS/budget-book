@@ -6,7 +6,9 @@ abstract class BudgetRemoteDataSource {
   Future<BudgetModel> createBudget(Map<String, dynamic> data);
   Future<List<BudgetModel>> getBudgets({required int year, required int month});
   Future<BudgetModel> updateBudget(String id, Map<String, dynamic> data);
-  Future<void> deleteBudget(String id);
+  /// Phase 23 PR-X4: 월별 OVERRIDE upsert.
+  Future<BudgetModel> upsertMonthOverride(Map<String, dynamic> data);
+  Future<void> deleteBudget(String id, {bool cascadeFuture = false});
   Future<BudgetSummaryModel> getBudgetSummary({
     required int year,
     required int month,
@@ -61,8 +63,22 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
   }
 
   @override
-  Future<void> deleteBudget(String id) async {
-    await apiClient.dio.delete('${ApiEndpoints.budgets}/$id');
+  Future<void> deleteBudget(String id, {bool cascadeFuture = false}) async {
+    await apiClient.dio.delete(
+      '${ApiEndpoints.budgets}/$id',
+      queryParameters: {'cascadeFuture': cascadeFuture},
+    );
+  }
+
+  @override
+  Future<BudgetModel> upsertMonthOverride(Map<String, dynamic> data) async {
+    final response = await apiClient.dio.post(
+      '${ApiEndpoints.budgets}/month-override',
+      data: data,
+    );
+    return BudgetModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
   }
 
   @override

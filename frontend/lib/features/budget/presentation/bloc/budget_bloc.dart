@@ -14,6 +14,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     on<LoadBudgetSummary>(_onLoadBudgetSummary);
     on<CreateBudget>(_onCreateBudget);
     on<UpdateBudget>(_onUpdateBudget);
+    on<UpsertMonthOverride>(_onUpsertMonthOverride);
     on<DeleteBudget>(_onDeleteBudget);
     on<CopyPreviousMonthBudgets>(_onCopyPreviousMonthBudgets);
   }
@@ -124,6 +125,8 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         periodType: event.periodType,
         startDate: event.startDate,
         endDate: event.endDate,
+        endYearMonth: event.endYearMonth,
+        rowKind: event.rowKind,
       );
       result.fold(
         (failure) {
@@ -175,6 +178,54 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         categoryId: event.categoryId,
         groupId: event.groupId,
         yearMonth: event.yearMonth,
+        endYearMonth: event.endYearMonth,
+      );
+      result.fold(
+        (failure) {
+          final currentState = state;
+          if (currentState is BudgetLoaded) {
+            emit(BudgetLoaded(
+              budgets: currentState.budgets,
+              summary: currentState.summary,
+              year: currentState.year,
+              month: currentState.month,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(BudgetError(failure.message));
+          }
+        },
+        (_) => add(LoadBudgets(year: _currentYear, month: _currentMonth)),
+      );
+    } catch (e) {
+      final currentState = state;
+      if (currentState is BudgetLoaded) {
+        emit(BudgetLoaded(
+          budgets: currentState.budgets,
+          summary: currentState.summary,
+          year: currentState.year,
+          month: currentState.month,
+          operationError: '예기치 않은 오류가 발생했습니다',
+        ));
+      } else {
+        emit(const BudgetError('예기치 않은 오류가 발생했습니다'));
+      }
+    }
+  }
+
+  Future<void> _onUpsertMonthOverride(
+    UpsertMonthOverride event,
+    Emitter<BudgetState> emit,
+  ) async {
+    try {
+      final result = await budgetRepository.upsertMonthOverride(
+        categoryId: event.categoryId,
+        groupId: event.groupId,
+        yearMonth: event.yearMonth,
+        amount: event.amount,
+        budgetPeriod: event.budgetPeriod,
+        weeklyAmount: event.weeklyAmount,
+        pocketId: event.pocketId,
       );
       result.fold(
         (failure) {
@@ -215,7 +266,10 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
   ) async {
     try {
       final currentState = state;
-      final result = await budgetRepository.deleteBudget(event.id);
+      final result = await budgetRepository.deleteBudget(
+        event.id,
+        cascadeFuture: event.cascadeFuture,
+      );
       result.fold(
         (failure) {
           if (currentState is BudgetLoaded) {

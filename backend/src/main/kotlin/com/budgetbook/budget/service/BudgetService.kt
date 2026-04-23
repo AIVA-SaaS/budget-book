@@ -2,6 +2,7 @@ package com.budgetbook.budget.service
 
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.budget.domain.BudgetPeriod
+import com.budgetbook.budget.domain.BudgetRowKind
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.domain.PeriodType
 import com.budgetbook.budget.dto.BudgetRequest
@@ -10,6 +11,7 @@ import com.budgetbook.budget.dto.BudgetSummaryItemResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
+import com.budgetbook.budget.dto.MonthOverrideUpsertRequest
 import com.budgetbook.budget.dto.toResponse
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryGroupRepository
@@ -89,8 +91,35 @@ class BudgetService(
             }
         } else null
 
-        if (budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, request.categoryId, request.groupId, request.yearMonth)) {
-            throw ConflictException("DUPLICATE_BUDGET", "Budget for this category/group and month already exists.")
+        // Phase 23 PR-X4: 기본값은 TEMPLATE (범위 예산). 명시적 OVERRIDE 만 단일월.
+        val rowKind = when (request.rowKind?.uppercase()) {
+            "OVERRIDE" -> BudgetRowKind.OVERRIDE
+            "TEMPLATE", null -> BudgetRowKind.TEMPLATE
+            else -> throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "Invalid rowKind: ${request.rowKind}"
+            )
+        }
+
+        // endYearMonth 유효성: start <= end
+        if (request.endYearMonth != null && request.endYearMonth < request.yearMonth) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "endYearMonth must be >= yearMonth."
+            )
+        }
+
+        when (rowKind) {
+            BudgetRowKind.TEMPLATE -> {
+                if (budgetRepository.existsTemplateByCategoryGroup(couple.id, request.categoryId, request.groupId)) {
+                    throw ConflictException("DUPLICATE_BUDGET", "Template for this category/group already exists.")
+                }
+            }
+            BudgetRowKind.OVERRIDE -> {
+                if (budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(
+                        couple.id, request.categoryId, request.groupId, request.yearMonth
+                    )) {
+                    throw ConflictException("DUPLICATE_BUDGET", "Override for this category/group and month already exists.")
+                }
+            }
         }
 
         val budgetPeriod = try {
@@ -132,11 +161,20 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
+        // OVERRIDE 는 단일월 — end_ym = year_month 강제.
+        // TEMPLATE 은 request.endYearMonth (null=무기한).
+        val effectiveEndYearMonth = when (rowKind) {
+            BudgetRowKind.OVERRIDE -> request.yearMonth
+            BudgetRowKind.TEMPLATE -> request.endYearMonth
+        }
+
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
             group = group,
             yearMonth = request.yearMonth,
+            endYearMonth = effectiveEndYearMonth,
+            rowKind = rowKind,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
             weeklyAmount = weeklyAmount,
@@ -194,6 +232,19 @@ class BudgetService(
         }
 
         budget.amount = request.amount
+
+        // Phase 23 PR-X4: TEMPLATE 의 endYearMonth 갱신 지원.
+        if (request.endYearMonth != null) {
+            if (budget.rowKind == BudgetRowKind.TEMPLATE) {
+                if (request.endYearMonth < budget.yearMonth) {
+                    throw com.budgetbook.common.exception.BusinessException(
+                        "VALIDATION_ERROR", "endYearMonth must be >= yearMonth."
+                    )
+                }
+                budget.endYearMonth = request.endYearMonth
+            }
+            // OVERRIDE 는 단일월 고정이므로 endYearMonth 무시.
+        }
 
         request.budgetPeriod?.let { periodStr ->
             val newPeriod = try {
@@ -270,7 +321,7 @@ class BudgetService(
     }
 
     @Transactional
-    fun deleteBudget(userId: UUID, budgetId: UUID) {
+    fun deleteBudget(userId: UUID, budgetId: UUID, cascadeFuture: Boolean = false) {
         val couple = getActiveCouple(userId)
         val budget = budgetRepository.findById(budgetId)
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
@@ -278,7 +329,34 @@ class BudgetService(
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
         validatePrivateOwner(budget, userId)
 
-        budgetRepository.delete(budget)
+        if (cascadeFuture) {
+            // Phase 23 PR-X4: "이후 달도 삭제"
+            // 1) TEMPLATE 이면 : end_ym = (yearMonth - 1). yearMonth 와 같으면 TEMPLATE 자체 삭제.
+            // 2) OVERRIDE 이면 : 해당 (cat, group) 의 TEMPLATE 을 찾아 end_ym = (yearMonth - 1) 로 단축.
+            // 3) 두 경우 모두 : yearMonth 이후 OVERRIDE 들 일괄 삭제.
+            val cascadeFromYearMonth = budget.yearMonth
+            val categoryId = budget.category?.id
+            val groupId = budget.group?.id
+
+            val template = if (budget.rowKind == BudgetRowKind.TEMPLATE) budget
+            else budgetRepository.findTemplateByCategoryGroup(couple.id, categoryId, groupId)
+
+            if (template != null) {
+                val prevMonth = previousYearMonth(cascadeFromYearMonth)
+                if (prevMonth < template.yearMonth) {
+                    // 템플릿 시작 이전 → 템플릿 전체 삭제
+                    budgetRepository.delete(template)
+                } else {
+                    template.endYearMonth = prevMonth
+                    budgetRepository.save(template)
+                }
+            }
+
+            budgetRepository.deleteOverridesFromMonth(couple.id, categoryId, groupId, cascadeFromYearMonth)
+        } else {
+            budgetRepository.delete(budget)
+        }
+
         syncEventPublisher.publish(SyncEvent(
             type = "BUDGET_DELETED",
             entityType = "BUDGET",
@@ -286,6 +364,134 @@ class BudgetService(
             coupleId = couple.id,
             authorId = userId
         ))
+    }
+
+    /**
+     * Phase 23 PR-X4: 특정 월에 대한 OVERRIDE upsert.
+     *
+     * - (couple, category, group, yearMonth) OVERRIDE 가 있으면 amount/기간 업데이트
+     * - 없으면 OVERRIDE row 생성 (단일월)
+     * - TEMPLATE 은 건드리지 않음 → 다른 달 영향 없음
+     */
+    @Transactional
+    fun upsertMonthOverride(userId: UUID, request: MonthOverrideUpsertRequest): BudgetResponse {
+        val couple = getActiveCouple(userId)
+
+        if (request.categoryId != null && request.groupId != null) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "categoryId and groupId are mutually exclusive."
+            )
+        }
+
+        val category = request.categoryId?.let { catId ->
+            val cat = categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+            cat
+        }
+
+        val group = request.groupId?.let { gId ->
+            categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+        }
+
+        val visibility = when {
+            category != null -> category.visibility
+            group != null -> group.visibility
+            else -> Visibility.SHARED
+        }
+
+        val pocket = if (request.pocketId != null) {
+            moneyPocketRepository.findById(request.pocketId).orElseThrow {
+                NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
+            }.also {
+                OwnershipValidator.validateOwnership(it.couple.id, couple, "Pocket")
+            }
+        } else null
+
+        val budgetPeriod = try {
+            BudgetPeriod.valueOf(request.budgetPeriod ?: "MONTHLY")
+        } catch (e: IllegalArgumentException) {
+            throw com.budgetbook.common.exception.BusinessException(
+                "VALIDATION_ERROR", "Invalid budget period: ${request.budgetPeriod}"
+            )
+        }
+
+        val periodType = request.periodType?.let {
+            try {
+                PeriodType.valueOf(it)
+            } catch (e: IllegalArgumentException) {
+                throw com.budgetbook.common.exception.BusinessException(
+                    "VALIDATION_ERROR", "Invalid period type: $it"
+                )
+            }
+        } ?: when (budgetPeriod) {
+            BudgetPeriod.WEEKLY -> PeriodType.WEEKLY
+            BudgetPeriod.MONTHLY -> PeriodType.MONTHLY
+        }
+
+        val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
+            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(request.yearMonth))
+        } else null
+
+        val (sd, ed) = resolveStartEndDates(periodType, request.yearMonth, request.startDate, request.endDate)
+
+        val existing = budgetRepository.findOverrideForKey(
+            couple.id, request.categoryId, request.groupId, request.yearMonth
+        )
+
+        val saved = if (existing != null) {
+            validatePrivateOwner(existing, userId)
+            existing.amount = request.amount
+            existing.budgetPeriod = budgetPeriod
+            existing.weeklyAmount = weeklyAmount
+            existing.periodType = periodType
+            existing.startDate = sd
+            existing.endDate = ed
+            existing.pocket = pocket
+            existing.visibility = visibility
+            budgetRepository.save(existing)
+        } else {
+            val owner = if (visibility == Visibility.PRIVATE) {
+                userRepository.findById(userId)
+                    .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+            } else null
+
+            val budget = MonthlyBudget(
+                couple = couple,
+                category = category,
+                group = group,
+                yearMonth = request.yearMonth,
+                endYearMonth = request.yearMonth, // 단일월
+                rowKind = BudgetRowKind.OVERRIDE,
+                amount = request.amount,
+                budgetPeriod = budgetPeriod,
+                weeklyAmount = weeklyAmount,
+                periodType = periodType,
+                startDate = sd,
+                endDate = ed,
+                pocket = pocket,
+                visibility = visibility,
+                owner = owner
+            )
+            budgetRepository.save(budget)
+        }
+
+        syncEventPublisher.publish(SyncEvent(
+            type = if (existing != null) "BUDGET_UPDATED" else "BUDGET_CREATED",
+            entityType = "BUDGET",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
+    }
+
+    /** "YYYY-MM" 의 이전 월을 반환. 2026-01 → 2025-12. */
+    private fun previousYearMonth(yearMonth: String): String {
+        val parts = yearMonth.split("-")
+        val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt()).minusMonths(1)
+        return "%04d-%02d".format(ym.year, ym.monthValue)
     }
 
     @Transactional(readOnly = true)
