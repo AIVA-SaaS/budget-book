@@ -3,12 +3,10 @@ package com.budgetbook.budget.service
 import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.budget.domain.BudgetPeriod
-import com.budgetbook.budget.domain.BudgetRowKind
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.dto.BudgetRequest
 import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
-import com.budgetbook.budget.dto.MonthOverrideUpsertRequest
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.Category
@@ -73,27 +71,24 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("creating a budget with a category") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
-            // Phase 23 PR-X4: default is TEMPLATE → mock template exists check.
-            every { budgetRepository.existsTemplateByCategoryGroup(couple.id, category.id, null) } returns false
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, category.id, null, "2026-03") } returns false
             val budgetSlot = slot<MonthlyBudget>()
             every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
 
             val request = BudgetRequest(categoryId = category.id, yearMonth = "2026-03", amount = 150000)
             val result = service.createBudget(user1.id, request)
 
-            Then("creates budget with correct fields (TEMPLATE by default, endYearMonth=null)") {
+            Then("creates budget with correct fields") {
                 result.yearMonth shouldBe "2026-03"
                 result.amount shouldBe 150000
                 result.category!!.id shouldBe category.id
                 result.category!!.name shouldBe "식비"
                 result.coupleId shouldBe couple.id
-                result.rowKind shouldBe "TEMPLATE"
-                result.endYearMonth shouldBe null
             }
         }
 
         When("creating a total budget (null category)") {
-            every { budgetRepository.existsTemplateByCategoryGroup(couple.id, null, null) } returns false
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, null, null, "2026-03") } returns false
             val budgetSlot = slot<MonthlyBudget>()
             every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
 
@@ -108,7 +103,7 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("creating a duplicate budget") {
             every { categoryRepository.findById(category.id) } returns Optional.of(category)
-            every { budgetRepository.existsTemplateByCategoryGroup(couple.id, category.id, null) } returns true
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, category.id, null, "2026-03") } returns true
 
             val request = BudgetRequest(categoryId = category.id, yearMonth = "2026-03", amount = 150000)
 
@@ -563,7 +558,7 @@ class BudgetServiceTest : BehaviorSpec({
 
         When("creating a budget with a groupId") {
             every { categoryGroupRepository.findByIdAndCoupleId(group.id, couple.id) } returns group
-            every { budgetRepository.existsTemplateByCategoryGroup(couple.id, null, group.id) } returns false
+            every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, null, group.id, "2026-03") } returns false
             val budgetSlot = slot<MonthlyBudget>()
             every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
 
@@ -813,261 +808,6 @@ class BudgetServiceTest : BehaviorSpec({
                     service.createBudget(user1.id, BudgetRequest(yearMonth = "2026-03", amount = 100000))
                 }
                 ex.code shouldBe "COUPLE_NOT_FOUND"
-            }
-        }
-    }
-
-    // ================================================================
-    // Phase 23 PR-X4: 템플릿 + 오버라이드 모델
-    // ================================================================
-
-    Given("PR-X4: creating a TEMPLATE budget with explicit endYearMonth") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-        every { categoryRepository.findById(category.id) } returns Optional.of(category)
-        every { budgetRepository.existsTemplateByCategoryGroup(couple.id, category.id, null) } returns false
-        val budgetSlot = slot<MonthlyBudget>()
-        every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
-
-        When("createBudget is called with endYearMonth=2026-06") {
-            val request = BudgetRequest(
-                categoryId = category.id,
-                yearMonth = "2026-02",
-                amount = 150000,
-                endYearMonth = "2026-06"
-            )
-            val result = service.createBudget(user1.id, request)
-
-            Then("creates TEMPLATE with start=2026-02, end=2026-06") {
-                result.rowKind shouldBe "TEMPLATE"
-                result.yearMonth shouldBe "2026-02"
-                result.endYearMonth shouldBe "2026-06"
-                result.amount shouldBe 150000
-            }
-        }
-    }
-
-    Given("PR-X4: creating with invalid endYearMonth (end < start)") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-        every { categoryRepository.findById(category.id) } returns Optional.of(category)
-
-        When("createBudget is called with endYearMonth < yearMonth") {
-            val request = BudgetRequest(
-                categoryId = category.id,
-                yearMonth = "2026-06",
-                amount = 150000,
-                endYearMonth = "2026-03"
-            )
-
-            Then("throws BusinessException") {
-                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
-                    service.createBudget(user1.id, request)
-                }
-                ex.code shouldBe "VALIDATION_ERROR"
-            }
-        }
-    }
-
-    Given("PR-X4: upsertMonthOverride creates a new OVERRIDE") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-        every { categoryRepository.findById(category.id) } returns Optional.of(category)
-        every { budgetRepository.findOverrideForKey(couple.id, category.id, null, "2026-03") } returns null
-        val budgetSlot = slot<MonthlyBudget>()
-        every { budgetRepository.save(capture(budgetSlot)) } answers { budgetSlot.captured }
-
-        When("upsertMonthOverride is called") {
-            val request = MonthOverrideUpsertRequest(
-                categoryId = category.id,
-                yearMonth = "2026-03",
-                amount = 300000
-            )
-            val result = service.upsertMonthOverride(user1.id, request)
-
-            Then("creates OVERRIDE with start=end=2026-03") {
-                result.rowKind shouldBe "OVERRIDE"
-                result.yearMonth shouldBe "2026-03"
-                result.endYearMonth shouldBe "2026-03"
-                result.amount shouldBe 300000
-            }
-        }
-    }
-
-    Given("PR-X4: upsertMonthOverride updates an existing OVERRIDE") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-        every { categoryRepository.findById(category.id) } returns Optional.of(category)
-
-        val existing = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-03", endYearMonth = "2026-03",
-            rowKind = BudgetRowKind.OVERRIDE,
-            amount = 150000
-        )
-        every { budgetRepository.findOverrideForKey(couple.id, category.id, null, "2026-03") } returns existing
-        every { budgetRepository.save(existing) } returns existing
-
-        When("upsertMonthOverride is called with new amount") {
-            val request = MonthOverrideUpsertRequest(
-                categoryId = category.id,
-                yearMonth = "2026-03",
-                amount = 500000
-            )
-            val result = service.upsertMonthOverride(user1.id, request)
-
-            Then("updates the existing OVERRIDE amount — template unchanged") {
-                result.rowKind shouldBe "OVERRIDE"
-                result.amount shouldBe 500000
-                existing.amount shouldBe 500000
-                verify(exactly = 1) { budgetRepository.save(existing) }
-            }
-        }
-    }
-
-    Given("PR-X4: merged view — override wins over template for same month") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-
-        // findByCoupleIdAndYearMonthAndUserId 는 default method 로 병합 수행.
-        // 서비스 레벨 테스트에서는 repo.findByCoupleIdAndYearMonthAndUserId 를 직접 스텁하여
-        // 병합 후 결과가 service 로 전달되는지 확인.
-        val override = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-03", endYearMonth = "2026-03",
-            rowKind = BudgetRowKind.OVERRIDE,
-            amount = 300000
-        )
-        // findByCoupleIdAndYearMonthAndUserId 를 직접 스텁 (default 메서드 병합 결과)
-        every {
-            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id)
-        } returns listOf(override) // 병합 결과: override only (같은 key 의 template 제외)
-
-        When("getBudgetsByMonth(2026-03) is called") {
-            val result = service.getBudgetsByMonth(user1.id, 2026, 3)
-
-            Then("returns only the override (amount=300000)") {
-                result.size shouldBe 1
-                result[0].amount shouldBe 300000
-                result[0].rowKind shouldBe "OVERRIDE"
-            }
-        }
-    }
-
-    Given("PR-X4: deleteBudget with cascadeFuture=true shortens TEMPLATE and deletes future overrides") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-
-        When("deleteBudget(template, cascadeFuture=true, from=2026-04) is called") {
-            // NOTE: Here we pretend the caller invoked cascade at M=template.yearMonth is wrong.
-            // We simulate targeting the template's yearMonth=2026-04 via a mock that we construct.
-            // For this test we directly call with template id — the service reads template.yearMonth
-            // for cascadeFromYearMonth. So we set template.yearMonth=2026-04 via a new instance.
-            val cascadeTemplate = MonthlyBudget(
-                couple = couple, category = category,
-                yearMonth = "2026-04", endYearMonth = null,
-                rowKind = BudgetRowKind.TEMPLATE,
-                amount = 150000
-            )
-            every { budgetRepository.findById(cascadeTemplate.id) } returns Optional.of(cascadeTemplate)
-            every { budgetRepository.save(cascadeTemplate) } returns cascadeTemplate
-            every { budgetRepository.delete(cascadeTemplate) } returns Unit
-            every {
-                budgetRepository.deleteOverridesFromMonth(couple.id, category.id, null, "2026-04")
-            } returns 2
-
-            service.deleteBudget(user1.id, cascadeTemplate.id, cascadeFuture = true)
-
-            Then("template end_ym becomes (from-1) and overrides from that month are deleted") {
-                // Actually, since cascadeTemplate.yearMonth=2026-04 and we cascade from it,
-                // prevMonth=2026-03 is < template.yearMonth(2026-04) → template 전체 삭제 경로.
-                verify(exactly = 1) { budgetRepository.delete(cascadeTemplate) }
-                verify(exactly = 1) {
-                    budgetRepository.deleteOverridesFromMonth(couple.id, category.id, null, "2026-04")
-                }
-            }
-        }
-    }
-
-    Given("PR-X4: deleteBudget cascadeFuture on OVERRIDE shortens parent TEMPLATE") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-
-        val override = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-05", endYearMonth = "2026-05",
-            rowKind = BudgetRowKind.OVERRIDE,
-            amount = 300000
-        )
-        val parentTemplate = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-02", endYearMonth = null,
-            rowKind = BudgetRowKind.TEMPLATE,
-            amount = 150000
-        )
-        every { budgetRepository.findById(override.id) } returns Optional.of(override)
-        every {
-            budgetRepository.findTemplateByCategoryGroup(couple.id, category.id, null)
-        } returns parentTemplate
-        every { budgetRepository.save(parentTemplate) } returns parentTemplate
-        every {
-            budgetRepository.deleteOverridesFromMonth(couple.id, category.id, null, "2026-05")
-        } returns 1
-
-        When("deleteBudget(override, cascadeFuture=true) is called") {
-            service.deleteBudget(user1.id, override.id, cascadeFuture = true)
-
-            Then("template end_ym = 2026-04 (prev of 2026-05) and future overrides wiped") {
-                parentTemplate.endYearMonth shouldBe "2026-04"
-                verify(exactly = 1) { budgetRepository.save(parentTemplate) }
-                verify(exactly = 1) {
-                    budgetRepository.deleteOverridesFromMonth(couple.id, category.id, null, "2026-05")
-                }
-            }
-        }
-    }
-
-    Given("PR-X4: deleteBudget without cascadeFuture deletes only that row") {
-        every { coupleResolver.getActiveCouple(user1.id) } returns couple
-
-        val override = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-03", endYearMonth = "2026-03",
-            rowKind = BudgetRowKind.OVERRIDE,
-            amount = 300000
-        )
-        every { budgetRepository.findById(override.id) } returns Optional.of(override)
-        every { budgetRepository.delete(override) } returns Unit
-
-        When("deleteBudget(override, cascadeFuture=false)") {
-            service.deleteBudget(user1.id, override.id, cascadeFuture = false)
-
-            Then("only the override is deleted — no cascade") {
-                verify(exactly = 1) { budgetRepository.delete(override) }
-                verify(exactly = 0) {
-                    budgetRepository.deleteOverridesFromMonth(any(), any(), any(), any())
-                }
-            }
-        }
-    }
-
-    Given("PR-X4: repository default merge — template covers month and no override exists") {
-        // Test the default merge method directly via MockK spy-like behavior.
-        // We create a minimal mock that delegates findByCoupleIdAndYearMonthAndUserId to default impl.
-        val repo = mockk<MonthlyBudgetRepository>()
-        val template = MonthlyBudget(
-            couple = couple, category = category,
-            yearMonth = "2026-01", endYearMonth = null,
-            rowKind = BudgetRowKind.TEMPLATE,
-            amount = 100000
-        )
-
-        every { repo.findTemplatesCovering(couple.id, "2026-03", user1.id) } returns listOf(template)
-        every { repo.findOverridesForMonth(couple.id, "2026-03", user1.id) } returns emptyList()
-        every {
-            repo.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id)
-        } answers { callOriginal() }
-
-        When("findByCoupleIdAndYearMonthAndUserId is called") {
-            val result = repo.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-03", user1.id)
-
-            Then("returns the template (amount=100000)") {
-                result.size shouldBe 1
-                result[0].amount shouldBe 100000
-                result[0].rowKind shouldBe BudgetRowKind.TEMPLATE
             }
         }
     }

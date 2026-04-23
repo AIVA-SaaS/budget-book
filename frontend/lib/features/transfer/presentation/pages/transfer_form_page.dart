@@ -42,6 +42,9 @@ class _TransferFormPageState extends State<TransferFormPage> {
   // INCOME_TRANSFER (수입으로 반영). CARD_SETTLEMENT is set via the dedicated
   // card settlement flow (payment_method card settlement page), not this form.
   TransferKind _kind = TransferKind.generic;
+  // Whether the user has manually overridden the auto-recommended kind.
+  // Once true, we stop auto-recommending on source/dest changes.
+  bool _kindOverridden = false;
 
   bool get isEditing => widget.transferId != null;
 
@@ -79,9 +82,38 @@ class _TransferFormPageState extends State<TransferFormPage> {
     _sourcePaymentMethodId = transfer.sourcePaymentMethod.id;
     _destinationPaymentMethodId = transfer.destinationPaymentMethod.id;
     _kind = transfer.kind;
+    // Editing a transfer should preserve the stored kind unless the user
+    // changes it, even if source/dest happen to differ.
+    _kindOverridden = true;
     try {
       _selectedDate = DateTime.parse(transfer.transferDate);
     } catch (_) {}
+  }
+
+  /// Recommend a kind based on source/destination payment method types.
+  /// Only GENERIC is auto-picked here; EXPENSE_TRANSFER / INCOME_TRANSFER
+  /// are user-driven. CARD_SETTLEMENT is out of scope for this form.
+  TransferKind _recommendKind({
+    required String? sourceType,
+    required String? destType,
+  }) {
+    // We default to GENERIC; the user can override to EXPENSE/INCOME_TRANSFER.
+    // (BANK → CREDIT should go through the card settlement page, not here.)
+    return TransferKind.generic;
+  }
+
+  void _maybeAutoRecommendKind({
+    required String? sourceType,
+    required String? destType,
+  }) {
+    if (_kindOverridden) return;
+    final recommended = _recommendKind(
+      sourceType: sourceType,
+      destType: destType,
+    );
+    if (recommended != _kind) {
+      setState(() => _kind = recommended);
+    }
   }
 
   @override
@@ -360,6 +392,13 @@ class _TransferFormPageState extends State<TransferFormPage> {
                   _destinationPaymentMethodId = null;
                 }
               });
+              _maybeAutoRecommendKind(
+                sourceType: methods
+                    .where((pm) => pm.id == value)
+                    .firstOrNull
+                    ?.type,
+                destType: selectedDest?.type,
+              );
             },
             validator: (value) =>
                 value == null ? '출금 결제수단을 선택하세요' : null,
@@ -410,6 +449,13 @@ class _TransferFormPageState extends State<TransferFormPage> {
                   _swapCounter++;
                 }
               });
+              _maybeAutoRecommendKind(
+                sourceType: selectedSource?.type,
+                destType: methods
+                    .where((pm) => pm.id == value)
+                    .firstOrNull
+                    ?.type,
+              );
             },
             validator: (value) =>
                 value == null ? '입금 결제수단을 선택하세요' : null,
@@ -442,7 +488,10 @@ class _TransferFormPageState extends State<TransferFormPage> {
             ],
             onChanged: (value) {
               if (value == null) return;
-              setState(() => _kind = value);
+              setState(() {
+                _kind = value;
+                _kindOverridden = true;
+              });
             },
           ),
           const SizedBox(height: 16),

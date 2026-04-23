@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -24,10 +25,11 @@ import 'package:budget_book/features/transaction/presentation/pages/transaction_
 import 'package:budget_book/features/transaction/presentation/pages/transaction_detail_page.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
-import 'package:budget_book/features/analysis/presentation/pages/analysis_page.dart';
+import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/period_summary_page.dart';
@@ -36,6 +38,7 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/pages/category_group_page.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/payment_method/presentation/pages/payment_method_page.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_budget_page.dart';
@@ -49,6 +52,9 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
@@ -227,8 +233,27 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
       branches: [
-        // Phase 23 PR-X9: 4탭 최종 (거래/분석/자산/더보기)
-        // Tab 0: Transactions (거래) — absorbs legacy Home dashboard
+        // Tab 0: Home/Dashboard
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/home',
+              builder: (context, state) {
+                // Only load on first visit; preserve month when returning from sub-pages
+                final bloc = getIt<DashboardBloc>();
+                if (bloc.state is DashboardInitial) {
+                  final now = DateTime.now();
+                  bloc.add(LoadDashboard(year: now.year, month: now.month));
+                }
+                return BlocProvider<DashboardBloc>.value(
+                  value: bloc,
+                  child: const DashboardPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 1: Transactions
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -283,77 +308,41 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 1: Analysis (분석 — 예산+통계 병합, Phase 23 PR-X7)
+        // Tab 2: Budget
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/analysis',
+              path: '/budgets',
               builder: (context, state) {
                 final now = DateTime.now();
-                final budgetBloc = getIt<BudgetBloc>();
-                budgetBloc
+                getIt<BudgetBloc>()
                     .add(LoadBudgets(year: now.year, month: now.month));
-                return MultiBlocProvider(
-                  providers: [
-                    BlocProvider<BudgetBloc>.value(value: budgetBloc),
-                    BlocProvider<StatisticsBloc>.value(
-                      value: getIt<StatisticsBloc>()
-                        ..add(LoadAllStatistics(
-                            year: now.year, month: now.month))
-                        ..add(LoadPaymentMethodStats(
-                            year: now.year, month: now.month)),
-                    ),
-                  ],
-                  child: const AnalysisPage(),
+                return BlocProvider<BudgetBloc>.value(
+                  value: getIt<BudgetBloc>(),
+                  child: const BudgetListPage(),
                 );
               },
             ),
           ],
         ),
-        // Tab 2: Assets (자산 — Phase 23 PR-X6 promoted from Settings submenu)
+        // Tab 3: Statistics
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/assets',
+              path: '/statistics',
               builder: (context, state) {
-                final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
-                final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
-                final tabParam = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
                 final now = DateTime.now();
-                final year = yearParam ?? now.year;
-                final month = monthParam ?? now.month;
-                getIt<CategoryBloc>().add(const LoadCategories());
-                getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-                getIt<PaymentMethodBloc>()
-                    .add(LoadCardSettlementSummary(year: year, month: month));
-                getIt<PocketBloc>().add(const LoadPockets());
-                getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
-                return MultiBlocProvider(
-                  providers: [
-                    BlocProvider<CategoryBloc>.value(
-                      value: getIt<CategoryBloc>(),
-                    ),
-                    BlocProvider<PaymentMethodBloc>.value(
-                      value: getIt<PaymentMethodBloc>(),
-                    ),
-                    BlocProvider<PocketBloc>.value(
-                      value: getIt<PocketBloc>(),
-                    ),
-                    BlocProvider<CategoryGroupBloc>.value(
-                      value: getIt<CategoryGroupBloc>(),
-                    ),
-                  ],
-                  child: AssetManagementPage(
-                    initialYear: year,
-                    initialMonth: month,
-                    initialTabIndex: tabParam,
-                  ),
+                return BlocProvider<StatisticsBloc>(
+                  create: (_) => getIt<StatisticsBloc>()
+                    ..add(LoadAllStatistics(year: now.year, month: now.month))
+                    ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
+                  child: const StatisticsPage(),
                 );
               },
             ),
           ],
         ),
-        // Tab 3: More (더보기 — legacy Settings, renamed per Phase 23 PR-X9)
+        // Tab 4: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -367,31 +356,6 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     // Sub-pages (pushed on top of shell, no bottom nav)
     // IMPORTANT: Use BlocProvider.value() for singleton BLoCs to avoid
     // auto-close on pop which would permanently kill the singleton.
-    //
-    // Phase 23 PR-X9 legacy redirects — 4탭 축소 후 구 경로 호환성 유지.
-    //   - /home       → /transactions (거래 탭이 홈 대시보드를 흡수)
-    //   - /budgets    → /analysis     (예산은 분석 탭으로 병합, /budgets/create·/edit 는 별도 유지)
-    //   - /statistics → /analysis     (통계는 분석 탭으로 병합)
-    GoRoute(
-      path: '/',
-      parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) => '/transactions',
-    ),
-    GoRoute(
-      path: '/home',
-      parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) => '/transactions',
-    ),
-    GoRoute(
-      path: '/budgets',
-      parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) => '/analysis',
-    ),
-    GoRoute(
-      path: '/statistics',
-      parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) => '/analysis',
-    ),
     GoRoute(
       path: '/categories',
       parentNavigatorKey: _rootNavigatorKey,
@@ -551,19 +515,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
     ),
-    // /payment-methods → /asset-management redirect (Phase 23 PR-X1).
-    // The standalone PaymentMethodPage has been removed in favor of the
-    // unified AssetManagementPage "결제수단" tab (index=1). Deep links with
-    // ?year=&month= are preserved so card settlement summary loads correctly.
     GoRoute(
       path: '/payment-methods',
       parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) {
-        final qp = Map<String, String>.from(state.uri.queryParameters);
-        // Force landing on the 결제수단 tab.
-        qp['tab'] = '1';
-        final query = Uri(queryParameters: qp).query;
-        return '/asset-management?$query';
+      builder: (context, state) {
+        final now = DateTime.now();
+        getIt<PaymentMethodBloc>()
+          ..add(const LoadPaymentMethods())
+          ..add(LoadCardPending(year: now.year, month: now.month));
+        return BlocProvider<PaymentMethodBloc>.value(
+          value: getIt<PaymentMethodBloc>(),
+          child: const PaymentMethodPage(),
+        );
       },
     ),
     GoRoute(
@@ -719,18 +682,40 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AppInfoPage(),
     ),
-    // Asset Management — legacy alias. Phase 23 PR-X6 promoted 자산 to a
-    // top-level nav tab at /assets. Preserve /asset-management deep links
-    // (e.g. /payment-methods redirect chain, legacy category/PM links) by
-    // redirecting to /assets with the same query string.
+    // Asset Management (unified category + payment method + pocket management)
     GoRoute(
       path: '/asset-management',
       parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) {
-        final qp = state.uri.queryParameters;
-        if (qp.isEmpty) return '/assets';
-        final query = Uri(queryParameters: qp).query;
-        return '/assets?$query';
+      builder: (context, state) {
+        final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
+        final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
+        getIt<CategoryBloc>().add(const LoadCategories());
+        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+        if (yearParam != null && monthParam != null) {
+          getIt<PaymentMethodBloc>().add(LoadCardSettlementSummary(year: yearParam, month: monthParam));
+        }
+        getIt<PocketBloc>().add(const LoadPockets());
+        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<CategoryBloc>.value(
+              value: getIt<CategoryBloc>(),
+            ),
+            BlocProvider<PaymentMethodBloc>.value(
+              value: getIt<PaymentMethodBloc>(),
+            ),
+            BlocProvider<PocketBloc>.value(
+              value: getIt<PocketBloc>(),
+            ),
+            BlocProvider<CategoryGroupBloc>.value(
+              value: getIt<CategoryGroupBloc>(),
+            ),
+          ],
+          child: AssetManagementPage(
+            initialYear: yearParam,
+            initialMonth: monthParam,
+          ),
+        );
       },
     ),
     // Money Pockets

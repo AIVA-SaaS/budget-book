@@ -66,10 +66,7 @@ dependencies {
 
 kotlin {
     compilerOptions {
-        // -Xjvm-default=all : Kotlin interface default methods compile as real JVM default methods,
-        // which Spring Data JPA skips during query derivation (so we can add default-impl merge helpers
-        // without triggering "No property X found" errors).
-        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xjvm-default=all")
+        freeCompilerArgs.addAll("-Xjsr305=strict")
     }
 }
 

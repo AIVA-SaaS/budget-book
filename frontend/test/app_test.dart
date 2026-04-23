@@ -5,7 +5,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/app.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
-import 'package:budget_book/core/bloc/visibility_cubit.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
@@ -27,8 +26,6 @@ void main() {
     GetIt.instance.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
     GetIt.instance.registerLazySingleton<LocaleCubit>(() => LocaleCubit());
     GetIt.instance.registerLazySingleton<MonthCubit>(() => MonthCubit());
-    GetIt.instance
-        .registerLazySingleton<VisibilityCubit>(() => VisibilityCubit());
 
     await tester.pumpWidget(const BudgetBookApp());
     await tester.pump();

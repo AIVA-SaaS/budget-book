@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
@@ -22,8 +21,6 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
-import 'package:budget_book/features/transaction/presentation/widgets/total_balance_mini_card.dart';
-import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
@@ -58,11 +55,6 @@ class TransactionListPage extends StatefulWidget {
   State<TransactionListPage> createState() => _TransactionListPageState();
 }
 
-/// Phase 23 PR-X5: 거래 탭 view mode (리스트 / 달력).
-enum _TxViewMode { list, calendar }
-
-const _kTxViewModePrefKey = 'transaction_view_mode';
-
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -71,7 +63,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Timer? _debounceTimer;
   bool _isSearching = false;
   String? _pendingScrollToDate;
-  _TxViewMode _viewMode = _TxViewMode.list;
 
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
@@ -98,31 +89,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
           _filterState = _filterState.copyWith(paymentMethodName: name);
         });
       }
-    }
-    _loadViewModePref();
-  }
-
-  Future<void> _loadViewModePref() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final value = prefs.getString(_kTxViewModePrefKey);
-      if (value == 'calendar' && mounted) {
-        setState(() => _viewMode = _TxViewMode.calendar);
-      }
-    } catch (_) {
-      // Preference load is best-effort; default to list.
-    }
-  }
-
-  Future<void> _persistViewMode(_TxViewMode mode) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kTxViewModePrefKey,
-        mode == _TxViewMode.calendar ? 'calendar' : 'list',
-      );
-    } catch (_) {
-      // In-memory update already applied via setState.
     }
   }
 
@@ -512,68 +478,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
               return Column(
                 children: [
-                  // Phase 23 PR-X5: 총 자산 미니 카드 (홈 대시보드 흡수)
-                  const TotalBalanceMiniCard(),
                   MonthSummaryBar(
                     totalIncome: displayIncome,
                     totalExpense: displayExpense,
                     balance: displayIncome - displayExpense,
                     totalTransfer: displayTransfer > 0 ? displayTransfer : null,
                   ),
-                  // Phase 23 PR-X5: 리스트 / 달력 view toggle.
-                  _buildViewToggle(context),
-                  if (_viewMode == _TxViewMode.calendar)
-                    Expanded(
-                      child: TransactionCalendarView(
-                        year: state.year,
-                        month: state.month,
-                        transactions: state.filteredTransactions,
-                        transfers: listTransfers,
-                        onMonthChanged: (focused) {
-                          if (focused.year == state.year &&
-                              focused.month == state.month) {
-                            return;
-                          }
-                          context
-                              .read<MonthCubit>()
-                              .changeMonth(focused.year, focused.month);
-                          final kw = _searchController.text.trim().isEmpty
-                              ? null
-                              : _searchController.text.trim();
-                          final fmt = DateFormat('yyyy-MM-dd');
-                          context.read<TransactionBloc>().add(
-                                LoadTransactions(
-                                  year: focused.year,
-                                  month: focused.month,
-                                  keyword: kw,
-                                  categoryIds: _filterState.categoryIds,
-                                  categoryGroupIds:
-                                      _filterState.categoryGroupIds,
-                                  paymentMethodIds:
-                                      _filterState.paymentMethodIds,
-                                  pocketIds: _filterState.pocketIds,
-                                  amountMin: _filterState.amountMin,
-                                  amountMax: _filterState.amountMax,
-                                  dateFrom: _filterState.dateFrom != null
-                                      ? fmt.format(_filterState.dateFrom!)
-                                      : null,
-                                  dateTo: _filterState.dateTo != null
-                                      ? fmt.format(_filterState.dateTo!)
-                                      : null,
-                                  transactionTypes:
-                                      _filterState.transactionTypes,
-                                  visibility: _filterState.visibility,
-                                ),
-                              );
-                          context
-                              .read<TransferBloc>()
-                              .add(LoadTransfers(
-                                  year: focused.year, month: focused.month));
-                        },
-                      ),
-                    )
-                  else if (state.filteredTransactions.isEmpty &&
-                      listTransfers.isEmpty)
+                  if (state.filteredTransactions.isEmpty && listTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
                   else
                     Expanded(child: _buildGroupedList(context, state, listTransfers)),
@@ -896,39 +807,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
         curve: Curves.easeInOut,
       );
     }
-  }
-
-  /// Phase 23 PR-X5: SegmentedButton toggle between 리스트 / 달력 views.
-  Widget _buildViewToggle(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: SegmentedButton<_TxViewMode>(
-        key: const Key('transaction-view-toggle'),
-        segments: const [
-          ButtonSegment<_TxViewMode>(
-            value: _TxViewMode.list,
-            label: Text('리스트'),
-            icon: Icon(Icons.list),
-          ),
-          ButtonSegment<_TxViewMode>(
-            value: _TxViewMode.calendar,
-            label: Text('달력'),
-            icon: Icon(Icons.calendar_month),
-          ),
-        ],
-        selected: {_viewMode},
-        onSelectionChanged: (selection) {
-          final next = selection.first;
-          if (next == _viewMode) return;
-          setState(() => _viewMode = next);
-          _persistViewMode(next);
-        },
-        style: const ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
-    );
   }
 
   Widget _buildEmpty(BuildContext context) {
