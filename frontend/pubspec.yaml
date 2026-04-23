@@ -36,6 +36,9 @@ dependencies:
   # Charts
   fl_chart: ^0.69.0
 
+  # Calendar (Phase 23 PR-X5: 거래 탭 달력 뷰)
+  table_calendar: ^3.1.2
+
   # UI
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
