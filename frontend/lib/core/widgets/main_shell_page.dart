@@ -13,8 +13,6 @@ import 'package:budget_book/core/widgets/offline_banner.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
@@ -79,38 +77,31 @@ class _MainShellPageState extends State<MainShellPage> {
     _previousIndex = index;
 
     // Refresh data when switching to a different tab.
-    // Phase 23 PR-X7: 분석 탭(index 2) 추가 — 기존 예산/통계 탭 유지, 인덱스 shift.
+    // Phase 23 PR-X9: 4탭 최종 구성 — 거래(0) / 분석(1) / 자산(2) / 더보기(3).
     if (index != previousIndex) {
       final now = DateTime.now();
       switch (index) {
         case 0:
-          getIt<DashboardBloc>()
-              .add(LoadDashboard(year: now.year, month: now.month));
-        case 1:
+          // 거래 탭
           getIt<TransactionBloc>()
               .add(LoadTransactions(year: now.year, month: now.month));
-        case 2:
-          // 분석 탭 (X7): 예산 + 통계 BLoC 모두 preload
+        case 1:
+          // 분석 탭 (예산 + 통계 병합): 두 BLoC 모두 preload
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
           getIt<StatisticsBloc>()
               .add(LoadAllStatistics(year: now.year, month: now.month));
           getIt<StatisticsBloc>()
               .add(LoadPaymentMethodStats(year: now.year, month: now.month));
-        case 3:
-          // 예산 탭
-          getIt<BudgetBloc>()
-              .add(LoadBudgets(year: now.year, month: now.month));
-        // Tab 4 (Statistics) uses factory, loaded fresh by its builder
-        case 5:
-          // Tab 5 (Assets, X6): preload PM, card settlement summary, pockets
-          // so the 총자산/부채/순자산 header card has data on first paint.
+        case 2:
+          // 자산 탭: PM, card settlement summary, pockets preload
+          // 총자산/부채/순자산 header 카드가 첫 페인트부터 데이터 보유.
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
             LoadCardSettlementSummary(year: now.year, month: now.month),
           );
           getIt<PocketBloc>().add(const LoadPockets());
-        // Tab 6 (Settings) needs no refresh
+        // Tab 3 (더보기) needs no refresh
       }
     }
 
@@ -150,31 +141,16 @@ class _MainShellPageState extends State<MainShellPage> {
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
+          // Phase 23 PR-X9: 4탭 최종 (거래/분석/자산/더보기)
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: '거래',
           ),
-          // Phase 23 PR-X7: 분석 탭 신규 (예산+통계 병합)
           NavigationDestination(
             icon: Icon(Icons.analytics_outlined),
             selectedIcon: Icon(Icons.analytics),
             label: '분석',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: '예산',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: '통계',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_outlined),
@@ -182,9 +158,9 @@ class _MainShellPageState extends State<MainShellPage> {
             label: '자산',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: '설정',
+            icon: Icon(Icons.more_horiz_outlined),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: '더보기',
           ),
         ],
       ),
