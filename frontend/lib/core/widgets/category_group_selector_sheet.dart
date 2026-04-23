@@ -17,6 +17,14 @@ import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
 
+/// Sentinel identifier used for the virtual "잔액 조정" (balance adjustment)
+/// category option. This value is never a real category UUID — when it is
+/// returned via [CategoryGroupSelectorSheet.onSelected], the caller must
+/// translate it into `type=ADJUSTMENT, categoryId=null` on submission.
+///
+/// Phase 23 PR-X3: "잔액 조정" 가상 카테고리.
+const String kAdjustmentSentinel = '__ADJUSTMENT__';
+
 /// Selection mode for [CategoryGroupSelectorSheet].
 ///
 /// - [singleCategory]: Legacy behavior — tapping a category fires
@@ -53,6 +61,14 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
   /// Multi-mode apply callback with `(categoryIds, groupIds)`.
   final void Function(Set<String> categoryIds, Set<String> groupIds)? onApplyMulti;
 
+  /// Phase 23 PR-X3: when true, a pinned "잔액 조정" option is rendered at the
+  /// top of the single-select list. Selecting it invokes [onSelected] with a
+  /// sentinel Category whose id equals [kAdjustmentSentinel]; the caller must
+  /// translate this into `type=ADJUSTMENT, categoryId=null` at submit time.
+  ///
+  /// Ignored in multi-select mode.
+  final bool showAdjustmentOption;
+
   const CategoryGroupSelectorSheet({
     super.key,
     this.selectedCategoryId,
@@ -64,6 +80,7 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     this.initialCategoryIds = const {},
     this.initialGroupIds = const {},
     this.onApplyMulti,
+    this.showAdjustmentOption = false,
   })  : assert(
           mode == CategorySelectionMode.singleCategory ? onSelected != null : true,
           'CategorySelectionMode.singleCategory requires onSelected',
@@ -311,6 +328,14 @@ class _CategoryGroupSelectorSheetState
 
         final List<Widget> children = [];
 
+        // Phase 23 PR-X3: Pinned "잔액 조정" option at the very top (single mode).
+        // Selecting it returns a sentinel Category (id=kAdjustmentSentinel) that
+        // the caller must translate into type=ADJUSTMENT, categoryId=null.
+        if (!_isMulti && widget.showAdjustmentOption) {
+          children.add(_buildAdjustmentPinnedOption(context));
+          children.add(const Divider(height: 1));
+        }
+
         // Favorites section at the top
         if (favoriteCategories.isNotEmpty) {
           children.add(
@@ -501,6 +526,73 @@ class _CategoryGroupSelectorSheetState
           children: children,
         );
       },
+    );
+  }
+
+  /// Phase 23 PR-X3: Pinned "잔액 조정" option shown at the top of the sheet
+  /// when [CategoryGroupSelectorSheet.showAdjustmentOption] is true. Visually
+  /// distinct (tertiaryContainer pill) to signal it is a special option, not a
+  /// real category. On tap, invokes [CategoryGroupSelectorSheet.onSelected]
+  /// with a sentinel [Category] whose id is [kAdjustmentSentinel].
+  Widget _buildAdjustmentPinnedOption(BuildContext context) {
+    final theme = Theme.of(context);
+    final isSelected = widget.selectedCategoryId == kAdjustmentSentinel;
+    final sentinelCategory = Category(
+      id: kAdjustmentSentinel,
+      name: '잔액 조정',
+      type: 'ADJUSTMENT',
+      isDefault: true,
+      displayOrder: -1,
+      createdAt: DateTime.now(),
+    );
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected
+              ? theme.colorScheme.tertiary
+              : theme.colorScheme.tertiary.withValues(alpha: 0.3),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        key: const Key('adjustment-pinned-option'),
+        dense: true,
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundColor: theme.colorScheme.tertiary.withValues(alpha: 0.2),
+          child: Icon(
+            Icons.tune,
+            color: theme.colorScheme.tertiary,
+            size: 18,
+          ),
+        ),
+        title: Text(
+          '잔액 조정',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onTertiaryContainer,
+          ),
+        ),
+        subtitle: Text(
+          '실제 잔액에 맞춰 증가/감소 기록 (통계 제외)',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onTertiaryContainer.withValues(alpha: 0.75),
+            fontSize: 11,
+          ),
+        ),
+        trailing: isSelected
+            ? Icon(Icons.check, size: 18, color: theme.colorScheme.tertiary)
+            : null,
+        onTap: () {
+          widget.onSelected!(sentinelCategory);
+          widget.onSelectedWithGroupName?.call(sentinelCategory, null);
+          Navigator.of(context).pop();
+        },
+      ),
     );
   }
 

@@ -29,6 +29,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/features/transaction/domain/adjustment_submission.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart'
     as tx_entity;
 import 'package:budget_book/core/di/injection.dart';
@@ -124,6 +125,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   // Tab controller for expense/income/transfer tabs
   late final TabController _tabController;
 
+  /// Phase 23 PR-X3: "잔액 조정" direction when the virtual ADJUSTMENT category
+  /// is selected. UX decision — simple radio (증가/감소) + positive amount
+  /// input; sign is flipped at submit time. This avoids extending the
+  /// CalculatorAmountField to parse leading '-', and keeps mental model clear
+  /// for users who are not comfortable typing negative numbers.
+  bool _adjustmentIsIncrease = true;
+
   // Transfer form fields (used when tab index == 2)
   final _transferFormKey = GlobalKey<FormState>();
   late final TextEditingController _transferAmountController;
@@ -136,6 +144,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   int _swapCounter = 0;
 
   bool get isEditing => widget.transactionId != null;
+
+  /// Phase 23 PR-X3: true when the user picked the virtual "잔액 조정"
+  /// option from the category sheet. Drives: tab-bar lock, adjustment
+  /// direction radio visibility, type='ADJUSTMENT' on submit.
+  bool get _isAdjustmentSelected =>
+      _selectedCategoryId == kAdjustmentSentinel ||
+      _selectedType == 'ADJUSTMENT';
 
   int _resolveInitialTabIndex() {
     // When editing, determine tab from transaction type (no transfer tab for edit)
@@ -214,6 +229,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     if (!_tabController.indexIsChanging) {
       setState(() {
         if (_tabController.index == 0) {
+          // Leaving tab forcibly clears any ADJUSTMENT virtual selection so
+          // EXPENSE/INCOME flows do not carry the sentinel categoryId.
           _selectedType = 'EXPENSE';
           _selectedCategoryId = null;
           _selectedCategoryDisplayName = null;
@@ -673,6 +690,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       child: _buildCategoryPicker(context),
                     ),
                   ),
+                  // Phase 23 PR-X3: ADJUSTMENT lock banner + direction radio.
+                  if (_isAdjustmentSelected) ...[
+                    const SizedBox(height: 12),
+                    _buildAdjustmentBanner(context),
+                  ],
                   const SizedBox(height: 16),
                   // Payment method picker with keyboard support
                   FocusTraversalOrder(
@@ -1222,6 +1244,83 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
 
+  /// Phase 23 PR-X3: ADJUSTMENT mode banner + direction radio.
+  /// Shown when the virtual "잔액 조정" category is selected. It:
+  /// 1) tells the user the type is locked to 조정 (stats excluded, balance still affected);
+  /// 2) lets the user choose 증가 or 감소 — sign is flipped on submit.
+  Widget _buildAdjustmentBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('adjustment-banner'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.tertiary.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune,
+                  size: 18, color: theme.colorScheme.tertiary),
+              const SizedBox(width: 6),
+              Text(
+                '잔액 조정 모드',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '통계 집계 제외 · 잔액 계산 포함',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onTertiaryContainer
+                        .withValues(alpha: 0.7),
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 증가 / 감소 toggle (direction → sign on submit).
+          // ChoiceChip is used to avoid the deprecated RadioListTile.groupValue
+          // API (Flutter ≥ 3.32). Semantically still a single-choice pair.
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  key: const Key('adjustment-direction-increase'),
+                  label: const Center(child: Text('증가 (+)')),
+                  selected: _adjustmentIsIncrease,
+                  onSelected: (_) =>
+                      setState(() => _adjustmentIsIncrease = true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  key: const Key('adjustment-direction-decrease'),
+                  label: const Center(child: Text('감소 (-)')),
+                  selected: !_adjustmentIsIncrease,
+                  onSelected: (_) =>
+                      setState(() => _adjustmentIsIncrease = false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryPicker(BuildContext context) {
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, catState) {
@@ -1331,26 +1430,22 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
+    // Phase 23 PR-X3: expose virtual "잔액 조정" option only for new (non-edit)
+    // transactions where the type is not locked by the transfer tab. Editing
+    // ADJUSTMENT transactions is out of scope — use delete + re-create.
+    final canShowAdjustment = !isEditing;
+
     showDialog(
       context: context,
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _selectedCategoryId,
-        categoryType: _selectedType,
+        categoryType: _selectedType == 'ADJUSTMENT' ? 'EXPENSE' : _selectedType,
+        showAdjustmentOption: canShowAdjustment,
         onSelected: (category) {
-          setState(() {
-            _selectedCategoryId = category?.id;
-            _selectedCategoryDisplayName = null;
-          });
+          _applyCategorySelection(category, null);
         },
         onSelectedWithGroupName: (category, groupName) {
-          setState(() {
-            _selectedCategoryId = category?.id;
-            if (category != null && groupName != null && groupName.isNotEmpty) {
-              _selectedCategoryDisplayName = '$groupName > ${category.name}';
-            } else {
-              _selectedCategoryDisplayName = category?.name;
-            }
-          });
+          _applyCategorySelection(category, groupName);
         },
         onDelete: (id) {
           if (_selectedCategoryId == id) {
@@ -1359,6 +1454,33 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         },
       ),
     );
+  }
+
+  /// Phase 23 PR-X3: central handler for category selection. Detects the
+  /// [kAdjustmentSentinel] and forces type='ADJUSTMENT' (which also locks the
+  /// tab bar). Normal categories just update the selection and keep the
+  /// current type.
+  void _applyCategorySelection(Category? category, String? groupName) {
+    setState(() {
+      if (category?.id == kAdjustmentSentinel) {
+        _selectedCategoryId = kAdjustmentSentinel;
+        _selectedCategoryDisplayName = '잔액 조정';
+        _selectedType = 'ADJUSTMENT';
+        _categoryError = null;
+      } else {
+        // Clearing sentinel back to a normal category: restore type from the
+        // currently-active tab so EXPENSE/INCOME flows work again.
+        if (_selectedType == 'ADJUSTMENT') {
+          _selectedType = _tabController.index == 1 ? 'INCOME' : 'EXPENSE';
+        }
+        _selectedCategoryId = category?.id;
+        if (category != null && groupName != null && groupName.isNotEmpty) {
+          _selectedCategoryDisplayName = '$groupName > ${category.name}';
+        } else {
+          _selectedCategoryDisplayName = category?.name;
+        }
+      }
+    });
   }
 
   void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
@@ -1650,6 +1772,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         _selectedPaymentMethodId = null;
         _selectedPocketId = null;
         _loadDefaultPaymentMethod();
+        // Phase 23 PR-X3: exit ADJUSTMENT mode on continue (unless kept).
+        if (_selectedType == 'ADJUSTMENT') {
+          _selectedType = _tabController.index == 1 ? 'INCOME' : 'EXPENSE';
+        }
+        _adjustmentIsIncrease = true;
       }
       // _selectedDate and _selectedType are always kept
     });
@@ -1682,19 +1809,34 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     }
 
     setState(() => _isSubmitting = true);
-    final amount = CurrencyFormatter.parse(_amountController.text.trim())!;
+    final rawAmount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final memo =
         _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
     final bloc = context.read<TransactionBloc>();
 
+    // Phase 23 PR-X3: translate the virtual "잔액 조정" sentinel into a proper
+    // ADJUSTMENT create request. User-typed amount is always positive; sign is
+    // flipped here based on the 증가/감소 toggle. categoryId is nulled because
+    // ADJUSTMENT transactions do not map to a user category (BE accepts null).
+    // Logic delegated to AdjustmentSubmission for unit-test coverage.
+    final submission = AdjustmentSubmission.resolve(
+      selectedType: _selectedType,
+      selectedCategoryId: _selectedCategoryId,
+      rawAmount: rawAmount,
+      isIncrease: _adjustmentIsIncrease,
+    );
+    final String effectiveType = submission.type;
+    final String? effectiveCategoryId = submission.categoryId;
+    final int effectiveAmount = submission.amount;
+
     if (isEditing) {
       bloc.add(UpdateTransaction(
         id: widget.transactionId!,
-        amount: amount,
+        amount: effectiveAmount,
         description: description,
-        categoryId: _selectedCategoryId,
+        categoryId: effectiveCategoryId,
         transactionDate: dateStr,
         memo: memo,
         clearMemo: memo == null,
@@ -1703,10 +1845,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       ));
     } else {
       bloc.add(CreateTransaction(
-        type: _selectedType,
-        amount: amount,
+        type: effectiveType,
+        amount: effectiveAmount,
         description: description,
-        categoryId: _selectedCategoryId,
+        categoryId: effectiveCategoryId,
         transactionDate: dateStr,
         memo: memo,
         paymentMethodId: _selectedPaymentMethodId,
