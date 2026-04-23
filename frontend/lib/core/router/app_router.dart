@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -25,11 +24,9 @@ import 'package:budget_book/features/transaction/presentation/pages/transaction_
 import 'package:budget_book/features/transaction/presentation/pages/transaction_detail_page.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
-import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
-import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
 import 'package:budget_book/features/analysis/presentation/pages/analysis_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
@@ -52,9 +49,6 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
-import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
@@ -233,27 +227,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
       branches: [
-        // Tab 0: Home/Dashboard
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/home',
-              builder: (context, state) {
-                // Only load on first visit; preserve month when returning from sub-pages
-                final bloc = getIt<DashboardBloc>();
-                if (bloc.state is DashboardInitial) {
-                  final now = DateTime.now();
-                  bloc.add(LoadDashboard(year: now.year, month: now.month));
-                }
-                return BlocProvider<DashboardBloc>.value(
-                  value: bloc,
-                  child: const DashboardPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 1: Transactions
+        // Phase 23 PR-X9: 4탭 최종 (거래/분석/자산/더보기)
+        // Tab 0: Transactions (거래) — absorbs legacy Home dashboard
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -308,8 +283,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 2: Analysis (Phase 23 PR-X7 — 예산+통계 병합)
-        // 기존 예산/통계 탭은 유지 (X9 에서 정리 예정).
+        // Tab 1: Analysis (분석 — 예산+통계 병합, Phase 23 PR-X7)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -336,41 +310,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 3: Budget
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/budgets',
-              builder: (context, state) {
-                final now = DateTime.now();
-                getIt<BudgetBloc>()
-                    .add(LoadBudgets(year: now.year, month: now.month));
-                return BlocProvider<BudgetBloc>.value(
-                  value: getIt<BudgetBloc>(),
-                  child: const BudgetListPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 4: Statistics
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/statistics',
-              builder: (context, state) {
-                final now = DateTime.now();
-                return BlocProvider<StatisticsBloc>(
-                  create: (_) => getIt<StatisticsBloc>()
-                    ..add(LoadAllStatistics(year: now.year, month: now.month))
-                    ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
-                  child: const StatisticsPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 5: Assets (Phase 23 PR-X6 — promoted from Settings submenu)
+        // Tab 2: Assets (자산 — Phase 23 PR-X6 promoted from Settings submenu)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -413,7 +353,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 6: Settings
+        // Tab 3: More (더보기 — legacy Settings, renamed per Phase 23 PR-X9)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -427,6 +367,31 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     // Sub-pages (pushed on top of shell, no bottom nav)
     // IMPORTANT: Use BlocProvider.value() for singleton BLoCs to avoid
     // auto-close on pop which would permanently kill the singleton.
+    //
+    // Phase 23 PR-X9 legacy redirects — 4탭 축소 후 구 경로 호환성 유지.
+    //   - /home       → /transactions (거래 탭이 홈 대시보드를 흡수)
+    //   - /budgets    → /analysis     (예산은 분석 탭으로 병합, /budgets/create·/edit 는 별도 유지)
+    //   - /statistics → /analysis     (통계는 분석 탭으로 병합)
+    GoRoute(
+      path: '/',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/transactions',
+    ),
+    GoRoute(
+      path: '/home',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/transactions',
+    ),
+    GoRoute(
+      path: '/budgets',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/analysis',
+    ),
+    GoRoute(
+      path: '/statistics',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/analysis',
+    ),
     GoRoute(
       path: '/categories',
       parentNavigatorKey: _rootNavigatorKey,
