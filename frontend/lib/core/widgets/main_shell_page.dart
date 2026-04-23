@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:budget_book/core/bloc/visibility_cubit.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
@@ -10,27 +9,23 @@ import 'package:budget_book/core/websocket/websocket_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_event.dart';
 import 'package:budget_book/core/websocket/websocket_state.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
-import 'package:budget_book/core/widgets/filters/selectable_chip_group.dart';
 import 'package:budget_book/core/widgets/offline_banner.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
-import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
-import 'package:budget_book/features/couple/presentation/bloc/couple_state.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
+import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
-import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
-import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
-import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
-import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
+import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
 
 class MainShellPage extends StatefulWidget {
@@ -79,32 +74,21 @@ class _MainShellPageState extends State<MainShellPage> {
     final previousIndex = _previousIndex;
     _previousIndex = index;
 
-    // Refresh data when switching to a different tab.
-    // Phase 23 PR-X9: 4탭 최종 구성 — 거래(0) / 분석(1) / 자산(2) / 더보기(3).
+    // Refresh data when switching to a different tab
     if (index != previousIndex) {
       final now = DateTime.now();
       switch (index) {
         case 0:
-          // 거래 탭
+          getIt<DashboardBloc>()
+              .add(LoadDashboard(year: now.year, month: now.month));
+        case 1:
           getIt<TransactionBloc>()
               .add(LoadTransactions(year: now.year, month: now.month));
-        case 1:
-          // 분석 탭 (예산 + 통계 병합): 두 BLoC 모두 preload
+        case 2:
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
-          getIt<StatisticsBloc>()
-              .add(LoadAllStatistics(year: now.year, month: now.month));
-          getIt<StatisticsBloc>()
-              .add(LoadPaymentMethodStats(year: now.year, month: now.month));
-        case 2:
-          // 자산 탭: PM, card settlement summary, pockets preload
-          // 총자산/부채/순자산 header 카드가 첫 페인트부터 데이터 보유.
-          getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-          getIt<PaymentMethodBloc>().add(
-            LoadCardSettlementSummary(year: now.year, month: now.month),
-          );
-          getIt<PocketBloc>().add(const LoadPockets());
-        // Tab 3 (더보기) needs no refresh
+        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
+        // Tab 4 (Settings) needs no refresh
       }
     }
 
@@ -136,8 +120,6 @@ class _MainShellPageState extends State<MainShellPage> {
             _ConnectionStatusBanner(
               onReconnect: _connectWebSocketIfAuthenticated,
             ),
-            // Phase 23 PR-X8: 커플 모드 전역 공유/개인 Visibility chip row.
-            const CoupleVisibilityChipHost(),
             Expanded(child: widget.navigationShell),
           ],
         ),
@@ -146,100 +128,34 @@ class _MainShellPageState extends State<MainShellPage> {
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
         destinations: const [
-          // Phase 23 PR-X9: 4탭 최종 (거래/분석/자산/더보기)
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: '홈',
+          ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: '거래',
           ),
           NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics),
-            label: '분석',
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: '예산',
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_outlined),
-            selectedIcon: Icon(Icons.account_balance),
-            label: '자산',
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: '통계',
           ),
           NavigationDestination(
-            icon: Icon(Icons.more_horiz_outlined),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: '더보기',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '설정',
           ),
         ],
       ),
       ),
-    );
-  }
-}
-
-/// Phase 23 PR-X8 — 커플 모드 전용 전역 공유/개인 Visibility chip row 호스트.
-///
-/// CoupleBloc 상태를 구독해 **커플 모드일 때만** chip row 를 렌더한다.
-/// 개인 모드(비-커플)에선 `SizedBox.shrink()` 로 물리적으로 자리를 차지하지
-/// 않는다. MainShellPage 상단에 고정되어 AppBar 역할을 하며, 탭 전환 시에도
-/// 상태가 유지된다.
-///
-/// 테스트 가능하도록 top-level public 위젯으로 노출.
-class CoupleVisibilityChipHost extends StatelessWidget {
-  const CoupleVisibilityChipHost({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<CoupleBloc, CoupleState>(
-      bloc: getIt<CoupleBloc>(),
-      builder: (context, state) {
-        final isCouple = state is CoupleLinked && state.couple.isCouple;
-        if (!isCouple) {
-          return const SizedBox.shrink(
-            key: ValueKey('global-visibility-chip-row-hidden'),
-          );
-        }
-        return const GlobalVisibilityChipRow();
-      },
-    );
-  }
-}
-
-/// Phase 23 PR-X8 — 커플 모드 전역 공유/개인 Visibility chip row.
-///
-/// AppBar 역할의 상단 고정 row. 탭 전환 시에도 유지되며,
-/// 모든 탭의 visibility-의존 BLoC(Transaction/Statistics/Budget)이
-/// `VisibilitySyncHandler` 를 통해 자동 재조회된다.
-///
-/// 3-옵션: `모두 (null) / 공유 (SHARED) / 내 것 (PRIVATE)`.
-/// "상대 것"은 백엔드 primitive 부재로 Phase-2 로 연기.
-class GlobalVisibilityChipRow extends StatelessWidget {
-  const GlobalVisibilityChipRow({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<VisibilityCubit, String?>(
-      builder: (context, visibility) {
-        return Container(
-          key: const ValueKey('global-visibility-chip-row'),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: SelectableChipGroup<String>.single(
-            items: const [
-              ChipItem(value: 'SHARED', label: '공유'),
-              ChipItem(value: 'PRIVATE', label: '내 것'),
-            ],
-            allLabel: '모두',
-            selected: visibility,
-            onChanged: (v) => context.read<VisibilityCubit>().change(v),
-          ),
-        );
-      },
     );
   }
 }

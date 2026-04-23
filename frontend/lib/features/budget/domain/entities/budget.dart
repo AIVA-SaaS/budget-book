@@ -8,10 +8,6 @@ class Budget extends Equatable {
   final String? groupId;
   final String? groupName;
   final String yearMonth;
-  /// Phase 23 PR-X4: 템플릿 종료월 (null = 무기한). OVERRIDE 는 yearMonth 와 동일.
-  final String? endYearMonth;
-  /// Phase 23 PR-X4: 'TEMPLATE' | 'OVERRIDE'.
-  final String rowKind;
   final int amount;
   final String budgetPeriod;
   final int? weeklyAmount;
@@ -32,8 +28,6 @@ class Budget extends Equatable {
     this.groupId,
     this.groupName,
     required this.yearMonth,
-    this.endYearMonth,
-    this.rowKind = 'OVERRIDE',
     required this.amount,
     this.budgetPeriod = 'MONTHLY',
     this.weeklyAmount,
@@ -47,10 +41,6 @@ class Budget extends Equatable {
     required this.createdAt,
     required this.updatedAt,
   });
-
-  /// Phase 23 PR-X4: 이 budget 이 TEMPLATE(범위) 인가?
-  bool get isTemplate => rowKind == 'TEMPLATE';
-  bool get isOverride => rowKind == 'OVERRIDE';
 
   /// Display label for this budget target (category, group, or total).
   String get targetLabel {
@@ -86,8 +76,6 @@ class Budget extends Equatable {
         groupId,
         groupName,
         yearMonth,
-        endYearMonth,
-        rowKind,
         amount,
         budgetPeriod,
         weeklyAmount,
