@@ -40,6 +40,23 @@ class MonthlyBudget(
     @Column(name = "year_month", nullable = false, length = 7)
     val yearMonth: String,
 
+    /**
+     * 범위 종료월 (YYYY-MM). null = 무기한.
+     * - TEMPLATE: start=yearMonth, end=endYearMonth (null=무기한)
+     * - OVERRIDE: start=end=yearMonth (단일월)
+     */
+    @Column(name = "end_year_month", length = 7)
+    var endYearMonth: String? = null,
+
+    /**
+     * row 분류.
+     * - TEMPLATE: (couple, category, group) 당 1건. 범위 기본 예산.
+     * - OVERRIDE: 특정 month 한정 덮어쓰기.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "row_kind", nullable = false, length = 10)
+    var rowKind: BudgetRowKind = BudgetRowKind.OVERRIDE,
+
     @Column(nullable = false)
     var amount: Long,
 
@@ -76,3 +93,5 @@ class MonthlyBudget(
 enum class BudgetPeriod { WEEKLY, MONTHLY }
 
 enum class PeriodType { NONE, DAILY, WEEKLY, MONTHLY }
+
+enum class BudgetRowKind { TEMPLATE, OVERRIDE }
