@@ -4,8 +4,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/bloc/month_sync_handler.dart';
-import 'package:budget_book/core/bloc/visibility_cubit.dart';
-import 'package:budget_book/core/bloc/visibility_sync_handler.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/auth_interceptor.dart';
 import 'package:budget_book/core/router/app_router.dart';
@@ -49,7 +47,6 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
         BlocProvider<ThemeCubit>.value(value: getIt<ThemeCubit>()),
         BlocProvider<LocaleCubit>.value(value: getIt<LocaleCubit>()),
         BlocProvider<MonthCubit>.value(value: getIt<MonthCubit>()),
-        BlocProvider<VisibilityCubit>.value(value: getIt<VisibilityCubit>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
@@ -64,10 +61,7 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                 routerConfig: _router,
                 builder: (context, child) {
                   // MonthSyncHandler: 월 변경 시 관련 BLoC 자동 reload (중앙화)
-                  // VisibilitySyncHandler (PR-X8): 공유/개인 변경 시 관련 BLoC 자동 reload
-                  final wrapped = VisibilitySyncHandler(
-                    child: MonthSyncHandler(child: child!),
-                  );
+                  final wrapped = MonthSyncHandler(child: child!);
                   return LayoutBuilder(
                     builder: (context, constraints) {
                       // Mobile: no constraint, Web: centered with max width + background

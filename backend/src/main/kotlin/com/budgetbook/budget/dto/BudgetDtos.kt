@@ -34,14 +34,7 @@ data class BudgetRequest(
 
     val pocketId: UUID? = null,
 
-    val visibility: String? = "SHARED",
-
-    /** Phase 23 PR-X4: 템플릿 종료월 (null = 무기한). 미지정 시 TEMPLATE 로 생성. */
-    @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "endYearMonth must be in YYYY-MM format")
-    val endYearMonth: String? = null,
-
-    /** 명시적 row kind (TEMPLATE | OVERRIDE). 미지정 시 TEMPLATE. */
-    val rowKind: String? = null
+    val visibility: String? = "SHARED"
 )
 
 data class BudgetUpdateRequest(
@@ -63,37 +56,7 @@ data class BudgetUpdateRequest(
 
     val pocketId: UUID? = null,
 
-    val visibility: String? = null,
-
-    /** Phase 23 PR-X4: 템플릿 종료월 업데이트 용. */
-    @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "endYearMonth must be in YYYY-MM format")
-    val endYearMonth: String? = null
-)
-
-/**
- * Phase 23 PR-X4: 특정 월에 대한 OVERRIDE upsert 요청.
- * (category, group) 키와 월을 지정하여 OVERRIDE row 를 생성/업데이트한다.
- * TEMPLATE 은 불변 — 다른 월에 영향 없음.
- */
-data class MonthOverrideUpsertRequest(
-    val categoryId: UUID? = null,
-    val groupId: UUID? = null,
-
-    @field:NotBlank
-    @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "yearMonth must be in YYYY-MM format")
-    val yearMonth: String,
-
-    @field:NotNull
-    @field:Min(0)
-    @field:Max(999_999_999)
-    val amount: Long,
-
-    val budgetPeriod: String? = "MONTHLY",
-    val weeklyAmount: Long? = null,
-    val periodType: String? = null,
-    val startDate: LocalDate? = null,
-    val endDate: LocalDate? = null,
-    val pocketId: UUID? = null
+    val visibility: String? = null
 )
 
 data class BudgetResponse(
@@ -103,8 +66,6 @@ data class BudgetResponse(
     val groupId: UUID? = null,
     val groupName: String? = null,
     val yearMonth: String,
-    val endYearMonth: String? = null,
-    val rowKind: String = "OVERRIDE",
     val amount: Long,
     val budgetPeriod: String,
     val weeklyAmount: Long?,
@@ -186,8 +147,6 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     groupId = group?.id,
     groupName = group?.name,
     yearMonth = yearMonth,
-    endYearMonth = endYearMonth,
-    rowKind = rowKind.name,
     amount = amount,
     budgetPeriod = budgetPeriod.name,
     weeklyAmount = weeklyAmount,

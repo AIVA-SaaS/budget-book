@@ -62,9 +62,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   bool _initialized = false;
   bool _isSubmitting = false;
   bool _isDeleting = false;
-  // Phase 23 PR-X4: 템플릿 종료월. null = 무기한.
-  String? _endYearMonth;
-  bool _hasEndYearMonth = false;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -102,8 +99,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       startDate: budget.startDate,
       endDate: budget.endDate,
     );
-    _endYearMonth = budget.endYearMonth;
-    _hasEndYearMonth = budget.endYearMonth != null;
   }
 
   @override
@@ -256,9 +251,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 });
               },
             ),
-            const SizedBox(height: 16),
-            // Phase 23 PR-X4: 템플릿 종료월 선택 (무기한 / 특정 월까지)
-            _buildEndYearMonthField(context),
             const SizedBox(height: 24),
             // Category / Group selector (optional)
             _buildCategoryPicker(context),
@@ -347,82 +339,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         ),
       ),
     );
-  }
-
-  /// Phase 23 PR-X4: 템플릿 종료월 선택.
-  /// - 기본: 무기한 (endYearMonth=null)
-  /// - 체크 시: YearMonth picker 로 특정 월까지만 적용
-  Widget _buildEndYearMonthField(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Checkbox(
-              value: _hasEndYearMonth,
-              onChanged: (v) {
-                setState(() {
-                  _hasEndYearMonth = v ?? false;
-                  if (!_hasEndYearMonth) _endYearMonth = null;
-                });
-              },
-            ),
-            const Text('특정 월까지 적용'),
-            const Spacer(),
-            if (!_hasEndYearMonth)
-              Text(
-                '무기한',
-                style: TextStyle(
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-          ],
-        ),
-        if (_hasEndYearMonth)
-          Padding(
-            padding: const EdgeInsets.only(left: 48, top: 4),
-            child: InkWell(
-              onTap: () => _pickEndYearMonth(context),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '종료월 (YYYY-MM)',
-                  prefixIcon: Icon(Icons.event_available),
-                  border: OutlineInputBorder(),
-                  hintText: '선택하세요',
-                ),
-                child: Text(
-                  _endYearMonth ?? '선택',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _pickEndYearMonth(BuildContext context) async {
-    final initial = _endYearMonth != null
-        ? DateTime(
-            int.parse(_endYearMonth!.split('-')[0]),
-            int.parse(_endYearMonth!.split('-')[1]),
-          )
-        : DateTime(_selectedYear, _selectedMonth);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(_selectedYear, _selectedMonth),
-      lastDate: DateTime(2100, 12),
-      helpText: '종료월 선택',
-      initialEntryMode: DatePickerEntryMode.calendar,
-    );
-    if (picked != null) {
-      setState(() {
-        _endYearMonth =
-            '${picked.year}-${picked.month.toString().padLeft(2, '0')}';
-      });
-    }
   }
 
   Widget _buildCategoryPicker(BuildContext context) {
@@ -656,46 +572,26 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   }
 
   void _confirmDelete(BuildContext context) {
-    bool cascade = false;
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (innerCtx, setStateDialog) => AlertDialog(
-          title: const Text('삭제'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('이 예산을 삭제하시겠습니까?'),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                value: cascade,
-                onChanged: (v) => setStateDialog(() => cascade = v ?? false),
-                title: const Text('이후 달도 삭제'),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제'),
+        content: const Text('이 예산을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                setState(() => _isDeleting = true);
-                this.context.read<BudgetBloc>().add(
-                      DeleteBudget(widget.budgetId!, cascadeFuture: cascade),
-                    );
-              },
-              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _isDeleting = true);
+              this.context.read<BudgetBloc>().add(DeleteBudget(widget.budgetId!));
+            },
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
       ),
     );
   }
@@ -741,8 +637,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       final periodType = _periodSelection.periodTypeString;
       final bloc = context.read<BudgetBloc>();
 
-      final effectiveEndYearMonth = _hasEndYearMonth ? _endYearMonth : null;
-
       if (isEditing) {
         bloc.add(UpdateBudget(
           id: widget.budgetId!,
@@ -756,7 +650,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           categoryId: _selectedCategoryId,
           groupId: _selectedGroupId,
           yearMonth: yearMonth,
-          endYearMonth: effectiveEndYearMonth,
         ));
       } else {
         bloc.add(CreateBudget(
@@ -770,8 +663,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           periodType: periodType,
           startDate: _periodSelection.startDate,
           endDate: _periodSelection.endDate,
-          endYearMonth: effectiveEndYearMonth,
-          // rowKind 미지정 → 백엔드 기본 TEMPLATE.
         ));
       }
     }

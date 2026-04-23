@@ -114,9 +114,15 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => context.push('/settings/partner'),
             ),
             const Divider(),
-            // "자산 관리" ListTile removed — promoted to top-level 자산 tab
-            // in bottom nav (Phase 23 PR-X6). Category/payment-method/pocket
-            // editing is accessible via the 자산 탭.
+            // Asset Management (categories + payment methods + pockets)
+            ListTile(
+              leading: const Icon(Icons.account_balance),
+              title: const Text('자산 관리'),
+              subtitle: const Text('카테고리, 결제수단, 포켓'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/asset-management'),
+            ),
+            // Category Groups - removed: merged into 자산 관리 카테고리 탭
             // Spending Plans
             ListTile(
               leading: const Icon(Icons.event_note),
