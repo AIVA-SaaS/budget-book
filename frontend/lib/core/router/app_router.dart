@@ -341,7 +341,50 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 4: Settings
+        // Tab 4: Assets (Phase 23 PR-X6 — promoted from Settings submenu)
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/assets',
+              builder: (context, state) {
+                final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
+                final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
+                final tabParam = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
+                final now = DateTime.now();
+                final year = yearParam ?? now.year;
+                final month = monthParam ?? now.month;
+                getIt<CategoryBloc>().add(const LoadCategories());
+                getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                getIt<PaymentMethodBloc>()
+                    .add(LoadCardSettlementSummary(year: year, month: month));
+                getIt<PocketBloc>().add(const LoadPockets());
+                getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<CategoryBloc>.value(
+                      value: getIt<CategoryBloc>(),
+                    ),
+                    BlocProvider<PaymentMethodBloc>.value(
+                      value: getIt<PaymentMethodBloc>(),
+                    ),
+                    BlocProvider<PocketBloc>.value(
+                      value: getIt<PocketBloc>(),
+                    ),
+                    BlocProvider<CategoryGroupBloc>.value(
+                      value: getIt<CategoryGroupBloc>(),
+                    ),
+                  ],
+                  child: AssetManagementPage(
+                    initialYear: year,
+                    initialMonth: month,
+                    initialTabIndex: tabParam,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 5: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -682,42 +725,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AppInfoPage(),
     ),
-    // Asset Management (unified category + payment method + pocket management)
+    // Asset Management — legacy alias. Phase 23 PR-X6 promoted 자산 to a
+    // top-level nav tab at /assets. Preserve /asset-management deep links
+    // (e.g. /payment-methods redirect chain, legacy category/PM links) by
+    // redirecting to /assets with the same query string.
     GoRoute(
       path: '/asset-management',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
-        final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
-        final tabParam = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-        if (yearParam != null && monthParam != null) {
-          getIt<PaymentMethodBloc>().add(LoadCardSettlementSummary(year: yearParam, month: monthParam));
-        }
-        getIt<PocketBloc>().add(const LoadPockets());
-        getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PaymentMethodBloc>.value(
-              value: getIt<PaymentMethodBloc>(),
-            ),
-            BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>(),
-            ),
-            BlocProvider<CategoryGroupBloc>.value(
-              value: getIt<CategoryGroupBloc>(),
-            ),
-          ],
-          child: AssetManagementPage(
-            initialYear: yearParam,
-            initialMonth: monthParam,
-            initialTabIndex: tabParam,
-          ),
-        );
+      redirect: (context, state) {
+        final qp = state.uri.queryParameters;
+        if (qp.isEmpty) return '/assets';
+        final query = Uri(queryParameters: qp).query;
+        return '/assets?$query';
       },
     ),
     // Money Pockets

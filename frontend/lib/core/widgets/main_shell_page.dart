@@ -23,6 +23,8 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
+import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
@@ -88,7 +90,15 @@ class _MainShellPageState extends State<MainShellPage> {
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
         // Tab 3 (Statistics) uses factory, loaded fresh by its builder
-        // Tab 4 (Settings) needs no refresh
+        case 4:
+          // Tab 4 (Assets): preload PM, card settlement summary, pockets
+          // so the 총자산/부채/순자산 header card has data on first paint.
+          getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+          getIt<PaymentMethodBloc>().add(
+            LoadCardSettlementSummary(year: now.year, month: now.month),
+          );
+          getIt<PocketBloc>().add(const LoadPockets());
+        // Tab 5 (Settings) needs no refresh
       }
     }
 
@@ -147,6 +157,11 @@ class _MainShellPageState extends State<MainShellPage> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: '통계',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance),
+            label: '자산',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
