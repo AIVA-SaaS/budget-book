@@ -30,6 +30,7 @@ import 'package:budget_book/features/budget/presentation/pages/budget_form_page.
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
+import 'package:budget_book/features/analysis/presentation/pages/analysis_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/period_summary_page.dart';
@@ -307,7 +308,35 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 2: Budget
+        // Tab 2: Analysis (Phase 23 PR-X7 — 예산+통계 병합)
+        // 기존 예산/통계 탭은 유지 (X9 에서 정리 예정).
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/analysis',
+              builder: (context, state) {
+                final now = DateTime.now();
+                final budgetBloc = getIt<BudgetBloc>();
+                budgetBloc
+                    .add(LoadBudgets(year: now.year, month: now.month));
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<BudgetBloc>.value(value: budgetBloc),
+                    BlocProvider<StatisticsBloc>.value(
+                      value: getIt<StatisticsBloc>()
+                        ..add(LoadAllStatistics(
+                            year: now.year, month: now.month))
+                        ..add(LoadPaymentMethodStats(
+                            year: now.year, month: now.month)),
+                    ),
+                  ],
+                  child: const AnalysisPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 3: Budget
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -324,7 +353,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 3: Statistics
+        // Tab 4: Statistics
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -341,7 +370,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 4: Assets (Phase 23 PR-X6 — promoted from Settings submenu)
+        // Tab 5: Assets (Phase 23 PR-X6 — promoted from Settings submenu)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -384,7 +413,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 5: Settings
+        // Tab 6: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(
