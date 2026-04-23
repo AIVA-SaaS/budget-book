@@ -19,6 +19,8 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
@@ -76,7 +78,8 @@ class _MainShellPageState extends State<MainShellPage> {
     final previousIndex = _previousIndex;
     _previousIndex = index;
 
-    // Refresh data when switching to a different tab
+    // Refresh data when switching to a different tab.
+    // Phase 23 PR-X7: 분석 탭(index 2) 추가 — 기존 예산/통계 탭 유지, 인덱스 shift.
     if (index != previousIndex) {
       final now = DateTime.now();
       switch (index) {
@@ -87,18 +90,27 @@ class _MainShellPageState extends State<MainShellPage> {
           getIt<TransactionBloc>()
               .add(LoadTransactions(year: now.year, month: now.month));
         case 2:
+          // 분석 탭 (X7): 예산 + 통계 BLoC 모두 preload
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
-        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
-        case 4:
-          // Tab 4 (Assets): preload PM, card settlement summary, pockets
+          getIt<StatisticsBloc>()
+              .add(LoadAllStatistics(year: now.year, month: now.month));
+          getIt<StatisticsBloc>()
+              .add(LoadPaymentMethodStats(year: now.year, month: now.month));
+        case 3:
+          // 예산 탭
+          getIt<BudgetBloc>()
+              .add(LoadBudgets(year: now.year, month: now.month));
+        // Tab 4 (Statistics) uses factory, loaded fresh by its builder
+        case 5:
+          // Tab 5 (Assets, X6): preload PM, card settlement summary, pockets
           // so the 총자산/부채/순자산 header card has data on first paint.
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
             LoadCardSettlementSummary(year: now.year, month: now.month),
           );
           getIt<PocketBloc>().add(const LoadPockets());
-        // Tab 5 (Settings) needs no refresh
+        // Tab 6 (Settings) needs no refresh
       }
     }
 
@@ -147,6 +159,12 @@ class _MainShellPageState extends State<MainShellPage> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: '거래',
+          ),
+          // Phase 23 PR-X7: 분석 탭 신규 (예산+통계 병합)
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: '분석',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
