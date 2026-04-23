@@ -63,11 +63,18 @@ class AssetManagementPage extends StatelessWidget {
                 ],
               ),
             ),
-            body: const TabBarView(
+            body: const Column(
               children: [
-                _CategoryTab(),
-                _PaymentMethodTab(),
-                _PocketTab(),
+                _AssetSummaryHeader(),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CategoryTab(),
+                      _PaymentMethodTab(),
+                      _PocketTab(),
+                    ],
+                  ),
+                ),
               ],
             ),
             floatingActionButton: _buildFab(context),
@@ -1322,6 +1329,142 @@ class _PocketTab extends StatelessWidget {
     );
   }
 
+}
+
+/// Top-of-page summary showing 총 자산 / 부채(미결제) / 순자산.
+///
+/// **Computation** (aggregated from `PaymentMethodBloc` state):
+/// - 총 자산 = sum of `PaymentMethod.balance` for non-credit active methods
+///   (CASH/BANK/DEBIT) whose balance is non-null. Matches
+///   `AccountBalanceCard` which is the existing "자산 현황" aggregate.
+/// - 부채(미결제) = sum of unpaid-month amounts across credit cards from
+///   `cardSettlementSummary.unpaidMonth.cards` (paid_at IS NULL filter).
+/// - 순자산 = 총 자산 − 부채.
+///
+/// The widget rebuilds on PaymentMethodBloc state changes, so month
+/// switches / new transactions propagate automatically.
+class _AssetSummaryHeader extends StatelessWidget {
+  const _AssetSummaryHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+      builder: (context, state) {
+        int totalAssets = 0;
+        int totalDebt = 0;
+        if (state is PaymentMethodLoaded) {
+          for (final pm in state.paymentMethods) {
+            if (!pm.isActive) continue;
+            if (!pm.isCredit && pm.balance != null) {
+              totalAssets += pm.balance!;
+            }
+          }
+          final unpaid = state.cardSettlementSummary?.unpaidMonth;
+          if (unpaid != null) {
+            for (final card in unpaid.cards) {
+              totalDebt += card.amount;
+            }
+          }
+        }
+        final netWorth = totalAssets - totalDebt;
+
+        return Padding(
+          key: const Key('asset_summary_header'),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SummaryCard(
+                  label: '총 자산',
+                  amount: totalAssets,
+                  color: Colors.green.shade700,
+                  icon: Icons.savings_outlined,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '부채',
+                  amount: totalDebt,
+                  color: Colors.red.shade700,
+                  icon: Icons.credit_card_outlined,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '순자산',
+                  amount: netWorth,
+                  color: netWorth >= 0
+                      ? Colors.blue.shade700
+                      : Colors.red.shade700,
+                  icon: Icons.account_balance_wallet_outlined,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final int amount;
+  final Color color;
+  final IconData icon;
+
+  const _SummaryCard({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${CurrencyFormatter.format(amount)}원',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Helper class for mixed list of headers and payment methods.
