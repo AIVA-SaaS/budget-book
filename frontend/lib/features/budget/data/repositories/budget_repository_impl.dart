@@ -23,6 +23,8 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String periodType = 'MONTHLY',
     DateTime? startDate,
     DateTime? endDate,
+    String? endYearMonth,
+    String? rowKind,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -36,6 +38,8 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (pocketId != null) 'pocketId': pocketId,
         if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
         if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+        if (endYearMonth != null) 'endYearMonth': endYearMonth,
+        if (rowKind != null) 'rowKind': rowKind,
       };
       final result = await remoteDataSource.createBudget(data);
       return Right(result);
@@ -43,6 +47,41 @@ class BudgetRepositoryImpl implements BudgetRepository {
       return Left(mapDioError(e, '예산을 생성하지 못했습니다'));
     } catch (e) {
       return const Left(ServerFailure('예산을 생성하지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Budget>> upsertMonthOverride({
+    String? categoryId,
+    String? groupId,
+    required String yearMonth,
+    required int amount,
+    String budgetPeriod = 'MONTHLY',
+    int? weeklyAmount,
+    String? pocketId,
+    String? periodType,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'yearMonth': yearMonth,
+        'amount': amount,
+        'budgetPeriod': budgetPeriod,
+        if (categoryId != null) 'categoryId': categoryId,
+        if (groupId != null) 'groupId': groupId,
+        if (weeklyAmount != null) 'weeklyAmount': weeklyAmount,
+        if (pocketId != null) 'pocketId': pocketId,
+        if (periodType != null) 'periodType': periodType,
+        if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
+        if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+      };
+      final result = await remoteDataSource.upsertMonthOverride(data);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '이달 예산을 수정하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('이달 예산을 수정하지 못했습니다'));
     }
   }
 
@@ -75,6 +114,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String? categoryId,
     String? groupId,
     String? yearMonth,
+    String? endYearMonth,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -88,6 +128,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (categoryId != null) 'categoryId': categoryId,
         if (groupId != null) 'groupId': groupId,
         if (yearMonth != null) 'yearMonth': yearMonth,
+        if (endYearMonth != null) 'endYearMonth': endYearMonth,
       };
       final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);
@@ -99,9 +140,12 @@ class BudgetRepositoryImpl implements BudgetRepository {
   }
 
   @override
-  Future<Either<Failure, void>> deleteBudget(String id) async {
+  Future<Either<Failure, void>> deleteBudget(
+    String id, {
+    bool cascadeFuture = false,
+  }) async {
     try {
-      await remoteDataSource.deleteBudget(id);
+      await remoteDataSource.deleteBudget(id, cascadeFuture: cascadeFuture);
       return const Right(null);
     } on DioException catch (e) {
       return Left(mapDioError(e, '예산을 삭제하지 못했습니다'));

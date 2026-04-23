@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/couple_mode.dart';
-import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -616,15 +615,17 @@ class _BudgetListPageState extends State<BudgetListPage> {
       key: Key(budget.id),
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
-        return await showDeleteConfirmDialog(
-          context,
-          title: '예산 삭제',
-          itemName: budget.targetLabel,
-        );
+        final choice = await _showBudgetDeleteDialog(context, budget);
+        if (choice == null) return false;
+        if (context.mounted) {
+          context
+              .read<BudgetBloc>()
+              .add(DeleteBudget(budget.id, cascadeFuture: choice));
+        }
+        // Don't let Dismissible remove the row — bloc reload handles UI refresh.
+        return false;
       },
-      onDismissed: (_) {
-        context.read<BudgetBloc>().add(DeleteBudget(budget.id));
-      },
+      onDismissed: (_) {},
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
@@ -692,15 +693,11 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   context.push(
                       '/budgets/edit/${budget.id}?year=$year&month=$month');
                 } else if (value == 'delete') {
-                  final confirmed = await showDeleteConfirmDialog(
-                    context,
-                    title: '예산 삭제',
-                    itemName: budget.targetLabel,
-                  );
-                  if (confirmed && context.mounted) {
+                  final cascade = await _showBudgetDeleteDialog(context, budget);
+                  if (cascade != null && context.mounted) {
                     context
                         .read<BudgetBloc>()
-                        .add(DeleteBudget(budget.id));
+                        .add(DeleteBudget(budget.id, cascadeFuture: cascade));
                   }
                 }
               },
@@ -873,6 +870,53 @@ class _BudgetListPageState extends State<BudgetListPage> {
       '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
       style: Theme.of(context).textTheme.bodySmall,
     );
+  }
+
+  /// Phase 23 PR-X4: 예산 삭제 확인 다이얼로그.
+  /// null = 취소, false = 이번달만, true = 이후 달도.
+  Future<bool?> _showBudgetDeleteDialog(BuildContext context, Budget budget) async {
+    bool cascade = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (innerCtx, setStateDialog) => AlertDialog(
+          title: const Text('예산 삭제'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("'${budget.targetLabel}' 예산을 삭제하시겠습니까?"),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                value: cascade,
+                onChanged: (v) => setStateDialog(() => cascade = v ?? false),
+                title: const Text('이후 달도 삭제'),
+                subtitle: const Text(
+                  '체크 시 이 달부터의 템플릿 범위를 단축하고 이후 월별 수정도 함께 삭제합니다.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return null;
+    return cascade;
   }
 
   BudgetSummaryItem? _findSummaryItem(

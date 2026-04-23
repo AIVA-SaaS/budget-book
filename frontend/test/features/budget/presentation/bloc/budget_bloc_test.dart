@@ -55,6 +55,8 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String periodType = 'MONTHLY',
     DateTime? startDate,
     DateTime? endDate,
+    String? endYearMonth,
+    String? rowKind,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createBudget, [], {
@@ -68,6 +70,8 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #periodType: periodType,
           #startDate: startDate,
           #endDate: endDate,
+          #endYearMonth: endYearMonth,
+          #rowKind: rowKind,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -87,6 +91,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String? categoryId,
     String? groupId,
     String? yearMonth,
+    String? endYearMonth,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateBudget, [], {
@@ -101,6 +106,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #categoryId: categoryId,
           #groupId: groupId,
           #yearMonth: yearMonth,
+          #endYearMonth: endYearMonth,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -108,9 +114,43 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
       ) as Future<Either<Failure, Budget>>;
 
   @override
-  Future<Either<Failure, void>> deleteBudget(String id) =>
+  Future<Either<Failure, Budget>> upsertMonthOverride({
+    String? categoryId,
+    String? groupId,
+    required String yearMonth,
+    required int amount,
+    String budgetPeriod = 'MONTHLY',
+    int? weeklyAmount,
+    String? pocketId,
+    String? periodType,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) =>
       super.noSuchMethod(
-        Invocation.method(#deleteBudget, [id]),
+        Invocation.method(#upsertMonthOverride, [], {
+          #categoryId: categoryId,
+          #groupId: groupId,
+          #yearMonth: yearMonth,
+          #amount: amount,
+          #budgetPeriod: budgetPeriod,
+          #weeklyAmount: weeklyAmount,
+          #pocketId: pocketId,
+          #periodType: periodType,
+          #startDate: startDate,
+          #endDate: endDate,
+        }),
+        returnValue: Future.value(
+          Right<Failure, Budget>(_dummyBudget),
+        ),
+      ) as Future<Either<Failure, Budget>>;
+
+  @override
+  Future<Either<Failure, void>> deleteBudget(
+    String id, {
+    bool cascadeFuture = false,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(#deleteBudget, [id], {#cascadeFuture: cascadeFuture}),
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
 
@@ -414,8 +454,8 @@ void main() {
       blocTest<BudgetBloc, BudgetState>(
         'emits BudgetLoaded with operationError on delete failure',
         build: () {
-          when(mockRepository.deleteBudget('budget-1')).thenAnswer(
-              (_) async =>
+          when(mockRepository.deleteBudget('budget-1', cascadeFuture: false))
+              .thenAnswer((_) async =>
                   const Left(ServerFailure('Failed to delete budget')));
           return budgetBloc;
         },
@@ -435,6 +475,72 @@ void main() {
             operationError: 'Failed to delete budget',
           ),
         ],
+      );
+
+      // Phase 23 PR-X4: cascadeFuture=true 를 repository 에 전달.
+      blocTest<BudgetBloc, BudgetState>(
+        'PR-X4: passes cascadeFuture=true when DeleteBudget has cascadeFuture',
+        build: () {
+          when(mockRepository.deleteBudget('budget-1', cascadeFuture: true))
+              .thenAnswer((_) async => const Right(null));
+          when(mockRepository.getBudgets(year: 2026, month: 3))
+              .thenAnswer((_) async => Right([tBudget2]));
+          when(mockRepository.getBudgetSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(tSummary));
+          return budgetBloc;
+        },
+        seed: () => BudgetLoaded(
+          budgets: tBudgets,
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) => bloc.add(
+          const DeleteBudget('budget-1', cascadeFuture: true),
+        ),
+        verify: (_) {
+          verify(mockRepository.deleteBudget('budget-1', cascadeFuture: true))
+              .called(1);
+        },
+      );
+    });
+
+    group('UpsertMonthOverride (PR-X4)', () {
+      blocTest<BudgetBloc, BudgetState>(
+        'PR-X4: reloads after successful override upsert',
+        build: () {
+          when(mockRepository.upsertMonthOverride(
+            categoryId: 'cat-1',
+            yearMonth: '2026-03',
+            amount: 300000,
+          )).thenAnswer((_) async => Right(tBudget1));
+          when(mockRepository.getBudgets(year: 2026, month: 3))
+              .thenAnswer((_) async => Right(tBudgets));
+          when(mockRepository.getBudgetSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(tSummary));
+          return budgetBloc;
+        },
+        seed: () => BudgetLoaded(
+          budgets: tBudgets,
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) {
+          bloc.add(const LoadBudgets(year: 2026, month: 3));
+          bloc.add(const UpsertMonthOverride(
+            categoryId: 'cat-1',
+            yearMonth: '2026-03',
+            amount: 300000,
+          ));
+        },
+        verify: (_) {
+          verify(mockRepository.upsertMonthOverride(
+            categoryId: 'cat-1',
+            yearMonth: '2026-03',
+            amount: 300000,
+          )).called(1);
+        },
       );
     });
 

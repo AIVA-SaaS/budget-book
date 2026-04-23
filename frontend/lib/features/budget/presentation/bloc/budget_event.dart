@@ -38,6 +38,10 @@ class CreateBudget extends BudgetEvent {
   final String periodType;
   final DateTime? startDate;
   final DateTime? endDate;
+  /// Phase 23 PR-X4: 템플릿 종료월 (null = 무기한).
+  final String? endYearMonth;
+  /// Phase 23 PR-X4: 'TEMPLATE' | 'OVERRIDE' (null = backend 기본 TEMPLATE).
+  final String? rowKind;
 
   const CreateBudget({
     this.categoryId,
@@ -50,6 +54,8 @@ class CreateBudget extends BudgetEvent {
     this.periodType = 'MONTHLY',
     this.startDate,
     this.endDate,
+    this.endYearMonth,
+    this.rowKind,
   });
 
   @override
@@ -64,6 +70,40 @@ class CreateBudget extends BudgetEvent {
         periodType,
         startDate,
         endDate,
+        endYearMonth,
+        rowKind,
+      ];
+}
+
+/// Phase 23 PR-X4: 특정 월 OVERRIDE upsert 이벤트.
+class UpsertMonthOverride extends BudgetEvent {
+  final String? categoryId;
+  final String? groupId;
+  final String yearMonth;
+  final int amount;
+  final String budgetPeriod;
+  final int? weeklyAmount;
+  final String? pocketId;
+
+  const UpsertMonthOverride({
+    this.categoryId,
+    this.groupId,
+    required this.yearMonth,
+    required this.amount,
+    this.budgetPeriod = 'MONTHLY',
+    this.weeklyAmount,
+    this.pocketId,
+  });
+
+  @override
+  List<Object?> get props => [
+        categoryId,
+        groupId,
+        yearMonth,
+        amount,
+        budgetPeriod,
+        weeklyAmount,
+        pocketId,
       ];
 }
 
@@ -79,6 +119,8 @@ class UpdateBudget extends BudgetEvent {
   final String? categoryId;
   final String? groupId;
   final String? yearMonth;
+  /// Phase 23 PR-X4: 템플릿 종료월 수정 (TEMPLATE row 만 반영).
+  final String? endYearMonth;
 
   const UpdateBudget({
     required this.id,
@@ -92,6 +134,7 @@ class UpdateBudget extends BudgetEvent {
     this.categoryId,
     this.groupId,
     this.yearMonth,
+    this.endYearMonth,
   });
 
   @override
@@ -107,16 +150,19 @@ class UpdateBudget extends BudgetEvent {
         categoryId,
         groupId,
         yearMonth,
+        endYearMonth,
       ];
 }
 
 class DeleteBudget extends BudgetEvent {
   final String id;
+  /// Phase 23 PR-X4: true 면 해당 월 이후 모두 삭제 (템플릿 범위 단축 + 후속 overrides 삭제).
+  final bool cascadeFuture;
 
-  const DeleteBudget(this.id);
+  const DeleteBudget(this.id, {this.cascadeFuture = false});
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, cascadeFuture];
 }
 
 class CopyPreviousMonthBudgets extends BudgetEvent {
