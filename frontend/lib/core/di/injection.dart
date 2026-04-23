@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
+import 'package:budget_book/core/bloc/visibility_cubit.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
 import 'package:budget_book/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -126,6 +127,12 @@ Future<void> configureDependencies() async {
   // Core — 전역 월 상태 (월 의존 BLoC들의 단일 소스)
   getIt.registerLazySingleton<MonthCubit>(
     () => MonthCubit(),
+    dispose: (cubit) => cubit.close(),
+  );
+
+  // Core — 전역 공개범위(visibility) 상태 (커플 모드 공유/개인 chip, Phase 23 PR-X8)
+  getIt.registerLazySingleton<VisibilityCubit>(
+    () => VisibilityCubit(),
     dispose: (cubit) => cubit.close(),
   );
 
