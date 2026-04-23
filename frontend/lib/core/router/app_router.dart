@@ -38,7 +38,6 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/category_group/presentation/pages/category_group_page.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
-import 'package:budget_book/features/payment_method/presentation/pages/payment_method_page.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/pages/weekly_budget_page.dart';
@@ -515,18 +514,19 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
     ),
+    // /payment-methods → /asset-management redirect (Phase 23 PR-X1).
+    // The standalone PaymentMethodPage has been removed in favor of the
+    // unified AssetManagementPage "결제수단" tab (index=1). Deep links with
+    // ?year=&month= are preserved so card settlement summary loads correctly.
     GoRoute(
       path: '/payment-methods',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        getIt<PaymentMethodBloc>()
-          ..add(const LoadPaymentMethods())
-          ..add(LoadCardPending(year: now.year, month: now.month));
-        return BlocProvider<PaymentMethodBloc>.value(
-          value: getIt<PaymentMethodBloc>(),
-          child: const PaymentMethodPage(),
-        );
+      redirect: (context, state) {
+        final qp = Map<String, String>.from(state.uri.queryParameters);
+        // Force landing on the 결제수단 tab.
+        qp['tab'] = '1';
+        final query = Uri(queryParameters: qp).query;
+        return '/asset-management?$query';
       },
     ),
     GoRoute(
@@ -689,6 +689,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       builder: (context, state) {
         final yearParam = int.tryParse(state.uri.queryParameters['year'] ?? '');
         final monthParam = int.tryParse(state.uri.queryParameters['month'] ?? '');
+        final tabParam = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0;
         getIt<CategoryBloc>().add(const LoadCategories());
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         if (yearParam != null && monthParam != null) {
@@ -714,6 +715,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           child: AssetManagementPage(
             initialYear: yearParam,
             initialMonth: monthParam,
+            initialTabIndex: tabParam,
           ),
         );
       },
