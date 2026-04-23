@@ -6,6 +6,7 @@ import com.budgetbook.budget.dto.BudgetResponse
 import com.budgetbook.budget.dto.BudgetSummaryResponse
 import com.budgetbook.budget.dto.BudgetUpdateRequest
 import com.budgetbook.budget.dto.CopyBudgetRequest
+import com.budgetbook.budget.dto.MonthOverrideUpsertRequest
 import com.budgetbook.budget.dto.CurrentWeekSummaryResponse
 import com.budgetbook.budget.dto.WeeklyOverviewResponse
 import com.budgetbook.budget.service.BudgetAlertService
@@ -73,10 +74,27 @@ class BudgetController(
     @DeleteMapping("/{id}")
     fun deleteBudget(
         @AuthUser userId: UUID,
-        @PathVariable id: UUID
+        @PathVariable id: UUID,
+        @RequestParam(required = false, defaultValue = "false") cascadeFuture: Boolean
     ): ResponseEntity<Void> {
-        budgetService.deleteBudget(userId, id)
+        budgetService.deleteBudget(userId, id, cascadeFuture)
         return ResponseEntity.noContent().build()
+    }
+
+    /**
+     * Phase 23 PR-X4: 특정 월에 대한 OVERRIDE upsert.
+     * 편한 가계부 패턴 — 사용자가 그 달만 금액 수정.
+     *
+     * POST /api/v1/budgets/month-override
+     */
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
+    @PostMapping("/month-override")
+    fun upsertMonthOverride(
+        @AuthUser userId: UUID,
+        @Valid @RequestBody request: MonthOverrideUpsertRequest
+    ): ResponseEntity<ApiResponse<BudgetResponse>> {
+        val result = budgetService.upsertMonthOverride(userId, request)
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.ok(result))
     }
 
     @RateLimit(maxRequests = 20, windowSeconds = 60)
