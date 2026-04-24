@@ -34,7 +34,6 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
-import 'package:budget_book/core/widgets/total_asset_mini_card.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 
@@ -320,8 +319,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Widget _buildLoaded(BuildContext context, TransactionLoaded state) {
     return Column(
       children: [
-        // Phase 25 Step 6 — 총 자산 미니카드 (탭 시 /assets 이동)
-        const TotalAssetMiniCard(),
         // Month navigator — MonthCubit.state를 자동 watch (year/month 파라미터 생략)
         MonthNavigator(
           onDatePicked: (picked) {
