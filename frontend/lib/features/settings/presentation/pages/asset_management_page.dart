@@ -780,32 +780,55 @@ class _PaymentMethodTab extends StatelessWidget {
             // Ignore if dragging a header
             if (itemsWithHeaders[oldIndex].isHeader) return;
 
-            // Convert visual indices to method-only indices
+            // Flutter ReorderableListView 규약: 아래로 이동 시 newIndex 가
+            // 1 크게 들어옴. visual index 단계에서 먼저 보정한다.
+            int adjustedNewIndex = newIndex;
+            if (adjustedNewIndex > oldIndex) adjustedNewIndex -= 1;
+
+            // 같은 type 내에서만 재정렬 허용 (type 경계 이동 금지).
+            final draggedType =
+                itemsWithHeaders[oldIndex].paymentMethod!.type;
+
+            // 드롭 위치(adjustedNewIndex)의 type 을 결정.
+            // - 리스트 끝(adjustedNewIndex == length): 마지막 item 의 type
+            // - 헤더 위치: 해당 헤더의 type
+            // - 그 외: 해당 method 의 type
+            String targetType;
+            if (adjustedNewIndex >= itemsWithHeaders.length) {
+              targetType = itemsWithHeaders.last.isHeader
+                  ? itemsWithHeaders.last.type!
+                  : itemsWithHeaders.last.paymentMethod!.type;
+            } else {
+              final targetItem = itemsWithHeaders[adjustedNewIndex];
+              targetType = targetItem.isHeader
+                  ? targetItem.type!
+                  : targetItem.paymentMethod!.type;
+            }
+            if (draggedType != targetType) return;
+
+            // visual → method-only index 변환 (헤더 제외).
+            // 경계 처리: adjustedNewIndex 가 list 길이 이상이면 methodCount 전체.
             int methodOldIndex = 0;
-            int methodNewIndex = 0;
+            int methodNewIndex = -1;
             int methodCount = 0;
             for (int i = 0; i < itemsWithHeaders.length; i++) {
+              if (i == adjustedNewIndex && methodNewIndex == -1) {
+                methodNewIndex = methodCount;
+              }
               if (!itemsWithHeaders[i].isHeader) {
                 if (i == oldIndex) methodOldIndex = methodCount;
-                if (i == newIndex) methodNewIndex = methodCount;
                 methodCount++;
-              } else {
-                if (i == newIndex) {
-                  // Dropped on a header — use the next method index
-                  methodNewIndex = methodCount;
-                }
               }
             }
+            // 끝까지 매칭 안 됐으면 맨 끝에 삽입
+            if (methodNewIndex == -1) methodNewIndex = methodCount;
 
-            if (newIndex > oldIndex) {
-              // When moving down, account for removal shifting
-              // But since we mapped to method indices, adjust accordingly
-            }
             if (methodOldIndex == methodNewIndex) return;
 
             final reordered = List<PaymentMethod>.from(methods);
-            if (methodNewIndex > methodOldIndex) methodNewIndex--;
             final item = reordered.removeAt(methodOldIndex);
+            // removeAt 후 index 보정: new 가 old 보다 뒤였으면 한 칸 당김
+            if (methodNewIndex > methodOldIndex) methodNewIndex -= 1;
             reordered.insert(methodNewIndex, item);
             context.read<PaymentMethodBloc>().add(
               ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
