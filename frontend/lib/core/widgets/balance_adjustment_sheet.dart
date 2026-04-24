@@ -50,11 +50,17 @@ class BalanceAdjustmentSheet extends StatefulWidget {
   State<BalanceAdjustmentSheet> createState() => _BalanceAdjustmentSheetState();
 }
 
+/// 잔액 수정 모드.
+/// - [recordAsTransaction] 수입/지출 거래로 기록 (통계 포함). 기존 동작.
+/// - [adjustOnly] type=ADJUSTMENT 로 기록 (통계 미포함, 잔액만 보정).
+enum _AdjustmentMode { recordAsTransaction, adjustOnly }
+
 class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   int? _actualBalance;
   bool _isSubmitting = false;
+  _AdjustmentMode _mode = _AdjustmentMode.recordAsTransaction;
 
   int get _diff => (_actualBalance ?? widget.currentBalance) - widget.currentBalance;
 
@@ -87,9 +93,23 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
+    // Mode 에 따라 type 과 amount 결정.
+    // - recordAsTransaction: 양수 차이 → INCOME, 음수 → EXPENSE, amount 는 절대값
+    // - adjustOnly: ADJUSTMENT, amount 는 부호 포함 (signed)
+    final String type;
+    final int amount;
+    switch (_mode) {
+      case _AdjustmentMode.recordAsTransaction:
+        type = _diff > 0 ? 'INCOME' : 'EXPENSE';
+        amount = _diff.abs();
+      case _AdjustmentMode.adjustOnly:
+        type = 'ADJUSTMENT';
+        amount = _diff;
+    }
+
     getIt<TransactionBloc>().add(CreateTransaction(
-      type: _diff > 0 ? 'INCOME' : 'EXPENSE',
-      amount: _diff.abs(),
+      type: type,
+      amount: amount,
       description: '잔액 수정',
       transactionDate: dateStr,
       paymentMethodId: widget.paymentMethodId,
@@ -179,33 +199,71 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
             ),
             const SizedBox(height: 12),
 
+            // Mode toggle — 통계 포함(수입/지출 기록) vs 미포함(잔액만 조정)
+            SegmentedButton<_AdjustmentMode>(
+              segments: const [
+                ButtonSegment(
+                  value: _AdjustmentMode.recordAsTransaction,
+                  label: Text('수입/지출 기록', style: TextStyle(fontSize: 12)),
+                  icon: Icon(Icons.swap_vert, size: 16),
+                ),
+                ButtonSegment(
+                  value: _AdjustmentMode.adjustOnly,
+                  label: Text('잔액만 조정', style: TextStyle(fontSize: 12)),
+                  icon: Icon(Icons.tune, size: 16),
+                ),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (values) {
+                if (values.isNotEmpty) {
+                  setState(() => _mode = values.first);
+                }
+              },
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _mode == _AdjustmentMode.recordAsTransaction
+                  ? '월 수입/지출 통계에 반영됩니다.'
+                  : '통계에 반영되지 않고 잔액만 보정합니다.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Diff preview
             if (_actualBalance != null && _diff != 0)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: _diff > 0
-                      ? Colors.blue.shade50
-                      : Colors.red.shade50,
+                  color: _mode == _AdjustmentMode.adjustOnly
+                      ? Colors.grey.shade100
+                      : (_diff > 0 ? Colors.blue.shade50 : Colors.red.shade50),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      _diff > 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                      _mode == _AdjustmentMode.adjustOnly
+                          ? Icons.tune
+                          : (_diff > 0 ? Icons.arrow_upward : Icons.arrow_downward),
                       size: 18,
-                      color: _diff > 0 ? Colors.blue.shade700 : Colors.red.shade700,
+                      color: _mode == _AdjustmentMode.adjustOnly
+                          ? Colors.grey.shade700
+                          : (_diff > 0 ? Colors.blue.shade700 : Colors.red.shade700),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      _diff > 0
-                          ? '+${CurrencyFormatter.format(_diff)}원 수입 거래 생성'
-                          : '-${CurrencyFormatter.format(_diff.abs())}원 지출 거래 생성',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _diff > 0 ? Colors.blue.shade700 : Colors.red.shade700,
+                    Expanded(
+                      child: Text(
+                        _previewText(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _mode == _AdjustmentMode.adjustOnly
+                              ? Colors.grey.shade800
+                              : (_diff > 0 ? Colors.blue.shade700 : Colors.red.shade700),
+                        ),
                       ),
                     ),
                   ],
@@ -250,5 +308,17 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
         ),
       ),
     );
+  }
+
+  String _previewText() {
+    final abs = CurrencyFormatter.format(_diff.abs());
+    if (_mode == _AdjustmentMode.adjustOnly) {
+      return _diff > 0
+          ? '+$abs원 잔액 조정 (통계 미반영)'
+          : '-$abs원 잔액 조정 (통계 미반영)';
+    }
+    return _diff > 0
+        ? '+$abs원 수입 거래 생성'
+        : '-$abs원 지출 거래 생성';
   }
 }
