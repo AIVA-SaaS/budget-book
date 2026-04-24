@@ -18,6 +18,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      nginx: ${{ steps.filter.outputs.nginx }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -29,6 +30,9 @@ jobs:
               - '.github/workflows/deploy-nas.yml'
             frontend:
               - 'frontend/**'
+              - '.github/workflows/deploy-nas.yml'
+            nginx:
+              - 'ops/nas-nginx/**'
               - '.github/workflows/deploy-nas.yml'
 
   # ── Backend 배포 (변경 시에만) ──
@@ -142,3 +146,41 @@ jobs:
           ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
             ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
             "sudo rm -rf /var/services/web_bb/* && cd /var/services/web_bb && sudo tar xzf /tmp/bb-web.tar.gz && sudo chown -R admin:users /var/services/web_bb && rm /tmp/bb-web.tar.gz && test -f /var/services/web_bb/index.html && echo 'Frontend deployed'"
+
+  # ── Nginx vhost 동기화 (ops/nas-nginx/ 변경 시) ──
+  # DSM Web Station / ssl.compress.conf 의 global gzip off 를 vhost 레벨에서 override.
+  # repo 에 단일 진실원(ops/nas-nginx/aiva-bb.conf) 을 두어 DSM 업데이트/재설정 drift 방지.
+  sync-nginx:
+    needs: changes
+    if: needs.changes.outputs.nginx == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/nas_key
+          chmod 600 ~/.ssh/nas_key
+          ssh-keyscan -p ${{ secrets.NAS_SSH_PORT }} ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Sync aiva-bb.conf to NAS + test + reload
+        run: |
+          scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
+            ops/nas-nginx/aiva-bb.conf \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/aiva-bb.conf
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            "set -e; \
+             TARGET=/usr/local/etc/nginx/sites-available/aiva-bb.conf; \
+             if ! sudo diff -q /tmp/aiva-bb.conf \$TARGET >/dev/null 2>&1; then \
+               sudo cp \$TARGET \$TARGET.bak.\$(date +%Y%m%d_%H%M%S); \
+               sudo mv /tmp/aiva-bb.conf \$TARGET; \
+               sudo chown root:root \$TARGET; \
+               sudo chmod 644 \$TARGET; \
+               sudo nginx -t && sudo nginx -s reload; \
+               echo 'nginx vhost reloaded'; \
+             else \
+               rm /tmp/aiva-bb.conf; \
+               echo 'nginx vhost unchanged'; \
+             fi"
