@@ -26,6 +26,8 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart'
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
+import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 
 class AssetManagementPage extends StatelessWidget {
   final int? initialYear;
@@ -857,7 +859,11 @@ class _PaymentMethodTab extends StatelessWidget {
               key: ValueKey(method.id),
               children: [
                 Expanded(
-                  child: _buildPaymentMethodTile(context, method),
+                  child: _buildPaymentMethodTile(
+                    context,
+                    method,
+                    state.cardSettlementSummary,
+                  ),
                 ),
                 ReorderableDragStartListener(
                   index: index,
@@ -880,7 +886,102 @@ class _PaymentMethodTab extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentMethodTile(BuildContext context, PaymentMethod method) {
+  Widget _buildPaymentMethodTile(
+    BuildContext context,
+    PaymentMethod method,
+    CardSettlementSummary? settlement,
+  ) {
+    final theme = Theme.of(context);
+
+    // Phase 25 Step 4 — 잔액/미결제 표시 (v1.0 payment_method_page 이식)
+    Widget? subtitle;
+    if (method.isCredit) {
+      // 카드: 마감일/결제일 + 미결제/이번달 (settlement 기준)
+      final prevAmount = settlement?.previousMonth.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      final currAmount = settlement?.currentMonth.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      final unpaidAmount = settlement?.unpaidMonth?.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      subtitle = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
+            style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              if (settlement != null) ...[
+                _SubChip(
+                    label: '전월',
+                    value: prevAmount,
+                    bg: Colors.grey.shade200,
+                    fg: Colors.grey.shade800),
+                const SizedBox(width: 4),
+                _SubChip(
+                    label: '미결제',
+                    value: unpaidAmount,
+                    bg: unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50,
+                    fg: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
+                const SizedBox(width: 4),
+                _SubChip(
+                    label: '이번달',
+                    value: currAmount,
+                    bg: Colors.blue.shade50,
+                    fg: Colors.blue.shade800),
+              ],
+            ],
+          ),
+        ],
+      );
+    } else {
+      // 비-카드: 잔액 표시 (null 시 0원 fallback) + 기본 결제수단 뱃지
+      final balance = method.balance ?? 0;
+      final sign = balance >= 0 ? Colors.green.shade800 : Colors.red.shade800;
+      subtitle = Row(
+        children: [
+          Text(
+            '잔액: ${CurrencyFormatter.formatWithSign(balance)}',
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: sign),
+          ),
+          if (method.isDefault) ...[
+            const SizedBox(width: 8),
+            Text('· 기본',
+                style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.45))),
+          ],
+        ],
+      );
+    }
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
@@ -900,46 +1001,21 @@ class _PaymentMethodTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .error
-                    .withValues(alpha: 0.1),
+                color: theme.colorScheme.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 '비활성',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Theme.of(context).colorScheme.error,
+                  color: theme.colorScheme.error,
                 ),
               ),
             ),
           ],
         ],
       ),
-      subtitle: method.isCredit
-          ? Text(
-              '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.6),
-              ),
-            )
-          : method.isDefault
-              ? Text(
-                  '기본 결제수단',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                )
-              : null,
+      subtitle: subtitle,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -957,9 +1033,28 @@ class _PaymentMethodTab extends StatelessWidget {
                 _showEditPaymentMethod(context, method);
               } else if (action == 'delete') {
                 _showDeleteDialog(context, method);
+              } else if (action == 'adjust_balance') {
+                BalanceAdjustmentSheet.show(
+                  context,
+                  paymentMethodId: method.id,
+                  paymentMethodName: method.name,
+                  currentBalance: method.balance ?? 0,
+                );
               }
             },
             itemBuilder: (_) => [
+              // Phase 25 Step 4 — 잔액 수정 popup 항목 (비-카드만, tune IconButton 분리 금지)
+              if (!method.isCredit)
+                const PopupMenuItem(
+                  value: 'adjust_balance',
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, size: 20),
+                      SizedBox(width: 8),
+                      Text('잔액 수정'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'edit',
                 child: Row(
@@ -975,12 +1070,10 @@ class _PaymentMethodTab extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(Icons.delete_outline,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.error),
+                        size: 20, color: theme.colorScheme.error),
                     const SizedBox(width: 8),
                     Text('삭제',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
+                        style: TextStyle(color: theme.colorScheme.error)),
                   ],
                 ),
               ),
@@ -1312,6 +1405,32 @@ class _AssetSummaryHeader extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SubChip extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color bg;
+  final Color fg;
+  const _SubChip({
+    required this.label,
+    required this.value,
+    required this.bg,
+    required this.fg,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(
+        '$label ${CurrencyFormatter.format(value)}원',
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
+      ),
     );
   }
 }
