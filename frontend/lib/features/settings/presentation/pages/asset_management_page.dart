@@ -50,11 +50,18 @@ class AssetManagementPage extends StatelessWidget {
                 ],
               ),
             ),
-            body: const TabBarView(
+            body: const Column(
               children: [
-                _CategoryTab(),
-                _PaymentMethodTab(),
-                _PocketTab(),
+                _AssetSummaryHeader(),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CategoryTab(),
+                      _PaymentMethodTab(),
+                      _PocketTab(),
+                    ],
+                  ),
+                ),
               ],
             ),
             floatingActionButton: _buildFab(context),
@@ -1238,4 +1245,132 @@ class _PaymentMethodListItem {
 
   factory _PaymentMethodListItem.method(PaymentMethod method) =>
       _PaymentMethodListItem._(isHeader: false, paymentMethod: method, type: method.type);
+}
+
+/// Phase 25 Step 3 — 자산 탭 상단 총자산 / 부채 / 순자산 3카드.
+/// 데이터 출처:
+///   - 총자산: CASH / DEBIT / BANK 의 balance 합계 (null 은 0 처리)
+///   - 부채: cardSettlementSummary.unpaidMonth 합계 (미결제 카드)
+///   - 순자산: 총자산 - 부채
+class _AssetSummaryHeader extends StatelessWidget {
+  const _AssetSummaryHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+      builder: (context, state) {
+        if (state is! PaymentMethodLoaded) {
+          return const SizedBox.shrink();
+        }
+
+        final active = state.paymentMethods.where((pm) => pm.isActive).toList();
+        final asset = active
+            .where((pm) => pm.isCash || pm.isDebit || pm.isBank)
+            .fold<int>(0, (sum, pm) => sum + (pm.balance ?? 0));
+
+        final debt = state.cardSettlementSummary?.unpaidMonth?.totalAmount ?? 0;
+        final net = asset - debt;
+
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SummaryCard(
+                  label: '총자산',
+                  value: asset,
+                  color: Colors.green.shade700,
+                  bg: Colors.green.withValues(alpha: 0.08),
+                  icon: Icons.account_balance_wallet,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '부채',
+                  value: debt,
+                  color: Colors.red.shade700,
+                  bg: Colors.red.withValues(alpha: 0.08),
+                  icon: Icons.credit_card,
+                  signed: false,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '순자산',
+                  value: net,
+                  color: net >= 0 ? theme.colorScheme.primary : Colors.red.shade700,
+                  bg: (net >= 0 ? theme.colorScheme.primary : Colors.red)
+                      .withValues(alpha: 0.08),
+                  icon: Icons.savings,
+                  signed: true,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+  final Color bg;
+  final IconData icon;
+  final bool signed;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.bg,
+    required this.icon,
+    this.signed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = signed
+        ? CurrencyFormatter.formatWithSign(value)
+        : CurrencyFormatter.format(value);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formatted,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
