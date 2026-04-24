@@ -342,7 +342,41 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 4: Settings
+        // Tab 4: Assets (Phase 25 Step 2 — 5→6탭, /asset-management 라우트 그대로 유지)
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/assets',
+              builder: (context, state) {
+                final now = DateTime.now();
+                getIt<CategoryBloc>().add(const LoadCategories());
+                getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                getIt<PaymentMethodBloc>().add(
+                    LoadCardSettlementSummary(year: now.year, month: now.month));
+                getIt<PocketBloc>().add(const LoadPockets());
+                getIt<CategoryGroupBloc>().add(const LoadCategoryGroups());
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<CategoryBloc>.value(
+                      value: getIt<CategoryBloc>(),
+                    ),
+                    BlocProvider<PaymentMethodBloc>.value(
+                      value: getIt<PaymentMethodBloc>(),
+                    ),
+                    BlocProvider<PocketBloc>.value(
+                      value: getIt<PocketBloc>(),
+                    ),
+                    BlocProvider<CategoryGroupBloc>.value(
+                      value: getIt<CategoryGroupBloc>(),
+                    ),
+                  ],
+                  child: const AssetManagementPage(),
+                );
+              },
+            ),
+          ],
+        ),
+        // Tab 5: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(

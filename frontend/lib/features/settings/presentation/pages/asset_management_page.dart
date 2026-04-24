@@ -26,6 +26,9 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart'
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
+import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 
 class AssetManagementPage extends StatelessWidget {
   final int? initialYear;
@@ -50,11 +53,19 @@ class AssetManagementPage extends StatelessWidget {
                 ],
               ),
             ),
-            body: const TabBarView(
+            body: const Column(
               children: [
-                _CategoryTab(),
-                _PaymentMethodTab(),
-                _PocketTab(),
+                _AssetSummaryHeader(),
+                _CardSettlementHeader(),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _CategoryTab(),
+                      _PaymentMethodTab(),
+                      _PocketTab(),
+                    ],
+                  ),
+                ),
               ],
             ),
             floatingActionButton: _buildFab(context),
@@ -850,7 +861,11 @@ class _PaymentMethodTab extends StatelessWidget {
               key: ValueKey(method.id),
               children: [
                 Expanded(
-                  child: _buildPaymentMethodTile(context, method),
+                  child: _buildPaymentMethodTile(
+                    context,
+                    method,
+                    state.cardSettlementSummary,
+                  ),
                 ),
                 ReorderableDragStartListener(
                   index: index,
@@ -873,7 +888,102 @@ class _PaymentMethodTab extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentMethodTile(BuildContext context, PaymentMethod method) {
+  Widget _buildPaymentMethodTile(
+    BuildContext context,
+    PaymentMethod method,
+    CardSettlementSummary? settlement,
+  ) {
+    final theme = Theme.of(context);
+
+    // Phase 25 Step 4 — 잔액/미결제 표시 (v1.0 payment_method_page 이식)
+    Widget? subtitle;
+    if (method.isCredit) {
+      // 카드: 마감일/결제일 + 미결제/이번달 (settlement 기준)
+      final prevAmount = settlement?.previousMonth.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      final currAmount = settlement?.currentMonth.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      final unpaidAmount = settlement?.unpaidMonth?.cards
+              .firstWhere((c) => c.paymentMethodId == method.id,
+                  orElse: () => const CardSettlementCard(
+                      paymentMethodId: '',
+                      paymentMethodName: '',
+                      amount: 0,
+                      transactionCount: 0))
+              .amount ??
+          0;
+      subtitle = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
+            style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              if (settlement != null) ...[
+                _SubChip(
+                    label: '전월',
+                    value: prevAmount,
+                    bg: Colors.grey.shade200,
+                    fg: Colors.grey.shade800),
+                const SizedBox(width: 4),
+                _SubChip(
+                    label: '미결제',
+                    value: unpaidAmount,
+                    bg: unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50,
+                    fg: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
+                const SizedBox(width: 4),
+                _SubChip(
+                    label: '이번달',
+                    value: currAmount,
+                    bg: Colors.blue.shade50,
+                    fg: Colors.blue.shade800),
+              ],
+            ],
+          ),
+        ],
+      );
+    } else {
+      // 비-카드: 잔액 표시 (null 시 0원 fallback) + 기본 결제수단 뱃지
+      final balance = method.balance ?? 0;
+      final sign = balance >= 0 ? Colors.green.shade800 : Colors.red.shade800;
+      subtitle = Row(
+        children: [
+          Text(
+            '잔액: ${CurrencyFormatter.formatWithSign(balance)}',
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: sign),
+          ),
+          if (method.isDefault) ...[
+            const SizedBox(width: 8),
+            Text('· 기본',
+                style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.45))),
+          ],
+        ],
+      );
+    }
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
@@ -893,46 +1003,21 @@ class _PaymentMethodTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .error
-                    .withValues(alpha: 0.1),
+                color: theme.colorScheme.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 '비활성',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Theme.of(context).colorScheme.error,
+                  color: theme.colorScheme.error,
                 ),
               ),
             ),
           ],
         ],
       ),
-      subtitle: method.isCredit
-          ? Text(
-              '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.6),
-              ),
-            )
-          : method.isDefault
-              ? Text(
-                  '기본 결제수단',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                )
-              : null,
+      subtitle: subtitle,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -950,9 +1035,28 @@ class _PaymentMethodTab extends StatelessWidget {
                 _showEditPaymentMethod(context, method);
               } else if (action == 'delete') {
                 _showDeleteDialog(context, method);
+              } else if (action == 'adjust_balance') {
+                BalanceAdjustmentSheet.show(
+                  context,
+                  paymentMethodId: method.id,
+                  paymentMethodName: method.name,
+                  currentBalance: method.balance ?? 0,
+                );
               }
             },
             itemBuilder: (_) => [
+              // Phase 25 Step 4 — 잔액 수정 popup 항목 (비-카드만, tune IconButton 분리 금지)
+              if (!method.isCredit)
+                const PopupMenuItem(
+                  value: 'adjust_balance',
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, size: 20),
+                      SizedBox(width: 8),
+                      Text('잔액 수정'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'edit',
                 child: Row(
@@ -968,12 +1072,10 @@ class _PaymentMethodTab extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(Icons.delete_outline,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.error),
+                        size: 20, color: theme.colorScheme.error),
                     const SizedBox(width: 8),
                     Text('삭제',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
+                        style: TextStyle(color: theme.colorScheme.error)),
                   ],
                 ),
               ),
@@ -1238,4 +1340,294 @@ class _PaymentMethodListItem {
 
   factory _PaymentMethodListItem.method(PaymentMethod method) =>
       _PaymentMethodListItem._(isHeader: false, paymentMethod: method, type: method.type);
+}
+
+/// Phase 25 Step 3 — 자산 탭 상단 총자산 / 부채 / 순자산 3카드.
+/// 데이터 출처:
+///   - 총자산: CASH / DEBIT / BANK 의 balance 합계 (null 은 0 처리)
+///   - 부채: cardSettlementSummary.unpaidMonth 합계 (미결제 카드)
+///   - 순자산: 총자산 - 부채
+class _AssetSummaryHeader extends StatelessWidget {
+  const _AssetSummaryHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+      builder: (context, state) {
+        if (state is! PaymentMethodLoaded) {
+          return const SizedBox.shrink();
+        }
+
+        final active = state.paymentMethods.where((pm) => pm.isActive).toList();
+        final asset = active
+            .where((pm) => pm.isCash || pm.isDebit || pm.isBank)
+            .fold<int>(0, (sum, pm) => sum + (pm.balance ?? 0));
+
+        final debt = state.cardSettlementSummary?.unpaidMonth?.totalAmount ?? 0;
+        final net = asset - debt;
+
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SummaryCard(
+                  label: '총자산',
+                  value: asset,
+                  color: Colors.green.shade700,
+                  bg: Colors.green.withValues(alpha: 0.08),
+                  icon: Icons.account_balance_wallet,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '부채',
+                  value: debt,
+                  color: Colors.red.shade700,
+                  bg: Colors.red.withValues(alpha: 0.08),
+                  icon: Icons.credit_card,
+                  signed: false,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryCard(
+                  label: '순자산',
+                  value: net,
+                  color: net >= 0 ? theme.colorScheme.primary : Colors.red.shade700,
+                  bg: (net >= 0 ? theme.colorScheme.primary : Colors.red)
+                      .withValues(alpha: 0.08),
+                  icon: Icons.savings,
+                  signed: true,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Phase 25 Step 5 — MonthNavigator + 3열 카드 summary (전월/미결제/이번달).
+/// 결제수단 탭(index 1) 선택 + credit 카드 보유 시에만 렌더.
+/// v1.0 payment_method_page.dart:131-161, 351-440 에서 이식.
+class _CardSettlementHeader extends StatelessWidget {
+  const _CardSettlementHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        if (controller.index != 1) return const SizedBox.shrink();
+
+        return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (context, state) {
+            if (state is! PaymentMethodLoaded) {
+              return const SizedBox.shrink();
+            }
+            final hasCredit =
+                state.paymentMethods.any((pm) => pm.isCredit && pm.isActive);
+            if (!hasCredit) return const SizedBox.shrink();
+
+            final summary = state.cardSettlementSummary;
+            if (summary == null) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: MonthNavigator(),
+              );
+            }
+
+            final theme = Theme.of(context);
+            return Column(
+              children: [
+                const MonthNavigator(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '전월 사용',
+                          amount: summary.previousMonth.totalAmount,
+                          count: summary.previousMonth.cards.length,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '미결제',
+                          amount: summary.unpaidMonth?.totalAmount ?? 0,
+                          count: summary.unpaidMonth?.cards.length ?? 0,
+                          color: (summary.unpaidMonth?.totalAmount ?? 0) > 0
+                              ? theme.colorScheme.error
+                              : Colors.green.shade700,
+                          highlight: (summary.unpaidMonth?.totalAmount ?? 0) > 0,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '이번달 사용',
+                          amount: summary.currentMonth.totalAmount,
+                          count: summary.currentMonth.cards.length,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SettlementCard extends StatelessWidget {
+  final String label;
+  final int amount;
+  final int count;
+  final Color color;
+  final bool highlight;
+
+  const _SettlementCard({
+    required this.label,
+    required this.amount,
+    required this.count,
+    required this.color,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: highlight
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${CurrencyFormatter.format(amount)}원',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (count > 0)
+            Text('$count건',
+                style: TextStyle(
+                    fontSize: 10,
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubChip extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color bg;
+  final Color fg;
+  const _SubChip({
+    required this.label,
+    required this.value,
+    required this.bg,
+    required this.fg,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(
+        '$label ${CurrencyFormatter.format(value)}원',
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+  final Color bg;
+  final IconData icon;
+  final bool signed;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.bg,
+    required this.icon,
+    this.signed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = signed
+        ? CurrencyFormatter.formatWithSign(value)
+        : CurrencyFormatter.format(value);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formatted,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
