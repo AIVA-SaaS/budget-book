@@ -88,7 +88,12 @@ class _MainShellPageState extends State<MainShellPage> {
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
         // Tab 3 (Statistics) uses factory, loaded fresh by its builder
-        // Tab 4 (Settings) needs no refresh
+        case 4:
+          // Tab 4 (Assets) — refresh payment method data + card settlement summary
+          getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+          getIt<PaymentMethodBloc>().add(
+              LoadCardSettlementSummary(year: now.year, month: now.month));
+        // Tab 5 (Settings) needs no refresh
       }
     }
 
@@ -147,6 +152,11 @@ class _MainShellPageState extends State<MainShellPage> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: '통계',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.savings_outlined),
+            selectedIcon: Icon(Icons.savings),
+            label: '자산',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

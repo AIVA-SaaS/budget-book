@@ -289,10 +289,10 @@ class _QuickActions extends StatelessWidget {
           label: '설정',
           color: Colors.grey,
           onTap: () {
-            // Navigate to settings tab (index 4)
+            // Navigate to settings tab (index 5 after Phase 25 Step 2 — 자산 tab at 4)
             final shell = StatefulNavigationShell.maybeOf(context);
             if (shell != null) {
-              shell.goBranch(4);
+              shell.goBranch(5);
             } else {
               context.go('/settings');
             }
