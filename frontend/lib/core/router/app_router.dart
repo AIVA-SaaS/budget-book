@@ -296,8 +296,6 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   providers: [
                     BlocProvider<TransactionBloc>.value(value: getIt<TransactionBloc>()),
                     BlocProvider<TransferBloc>.value(value: transferBloc),
-                    // TotalAssetMiniCard requires PaymentMethodBloc in its widget tree
-                    BlocProvider<PaymentMethodBloc>.value(value: getIt<PaymentMethodBloc>()),
                   ],
                   child: TransactionListPage(
                     initialPaymentMethodId: paymentMethodId,
