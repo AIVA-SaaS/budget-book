@@ -151,7 +151,7 @@ class _MainShellPageState extends State<MainShellPage> {
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
-            label: '설정',
+            label: '더보기',
           ),
         ],
       ),
