@@ -27,6 +27,7 @@ import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_she
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 
 class AssetManagementPage extends StatelessWidget {
@@ -55,6 +56,7 @@ class AssetManagementPage extends StatelessWidget {
             body: const Column(
               children: [
                 _AssetSummaryHeader(),
+                _CardSettlementHeader(),
                 Expanded(
                   child: TabBarView(
                     children: [
@@ -1405,6 +1407,142 @@ class _AssetSummaryHeader extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Phase 25 Step 5 — MonthNavigator + 3열 카드 summary (전월/미결제/이번달).
+/// 결제수단 탭(index 1) 선택 + credit 카드 보유 시에만 렌더.
+/// v1.0 payment_method_page.dart:131-161, 351-440 에서 이식.
+class _CardSettlementHeader extends StatelessWidget {
+  const _CardSettlementHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        if (controller.index != 1) return const SizedBox.shrink();
+
+        return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (context, state) {
+            if (state is! PaymentMethodLoaded) {
+              return const SizedBox.shrink();
+            }
+            final hasCredit =
+                state.paymentMethods.any((pm) => pm.isCredit && pm.isActive);
+            if (!hasCredit) return const SizedBox.shrink();
+
+            final summary = state.cardSettlementSummary;
+            if (summary == null) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: MonthNavigator(),
+              );
+            }
+
+            final theme = Theme.of(context);
+            return Column(
+              children: [
+                const MonthNavigator(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '전월 사용',
+                          amount: summary.previousMonth.totalAmount,
+                          count: summary.previousMonth.cards.length,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '미결제',
+                          amount: summary.unpaidMonth?.totalAmount ?? 0,
+                          count: summary.unpaidMonth?.cards.length ?? 0,
+                          color: (summary.unpaidMonth?.totalAmount ?? 0) > 0
+                              ? theme.colorScheme.error
+                              : Colors.green.shade700,
+                          highlight: (summary.unpaidMonth?.totalAmount ?? 0) > 0,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _SettlementCard(
+                          label: '이번달 사용',
+                          amount: summary.currentMonth.totalAmount,
+                          count: summary.currentMonth.cards.length,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SettlementCard extends StatelessWidget {
+  final String label;
+  final int amount;
+  final int count;
+  final Color color;
+  final bool highlight;
+
+  const _SettlementCard({
+    required this.label,
+    required this.amount,
+    required this.count,
+    required this.color,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: highlight
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${CurrencyFormatter.format(amount)}원',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (count > 0)
+            Text('$count건',
+                style: TextStyle(
+                    fontSize: 10,
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        ],
+      ),
     );
   }
 }
