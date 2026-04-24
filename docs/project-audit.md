@@ -103,7 +103,7 @@
 | P-3 | `backend/src/main/kotlin/com/budgetbook/report/service/ReportService.kt` | **ReportService 쿼리 중복**: 동일 월 데이터를 여러 메서드에서 반복 조회(`sumByCategoryForCouple` 중복 호출). 캐싱 또는 단일 쿼리로 통합 필요. | Medium | BE | OPEN |
 | P-4 | `frontend/lib/features/statistics/presentation/bloc/statistics_bloc.dart` | ~~StatisticsBloc 순차 API 호출~~ | Medium | FE | ✅ FIXED - `Future.wait()` 병렬 호출로 교체 |
 | P-5 | `backend/src/main/kotlin/com/budgetbook/` (22개 서비스, 83곳) | **getActiveCouple() 중복 호출**: 22개 서비스 83곳에서 동일한 커플 조회 반복. RequestScope 캐싱 도입 필요. | Medium | BE | OPEN - 규모 증가 (9→22 서비스) |
-| P-6 | `frontend/web` (NotoSansKR-VF.ttf) | **한글 폰트 로딩 9초**: `NotoSansKR-VF.ttf` 가변 폰트 2.2MB가 압축·캐시 미적용으로 초기 진입 시 9초 소요. 2026-04-25 사용자 보고. nginx vhost `gzip on` 이미 적용되었으나 `.ttf` MIME 미포함 가능성, 또는 Cache-Control 미설정. `ops/nas-nginx/aiva-bb.conf`에 font MIME gzip + long-term cache 추가 필요. 또는 `fonts.google.com` → 로컬 번들화. | High | FE/DevOps | OPEN |
+| P-6 | `frontend/web` (NotoSansKR-VF.ttf) | **한글 폰트 로딩 9초**: 실제 파일 10MB (2.2MB 아님). 1차 fix(#153) 실패 — Flutter asset URL 은 /assets/assets/fonts/ (중복 /assets/) 인데 location prefix 를 /assets/fonts/ 로 작성해 매칭 실패, .ttf 가 application/octet-stream 서빙되어 gzip 미적용. 2차 fix: 확장자 정규식 location + MIME override 로 gzip + long-term cache 적용. 이후 근본 해결책으로 woff2 subset 또는 시스템 폰트 fallback 검토 필요 (첫 방문은 gzip 적용해도 3-4MB). | High | FE/DevOps | IN PROGRESS (2차 fix) |
 
 ---
 
