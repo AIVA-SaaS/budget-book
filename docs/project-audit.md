@@ -103,6 +103,7 @@
 | P-3 | `backend/src/main/kotlin/com/budgetbook/report/service/ReportService.kt` | **ReportService 쿼리 중복**: 동일 월 데이터를 여러 메서드에서 반복 조회(`sumByCategoryForCouple` 중복 호출). 캐싱 또는 단일 쿼리로 통합 필요. | Medium | BE | OPEN |
 | P-4 | `frontend/lib/features/statistics/presentation/bloc/statistics_bloc.dart` | ~~StatisticsBloc 순차 API 호출~~ | Medium | FE | ✅ FIXED - `Future.wait()` 병렬 호출로 교체 |
 | P-5 | `backend/src/main/kotlin/com/budgetbook/` (22개 서비스, 83곳) | **getActiveCouple() 중복 호출**: 22개 서비스 83곳에서 동일한 커플 조회 반복. RequestScope 캐싱 도입 필요. | Medium | BE | OPEN - 규모 증가 (9→22 서비스) |
+| P-6 | `frontend/web` (NotoSansKR-VF.ttf) | **한글 폰트 로딩 9초**: `NotoSansKR-VF.ttf` 가변 폰트 2.2MB가 압축·캐시 미적용으로 초기 진입 시 9초 소요. 2026-04-25 사용자 보고. nginx vhost `gzip on` 이미 적용되었으나 `.ttf` MIME 미포함 가능성, 또는 Cache-Control 미설정. `ops/nas-nginx/aiva-bb.conf`에 font MIME gzip + long-term cache 추가 필요. 또는 `fonts.google.com` → 로컬 번들화. | High | FE/DevOps | OPEN |
 
 ---
 
@@ -131,6 +132,7 @@
 | A-12 | `frontend/lib/features/report/presentation/pages/report_page.dart` | **week=1 고정**: 리포트 페이지에서 주차 파라미터가 1로 하드코딩. 실제 현재 주차 계산 필요. | Warning | S | OPEN |
 | A-13 | `frontend/lib/` | **매직 넘버**: 여러 파일에 의미 없는 숫자 상수 직접 사용. `constants/`로 추출 필요. | Suggestion | S | OPEN |
 | A-14 | `frontend/lib/features/` | **BLoC 상태 패턴 불일치**: 일부 BLoC은 `status` enum, 일부는 `isLoading bool` 사용. 표준화 필요. | Suggestion | M | OPEN |
+| A-22 | `frontend/lib/core/router/app_router.dart` | **라우트별 BlocProvider 공급 비일관**: 공통 위젯이 내부적으로 `BlocBuilder<T>`를 쓸 때 일부 라우트에서만 Provider가 공급됨. 2026-04-25 Step 6 회귀(TotalAssetMiniCard의 BlocBuilder<PaymentMethodBloc>이 /transactions 라우트에서 Provider 미공급으로 렌더 실패) 발생. 공용 위젯의 의존 Bloc 목록을 문서화하고 각 라우트 MultiBlocProvider에 일괄 공급하는 base set 도입 검토. | Critical | M | OPEN |
 
 ### 4.3 App (모바일/웹 통합)
 
@@ -165,6 +167,7 @@
 | U-6 | **데이터 내보내기 없음**: CSV/Excel export 기능 미구현. | BE+FE | M |
 | U-7 | **반복거래 frequency 변경 불가**: 생성 후 주기 변경 불가. `PATCH /api/recurring-transactions/{id}` 개선 필요. | BE | S |
 | U-8 | **다국어(i18n) 미완성**: `AppLocalizations` 호출 0회, 전체 UI 한국어 하드코딩. ARB 파일 적용 필요. | FE | L |
+| U-9 | **잔액 수정 시 수입/지출 포함 옵션 부재**: 결제수단 잔액 조정 시 수입/지출로 반영할지, 순수 잔액 보정(영향 없음)으로 할지 선택 UI 없음. 현재 모두 수입/지출 거래로 기록되거나 모두 조정으로 기록되는 문제. Phase 25 Step 4 "balance_adjustment_sheet" 확장 또는 ADJUSTMENT 카테고리 선택 UX 개선 필요. | FE | M |
 
 ### 5.3 기능 간 연동 강화
 
