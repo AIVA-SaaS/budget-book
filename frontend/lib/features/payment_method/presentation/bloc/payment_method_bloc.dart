@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/payment_method/domain/entities/payment_method.dart';
 import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
@@ -273,16 +274,27 @@ class PaymentMethodBloc
         ? (state as PaymentMethodLoaded).cardSettlementSummary
         : null;
 
-    // Optimistic update: reorder locally first
+    // Compute desired ordering (event ids first, then any unspecified at end).
     final reordered = <PaymentMethod>[];
     for (final id in event.orderedIds) {
       final pm = currentMethods.where((m) => m.id == id).firstOrNull;
       if (pm != null) reordered.add(pm);
     }
-    // Add any methods not in the reorder list
     for (final pm in currentMethods) {
       if (!event.orderedIds.contains(pm.id)) reordered.add(pm);
     }
+
+    // Idempotent dedup: 현재 순서와 동일하면 no-op.
+    // - Flutter ReorderableListView 가 동일 drop 에 대해 onReorder 를 두 번
+    //   fire 하는 케이스 방지 (Optimistic emit 으로 인한 rebuild 와 충돌)
+    // - 동일 페이로드 재호출 (다른 경로/refresh) 시 BE 부하 절감
+    final currentOrder = currentMethods.map((m) => m.id).toList();
+    final desiredOrder = reordered.map((m) => m.id).toList();
+    if (listEquals(currentOrder, desiredOrder)) {
+      return;
+    }
+
+    // Optimistic update
     emit(PaymentMethodLoaded(
       reordered,
       cardPendings: currentPendings,
