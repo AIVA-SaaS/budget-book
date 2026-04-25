@@ -92,12 +92,12 @@ class BudgetControllerTest : FunSpec({
     test("deleteBudget returns 204") {
 
         val budgetId = UUID.randomUUID()
-        justRun { budgetService.deleteBudget(testUserId, budgetId) }
+        justRun { budgetService.deleteBudget(testUserId, budgetId, false) }
 
-        val result = controller.deleteBudget(testUserId, budgetId)
+        val result = controller.deleteBudget(testUserId, budgetId, false)
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
-        verify(exactly = 1) { budgetService.deleteBudget(testUserId, budgetId) }
+        verify(exactly = 1) { budgetService.deleteBudget(testUserId, budgetId, false) }
     }
 
     test("copyFromPreviousMonth returns 201 with copied budgets") {
