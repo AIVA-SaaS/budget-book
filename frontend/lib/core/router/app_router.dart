@@ -24,11 +24,7 @@ import 'package:budget_book/features/transaction/presentation/pages/transaction_
 import 'package:budget_book/features/transaction/presentation/pages/transaction_detail_page.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
-import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_form_page.dart';
-import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
-import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
-import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
 import 'package:budget_book/features/analysis/presentation/pages/analysis_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
@@ -295,41 +291,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             ),
           ],
         ),
-        // Tab 2: Budget
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/budgets',
-              builder: (context, state) {
-                final now = DateTime.now();
-                getIt<BudgetBloc>()
-                    .add(LoadBudgets(year: now.year, month: now.month));
-                return BlocProvider<BudgetBloc>.value(
-                  value: getIt<BudgetBloc>(),
-                  child: const BudgetListPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 3: Statistics
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/statistics',
-              builder: (context, state) {
-                final now = DateTime.now();
-                return BlocProvider<StatisticsBloc>(
-                  create: (_) => getIt<StatisticsBloc>()
-                    ..add(LoadAllStatistics(year: now.year, month: now.month))
-                    ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
-                  child: const StatisticsPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 4: Assets (Phase 25 Step 2 — 5→6탭, /asset-management 라우트 그대로 유지)
+        // Phase 25 Step 13/14 — 예산/통계 탭 제거. 분석 탭 안에 통합됨.
+        // /budgets, /statistics 진입은 root-level redirect → /analysis 로 이동.
+        // Tab 2: Assets (Phase 25 Step 2 — /asset-management 라우트 그대로 유지)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -389,6 +353,18 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       path: '/home',
       parentNavigatorKey: _rootNavigatorKey,
       redirect: (context, state) => '/transactions',
+    ),
+    // Phase 25 Step 13/14 — 예산/통계 탭 제거. 분석 탭으로 통합 redirect.
+    // 기존 deep link / 북마크 호환 유지.
+    GoRoute(
+      path: '/budgets',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/analysis',
+    ),
+    GoRoute(
+      path: '/statistics',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/analysis',
     ),
     GoRoute(
       path: '/categories',

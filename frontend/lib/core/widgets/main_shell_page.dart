@@ -15,8 +15,6 @@ import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
-import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
-import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
@@ -72,10 +70,8 @@ class _MainShellPageState extends State<MainShellPage> {
     final previousIndex = _previousIndex;
     _previousIndex = index;
 
-    // Phase 25 Step 10/11 — 홈 제거 + 분석 추가. 6탭 인덱스 매핑:
-    // 0:거래, 1:분석, 2:예산, 3:통계, 4:자산, 5:더보기
-    // (Step 13/14 에서 예산/통계 제거 → 4탭 [거래][분석][자산][더보기] 도달)
-    // Refresh data when switching to a different tab
+    // Phase 25 Step 13/14 — 예산/통계 탭 제거. 4탭 최종 인덱스 매핑:
+    // 0:거래, 1:분석, 2:자산, 3:더보기
     if (index != previousIndex) {
       final now = DateTime.now();
       switch (index) {
@@ -84,15 +80,11 @@ class _MainShellPageState extends State<MainShellPage> {
               .add(LoadTransactions(year: now.year, month: now.month));
         // Tab 1 (Analysis) — wrapper 가 자체 BudgetBloc/StatisticsBloc 처리
         case 2:
-          getIt<BudgetBloc>()
-              .add(LoadBudgets(year: now.year, month: now.month));
-        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
-        case 4:
-          // Tab 4 (Assets) — refresh payment method data + card settlement summary
+          // Tab 2 (Assets) — refresh payment method data + card settlement summary
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
               LoadCardSettlementSummary(year: now.year, month: now.month));
-        // Tab 5 (Settings) needs no refresh
+        // Tab 3 (Settings) needs no refresh
       }
     }
 
@@ -131,8 +123,8 @@ class _MainShellPageState extends State<MainShellPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
-        // Phase 25 Step 10/11 — 홈 제거 + 분석 추가. 6탭 (A/B 병존 단계).
-        // 다음 단계(13/14) 에서 예산/통계 제거 → 4탭 [거래][분석][자산][더보기].
+        // Phase 25 Step 13/14 — 4탭 최종: [거래][분석][자산][더보기].
+        // 예산/통계는 분석 탭 안의 [예산][통계] sub-tab 으로 통합됨.
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
@@ -143,16 +135,6 @@ class _MainShellPageState extends State<MainShellPage> {
             icon: Icon(Icons.insights_outlined),
             selectedIcon: Icon(Icons.insights),
             label: '분석',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: '예산',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: '통계',
           ),
           NavigationDestination(
             icon: Icon(Icons.savings_outlined),
