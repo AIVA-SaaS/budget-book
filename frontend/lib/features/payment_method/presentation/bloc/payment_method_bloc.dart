@@ -295,8 +295,6 @@ class PaymentMethodBloc
     }
 
     // Idempotent dedup: 현재 순서와 동일하면 no-op.
-    // - Flutter ReorderableListView 가 동일 drop 에 대해 onReorder 를 두 번
-    //   fire 하는 케이스 방지 (Optimistic emit 으로 인한 rebuild 와 충돌)
     // - 동일 페이로드 재호출 (다른 경로/refresh) 시 BE 부하 절감
     final currentOrder = currentMethods.map((m) => m.id).toList();
     final desiredOrder = reordered.map((m) => m.id).toList();
@@ -304,19 +302,19 @@ class PaymentMethodBloc
       return;
     }
 
-    // Optimistic update — reordered list + 갱신된 displayOrder
-    emit(PaymentMethodLoaded(
-      reordered,
-      cardPendings: currentPendings,
-      cardSettlementSummary: currentSummary,
-    ));
-
+    // Non-optimistic: PUT 응답 후만 emit.
+    // - Optimistic emit 시 BlocConsumer rebuild 가 ReorderableListView 의
+    //   native drop animation 과 같은 frame 에 겹쳐 깜빡 발생.
+    // - PUT latency 동안에는 ReorderableListView 자체 drop animation 으로 위치 표시.
+    // - 응답 success → reordered (displayOrder 갱신) emit 1회.
+    // - 응답 failure → emit 안 함. builder 가 stale displayOrder 로 sort 하여
+    //   자동 원복 (의도된 fail 표시).
     try {
       final result =
           await paymentMethodRepository.reorderPaymentMethods(event.orderedIds);
       result.fold(
         (failure) {
-          // Rollback on failure
+          // 실패 알림만 표시. paymentMethods 는 currentMethods 그대로 (자동 원복).
           emit(PaymentMethodLoaded(
             currentMethods,
             cardPendings: currentPendings,
@@ -325,11 +323,15 @@ class PaymentMethodBloc
           ));
         },
         (_) {
-          // Already showing reordered state
+          // Success — reordered (displayOrder 갱신) state 로 1회 emit
+          emit(PaymentMethodLoaded(
+            reordered,
+            cardPendings: currentPendings,
+            cardSettlementSummary: currentSummary,
+          ));
         },
       );
     } catch (_) {
-      // Rollback on unexpected error
       emit(PaymentMethodLoaded(
         currentMethods,
         cardPendings: currentPendings,

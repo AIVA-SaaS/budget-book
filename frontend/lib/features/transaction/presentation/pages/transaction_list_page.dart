@@ -34,6 +34,8 @@ import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
+import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 
@@ -55,6 +57,11 @@ class TransactionListPage extends StatefulWidget {
   State<TransactionListPage> createState() => _TransactionListPageState();
 }
 
+/// Phase 25 Step 7 — 거래 탭 view mode (리스트 / 달력).
+enum _TxViewMode { list, calendar }
+
+const String _kTxViewModePrefKey = 'tx_view_mode';
+
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -63,6 +70,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Timer? _debounceTimer;
   bool _isSearching = false;
   String? _pendingScrollToDate;
+  _TxViewMode _viewMode = _TxViewMode.list;
 
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
@@ -90,6 +98,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
         });
       }
     }
+    _loadViewMode();
+  }
+
+  Future<void> _loadViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_kTxViewModePrefKey);
+    if (!mounted) return;
+    if (saved == 'calendar') {
+      setState(() => _viewMode = _TxViewMode.calendar);
+    }
+  }
+
+  Future<void> _saveViewMode(_TxViewMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kTxViewModePrefKey,
+        mode == _TxViewMode.calendar ? 'calendar' : 'list');
   }
 
   @override
@@ -392,6 +416,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           ),
         ),
         // Unified filter bar (category, payment, pocket, amount, date range)
+        // Phase 25 Step 7 — 우측 trailing 에 [리스트][달력] toggle.
         UnifiedFilterBar(
           enabledFilters: const {
             FilterType.dateRange,
@@ -404,6 +429,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
           },
           state: _filterState,
           onFilterChanged: _onFilterChanged,
+          trailing: _ViewModeToggle(
+            mode: _viewMode,
+            onChanged: (m) {
+              setState(() => _viewMode = m);
+              _saveViewMode(m);
+            },
+          ),
         ),
         // Summary bar + Transaction list (both need transfers)
         Expanded(
@@ -484,7 +516,20 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     balance: displayIncome - displayExpense,
                     totalTransfer: displayTransfer > 0 ? displayTransfer : null,
                   ),
-                  if (state.filteredTransactions.isEmpty && listTransfers.isEmpty)
+                  if (_viewMode == _TxViewMode.calendar)
+                    Expanded(
+                      child: TransactionCalendarView(
+                        year: state.year,
+                        month: state.month,
+                        transactions: state.filteredTransactions,
+                        transfers: searchedTransfers,
+                        onTransactionTap: (tx) =>
+                            context.push('/transactions/${tx.id}'),
+                        onTransferTap: (tr) =>
+                            context.push('/transfers/${tr.id}'),
+                      ),
+                    )
+                  else if (state.filteredTransactions.isEmpty && listTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
                   else
                     Expanded(child: _buildGroupedList(context, state, listTransfers)),
@@ -916,3 +961,41 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
+
+/// Phase 25 Step 7 — 리스트/달력 toggle.
+class _ViewModeToggle extends StatelessWidget {
+  final _TxViewMode mode;
+  final ValueChanged<_TxViewMode> onChanged;
+
+  const _ViewModeToggle({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<_TxViewMode>(
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+        ),
+      ),
+      segments: const [
+        ButtonSegment(
+          value: _TxViewMode.list,
+          icon: Icon(Icons.list, size: 16),
+          tooltip: '리스트',
+        ),
+        ButtonSegment(
+          value: _TxViewMode.calendar,
+          icon: Icon(Icons.calendar_month, size: 16),
+          tooltip: '달력',
+        ),
+      ],
+      selected: {mode},
+      onSelectionChanged: (s) {
+        if (s.isNotEmpty) onChanged(s.first);
+      },
+      showSelectedIcon: false,
+    );
+  }
+}

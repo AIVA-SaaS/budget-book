@@ -425,8 +425,8 @@ void main() {
     });
 
     group('ReorderPaymentMethods', () {
-      // Optimistic emit 시 entity 의 displayOrder 도 새 인덱스로 갱신됨.
-      // (builder 가 sort by displayOrder 하므로 갱신 누락 시 화면 원복 회귀)
+      // Non-optimistic: PUT 응답 후 emit (성공/실패 모두 1회만).
+      // displayOrder 는 새 인덱스(0, 1, ...) 로 갱신.
       final reorderedCredit = tCreditMethod.copyWith(displayOrder: 0);
       final reorderedCash = tCashMethod.copyWith(displayOrder: 1);
 
@@ -446,7 +446,7 @@ void main() {
       );
 
       blocTest<PaymentMethodBloc, PaymentMethodState>(
-        'rolls back on failure',
+        'emits operationError without optimistic update on failure',
         build: () {
           when(mockRepository.reorderPaymentMethods(['pm-2', 'pm-1']))
               .thenAnswer((_) async => const Left(
@@ -457,9 +457,7 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          // First: optimistic update with displayOrder updated
-          PaymentMethodLoaded([reorderedCredit, reorderedCash]),
-          // Then: rollback to original
+          // 실패 시 paymentMethods 는 원본 그대로 + operationError 만 추가.
           PaymentMethodLoaded(tMethods,
               operationError: 'Failed to reorder payment methods'),
         ],
