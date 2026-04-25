@@ -144,6 +144,8 @@ class UnifiedFilterBar extends StatelessWidget {
     final visibleChips = chips.take(maxVisible).toList();
     final overflowCount = chips.length > maxVisible ? chips.length - maxVisible : 0;
 
+    // chip 영역을 Expanded(SingleChildScrollView) 로 감싸 trailing 위치 고정.
+    // (chip 길이에 따라 trailing toggle 이 좌우로 이동하던 버그 fix)
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
@@ -157,27 +159,35 @@ class UnifiedFilterBar extends StatelessWidget {
               tooltip: '필터',
             ),
           ),
-          ...visibleChips.map((chip) => Flexible(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: _ActiveFilterChip(
-                label: chip.label,
-                onRemove: chip.onRemove,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...visibleChips.map((chip) => Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: _ActiveFilterChip(
+                          label: chip.label,
+                          onRemove: chip.onRemove,
+                        ),
+                      )),
+                  if (overflowCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Chip(
+                        label: Text('+$overflowCount',
+                            style: const TextStyle(fontSize: 12)),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                ],
               ),
             ),
-          )),
-          if (overflowCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Chip(
-                label: Text('+$overflowCount', style: const TextStyle(fontSize: 12)),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-              ),
-            ),
+          ),
           if (trailing != null) ...[
-            const Spacer(),
+            const SizedBox(width: 4),
             trailing!,
           ],
         ],
