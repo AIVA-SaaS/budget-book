@@ -10,6 +10,7 @@ abstract class CategoryGroupRepository {
     String? color,
     String? budgetType,
     String visibility = 'SHARED',
+    String categoryType = 'EXPENSE',
   });
   Future<Either<Failure, CategoryGroup>> updateCategoryGroup({
     required String id,

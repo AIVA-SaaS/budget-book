@@ -164,8 +164,16 @@ class AssetManagementPage extends StatelessWidget {
 
 const _virtualGroupId = '00000000-0000-0000-0000-000000000000';
 
-class _CategoryTab extends StatelessWidget {
+class _CategoryTab extends StatefulWidget {
   const _CategoryTab();
+
+  @override
+  State<_CategoryTab> createState() => _CategoryTabState();
+}
+
+class _CategoryTabState extends State<_CategoryTab> {
+  // Phase 25 후속 E-3 — 카테고리 그룹 EXPENSE/INCOME 분리. 페이지 내 토글로 전환.
+  String _selectedType = 'EXPENSE';
 
   @override
   Widget build(BuildContext context) {
@@ -187,23 +195,19 @@ class _CategoryTab extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final coupled = isCoupleMode();
+          // type 별 필터링 — 사용자가 선택한 EXPENSE/INCOME 만 노출.
+          final allTypeFiltered = state.groups
+              .where((g) => g.categoryType == _selectedType)
+              .toList();
           final sharedGroups = coupled
-              ? (state.groups.where((g) => g.isShared).toList()
+              ? (allTypeFiltered.where((g) => g.isShared).toList()
                 ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
-              : (state.groups.toList()
+              : (allTypeFiltered.toList()
                 ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)));
           final privateGroups = coupled
-              ? (state.groups.where((g) => g.isPrivate).toList()
+              ? (allTypeFiltered.where((g) => g.isPrivate).toList()
                 ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
               : <CategoryGroup>[];
-
-          if (state.groups.isEmpty) {
-            return const EmptyStateWidget(
-              icon: Icons.category,
-              title: '카테고리가 없습니다',
-              subtitle: '+ 버튼을 눌러 카테고리를 추가하세요',
-            );
-          }
 
           return BlocListener<CategoryBloc, CategoryState>(
             listener: (context, catState) {
@@ -216,17 +220,47 @@ class _CategoryTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Shared groups - reorderable
-                  _buildReorderableGroupSection(
-                    context,
-                    groups: sharedGroups,
+                  // EXPENSE / INCOME 토글
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'EXPENSE', label: Text('지출'), icon: Icon(Icons.shopping_cart_outlined, size: 16)),
+                        ButtonSegment(value: 'INCOME', label: Text('수입'), icon: Icon(Icons.trending_up, size: 16)),
+                      ],
+                      selected: {_selectedType},
+                      onSelectionChanged: (s) =>
+                          setState(() => _selectedType = s.first),
+                    ),
                   ),
+                  if (allTypeFiltered.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: EmptyStateWidget(
+                        icon: Icons.category,
+                        title: _selectedType == 'EXPENSE'
+                            ? '지출 카테고리 그룹이 없습니다'
+                            : '수입 카테고리 그룹이 없습니다',
+                        subtitle: '+ 버튼을 눌러 추가하세요',
+                      ),
+                    )
+                  else ...[
+                    // Shared groups - reorderable
+                    _buildReorderableGroupSection(
+                      context,
+                      groups: sharedGroups,
+                    ),
+                  ],
                   // Add group button
                   _buildAddButton(
                     context,
                     icon: Icons.create_new_folder,
                     label: coupled ? '공유 그룹 추가' : '그룹 추가',
-                    onTap: () => _showAddGroupDialog(context),
+                    onTap: () => _showAddGroupDialog(
+                      context,
+                      categoryType: _selectedType,
+                    ),
                   ),
                   // Private section (couple mode only)
                   if (coupled) ...[
@@ -243,7 +277,11 @@ class _CategoryTab extends StatelessWidget {
                       icon: Icons.add,
                       label: '개인 그룹 추가',
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      onTap: () => _showAddGroupDialog(context, visibility: 'PRIVATE'),
+                      onTap: () => _showAddGroupDialog(
+                        context,
+                        visibility: 'PRIVATE',
+                        categoryType: _selectedType,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 88),
@@ -553,12 +591,19 @@ class _CategoryTab extends StatelessWidget {
     );
   }
 
-  void _showAddGroupDialog(BuildContext context, {String visibility = 'SHARED'}) {
+  void _showAddGroupDialog(
+    BuildContext context, {
+    String visibility = 'SHARED',
+    String categoryType = 'EXPENSE',
+  }) {
     final controller = TextEditingController();
+    final typeLabel = categoryType == 'INCOME' ? '수입' : '지출';
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(visibility == 'PRIVATE' ? '개인 그룹 추가' : '그룹 추가'),
+        title: Text(
+          '$typeLabel ${visibility == 'PRIVATE' ? '개인 그룹' : '그룹'} 추가',
+        ),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(hintText: '그룹 이름'),
@@ -575,7 +620,11 @@ class _CategoryTab extends StatelessWidget {
               if (name.isNotEmpty) {
                 Navigator.of(dialogContext).pop();
                 getIt<CategoryGroupBloc>().add(
-                  CreateCategoryGroup(name: name, visibility: visibility),
+                  CreateCategoryGroup(
+                    name: name,
+                    visibility: visibility,
+                    categoryType: categoryType,
+                  ),
                 );
               }
             },

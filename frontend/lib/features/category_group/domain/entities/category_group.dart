@@ -13,6 +13,8 @@ class CategoryGroup extends Equatable {
   final String visibility;
   final String? ownerId;
   final DateTime createdAt;
+  /// Phase 25 후속 — EXPENSE/INCOME (그룹의 카테고리 종류).
+  final String categoryType;
 
   const CategoryGroup({
     required this.id,
@@ -26,12 +28,15 @@ class CategoryGroup extends Equatable {
     this.visibility = 'SHARED',
     this.ownerId,
     required this.createdAt,
+    this.categoryType = 'EXPENSE',
   });
 
   bool get isWeekly => budgetType == 'WEEKLY';
   bool get isMonthly => budgetType == 'MONTHLY';
   bool get isPrivate => visibility == 'PRIVATE';
   bool get isShared => visibility == 'SHARED';
+  bool get isExpense => categoryType == 'EXPENSE';
+  bool get isIncome => categoryType == 'INCOME';
 
   @override
   List<Object?> get props => [
@@ -46,5 +51,6 @@ class CategoryGroup extends Equatable {
         visibility,
         ownerId,
         createdAt,
+        categoryType,
       ];
 }
