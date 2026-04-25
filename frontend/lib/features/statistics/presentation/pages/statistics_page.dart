@@ -15,14 +15,34 @@ import 'package:budget_book/features/statistics/presentation/widgets/payment_met
 import 'package:budget_book/core/utils/couple_mode.dart';
 
 class StatisticsPage extends StatelessWidget {
-  const StatisticsPage({super.key});
+  /// Phase 25 Step 11 — 분석 탭 wrapper 에서는 false. 자체 진입(/statistics) 시 true.
+  final bool showAppBar;
+
+  const StatisticsPage({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 5,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: !showAppBar
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(kTextTabBarHeight),
+                child: AppBar(
+                  toolbarHeight: 0,
+                  bottom: const TabBar(
+                    isScrollable: true,
+                    tabs: [
+                      Tab(text: '요약'),
+                      Tab(text: '카테고리별'),
+                      Tab(text: '월별 추이'),
+                      Tab(text: '결제수단'),
+                      Tab(text: '전년 비교'),
+                    ],
+                  ),
+                ),
+              )
+            : AppBar(
           title: const Text('통계'),
           actions: [
             IconButton(

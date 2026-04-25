@@ -507,7 +507,27 @@ String buildCategoryDisplayLabel(
   Set<String> categoryGroupIds, {
   String? fallbackName,
 }) {
-  final total = categoryIds.length + categoryGroupIds.length;
+  // 그룹 선택 시 cascade 로 자식 categoryIds 도 함께 채워지므로, 라벨 계산
+  // 시점에는 "그룹에 흡수된" 자식 categoryIds 를 제외하고 visible count 산정.
+  // → 그룹 1개(자식 N개 cascade) 선택 시 "X 그룹 전체" 로 표시.
+  Set<String> visibleCategoryIds = categoryIds;
+  if (categoryGroupIds.isNotEmpty) {
+    final gState = _safeBlocState<CategoryGroupBloc>();
+    if (gState is CategoryGroupLoaded) {
+      final absorbed = <String>{};
+      for (final gid in categoryGroupIds) {
+        final group = gState.groups.where((g) => g.id == gid).firstOrNull;
+        if (group != null) {
+          for (final cat in group.categories) {
+            if (categoryIds.contains(cat.id)) absorbed.add(cat.id);
+          }
+        }
+      }
+      visibleCategoryIds = categoryIds.difference(absorbed);
+    }
+  }
+
+  final total = visibleCategoryIds.length + categoryGroupIds.length;
   if (total == 0) return '전체';
   String? firstName;
   bool fromGroup = false;
@@ -524,14 +544,14 @@ String buildCategoryDisplayLabel(
     final cState = _safeBlocState<CategoryBloc>();
     if (cState is CategoryLoaded) {
       final all = [...cState.expenseCategories, ...cState.incomeCategories];
-      final c = all.where((c) => c.id == categoryIds.first).firstOrNull;
+      final c = all.where((c) => c.id == visibleCategoryIds.first).firstOrNull;
       firstName = c?.name;
     }
   }
   firstName ??= fallbackName;
   if (total == 1) {
     if (firstName == null) return '선택됨';
-    return fromGroup ? '$firstName 그룹' : firstName;
+    return fromGroup ? '$firstName 그룹 전체' : firstName;
   }
   final base = firstName != null
       ? (fromGroup ? '$firstName 그룹' : firstName)

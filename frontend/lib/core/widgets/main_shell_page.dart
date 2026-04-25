@@ -72,8 +72,9 @@ class _MainShellPageState extends State<MainShellPage> {
     final previousIndex = _previousIndex;
     _previousIndex = index;
 
-    // Phase 25 Step 10 — 홈 탭 제거 후 인덱스 매핑:
-    // 0: 거래, 1: 예산, 2: 통계, 3: 자산, 4: 더보기
+    // Phase 25 Step 10/11 — 홈 제거 + 분석 추가. 6탭 인덱스 매핑:
+    // 0:거래, 1:분석, 2:예산, 3:통계, 4:자산, 5:더보기
+    // (Step 13/14 에서 예산/통계 제거 → 4탭 [거래][분석][자산][더보기] 도달)
     // Refresh data when switching to a different tab
     if (index != previousIndex) {
       final now = DateTime.now();
@@ -81,16 +82,17 @@ class _MainShellPageState extends State<MainShellPage> {
         case 0:
           getIt<TransactionBloc>()
               .add(LoadTransactions(year: now.year, month: now.month));
-        case 1:
+        // Tab 1 (Analysis) — wrapper 가 자체 BudgetBloc/StatisticsBloc 처리
+        case 2:
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
-        // Tab 2 (Statistics) uses factory, loaded fresh by its builder
-        case 3:
-          // Tab 3 (Assets) — refresh payment method data + card settlement summary
+        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
+        case 4:
+          // Tab 4 (Assets) — refresh payment method data + card settlement summary
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
               LoadCardSettlementSummary(year: now.year, month: now.month));
-        // Tab 4 (Settings) needs no refresh
+        // Tab 5 (Settings) needs no refresh
       }
     }
 
@@ -129,12 +131,18 @@ class _MainShellPageState extends State<MainShellPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
-        // Phase 25 Step 10 — 홈 탭 제거. 5탭 구조 (거래/예산/통계/자산/더보기).
+        // Phase 25 Step 10/11 — 홈 제거 + 분석 추가. 6탭 (A/B 병존 단계).
+        // 다음 단계(13/14) 에서 예산/통계 제거 → 4탭 [거래][분석][자산][더보기].
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: '거래',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: '분석',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),

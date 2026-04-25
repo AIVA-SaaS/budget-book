@@ -27,7 +27,10 @@ import 'package:budget_book/features/weekly_budget/presentation/widgets/week_sum
 import 'package:budget_book/features/weekly_budget/domain/entities/current_week_summary.dart';
 
 class BudgetListPage extends StatefulWidget {
-  const BudgetListPage({super.key});
+  /// Phase 25 Step 11 — 분석 탭 wrapper 에서는 false. 자체 진입(/budgets) 시 true.
+  final bool showAppBar;
+
+  const BudgetListPage({super.key, this.showAppBar = true});
 
   @override
   State<BudgetListPage> createState() => _BudgetListPageState();
@@ -39,7 +42,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: !widget.showAppBar ? null : AppBar(
         title: Text(_isWeeklyView ? '주간 예산' : '예산 관리'),
         actions: _isWeeklyView
             ? null
