@@ -19,6 +19,14 @@ data class BudgetRequest(
     @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "yearMonth must be in YYYY-MM format")
     val yearMonth: String,
 
+    /**
+     * Phase 25 후속 C-2 — 예산 종료월 (null=무기한, TEMPLATE).
+     * 미지정 시 단일월 OVERRIDE 로 동작 (기존 동작과 호환).
+     * yearMonth == endYearMonth 또는 endYearMonth=null 이면 OVERRIDE/TEMPLATE 자동 결정.
+     */
+    @field:Pattern(regexp = "^\\d{4}-(?:0[1-9]|1[0-2])$", message = "endYearMonth must be in YYYY-MM format")
+    val endYearMonth: String? = null,
+
     @field:NotNull
     @field:Min(0)
     @field:Max(999_999_999)
@@ -56,7 +64,15 @@ data class BudgetUpdateRequest(
 
     val pocketId: UUID? = null,
 
-    val visibility: String? = null
+    val visibility: String? = null,
+
+    /**
+     * Phase 25 후속 C-2 — 사용자가 "이후 모든 일정에 반영" 체크 시 true.
+     * - false (default): 단일월 OVERRIDE 만 추가/갱신 (기존 동작)
+     * - true: 기존 TEMPLATE 의 endYearMonth = (대상월-1) 로 종료 + 새 TEMPLATE
+     *   (대상월부터 무기한). 그 사이 OVERRIDE 들은 영향 없음.
+     */
+    val applyToFuture: Boolean = false
 )
 
 data class BudgetResponse(
@@ -66,6 +82,10 @@ data class BudgetResponse(
     val groupId: UUID? = null,
     val groupName: String? = null,
     val yearMonth: String,
+    /** Phase 25 후속 C-2 — TEMPLATE 종료월 (null=무기한, OVERRIDE 시 yearMonth 와 동일). */
+    val endYearMonth: String? = null,
+    /** Phase 25 후속 C-2 — TEMPLATE | OVERRIDE. */
+    val rowKind: String = "OVERRIDE",
     val amount: Long,
     val budgetPeriod: String,
     val weeklyAmount: Long?,
@@ -147,6 +167,8 @@ fun MonthlyBudget.toResponse() = BudgetResponse(
     groupId = group?.id,
     groupName = group?.name,
     yearMonth = yearMonth,
+    endYearMonth = endYearMonth,
+    rowKind = rowKind.name,
     amount = amount,
     budgetPeriod = budgetPeriod.name,
     weeklyAmount = weeklyAmount,

@@ -2,6 +2,7 @@ package com.budgetbook.budget.service
 
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.budget.domain.BudgetPeriod
+import com.budgetbook.budget.domain.BudgetRowKind
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.domain.PeriodType
 import com.budgetbook.budget.dto.BudgetRequest
@@ -132,11 +133,29 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
+        // Phase 25 후속 C-2 — endYearMonth 와 rowKind 결정.
+        // - request.endYearMonth == null → 단일월 OVERRIDE (endYearMonth=yearMonth)
+        // - endYearMonth != yearMonth → TEMPLATE (yearMonth ~ endYearMonth, endYearMonth=null 도 무기한 TEMPLATE)
+        val rowKind: BudgetRowKind
+        val effectiveEndYearMonth: String?
+        if (request.endYearMonth == null) {
+            rowKind = BudgetRowKind.OVERRIDE
+            effectiveEndYearMonth = request.yearMonth
+        } else if (request.endYearMonth == request.yearMonth) {
+            rowKind = BudgetRowKind.OVERRIDE
+            effectiveEndYearMonth = request.yearMonth
+        } else {
+            rowKind = BudgetRowKind.TEMPLATE
+            effectiveEndYearMonth = request.endYearMonth
+        }
+
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
             group = group,
             yearMonth = request.yearMonth,
+            endYearMonth = effectiveEndYearMonth,
+            rowKind = rowKind,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
             weeklyAmount = weeklyAmount,
