@@ -168,7 +168,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
     final groupMap = <String, _GroupData>{};
     for (final stat in widget.categoryStats) {
       final gId = stat.category.groupId ?? 'ungrouped';
-      final gName = stat.category.groupName ?? '미분류';
+      final gName = stat.category.groupName ?? '(그룹 미할당)';
       groupMap.putIfAbsent(gId, () => _GroupData(id: gId, name: gName));
       groupMap[gId]!.amount += stat.amount;
       groupMap[gId]!.count += stat.transactionCount;
@@ -216,12 +216,11 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               amount: g.amount,
               percentage: g.percentage,
               count: g.count,
-              onTap: g.id != 'ungrouped'
-                  ? () => setState(() {
-                        _selectedGroupId = g.id;
-                        _selectedGroupName = g.name;
-                      })
-                  : null,
+              // ungrouped 도 drill-down 가능 (sub-view 에서 미할당 카테고리 표시).
+              onTap: () => setState(() {
+                _selectedGroupId = g.id;
+                _selectedGroupName = g.name;
+              }),
             );
           }),
         ],
@@ -231,8 +230,12 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
 
   /// Subcategory view: categories within a selected group
   Widget _buildSubcategoryView(BuildContext context) {
+    // ungrouped 가상 그룹 ID 처리: 카테고리의 실제 groupId == null 매치.
+    final isUngrouped = _selectedGroupId == 'ungrouped';
     final filtered = widget.categoryStats
-        .where((s) => s.category.groupId == _selectedGroupId)
+        .where((s) => isUngrouped
+            ? s.category.groupId == null
+            : s.category.groupId == _selectedGroupId)
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
 
