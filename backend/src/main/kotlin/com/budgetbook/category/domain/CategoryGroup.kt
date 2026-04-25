@@ -38,6 +38,14 @@ class CategoryGroup(
     @Column(name = "budget_type", nullable = false, length = 20)
     var budgetType: BudgetType = BudgetType.MONTHLY,
 
+    /**
+     * Phase 25 후속 — 그룹의 카테고리 종류(EXPENSE/INCOME).
+     * 한 그룹 안의 모든 Category.type 은 이 값과 일치해야 함 (Service 단 검증).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category_type", nullable = false, length = 10)
+    var categoryType: CategoryType = CategoryType.EXPENSE,
+
     @Column(name = "display_order", nullable = false)
     var displayOrder: Int = 0,
 
