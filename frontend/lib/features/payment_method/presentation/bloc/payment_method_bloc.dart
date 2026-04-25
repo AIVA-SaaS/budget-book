@@ -301,24 +301,16 @@ class PaymentMethodBloc
       return;
     }
 
-    // Optimistic emit + 백그라운드 PUT.
-    // - drop animation 종료 시점(~280ms) 후 emit 하여 ReorderableListView 의
-    //   native fade animation 과 frame 충돌(깜빡) 회피.
-    // - state 의 displayOrder 도 새 인덱스로 갱신되므로 builder sort 결과 일관.
-    // - PUT 은 emit 직후 백그라운드 진행. 실패 시 rollback + operationError.
-    await Future<void>.delayed(const Duration(milliseconds: 280));
-    emit(PaymentMethodLoaded(
-      reordered,
-      cardPendings: currentPendings,
-      cardSettlementSummary: currentSummary,
-    ));
-
+    // 즉시 백그라운드 PUT.
+    // - UI 즉시 반영은 _PaymentMethodTab 의 로컬 _localMethods 가 담당
+    //   (BlocConsumer rebuild 우회로 ReorderableListView native animation 보존).
+    // - 성공: reordered state 로 emit. listener 가 _localMethods 와 동기화 (변경 없음).
+    // - 실패: currentMethods + operationError emit. UI 가 원위치로 sync.
     try {
       final result =
           await paymentMethodRepository.reorderPaymentMethods(event.orderedIds);
       result.fold(
         (failure) {
-          // Rollback to original order + 알림
           emit(PaymentMethodLoaded(
             currentMethods,
             cardPendings: currentPendings,
@@ -327,7 +319,11 @@ class PaymentMethodBloc
           ));
         },
         (_) {
-          // Success — already showing reordered state (Optimistic 유지)
+          emit(PaymentMethodLoaded(
+            reordered,
+            cardPendings: currentPendings,
+            cardSettlementSummary: currentSummary,
+          ));
         },
       );
     } catch (_) {

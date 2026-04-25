@@ -728,14 +728,43 @@ class _CategoryTab extends StatelessWidget {
 
 }
 
-class _PaymentMethodTab extends StatelessWidget {
+class _PaymentMethodTab extends StatefulWidget {
   const _PaymentMethodTab();
+
+  @override
+  State<_PaymentMethodTab> createState() => _PaymentMethodTabState();
+}
+
+/// 로컬 reorder state: 사용자가 drop 시 즉시 반영하기 위해 bloc state 와
+/// 별개로 _localMethods 를 유지한다. PUT 백그라운드 진행 동안 화면은
+/// _localMethods 가 노출. PUT 응답 후 listener 가 bloc state 와 동기화.
+class _PaymentMethodTabState extends State<_PaymentMethodTab> {
+  List<PaymentMethod>? _localMethods;
+
+  /// bloc state 의 paymentMethods 를 displayOrder ASC 로 정렬하여 반환.
+  List<PaymentMethod> _sortedFromState(PaymentMethodLoaded state) {
+    return List<PaymentMethod>.from(state.paymentMethods)
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<PaymentMethodBloc, PaymentMethodState>(
+      listenWhen: (prev, curr) => curr is PaymentMethodLoaded,
       listener: (context, state) {
-        if (state is PaymentMethodLoaded && state.operationError != null) {
+        if (state is! PaymentMethodLoaded) return;
+
+        // 동기화: PUT 응답 후 bloc state 가 도착하면 _localMethods 갱신.
+        // 사용자 drop 직후에는 _justReordered 가 true 이므로, 같은 ids 라면
+        // displayOrder 만 업데이트 (visual 변화 없음). 다른 변경(예: 외부에서
+        // 추가/삭제) 이라면 새 list 로 교체.
+        final fromState = _sortedFromState(state);
+        if (!mounted) return;
+        setState(() {
+          _localMethods = fromState;
+        });
+
+        if (state.operationError != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.operationError!),
@@ -745,11 +774,19 @@ class _PaymentMethodTab extends StatelessWidget {
         }
       },
       builder: (context, state) {
-        if (state is! PaymentMethodLoaded) {
+        // 우선 _localMethods 사용 (즉시 반영 보장).
+        final List<PaymentMethod> methods;
+        final CardSettlementSummary? settlement;
+        if (_localMethods != null) {
+          methods = _localMethods!;
+          settlement =
+              state is PaymentMethodLoaded ? state.cardSettlementSummary : null;
+        } else if (state is PaymentMethodLoaded) {
+          methods = _sortedFromState(state);
+          settlement = state.cardSettlementSummary;
+        } else {
           return const Center(child: CircularProgressIndicator());
         }
-        final methods = List<PaymentMethod>.from(state.paymentMethods)
-          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
         if (methods.isEmpty) {
           return const EmptyStateWidget(
@@ -826,11 +863,22 @@ class _PaymentMethodTab extends StatelessWidget {
             if (methodOldIndex == methodNewIndex) return;
 
             // visual 단계에서 이미 -1 보정했으므로 method 단계 추가 보정 금지.
-            // (이전 PR #155 의 double subtraction 으로 dedup 가 같은 순서로
-            // 판정해 skip → "되돌아옴" 현상 발생함)
             final reordered = List<PaymentMethod>.from(methods);
             final item = reordered.removeAt(methodOldIndex);
             reordered.insert(methodNewIndex, item);
+
+            // FE 즉시 반영: displayOrder 도 새 인덱스로 갱신해 _localMethods 에
+            // 저장. PUT 응답 후 listener 가 동기화 (같은 순서면 visual 동일).
+            // builder rebuild 시 _localMethods 우선 → ReorderableListView 가
+            // 같은 child list 받음 → native drop animation 보존.
+            final reorderedWithOrder = <PaymentMethod>[];
+            for (int i = 0; i < reordered.length; i++) {
+              reorderedWithOrder.add(reordered[i].copyWith(displayOrder: i));
+            }
+            setState(() {
+              _localMethods = reorderedWithOrder;
+            });
+
             context.read<PaymentMethodBloc>().add(
               ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
             );
@@ -888,7 +936,7 @@ class _PaymentMethodTab extends StatelessWidget {
                   child: _buildPaymentMethodTile(
                     context,
                     method,
-                    state.cardSettlementSummary,
+                    settlement,
                   ),
                 ),
                 ReorderableDragStartListener(
