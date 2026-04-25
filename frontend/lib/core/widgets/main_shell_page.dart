@@ -13,8 +13,6 @@ import 'package:budget_book/core/widgets/offline_banner.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
@@ -74,26 +72,25 @@ class _MainShellPageState extends State<MainShellPage> {
     final previousIndex = _previousIndex;
     _previousIndex = index;
 
+    // Phase 25 Step 10 — 홈 탭 제거 후 인덱스 매핑:
+    // 0: 거래, 1: 예산, 2: 통계, 3: 자산, 4: 더보기
     // Refresh data when switching to a different tab
     if (index != previousIndex) {
       final now = DateTime.now();
       switch (index) {
         case 0:
-          getIt<DashboardBloc>()
-              .add(LoadDashboard(year: now.year, month: now.month));
-        case 1:
           getIt<TransactionBloc>()
               .add(LoadTransactions(year: now.year, month: now.month));
-        case 2:
+        case 1:
           getIt<BudgetBloc>()
               .add(LoadBudgets(year: now.year, month: now.month));
-        // Tab 3 (Statistics) uses factory, loaded fresh by its builder
-        case 4:
-          // Tab 4 (Assets) — refresh payment method data + card settlement summary
+        // Tab 2 (Statistics) uses factory, loaded fresh by its builder
+        case 3:
+          // Tab 3 (Assets) — refresh payment method data + card settlement summary
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
               LoadCardSettlementSummary(year: now.year, month: now.month));
-        // Tab 5 (Settings) needs no refresh
+        // Tab 4 (Settings) needs no refresh
       }
     }
 
@@ -132,12 +129,8 @@ class _MainShellPageState extends State<MainShellPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onDestinationSelected,
+        // Phase 25 Step 10 — 홈 탭 제거. 5탭 구조 (거래/예산/통계/자산/더보기).
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '홈',
-          ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
