@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
@@ -35,6 +36,52 @@ import 'package:budget_book/features/payment_method/domain/entities/card_settlem
 /// CategoryFormSheet.initialType 으로 전달한다.
 String _lastSelectedCategoryType = 'EXPENSE';
 
+/// 그룹 추가 dialog — 자산 페이지(FAB modal sheet) 와 카테고리 탭(inline)
+/// 두 곳에서 공통 호출. file-level 로 두어 양쪽에서 사용 가능.
+void _showAddGroupDialogTopLevel(
+  BuildContext context, {
+  String visibility = 'SHARED',
+  String categoryType = 'EXPENSE',
+}) {
+  final controller = TextEditingController();
+  final typeLabel = categoryType == 'INCOME' ? '수입' : '지출';
+  showDialog(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(
+        '$typeLabel ${visibility == 'PRIVATE' ? '개인 그룹' : '그룹'} 추가',
+      ),
+      content: TextField(
+        controller: controller,
+        decoration: const InputDecoration(hintText: '그룹 이름'),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = controller.text.trim();
+            if (name.isNotEmpty) {
+              Navigator.of(dialogContext).pop();
+              getIt<CategoryGroupBloc>().add(
+                CreateCategoryGroup(
+                  name: name,
+                  visibility: visibility,
+                  categoryType: categoryType,
+                ),
+              );
+            }
+          },
+          child: const Text('추가'),
+        ),
+      ],
+    ),
+  );
+}
+
 class AssetManagementPage extends StatelessWidget {
   final int? initialYear;
   final int? initialMonth;
@@ -45,6 +92,8 @@ class AssetManagementPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
+      // 사용자 요청: 결제수단을 첫 번째로 (자산 탭 클릭 시 default).
+      initialIndex: 0,
       child: Builder(
         builder: (context) {
           return Scaffold(
@@ -52,8 +101,8 @@ class AssetManagementPage extends StatelessWidget {
               title: const Text('자산 관리'),
               bottom: const TabBar(
                 tabs: [
-                  Tab(text: '카테고리'),
                   Tab(text: '결제수단'),
+                  Tab(text: '카테고리'),
                   Tab(text: '포켓'),
                 ],
               ),
@@ -65,8 +114,8 @@ class AssetManagementPage extends StatelessWidget {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      _CategoryTab(),
                       _PaymentMethodTab(),
+                      _CategoryTab(),
                       _PocketTab(),
                     ],
                   ),
@@ -87,11 +136,12 @@ class AssetManagementPage extends StatelessWidget {
         return FloatingActionButton(
           onPressed: () {
             final currentIndex = DefaultTabController.of(context).index;
+            // 사용자 요청 순서 변경: 0=결제수단, 1=카테고리, 2=포켓
             switch (currentIndex) {
               case 0:
-                _showAddCategory(context);
-              case 1:
                 _showAddPaymentMethod(context);
+              case 1:
+                _showAddCategoryOrGroupSheet(context);
               case 2:
                 _showAddPocket(context);
             }
@@ -119,6 +169,68 @@ class AssetManagementPage extends StatelessWidget {
             groupId: groupId,
           ));
         },
+      ),
+    );
+  }
+
+  /// FAB 통일 — 카테고리 sub-tab 에서 그룹/카테고리 추가 modal sheet.
+  /// 사용자 보고: "+ 에서는 하위 카테고리만 추가 가능, 자산 관리 화면에서
+  /// 공유 그룹 추가/개인 그룹 추가가 별도 → 헷갈림. 통일 필요."
+  void _showAddCategoryOrGroupSheet(BuildContext context) {
+    final coupled = isCoupleMode();
+    final typeLabel = _lastSelectedCategoryType == 'INCOME' ? '수입' : '지출';
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetCtx) => SafeArea(
+        child: Wrap(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                '$typeLabel 추가',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: Text('$typeLabel 카테고리 추가'),
+              subtitle: const Text('단일 카테고리. 그룹은 dialog 안에서 선택'),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _showAddCategory(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder),
+              title: Text(coupled ? '$typeLabel 공유 그룹 추가' : '$typeLabel 그룹 추가'),
+              subtitle: const Text('카테고리들을 묶는 그룹'),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _showAddGroupDialogTopLevel(
+                  context,
+                  categoryType: _lastSelectedCategoryType,
+                );
+              },
+            ),
+            if (coupled)
+              ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: Text('$typeLabel 개인 그룹 추가'),
+                subtitle: const Text('상대방에게 보이지 않음'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _showAddGroupDialogTopLevel(
+                    context,
+                    visibility: 'PRIVATE',
+                    categoryType: _lastSelectedCategoryType,
+                  );
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -262,16 +374,8 @@ class _CategoryTabState extends State<_CategoryTab> {
                       groups: sharedGroups,
                     ),
                   ],
-                  // Add group button
-                  _buildAddButton(
-                    context,
-                    icon: Icons.create_new_folder,
-                    label: coupled ? '공유 그룹 추가' : '그룹 추가',
-                    onTap: () => _showAddGroupDialog(
-                      context,
-                      categoryType: _selectedType,
-                    ),
-                  ),
+                  // 사용자 요청 — FAB 로 통일. inline 그룹 추가 버튼 제거.
+                  // (그룹/카테고리 추가는 화면 우하단 + 버튼의 modal sheet 로)
                   // Private section (couple mode only)
                   if (coupled) ...[
                     const SizedBox(height: 8),
@@ -280,18 +384,6 @@ class _CategoryTabState extends State<_CategoryTab> {
                     _buildReorderableGroupSection(
                       context,
                       groups: privateGroups,
-                    ),
-                    // Add private group button
-                    _buildAddButton(
-                      context,
-                      icon: Icons.add,
-                      label: '개인 그룹 추가',
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      onTap: () => _showAddGroupDialog(
-                        context,
-                        visibility: 'PRIVATE',
-                        categoryType: _selectedType,
-                      ),
                     ),
                   ],
                   const SizedBox(height: 88),
@@ -380,21 +472,6 @@ class _CategoryTabState extends State<_CategoryTab> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAddButton(BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    final c = color ?? Theme.of(context).colorScheme.primary;
-    return ListTile(
-      dense: true,
-      leading: Icon(icon, size: 18, color: c),
-      title: Text(label, style: TextStyle(fontSize: 13, color: c)),
-      onTap: onTap,
     );
   }
 
@@ -598,50 +675,6 @@ class _CategoryTabState extends State<_CategoryTab> {
           ),
         );
       },
-    );
-  }
-
-  void _showAddGroupDialog(
-    BuildContext context, {
-    String visibility = 'SHARED',
-    String categoryType = 'EXPENSE',
-  }) {
-    final controller = TextEditingController();
-    final typeLabel = categoryType == 'INCOME' ? '수입' : '지출';
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          '$typeLabel ${visibility == 'PRIVATE' ? '개인 그룹' : '그룹'} 추가',
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '그룹 이름'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                Navigator.of(dialogContext).pop();
-                getIt<CategoryGroupBloc>().add(
-                  CreateCategoryGroup(
-                    name: name,
-                    visibility: visibility,
-                    categoryType: categoryType,
-                  ),
-                );
-              }
-            },
-            child: const Text('추가'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1116,6 +1149,13 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
     }
 
     return ListTile(
+      // 사용자 요청: 자산 항목 클릭 시 해당 결제수단으로 필터된 거래 탭으로 이동
+      onTap: () {
+        final encodedName = Uri.encodeComponent(method.name);
+        context.go(
+          '/transactions?paymentMethodId=${method.id}&paymentMethodName=$encodedName',
+        );
+      },
       leading: CircleAvatar(
         backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
         child: Icon(
@@ -1554,7 +1594,8 @@ class _CardSettlementHeader extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        if (controller.index != 1) return const SizedBox.shrink();
+        // 사용자 요청 순서 변경: 결제수단 탭이 index 0
+        if (controller.index != 0) return const SizedBox.shrink();
 
         return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
           builder: (context, state) {
