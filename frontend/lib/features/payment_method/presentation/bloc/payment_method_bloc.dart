@@ -275,13 +275,23 @@ class PaymentMethodBloc
         : null;
 
     // Compute desired ordering (event ids first, then any unspecified at end).
+    // CRITICAL: 각 entity 의 displayOrder 도 새 인덱스로 갱신해야 함.
+    // 이를 누락하면 builder 가 sort by displayOrder 시 원래 순서로 복귀하여
+    // "Optimistic update 가 즉시 되돌아가는" 회귀 발생 (#155~#158 의 진짜 원인).
+    final orderedPool = <String, PaymentMethod>{
+      for (final pm in currentMethods) pm.id: pm,
+    };
     final reordered = <PaymentMethod>[];
     for (final id in event.orderedIds) {
-      final pm = currentMethods.where((m) => m.id == id).firstOrNull;
-      if (pm != null) reordered.add(pm);
+      final pm = orderedPool[id];
+      if (pm != null) {
+        reordered.add(pm.copyWith(displayOrder: reordered.length));
+      }
     }
     for (final pm in currentMethods) {
-      if (!event.orderedIds.contains(pm.id)) reordered.add(pm);
+      if (!event.orderedIds.contains(pm.id)) {
+        reordered.add(pm.copyWith(displayOrder: reordered.length));
+      }
     }
 
     // Idempotent dedup: 현재 순서와 동일하면 no-op.
@@ -294,7 +304,7 @@ class PaymentMethodBloc
       return;
     }
 
-    // Optimistic update
+    // Optimistic update — reordered list + 갱신된 displayOrder
     emit(PaymentMethodLoaded(
       reordered,
       cardPendings: currentPendings,
