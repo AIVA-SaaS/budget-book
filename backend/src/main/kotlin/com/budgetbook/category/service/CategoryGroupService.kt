@@ -4,6 +4,7 @@ import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.domain.BudgetType
 import com.budgetbook.category.domain.CategoryGroup
+import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.category.dto.CategoryGroupResponse
 import com.budgetbook.category.dto.CategoryResponse
 import com.budgetbook.category.dto.CreateCategoryGroupRequest
@@ -90,12 +91,19 @@ class CategoryGroupService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
+        val categoryType = try {
+            CategoryType.valueOf(request.categoryType)
+        } catch (e: IllegalArgumentException) {
+            throw BusinessException("VALIDATION_ERROR", "Invalid category type: ${request.categoryType}")
+        }
+
         val group = CategoryGroup(
             couple = couple,
             name = request.name,
             icon = request.icon,
             color = request.color,
             budgetType = budgetType,
+            categoryType = categoryType,
             displayOrder = 0,
             isDefault = false,
             visibility = visibility,
@@ -129,6 +137,25 @@ class CategoryGroupService(
                 BudgetType.valueOf(bt)
             } catch (e: IllegalArgumentException) {
                 throw BusinessException("VALIDATION_ERROR", "Invalid budget type: $bt")
+            }
+        }
+        request.categoryType?.let { ct ->
+            val newType = try {
+                CategoryType.valueOf(ct)
+            } catch (e: IllegalArgumentException) {
+                throw BusinessException("VALIDATION_ERROR", "Invalid category type: $ct")
+            }
+            // type 변경 시 그룹 안 모든 카테고리 type 과 일치해야 함.
+            if (newType != group.categoryType) {
+                val children = categoryRepository.findByCoupleIdAndGroupId(couple.id, group.id)
+                val mismatched = children.filter { it.type != newType }
+                if (mismatched.isNotEmpty()) {
+                    throw BusinessException(
+                        "CATEGORY_TYPE_MISMATCH",
+                        "그룹 안 ${mismatched.size}개 카테고리의 type 이 다릅니다. 먼저 카테고리를 이동하세요.",
+                    )
+                }
+                group.categoryType = newType
             }
         }
         request.displayOrder?.let { group.displayOrder = it }
@@ -331,6 +358,7 @@ class CategoryGroupService(
         icon = icon,
         color = color,
         budgetType = budgetType.name,
+        categoryType = categoryType.name,
         displayOrder = displayOrder,
         isDefault = isDefault,
         categories = categories,
