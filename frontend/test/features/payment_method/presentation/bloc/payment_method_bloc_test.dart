@@ -425,7 +425,8 @@ void main() {
     });
 
     group('ReorderPaymentMethods', () {
-      // Non-optimistic: PUT 응답 후 emit (성공/실패 모두 1회만).
+      // Optimistic + 백그라운드 PUT: drop animation 종료 후 emit 1회 (Optimistic),
+      // 그 후 PUT 응답이 실패하면 rollback emit 추가.
       // displayOrder 는 새 인덱스(0, 1, ...) 로 갱신.
       final reorderedCredit = tCreditMethod.copyWith(displayOrder: 0);
       final reorderedCash = tCashMethod.copyWith(displayOrder: 1);
@@ -441,12 +442,15 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
+          // Optimistic emit (drop animation settle delay 후)
           PaymentMethodLoaded([reorderedCredit, reorderedCash]),
         ],
+        // Optimistic emit 전 280ms drop animation settle delay 고려
+        wait: const Duration(milliseconds: 400),
       );
 
       blocTest<PaymentMethodBloc, PaymentMethodState>(
-        'emits operationError without optimistic update on failure',
+        'rolls back on failure',
         build: () {
           when(mockRepository.reorderPaymentMethods(['pm-2', 'pm-1']))
               .thenAnswer((_) async => const Left(
@@ -457,10 +461,13 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          // 실패 시 paymentMethods 는 원본 그대로 + operationError 만 추가.
+          // First: Optimistic emit (drop animation settle 후)
+          PaymentMethodLoaded([reorderedCredit, reorderedCash]),
+          // Then: PUT 실패 → rollback to original + operationError
           PaymentMethodLoaded(tMethods,
               operationError: 'Failed to reorder payment methods'),
         ],
+        wait: const Duration(milliseconds: 400),
       );
     });
 
