@@ -40,6 +40,19 @@ class MonthlyBudget(
     @Column(name = "year_month", nullable = false, length = 7)
     val yearMonth: String,
 
+    /**
+     * Phase 25 후속 C-1 — 템플릿+오버라이드 모델 (V57 컬럼 매핑 시작).
+     * - TEMPLATE: 시작월=yearMonth, 종료월=endYearMonth (null=무기한)
+     * - OVERRIDE: 단일월 — yearMonth == endYearMonth
+     * 기존 데이터는 V57 백필로 모두 OVERRIDE + endYearMonth=yearMonth.
+     */
+    @Column(name = "end_year_month", length = 7)
+    var endYearMonth: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "row_kind", nullable = false, length = 10)
+    var rowKind: BudgetRowKind = BudgetRowKind.OVERRIDE,
+
     @Column(nullable = false)
     var amount: Long,
 
@@ -76,3 +89,10 @@ class MonthlyBudget(
 enum class BudgetPeriod { WEEKLY, MONTHLY }
 
 enum class PeriodType { NONE, DAILY, WEEKLY, MONTHLY }
+
+/**
+ * Phase 25 후속 C-1 — V57 모델.
+ * - TEMPLATE: 범위 안 모든 월에 effective 예산 제공
+ * - OVERRIDE: 단일월 덮어쓰기. 같은 월에 TEMPLATE 이 있어도 OVERRIDE 우선.
+ */
+enum class BudgetRowKind { TEMPLATE, OVERRIDE }
