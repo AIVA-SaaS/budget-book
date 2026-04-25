@@ -10,12 +10,16 @@ import 'package:budget_book/core/widgets/color_picker.dart';
 
 class CategoryFormSheet extends StatefulWidget {
   final Category? category;
+  /// Phase 25 후속 — 신규 추가 시 초기 type (EXPENSE/INCOME).
+  /// 자산 탭 [수입] 토글 상태에서 FAB 누르면 'INCOME' 전달.
+  final String initialType;
   final void Function(String name, String type, String? icon, String? color, String? groupId)
       onSubmit;
 
   const CategoryFormSheet({
     super.key,
     this.category,
+    this.initialType = 'EXPENSE',
     required this.onSubmit,
   });
 
@@ -38,7 +42,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.category?.name ?? '');
-    _selectedType = widget.category?.type ?? 'EXPENSE';
+    _selectedType = widget.category?.type ?? widget.initialType;
     _selectedIcon = widget.category?.icon;
     _selectedColor = widget.category?.color;
     _selectedGroupId = widget.category?.groupId;
@@ -143,7 +147,22 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   selected: {_selectedType},
                   onSelectionChanged: (value) {
                     setState(() {
-                      _selectedType = value.first;
+                      final newType = value.first;
+                      _selectedType = newType;
+                      // type 변경 시 현재 선택된 그룹이 새 type 의 그룹이 아니라면
+                      // 자동 해제 (잘못된 type 매핑 방지).
+                      if (_selectedGroupId != null) {
+                        final groupBloc = getIt<CategoryGroupBloc>();
+                        final state = groupBloc.state;
+                        if (state is CategoryGroupLoaded) {
+                          final group = state.groups
+                              .where((g) => g.id == _selectedGroupId)
+                              .firstOrNull;
+                          if (group != null && group.categoryType != newType) {
+                            _selectedGroupId = null;
+                          }
+                        }
+                      }
                     });
                   },
                 ),
@@ -251,7 +270,10 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
           if (state is! CategoryGroupLoaded) {
             return const LinearProgressIndicator();
           }
-          final groups = state.groups;
+          // Phase 25 후속 — 현재 선택된 type 의 그룹만 노출.
+          final groups = state.groups
+              .where((g) => g.categoryType == _selectedType)
+              .toList();
           return DropdownButtonFormField<String?>(
             initialValue: _selectedGroupId,
             decoration: const InputDecoration(
