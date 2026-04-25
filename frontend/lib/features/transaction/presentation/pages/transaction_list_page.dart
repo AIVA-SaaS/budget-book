@@ -32,7 +32,6 @@ import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
-import 'package:budget_book/core/widgets/account_balance_card.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
@@ -62,7 +61,6 @@ class TransactionListPage extends StatefulWidget {
 enum _TxViewMode { list, calendar }
 
 const String _kTxViewModePrefKey = 'tx_view_mode';
-const String _kTxSummaryExpandedPrefKey = 'tx_summary_expanded';
 
 class _TransactionListPageState extends State<TransactionListPage> {
   final TextEditingController _searchController = TextEditingController();
@@ -73,7 +71,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
   bool _isSearching = false;
   String? _pendingScrollToDate;
   _TxViewMode _viewMode = _TxViewMode.list;
-  bool _summaryExpanded = false;
 
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
@@ -107,23 +104,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Future<void> _loadViewMode() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_kTxViewModePrefKey);
-    final expanded = prefs.getBool(_kTxSummaryExpandedPrefKey) ?? false;
     if (!mounted) return;
-    setState(() {
-      if (saved == 'calendar') _viewMode = _TxViewMode.calendar;
-      _summaryExpanded = expanded;
-    });
+    if (saved == 'calendar') {
+      setState(() => _viewMode = _TxViewMode.calendar);
+    }
   }
 
   Future<void> _saveViewMode(_TxViewMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kTxViewModePrefKey,
         mode == _TxViewMode.calendar ? 'calendar' : 'list');
-  }
-
-  Future<void> _saveSummaryExpanded(bool expanded) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kTxSummaryExpandedPrefKey, expanded);
   }
 
   @override
@@ -526,16 +516,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     balance: displayIncome - displayExpense,
                     totalTransfer: displayTransfer > 0 ? displayTransfer : null,
                   ),
-                  // Phase 25 Step 8 — 리스트 뷰 상단 요약 영역 (홈 위젯 재사용).
-                  // 달력 뷰 에서는 노출 안 함 (공간 부족).
-                  if (_viewMode == _TxViewMode.list)
-                    _SummaryExpansion(
-                      expanded: _summaryExpanded,
-                      onChanged: (v) {
-                        setState(() => _summaryExpanded = v);
-                        _saveSummaryExpanded(v);
-                      },
-                    ),
                   if (_viewMode == _TxViewMode.calendar)
                     Expanded(
                       child: TransactionCalendarView(
@@ -1020,39 +1000,3 @@ class _ViewModeToggle extends StatelessWidget {
   }
 }
 
-/// Phase 25 Step 8 — 리스트 뷰 상단 요약 영역 (홈 탭 위젯 복제).
-/// AccountBalanceCard 를 ExpansionTile 로 감싸 default collapsed 노출.
-/// 사용자가 펼치면 SharedPreferences 에 저장되어 다음 진입 시 유지.
-class _SummaryExpansion extends StatelessWidget {
-  final bool expanded;
-  final ValueChanged<bool> onChanged;
-
-  const _SummaryExpansion({required this.expanded, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: const PageStorageKey<String>('tx_summary_expansion'),
-        initiallyExpanded: expanded,
-        onExpansionChanged: onChanged,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        leading: Icon(
-          Icons.account_balance_wallet,
-          size: 18,
-          color: theme.colorScheme.primary,
-        ),
-        title: Text(
-          '잔액 요약',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        children: const [AccountBalanceCard(showHeader: false)],
-      ),
-    );
-  }
-}
