@@ -174,62 +174,120 @@ class AssetManagementPage extends StatelessWidget {
   }
 
   /// FAB 통일 — 카테고리 sub-tab 에서 그룹/카테고리 추가 modal sheet.
-  /// 사용자 보고: "+ 에서는 하위 카테고리만 추가 가능, 자산 관리 화면에서
-  /// 공유 그룹 추가/개인 그룹 추가가 별도 → 헷갈림. 통일 필요."
+  /// 사용자 의견 반영(2회): grid 카드 형태 + 색상 칩 type 강조.
   void _showAddCategoryOrGroupSheet(BuildContext context) {
     final coupled = isCoupleMode();
-    final typeLabel = _lastSelectedCategoryType == 'INCOME' ? '수입' : '지출';
+    final isIncome = _lastSelectedCategoryType == 'INCOME';
+    final typeLabel = isIncome ? '수입' : '지출';
+    final typeColor = isIncome ? Colors.blue.shade700 : Colors.deepOrange;
+
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (sheetCtx) => SafeArea(
-        child: Wrap(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text(
-                '$typeLabel 추가',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: typeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        typeLabel,
+                        style: TextStyle(
+                          color: typeColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '추가하기',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: Text('$typeLabel 카테고리 추가'),
-              subtitle: const Text('단일 카테고리. 그룹은 dialog 안에서 선택'),
-              onTap: () {
-                Navigator.of(sheetCtx).pop();
-                _showAddCategory(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.create_new_folder),
-              title: Text(coupled ? '$typeLabel 공유 그룹 추가' : '$typeLabel 그룹 추가'),
-              subtitle: const Text('카테고리들을 묶는 그룹'),
-              onTap: () {
-                Navigator.of(sheetCtx).pop();
-                _showAddGroupDialogTopLevel(
-                  context,
-                  categoryType: _lastSelectedCategoryType,
-                );
-              },
-            ),
-            if (coupled)
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: Text('$typeLabel 개인 그룹 추가'),
-                subtitle: const Text('상대방에게 보이지 않음'),
-                onTap: () {
-                  Navigator.of(sheetCtx).pop();
-                  _showAddGroupDialogTopLevel(
-                    context,
-                    visibility: 'PRIVATE',
-                    categoryType: _lastSelectedCategoryType,
-                  );
-                },
+              Row(
+                children: [
+                  Expanded(
+                    child: _AddOptionCard(
+                      icon: Icons.label_outline,
+                      label: '카테고리',
+                      color: typeColor,
+                      onTap: () {
+                        Navigator.of(sheetCtx).pop();
+                        _showAddCategory(context);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AddOptionCard(
+                      icon: Icons.create_new_folder_outlined,
+                      label: coupled ? '공유 그룹' : '그룹',
+                      color: typeColor,
+                      onTap: () {
+                        Navigator.of(sheetCtx).pop();
+                        _showAddGroupDialogTopLevel(
+                          context,
+                          categoryType: _lastSelectedCategoryType,
+                        );
+                      },
+                    ),
+                  ),
+                  if (coupled) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _AddOptionCard(
+                        icon: Icons.lock_outline,
+                        label: '개인 그룹',
+                        color: typeColor,
+                        onTap: () {
+                          Navigator.of(sheetCtx).pop();
+                          _showAddGroupDialogTopLevel(
+                            context,
+                            visibility: 'PRIVATE',
+                            categoryType: _lastSelectedCategoryType,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            const SizedBox(height: 8),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1799,6 +1857,52 @@ class _SummaryCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// FAB modal sheet 의 grid 옵션 카드.
+class _AddOptionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AddOptionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

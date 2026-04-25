@@ -489,10 +489,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 pmFilter: filterPmId,
               );
 
-              // When serverTotalIncome/Expense are available (no client filter),
-              // prefer the server values for income/expense and keep the
-              // client-side transfer total (server summary may lack it).
-              final hasServerTotals = state.serverTotalIncome != null;
+              // 필터 적용 시에는 client-side summary 우선 (server total 은 월 전체).
+              // 검색 키워드도 client-side 필터링이므로 same.
+              final hasClientFilter = _filterState.hasActiveFilters ||
+                  _searchController.text.trim().isNotEmpty;
+              final hasServerTotals =
+                  state.serverTotalIncome != null && !hasClientFilter;
               final displayIncome = hasServerTotals
                   ? state.totalIncome
                   : summary.totalIncome;
