@@ -17,6 +17,8 @@ class CreateCategoryGroup extends CategoryGroupEvent {
   final String? color;
   final String? budgetType;
   final String visibility;
+  /// Phase 25 후속 — EXPENSE/INCOME.
+  final String categoryType;
 
   const CreateCategoryGroup({
     required this.name,
@@ -24,10 +26,12 @@ class CreateCategoryGroup extends CategoryGroupEvent {
     this.color,
     this.budgetType,
     this.visibility = 'SHARED',
+    this.categoryType = 'EXPENSE',
   });
 
   @override
-  List<Object?> get props => [name, icon, color, budgetType, visibility];
+  List<Object?> get props =>
+      [name, icon, color, budgetType, visibility, categoryType];
 }
 
 class UpdateCategoryGroup extends CategoryGroupEvent {

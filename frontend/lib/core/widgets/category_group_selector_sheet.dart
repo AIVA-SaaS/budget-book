@@ -281,12 +281,17 @@ class _CategoryGroupSelectorSheetState
     }
 
     final coupled = isCoupleMode();
+    // Phase 25 후속 — 그룹 자체도 categoryType 으로 필터링.
+    // (선택 sheet 가 거래 type 에 맞는 그룹만 노출)
+    final typed = groups
+        .where((g) => g.categoryType == widget.categoryType)
+        .toList();
     final sharedGroups = coupled
-        ? (groups.where((g) => g.isShared).toList()
+        ? (typed.where((g) => g.isShared).toList()
           ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
-        : (groups.toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)));
+        : (typed.toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)));
     final privateGroups = coupled
-        ? (groups.where((g) => g.isPrivate).toList()
+        ? (typed.where((g) => g.isPrivate).toList()
           ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)))
         : <CategoryGroup>[];
 

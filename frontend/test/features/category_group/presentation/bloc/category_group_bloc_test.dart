@@ -28,6 +28,7 @@ class MockCategoryGroupRepository extends Mock
     String? color,
     String? budgetType,
     String visibility = 'SHARED',
+    String categoryType = 'EXPENSE',
   }) =>
       super.noSuchMethod(
         Invocation.method(#createCategoryGroup, [], {
@@ -36,6 +37,7 @@ class MockCategoryGroupRepository extends Mock
           #color: color,
           #budgetType: budgetType,
           #visibility: visibility,
+          #categoryType: categoryType,
         }),
         returnValue: Future.value(
           Right<Failure, CategoryGroup>(CategoryGroup(

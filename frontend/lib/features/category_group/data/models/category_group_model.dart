@@ -14,6 +14,7 @@ class CategoryGroupModel extends CategoryGroup {
     super.visibility,
     super.ownerId,
     required super.createdAt,
+    super.categoryType,
   });
 
   factory CategoryGroupModel.fromJson(Map<String, dynamic> json) {
@@ -24,6 +25,7 @@ class CategoryGroupModel extends CategoryGroup {
       icon: json['icon'] as String?,
       color: json['color'] as String?,
       budgetType: json['budgetType'] as String? ?? 'NONE',
+      categoryType: json['categoryType'] as String? ?? 'EXPENSE',
       displayOrder: json['displayOrder'] as int? ?? 0,
       isDefault: json['isDefault'] as bool? ?? false,
       categories: categoriesJson
