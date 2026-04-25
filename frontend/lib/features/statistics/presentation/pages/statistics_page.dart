@@ -7,7 +7,6 @@ import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_state.dart';
-import 'package:budget_book/features/statistics/presentation/widgets/summary_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/category_breakdown_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/monthly_trend_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/year_comparison_tab.dart';
@@ -22,17 +21,16 @@ class StatisticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 5개 sub-tab. icon + text 형태로 통일. 순서는 기존 TabBarView children 과 맞춤
-    // (요약 → 카테고리 → 추이 → 전년비교 → 결제수단)
+    // 4개 sub-tab. 요약은 다른 항목들과 중복되어 제거 (사용자 요청).
+    // 순서는 기존 TabBarView children 과 맞춤 (카테고리 → 추이 → 전년비교 → 결제수단).
     const tabs = [
-      Tab(icon: Icon(Icons.dashboard_outlined), text: '요약'),
       Tab(icon: Icon(Icons.pie_chart_outline), text: '카테고리별'),
       Tab(icon: Icon(Icons.show_chart), text: '추이'),
       Tab(icon: Icon(Icons.compare_arrows), text: '전년 비교'),
       Tab(icon: Icon(Icons.credit_card), text: '결제수단별'),
     ];
     return DefaultTabController(
-      length: 5,
+      length: 4,
       child: Scaffold(
         // showAppBar=false (분석 탭 wrapper) 시에도 PreferredSize 안 쓰고
         // 단일 AppBar 의 toolbarHeight 만 0 으로 — nested TabController 충돌 회피.
@@ -126,11 +124,6 @@ class StatisticsPage extends StatelessWidget {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      SummaryTab(
-                        summary: state.summary,
-                        isLoading: state.summaryLoading,
-                        error: state.summaryError,
-                      ),
                       CategoryBreakdownTab(
                         categoryStats: state.categoryStats,
                         isLoading: state.categoryLoading,

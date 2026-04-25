@@ -61,7 +61,7 @@ void main() {
   final now = DateTime.now();
 
   group('StatisticsPage', () {
-    testWidgets('shows tab bar with 3 tabs', (tester) async {
+    testWidgets('shows tab bar with 4 sub-tabs (요약 제거됨)', (tester) async {
       when(() => mockBloc.state).thenReturn(StatisticsState(
         year: now.year,
         month: now.month,
@@ -70,46 +70,12 @@ void main() {
       await tester.pumpWidget(createTestWidget());
 
       expect(find.text('통계'), findsOneWidget);
-      expect(find.text('요약'), findsOneWidget);
+      // 요약 sub-tab 은 사용자 요청으로 제거됨 (다른 항목과 중복)
+      expect(find.text('요약'), findsNothing);
       expect(find.text('카테고리별'), findsOneWidget);
       expect(find.text('추이'), findsOneWidget);
-    });
-
-    testWidgets('shows loading indicator when summary is loading',
-        (tester) async {
-      when(() => mockBloc.state).thenReturn(StatisticsState(
-        year: now.year,
-        month: now.month,
-        summaryLoading: true,
-      ));
-
-      await tester.pumpWidget(createTestWidget());
-
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    });
-
-    testWidgets('shows summary data when loaded', (tester) async {
-      when(() => mockBloc.state).thenReturn(StatisticsState(
-        year: now.year,
-        month: now.month,
-        summary: const StatisticsSummary(
-          yearMonth: '2026-03',
-          totalIncome: 5000000,
-          totalExpense: 3200000,
-          balance: 1800000,
-          transactionCount: 45,
-        ),
-      ));
-
-      await tester.pumpWidget(createTestWidget());
-
-      expect(find.text('수입'), findsOneWidget);
-      expect(find.text('지출'), findsOneWidget);
-      expect(find.text('잔액'), findsOneWidget);
-      expect(find.textContaining('5,000,000원'), findsOneWidget);
-      expect(find.textContaining('3,200,000원'), findsOneWidget);
-      expect(find.textContaining('1,800,000원'), findsOneWidget);
-      expect(find.text('총 45건의 거래'), findsOneWidget);
+      expect(find.text('전년 비교'), findsOneWidget);
+      expect(find.text('결제수단별'), findsOneWidget);
     });
 
     testWidgets('shows category breakdown tab when tapped', (tester) async {
@@ -171,19 +137,6 @@ void main() {
       // Legend items
       expect(find.text('수입'), findsWidgets);
       expect(find.text('지출'), findsWidgets);
-    });
-
-    testWidgets('shows error message when summary has error', (tester) async {
-      when(() => mockBloc.state).thenReturn(StatisticsState(
-        year: now.year,
-        month: now.month,
-        summaryError: '통계 요약을 불러오지 못했습니다',
-      ));
-
-      await tester.pumpWidget(createTestWidget());
-
-      expect(find.text('통계 요약을 불러오지 못했습니다'), findsOneWidget);
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
 
     testWidgets('shows month navigator with MonthCubit current month',
