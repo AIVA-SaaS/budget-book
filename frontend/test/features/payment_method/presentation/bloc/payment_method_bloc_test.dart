@@ -425,8 +425,7 @@ void main() {
     });
 
     group('ReorderPaymentMethods', () {
-      // Optimistic + 백그라운드 PUT: drop animation 종료 후 emit 1회 (Optimistic),
-      // 그 후 PUT 응답이 실패하면 rollback emit 추가.
+      // FE 로컬 state 가 즉시 반영을 담당. bloc 은 PUT 응답 후 1회 emit.
       // displayOrder 는 새 인덱스(0, 1, ...) 로 갱신.
       final reorderedCredit = tCreditMethod.copyWith(displayOrder: 0);
       final reorderedCash = tCashMethod.copyWith(displayOrder: 1);
@@ -442,11 +441,8 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          // Optimistic emit (drop animation settle delay 후)
           PaymentMethodLoaded([reorderedCredit, reorderedCash]),
         ],
-        // Optimistic emit 전 280ms drop animation settle delay 고려
-        wait: const Duration(milliseconds: 400),
       );
 
       blocTest<PaymentMethodBloc, PaymentMethodState>(
@@ -461,13 +457,10 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          // First: Optimistic emit (drop animation settle 후)
-          PaymentMethodLoaded([reorderedCredit, reorderedCash]),
-          // Then: PUT 실패 → rollback to original + operationError
+          // PUT 실패 → original state + operationError 1회만 emit.
           PaymentMethodLoaded(tMethods,
               operationError: 'Failed to reorder payment methods'),
         ],
-        wait: const Duration(milliseconds: 400),
       );
     });
 
