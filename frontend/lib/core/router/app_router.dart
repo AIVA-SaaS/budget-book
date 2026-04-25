@@ -211,9 +211,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     ),
     GoRoute(
       path: '/couple',
-      builder: (context, state) => BlocProvider<CoupleBloc>(
-        create: (context) =>
-            getIt<CoupleBloc>()..add(const LoadCouple()),
+      builder: (context, state) => BlocProvider<CoupleBloc>.value(
+        value: getIt<CoupleBloc>()..add(const LoadCouple()),
         child: const CouplePage(),
       ),
     ),
@@ -555,8 +554,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
-        return BlocProvider<WeeklyBudgetBloc>(
-          create: (_) => getIt<WeeklyBudgetBloc>()
+        return BlocProvider<WeeklyBudgetBloc>.value(
+          value: getIt<WeeklyBudgetBloc>()
             ..add(LoadWeeklyOverview(year: now.year, month: now.month))
             ..add(const LoadCurrentWeek()),
           child: const WeeklyBudgetPage(),
@@ -568,8 +567,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
-        return BlocProvider<WeeklySettlementBloc>(
-          create: (_) => getIt<WeeklySettlementBloc>()
+        return BlocProvider<WeeklySettlementBloc>.value(
+          value: getIt<WeeklySettlementBloc>()
             ..add(LoadSettlements(year: now.year, month: now.month)),
           child: const WeeklySettlementPage(),
         );
@@ -580,8 +579,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final now = DateTime.now();
-        return BlocProvider<ReportBloc>(
-          create: (_) => getIt<ReportBloc>()
+        return BlocProvider<ReportBloc>.value(
+          value: getIt<ReportBloc>()
             ..add(LoadMonthlyReport(year: now.year, month: now.month))
             ..add(LoadWeeklyReport(
                 year: now.year, month: now.month, week: 1)),
@@ -599,8 +598,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         final lastDay = DateTime(now.year, now.month + 1, 0).day;
         final dateTo =
             '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
-        return BlocProvider<PeriodSummaryBloc>(
-          create: (_) => getIt<PeriodSummaryBloc>()
+        return BlocProvider<PeriodSummaryBloc>.value(
+          value: getIt<PeriodSummaryBloc>()
             ..add(LoadPeriodSummary(dateFrom: dateFrom, dateTo: dateTo)),
           child: const PeriodSummaryPage(),
         );
@@ -609,9 +608,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     GoRoute(
       path: '/recurring',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => BlocProvider<RecurringBloc>(
-        create: (_) =>
-            getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
+      builder: (context, state) => BlocProvider<RecurringBloc>.value(
+        value: getIt<RecurringBloc>()..add(const LoadRecurringTransactions()),
         child: const RecurringListPage(),
       ),
     ),
@@ -623,8 +621,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         return MultiBlocProvider(
           providers: [
-            BlocProvider<RecurringBloc>(
-              create: (_) => getIt<RecurringBloc>()
+            BlocProvider<RecurringBloc>.value(
+              value: getIt<RecurringBloc>()
                 ..add(const LoadRecurringTransactions()),
             ),
             BlocProvider<CategoryBloc>.value(
@@ -647,8 +645,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         return MultiBlocProvider(
           providers: [
-            BlocProvider<RecurringBloc>(
-              create: (_) => getIt<RecurringBloc>()
+            BlocProvider<RecurringBloc>.value(
+              value: getIt<RecurringBloc>()
                 ..add(const LoadRecurringTransactions()),
             ),
             BlocProvider<CategoryBloc>.value(
