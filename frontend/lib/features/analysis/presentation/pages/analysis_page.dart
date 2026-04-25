@@ -68,8 +68,10 @@ class _StatisticsTabWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    return BlocProvider<StatisticsBloc>(
-      create: (_) => getIt<StatisticsBloc>()
+    // singleton bloc 은 BlocProvider.value 사용. (create 패턴은 dispose 시
+    // close() 호출되어 singleton 이 dead 상태로 다음 진입 시 회색화면 회귀)
+    return BlocProvider<StatisticsBloc>.value(
+      value: getIt<StatisticsBloc>()
         ..add(LoadAllStatistics(year: now.year, month: now.month))
         ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
       child: const StatisticsPage(showAppBar: false),
