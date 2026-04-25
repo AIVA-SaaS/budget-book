@@ -29,6 +29,7 @@ import 'package:budget_book/features/budget/presentation/pages/budget_form_page.
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
+import 'package:budget_book/features/analysis/presentation/pages/analysis_page.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_bloc.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/period_summary_event.dart';
 import 'package:budget_book/features/statistics/presentation/pages/period_summary_page.dart';
@@ -282,6 +283,15 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   ),
                 );
               },
+            ),
+          ],
+        ),
+        // Tab 1: Analysis (Phase 25 Step 11 — 분석 탭 신규, A/B 병존)
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/analysis',
+              builder: (context, state) => const AnalysisPage(),
             ),
           ],
         ),
