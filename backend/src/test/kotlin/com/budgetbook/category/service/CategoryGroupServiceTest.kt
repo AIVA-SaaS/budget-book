@@ -338,18 +338,21 @@ class CategoryGroupServiceTest : BehaviorSpec({
         val category4 = Category(couple = couple, name = "기타", type = CategoryType.EXPENSE, isDefault = true)
         val category5 = Category(couple = couple, name = "의료/건강", type = CategoryType.EXPENSE, isDefault = true)
         val category6 = Category(couple = couple, name = "문화/여가", type = CategoryType.EXPENSE, isDefault = true)
+        val incomeCategory1 = Category(couple = couple, name = "급여", type = CategoryType.INCOME, isDefault = true)
+        val incomeCategory2 = Category(couple = couple, name = "부업/용돈", type = CategoryType.INCOME, isDefault = true)
 
         every { categoryRepository.findByCoupleIdAndNameIn(couple.id, listOf("식비", "교통비", "쇼핑")) } returns listOf(category1, category2, category3)
         every { categoryRepository.findByCoupleIdAndNameIn(couple.id, listOf("기타", "의료/건강", "문화/여가")) } returns listOf(category4, category5, category6)
+        every { categoryRepository.findByCoupleIdAndNameIn(couple.id, listOf("급여", "부업/용돈")) } returns listOf(incomeCategory1, incomeCategory2)
 
         every { categoryRepository.saveAll(any<List<Category>>()) } answers { firstArg() }
 
         When("seedDefaultCategoryGroups is called") {
             categoryGroupService.seedDefaultCategoryGroups(couple)
 
-            Then("creates 3 default groups") {
-                savedGroupsList shouldHaveSize 3
-                savedGroupsList.map { it.name } shouldBe listOf("생활비", "고정지출", "기타")
+            Then("creates 4 default groups (3 EXPENSE + 1 INCOME)") {
+                savedGroupsList shouldHaveSize 4
+                savedGroupsList.map { it.name } shouldBe listOf("생활비", "고정지출", "기타", "수입")
                 savedGroupsList.all { it.isDefault } shouldBe true
                 savedGroupsList.all { it.couple == couple } shouldBe true
             }
@@ -361,6 +364,8 @@ class CategoryGroupServiceTest : BehaviorSpec({
                 category4.group?.name shouldBe "기타"
                 category5.group?.name shouldBe "기타"
                 category6.group?.name shouldBe "기타"
+                incomeCategory1.group?.name shouldBe "수입"
+                incomeCategory2.group?.name shouldBe "수입"
             }
         }
     }

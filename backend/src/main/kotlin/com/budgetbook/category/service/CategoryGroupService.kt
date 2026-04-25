@@ -271,10 +271,16 @@ class CategoryGroupService(
 
     @Transactional
     fun seedDefaultCategoryGroups(couple: Couple) {
+        // Phase 25 후속 — 신규 사용자에게 EXPENSE 3개 + INCOME 1개 기본 그룹.
         val defaults = listOf(
-            DefaultGroup("생활비", "account_balance_wallet", "#4CAF50", BudgetType.WEEKLY, 1),
-            DefaultGroup("고정지출", "receipt_long", "#2196F3", BudgetType.MONTHLY, 2),
-            DefaultGroup("기타", "more_horiz", "#9E9E9E", BudgetType.NONE, 3)
+            DefaultGroup("생활비", "account_balance_wallet", "#4CAF50",
+                BudgetType.WEEKLY, CategoryType.EXPENSE, 1),
+            DefaultGroup("고정지출", "receipt_long", "#2196F3",
+                BudgetType.MONTHLY, CategoryType.EXPENSE, 2),
+            DefaultGroup("기타", "more_horiz", "#9E9E9E",
+                BudgetType.NONE, CategoryType.EXPENSE, 3),
+            DefaultGroup("수입", "attach_money", "#4CAF50",
+                BudgetType.NONE, CategoryType.INCOME, 100),
         )
 
         val groups = defaults.map { d ->
@@ -284,6 +290,7 @@ class CategoryGroupService(
                 icon = d.icon,
                 color = d.color,
                 budgetType = d.budgetType,
+                categoryType = d.categoryType,
                 displayOrder = d.displayOrder,
                 isDefault = true
             )
@@ -295,9 +302,11 @@ class CategoryGroupService(
 
         val livingGroup = groupMap["생활비"]
         val etcGroup = groupMap["기타"]
+        val incomeGroup = groupMap["수입"]
 
         val livingCategoryNames = listOf("식비", "교통비", "쇼핑")
         val etcCategoryNames = listOf("기타", "의료/건강", "문화/여가")
+        val incomeCategoryNames = listOf("급여", "부업/용돈")
 
         if (livingGroup != null) {
             val livingCategories = categoryRepository.findByCoupleIdAndNameIn(couple.id, livingCategoryNames)
@@ -309,6 +318,12 @@ class CategoryGroupService(
             val etcCategories = categoryRepository.findByCoupleIdAndNameIn(couple.id, etcCategoryNames)
             etcCategories.forEach { it.group = etcGroup }
             categoryRepository.saveAll(etcCategories)
+        }
+
+        if (incomeGroup != null) {
+            val incomeCategories = categoryRepository.findByCoupleIdAndNameIn(couple.id, incomeCategoryNames)
+            incomeCategories.forEach { it.group = incomeGroup }
+            categoryRepository.saveAll(incomeCategories)
         }
     }
 
@@ -378,6 +393,7 @@ class CategoryGroupService(
         val icon: String,
         val color: String,
         val budgetType: BudgetType,
+        val categoryType: CategoryType,
         val displayOrder: Int
     )
 }
