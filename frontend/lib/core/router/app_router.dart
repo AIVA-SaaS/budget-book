@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/pages/login_page.dart';
@@ -52,9 +51,6 @@ import 'package:budget_book/features/recurring/presentation/bloc/recurring_bloc.
 import 'package:budget_book/features/recurring/presentation/bloc/recurring_event.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_list_page.dart';
 import 'package:budget_book/features/recurring/presentation/pages/recurring_form_page.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
-import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
-import 'package:budget_book/features/home/presentation/pages/dashboard_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/settings_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/profile_edit_page.dart';
 import 'package:budget_book/features/settings/presentation/pages/app_info_page.dart';
@@ -161,7 +157,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         markOnboardingCompleted();
       }
       if (!_onboardingCompleted) return '/onboarding';
-      return '/home';
+      return '/transactions';
     }
 
     if (authState is AuthAuthenticated) {
@@ -173,7 +169,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
 
       // Admin guard: redirect non-admin users away from admin pages
       if (isOnAdminPage && authState.user.role != 'ADMIN') {
-        return '/home';
+        return '/transactions';
       }
 
       // Allow onboarding page to pass through
@@ -233,27 +229,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
       branches: [
-        // Tab 0: Home/Dashboard
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/home',
-              builder: (context, state) {
-                // Only load on first visit; preserve month when returning from sub-pages
-                final bloc = getIt<DashboardBloc>();
-                if (bloc.state is DashboardInitial) {
-                  final now = DateTime.now();
-                  bloc.add(LoadDashboard(year: now.year, month: now.month));
-                }
-                return BlocProvider<DashboardBloc>.value(
-                  value: bloc,
-                  child: const DashboardPage(),
-                );
-              },
-            ),
-          ],
-        ),
-        // Tab 1: Transactions
+        // Phase 25 Step 10 — 홈 탭 제거. /home 은 root-level redirect 으로 처리.
+        // Tab 0: Transactions (기존 Tab 1)
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -390,6 +367,19 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     // Sub-pages (pushed on top of shell, no bottom nav)
     // IMPORTANT: Use BlocProvider.value() for singleton BLoCs to avoid
     // auto-close on pop which would permanently kill the singleton.
+
+    // Phase 25 Step 10 — 홈 탭 제거 후 redirect.
+    // / 와 /home 진입 시 거래 탭으로 이동.
+    GoRoute(
+      path: '/',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/transactions',
+    ),
+    GoRoute(
+      path: '/home',
+      parentNavigatorKey: _rootNavigatorKey,
+      redirect: (context, state) => '/transactions',
+    ),
     GoRoute(
       path: '/categories',
       parentNavigatorKey: _rootNavigatorKey,
