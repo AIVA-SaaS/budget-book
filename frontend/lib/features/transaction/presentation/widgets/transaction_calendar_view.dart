@@ -126,7 +126,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                     children: [
                       if (summary.income > 0)
                         Text(
-                          '+${CurrencyFormatter.toKoreanUnit(summary.income)}',
+                          '+${CurrencyFormatter.format(summary.income)}',
                           style: TextStyle(
                             fontSize: 9,
                             color: Colors.blue.shade700,
@@ -137,7 +137,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                         ),
                       if (summary.expense > 0)
                         Text(
-                          '-${CurrencyFormatter.toKoreanUnit(summary.expense)}',
+                          '-${CurrencyFormatter.format(summary.expense)}',
                           style: TextStyle(
                             fontSize: 9,
                             color: Colors.red.shade700,
