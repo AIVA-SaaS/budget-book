@@ -825,10 +825,11 @@ class _PaymentMethodTab extends StatelessWidget {
 
             if (methodOldIndex == methodNewIndex) return;
 
+            // visual 단계에서 이미 -1 보정했으므로 method 단계 추가 보정 금지.
+            // (이전 PR #155 의 double subtraction 으로 dedup 가 같은 순서로
+            // 판정해 skip → "되돌아옴" 현상 발생함)
             final reordered = List<PaymentMethod>.from(methods);
             final item = reordered.removeAt(methodOldIndex);
-            // removeAt 후 index 보정: new 가 old 보다 뒤였으면 한 칸 당김
-            if (methodNewIndex > methodOldIndex) methodNewIndex -= 1;
             reordered.insert(methodNewIndex, item);
             context.read<PaymentMethodBloc>().add(
               ReorderPaymentMethods(reordered.map((m) => m.id).toList()),

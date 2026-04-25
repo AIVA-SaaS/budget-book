@@ -86,7 +86,11 @@ flutter:
   fonts:
     - family: NotoSansKR
       fonts:
-        - asset: assets/fonts/NotoSansKR-VF.ttf
+        # 한글(AC00-D7AF) + Jamo + 라틴 + 통화 subset, woff2 변환.
+        # 원본 NotoSansKR-VF.ttf 10MB → subset 1.2MB (gzip 후 동일, woff2 가
+        # 이미 brotli 내장이라 추가 압축 효과 없음). 한자(Hanja) 제외.
+        # 재생성: ops/fonts/build-noto-subset.sh
+        - asset: assets/fonts/NotoSansKR-Subset.woff2
 
   assets:
     - assets/images/
