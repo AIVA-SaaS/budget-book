@@ -425,6 +425,11 @@ void main() {
     });
 
     group('ReorderPaymentMethods', () {
+      // Optimistic emit 시 entity 의 displayOrder 도 새 인덱스로 갱신됨.
+      // (builder 가 sort by displayOrder 하므로 갱신 누락 시 화면 원복 회귀)
+      final reorderedCredit = tCreditMethod.copyWith(displayOrder: 0);
+      final reorderedCash = tCashMethod.copyWith(displayOrder: 1);
+
       blocTest<PaymentMethodBloc, PaymentMethodState>(
         'emits [PaymentMethodLoaded] with reordered methods on success',
         build: () {
@@ -436,7 +441,7 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          PaymentMethodLoaded([tCreditMethod, tCashMethod]),
+          PaymentMethodLoaded([reorderedCredit, reorderedCash]),
         ],
       );
 
@@ -452,9 +457,9 @@ void main() {
         act: (bloc) =>
             bloc.add(const ReorderPaymentMethods(['pm-2', 'pm-1'])),
         expect: () => [
-          // First: optimistic update
-          PaymentMethodLoaded([tCreditMethod, tCashMethod]),
-          // Then: rollback
+          // First: optimistic update with displayOrder updated
+          PaymentMethodLoaded([reorderedCredit, reorderedCash]),
+          // Then: rollback to original
           PaymentMethodLoaded(tMethods,
               operationError: 'Failed to reorder payment methods'),
         ],
