@@ -9,7 +9,6 @@ import 'package:budget_book/features/statistics/presentation/bloc/statistics_blo
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_state.dart';
 import 'package:budget_book/features/statistics/presentation/pages/statistics_page.dart';
-import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
