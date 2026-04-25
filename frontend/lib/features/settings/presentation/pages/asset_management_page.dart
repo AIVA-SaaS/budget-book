@@ -30,6 +30,11 @@ import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
 
+/// Phase 25 후속 — 자산 탭의 [지출/수입] 토글과 카테고리 추가 dialog 사이 공유 state.
+/// _CategoryTab 이 토글 변경 시 갱신하고, FAB 의 _showAddCategory 가 읽어
+/// CategoryFormSheet.initialType 으로 전달한다.
+String _lastSelectedCategoryType = 'EXPENSE';
+
 class AssetManagementPage extends StatelessWidget {
   final int? initialYear;
   final int? initialMonth;
@@ -104,6 +109,7 @@ class AssetManagementPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => CategoryFormSheet(
+        initialType: _lastSelectedCategoryType,
         onSubmit: (name, type, icon, color, groupId) {
           bloc.add(CreateCategory(
             name: name,
@@ -173,7 +179,9 @@ class _CategoryTab extends StatefulWidget {
 
 class _CategoryTabState extends State<_CategoryTab> {
   // Phase 25 후속 E-3 — 카테고리 그룹 EXPENSE/INCOME 분리. 페이지 내 토글로 전환.
-  String _selectedType = 'EXPENSE';
+  // 마지막 선택을 top-level state(`_lastSelectedCategoryType`) 에 동기화하여
+  // FAB → 카테고리 추가 시 같은 type 의 dialog 노출.
+  String _selectedType = _lastSelectedCategoryType;
 
   @override
   Widget build(BuildContext context) {
@@ -230,8 +238,10 @@ class _CategoryTabState extends State<_CategoryTab> {
                         ButtonSegment(value: 'INCOME', label: Text('수입'), icon: Icon(Icons.trending_up, size: 16)),
                       ],
                       selected: {_selectedType},
-                      onSelectionChanged: (s) =>
-                          setState(() => _selectedType = s.first),
+                      onSelectionChanged: (s) {
+                        setState(() => _selectedType = s.first);
+                        _lastSelectedCategoryType = s.first;
+                      },
                     ),
                   ),
                   if (allTypeFiltered.isEmpty)
