@@ -43,7 +43,11 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     Emitter<StatisticsState> emit,
   ) {
     emit(state.copyWith(visibilityFilter: event.visibility));
+    // 모든 sub-tab 의 데이터를 visibility 변경에 맞게 reload.
+    // (이전: LoadAllStatistics 만 호출 → 결제수단/연간비교 stale 회귀)
     add(LoadAllStatistics(year: state.year, month: state.month));
+    add(LoadPaymentMethodStats(year: state.year, month: state.month));
+    add(LoadYearComparison(year: state.year, month: state.month));
   }
 
   Future<void> _onLoadAll(
@@ -216,8 +220,10 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     ));
 
     try {
-      final result =
-          await statisticsRepository.getMonthlyTrend(months: event.months);
+      final result = await statisticsRepository.getMonthlyTrend(
+        months: event.months,
+        visibility: state.visibilityFilter,
+      );
       result.fold(
         (failure) => emit(state.copyWith(
           trendLoading: false,
@@ -246,11 +252,14 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     ));
 
     try {
-      // Load current year and previous year summary in parallel
+      // Load current year and previous year summary in parallel.
+      // visibility 필터 반영 — 변경 시 ChangeVisibilityFilter 가 fire 함.
+      final vis = state.visibilityFilter;
       final results = await Future.wait([
-        statisticsRepository.getSummary(year: event.year, month: event.month),
         statisticsRepository.getSummary(
-            year: event.year - 1, month: event.month),
+            year: event.year, month: event.month, visibility: vis),
+        statisticsRepository.getSummary(
+            year: event.year - 1, month: event.month, visibility: vis),
       ]);
 
       StatisticsSummary? currentSummary;
@@ -303,6 +312,7 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       final result = await statisticsRepository.getPaymentMethodStats(
         year: event.year,
         month: event.month,
+        visibility: state.visibilityFilter,
       );
       result.fold(
         (failure) => emit(state.copyWith(
