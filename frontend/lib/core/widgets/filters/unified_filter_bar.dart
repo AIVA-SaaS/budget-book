@@ -27,12 +27,18 @@ class UnifiedFilterBar extends StatelessWidget {
   /// Optional: category type for category filter ('EXPENSE', 'INCOME')
   final String categoryType;
 
+  /// 필터 행 우측에 추가로 노출할 위젯 (옵션). Phase 25 Step 7 — 거래 탭에서
+  /// 리스트/달력 toggle 을 같은 행에 배치하기 위해 도입. 다른 페이지에서는
+  /// 미전달 시 영향 없음.
+  final Widget? trailing;
+
   const UnifiedFilterBar({
     super.key,
     required this.enabledFilters,
     required this.state,
     required this.onFilterChanged,
     this.categoryType = 'EXPENSE',
+    this.trailing,
   });
 
   int get _activeFilterCount {
@@ -121,7 +127,17 @@ class UnifiedFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasAdvancedFilters) return const SizedBox.shrink();
+    if (!_hasAdvancedFilters) {
+      // trailing 만 있는 경우(필터 disabled) 도 trailing 은 노출.
+      if (trailing == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [trailing!],
+        ),
+      );
+    }
 
     final chips = _allChips;
     const maxVisible = 3;
@@ -160,6 +176,10 @@ class UnifiedFilterBar extends StatelessWidget {
                 padding: EdgeInsets.zero,
               ),
             ),
+          if (trailing != null) ...[
+            const Spacer(),
+            trailing!,
+          ],
         ],
       ),
     );
