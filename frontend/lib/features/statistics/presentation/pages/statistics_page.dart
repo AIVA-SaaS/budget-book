@@ -22,45 +22,34 @@ class StatisticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 5개 sub-tab. icon + text 형태로 통일. 순서는 기존 TabBarView children 과 맞춤
+    // (요약 → 카테고리 → 추이 → 전년비교 → 결제수단)
+    const tabs = [
+      Tab(icon: Icon(Icons.dashboard_outlined), text: '요약'),
+      Tab(icon: Icon(Icons.pie_chart_outline), text: '카테고리별'),
+      Tab(icon: Icon(Icons.show_chart), text: '추이'),
+      Tab(icon: Icon(Icons.compare_arrows), text: '전년 비교'),
+      Tab(icon: Icon(Icons.credit_card), text: '결제수단별'),
+    ];
     return DefaultTabController(
       length: 5,
       child: Scaffold(
-        appBar: !showAppBar
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(kTextTabBarHeight),
-                child: AppBar(
-                  toolbarHeight: 0,
-                  bottom: const TabBar(
-                    isScrollable: true,
-                    tabs: [
-                      Tab(text: '요약'),
-                      Tab(text: '카테고리별'),
-                      Tab(text: '월별 추이'),
-                      Tab(text: '결제수단'),
-                      Tab(text: '전년 비교'),
-                    ],
+        // showAppBar=false (분석 탭 wrapper) 시에도 PreferredSize 안 쓰고
+        // 단일 AppBar 의 toolbarHeight 만 0 으로 — nested TabController 충돌 회피.
+        appBar: AppBar(
+          toolbarHeight: showAppBar ? kToolbarHeight : 0,
+          automaticallyImplyLeading: showAppBar,
+          title: showAppBar ? const Text('통계') : null,
+          actions: showAppBar
+              ? [
+                  IconButton(
+                    icon: const Icon(Icons.analytics_outlined),
+                    tooltip: '기간별 상세 분석',
+                    onPressed: () => context.push('/period-summary'),
                   ),
-                ),
-              )
-            : AppBar(
-          title: const Text('통계'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.analytics_outlined),
-              tooltip: '기간별 상세 분석',
-              onPressed: () => context.push('/period-summary'),
-            ),
-          ],
-          bottom: const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: '요약'),
-              Tab(text: '카테고리별'),
-              Tab(text: '추이'),
-              Tab(text: '전년 비교'),
-              Tab(text: '결제수단별'),
-            ],
-          ),
+                ]
+              : null,
+          bottom: const TabBar(isScrollable: true, tabs: tabs),
         ),
         body: BlocBuilder<StatisticsBloc, StatisticsState>(
           builder: (context, state) {
