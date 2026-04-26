@@ -55,6 +55,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String periodType = 'MONTHLY',
     DateTime? startDate,
     DateTime? endDate,
+    bool applyToFuture = false,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createBudget, [], {
@@ -68,6 +69,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #periodType: periodType,
           #startDate: startDate,
           #endDate: endDate,
+          #applyToFuture: applyToFuture,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),

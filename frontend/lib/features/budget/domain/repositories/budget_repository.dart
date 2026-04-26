@@ -14,6 +14,7 @@ abstract class BudgetRepository {
     String periodType = 'MONTHLY',
     DateTime? startDate,
     DateTime? endDate,
+    bool applyToFuture = false,
   });
 
   Future<Either<Failure, List<Budget>>> getBudgets({

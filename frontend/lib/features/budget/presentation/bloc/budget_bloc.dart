@@ -124,6 +124,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         periodType: event.periodType,
         startDate: event.startDate,
         endDate: event.endDate,
+        applyToFuture: event.applyToFuture,
       );
       result.fold(
         (failure) {
