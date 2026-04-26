@@ -75,6 +75,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String? categoryId,
     String? groupId,
     String? yearMonth,
+    bool applyToFuture = false,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -88,6 +89,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (categoryId != null) 'categoryId': categoryId,
         if (groupId != null) 'groupId': groupId,
         if (yearMonth != null) 'yearMonth': yearMonth,
+        if (applyToFuture) 'applyToFuture': true,
       };
       final result = await remoteDataSource.updateBudget(id, data);
       return Right(result);
@@ -99,9 +101,12 @@ class BudgetRepositoryImpl implements BudgetRepository {
   }
 
   @override
-  Future<Either<Failure, void>> deleteBudget(String id) async {
+  Future<Either<Failure, void>> deleteBudget(
+    String id, {
+    bool applyToFuture = false,
+  }) async {
     try {
-      await remoteDataSource.deleteBudget(id);
+      await remoteDataSource.deleteBudget(id, applyToFuture: applyToFuture);
       return const Right(null);
     } on DioException catch (e) {
       return Left(mapDioError(e, '예산을 삭제하지 못했습니다'));

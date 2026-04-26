@@ -33,9 +33,13 @@ abstract class BudgetRepository {
     String? categoryId,
     String? groupId,
     String? yearMonth,
+    bool applyToFuture = false,
   });
 
-  Future<Either<Failure, void>> deleteBudget(String id);
+  Future<Either<Failure, void>> deleteBudget(
+    String id, {
+    bool applyToFuture = false,
+  });
 
   Future<Either<Failure, BudgetSummary>> getBudgetSummary({
     required int year,
