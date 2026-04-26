@@ -208,19 +208,29 @@ class BudgetService(
         validatePrivateOwner(budget, userId)
 
         // Phase 25 후속 C-2.7 — TEMPLATE 행 편집 split semantic.
-        // 사용자 의도는 "viewingMonth (= request.yearMonth) 만 변경" 인데, TEMPLATE 행을
+        // 사용자 의도는 "viewingMonth (= request.yearMonth) 만/부터 변경" 인데, TEMPLATE 행을
         // 그대로 update 하면 활성 범위 [yearMonth, endYearMonth] 전체에 영향. 따라서:
         //   - applyToFuture=false + 편집 대상 = TEMPLATE + viewingMonth 가 활성 범위 내
         //     → split: 원본 TEMPLATE 보존 + viewingMonth 단일 OVERRIDE 신규.
-        // applyToFuture=true 케이스는 기존 C-2 동작 유지 (전체 TEMPLATE 범위 적용).
+        //   - applyToFuture=true + 편집 대상 = TEMPLATE + viewingMonth > 시작월 (배치 1 A-2)
+        //     → late-split: 원본 endYearMonth=(viewing-1) 로 종료, viewingMonth~∞ 새 TEMPLATE.
+        //       (V60 으로 multi-segment TEMPLATE 허용된 후 가능)
         val viewingMonth = request.yearMonth
-        val needsSplit = !request.applyToFuture
-            && budget.rowKind == BudgetRowKind.TEMPLATE
-            && viewingMonth != null
+        val viewingInActiveRange = viewingMonth != null
             && viewingMonth >= budget.yearMonth
             && (budget.endYearMonth == null || viewingMonth <= budget.endYearMonth!!)
+        val needsSplit = !request.applyToFuture
+            && budget.rowKind == BudgetRowKind.TEMPLATE
+            && viewingInActiveRange
         if (needsSplit) {
             return performTemplateSplit(userId, couple, budget, request, viewingMonth!!)
+        }
+        val needsLateSplit = request.applyToFuture
+            && budget.rowKind == BudgetRowKind.TEMPLATE
+            && viewingMonth != null
+            && viewingMonth > budget.yearMonth
+        if (needsLateSplit) {
+            return performLateTemplateSplit(userId, couple, budget, request, viewingMonth!!)
         }
 
         // Update category if provided
@@ -474,12 +484,108 @@ class BudgetService(
     }
 
     /**
+     * Phase 25 후속 배치 1 A-2 — TEMPLATE 행에 applyToFuture=true 적용 시
+     * viewingMonth > budget.yearMonth 케이스 split.
+     *
+     * 효과:
+     *  - 원본 TEMPLATE 의 endYearMonth = (viewingMonth - 1) 로 종료, amount/category/etc. 보존
+     *  - 새 TEMPLATE [viewingMonth, ∞] 생성 — request 의 새 값 반영
+     *  - V60 으로 multi-segment TEMPLATE 허용된 후 동작 가능
+     *
+     * 비중첩 보장: 원본 endYearMonth=viewing-1, 새 yearMonth=viewing → 시간 범위 비중첩.
+     */
+    private fun performLateTemplateSplit(
+        userId: UUID,
+        couple: Couple,
+        original: MonthlyBudget,
+        request: BudgetUpdateRequest,
+        viewingMonth: String
+    ): BudgetResponse {
+        // category/group 결정 (request 우선, 없으면 원본)
+        val resolvedCategory = request.categoryId?.let { catId ->
+            val cat = categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+            cat
+        } ?: if (request.groupId != null) null else original.category
+
+        val resolvedGroup = request.groupId?.let { gId ->
+            categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+        } ?: if (request.categoryId != null) null else original.group
+
+        val resolvedPocket = request.pocketId?.let {
+            val p = moneyPocketRepository.findById(it).orElseThrow {
+                NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
+            }
+            OwnershipValidator.validateOwnership(p.couple.id, couple, "Pocket")
+            p
+        } ?: original.pocket
+
+        val resolvedBudgetPeriod = request.budgetPeriod?.let { BudgetPeriod.valueOf(it) }
+            ?: original.budgetPeriod
+        val resolvedPeriodType = request.periodType?.let { PeriodType.valueOf(it) }
+            ?: original.periodType
+        val (sd, ed) = resolveStartEndDates(resolvedPeriodType, viewingMonth, request.startDate, request.endDate)
+
+        val visibility = when {
+            resolvedCategory != null -> resolvedCategory.visibility
+            resolvedGroup != null -> resolvedGroup.visibility
+            else -> Visibility.SHARED
+        }
+        val owner = if (visibility == Visibility.PRIVATE) {
+            userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        } else null
+
+        val weeklyAmount = if (resolvedBudgetPeriod == BudgetPeriod.WEEKLY) {
+            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(viewingMonth))
+        } else null
+
+        // 1) 원본 TEMPLATE 종료
+        val prev = previousYearMonth(viewingMonth)
+        original.endYearMonth = prev
+        budgetRepository.save(original)
+
+        // 2) 새 TEMPLATE 생성 [viewingMonth, ∞]
+        val newTemplate = MonthlyBudget(
+            couple = couple,
+            category = resolvedCategory,
+            group = resolvedGroup,
+            yearMonth = viewingMonth,
+            endYearMonth = null,
+            rowKind = BudgetRowKind.TEMPLATE,
+            amount = request.amount,
+            budgetPeriod = resolvedBudgetPeriod,
+            weeklyAmount = weeklyAmount,
+            periodType = resolvedPeriodType,
+            startDate = sd,
+            endDate = ed,
+            pocket = resolvedPocket,
+            visibility = visibility,
+            owner = owner
+        )
+        // 같은 scope 의 다른 TEMPLATE (원본 제외) 충돌 방지 — V60 후에도 비중첩 보장 책임은 app
+        terminateConflictingTemplate(newTemplate)
+        val saved = budgetRepository.save(newTemplate)
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "BUDGET_UPDATED",
+            entityType = "BUDGET",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
+    }
+
+    /**
      * Phase 25 후속 C-2.6 — 주어진 budget 과 같은 scope (couple, category, group) 의
      * 활성 TEMPLATE 을 (target.yearMonth - 1) 로 종료. 자기 자신은 제외.
      *
      * - 활성 TEMPLATE 이 없으면 no-op.
      * - 종료 시점이 시작월보다 이르면 (TEMPLATE 시작월 == budget.yearMonth) 행 삭제.
-     * - V57 partial unique 보장으로 결과는 0~1건만 고려.
+     * - V60 후 multi-segment TEMPLATE 허용 — 비중첩 보장은 본 헬퍼가 책임.
      */
     private fun terminateConflictingTemplate(budget: MonthlyBudget) {
         val existing = budgetRepository.findActiveTemplateInScope(
