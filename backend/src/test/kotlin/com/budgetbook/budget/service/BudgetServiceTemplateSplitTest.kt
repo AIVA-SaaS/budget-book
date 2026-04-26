@@ -195,7 +195,7 @@ class BudgetServiceTemplateSplitTest : BehaviorSpec({
         }
     }
 
-    Given("TEMPLATE 행 + applyToFuture=true (split 미적용, 기존 C-2 동작 유지)") {
+    Given("TEMPLATE 행 + applyToFuture=true + viewingMonth == 시작월 (split 미적용)") {
         val template = MonthlyBudget(
             couple = couple, category = foodCat,
             yearMonth = "2026-01", endYearMonth = null,
@@ -205,14 +205,47 @@ class BudgetServiceTemplateSplitTest : BehaviorSpec({
         every { budgetRepository.findActiveTemplateInScope(any(), any(), any(), any(), any()) } returns null
         every { budgetRepository.save(template) } returns template
 
-        When("amount=350000, yearMonth=2026-05, applyToFuture=true 로 update") {
+        When("amount=350000, yearMonth=2026-01, applyToFuture=true 로 update") {
             service.updateBudget(u1.id, template.id,
-                BudgetUpdateRequest(amount = 350_000L, yearMonth = "2026-05", applyToFuture = true))
+                BudgetUpdateRequest(amount = 350_000L, yearMonth = "2026-01", applyToFuture = true))
 
-            Then("기존 TEMPLATE 의 amount 만 변경 (split 안 함, endYearMonth=null 유지)") {
+            Then("기존 TEMPLATE 의 amount 만 변경 (이미 시작월에 있어서 late-split 미적용)") {
                 template.amount shouldBe 350_000L
                 template.rowKind shouldBe BudgetRowKind.TEMPLATE
                 template.endYearMonth shouldBe null
+            }
+        }
+    }
+
+    // 배치 1 A-2 — applyToFuture=true + viewingMonth > 시작월 → late-split
+    Given("TEMPLATE 행 + applyToFuture=true + viewingMonth > 시작월 (late-split)") {
+        val template = MonthlyBudget(
+            couple = couple, category = foodCat,
+            yearMonth = "2026-01", endYearMonth = null,
+            rowKind = BudgetRowKind.TEMPLATE, amount = 250_000L
+        )
+        every { budgetRepository.findById(template.id) } returns Optional.of(template)
+        every { budgetRepository.findActiveTemplateInScope(any(), any(), any(), any(), any()) } returns null
+        val savedSlot = slot<MonthlyBudget>()
+        every { budgetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
+
+        When("amount=350000, yearMonth=2026-05, applyToFuture=true 로 update") {
+            val result = service.updateBudget(u1.id, template.id,
+                BudgetUpdateRequest(amount = 350_000L, yearMonth = "2026-05", applyToFuture = true))
+
+            Then("원본 TEMPLATE 종료 (endYearMonth=2026-04, amount 보존)") {
+                template.endYearMonth shouldBe "2026-04"
+                template.amount shouldBe 250_000L
+                template.rowKind shouldBe BudgetRowKind.TEMPLATE
+            }
+            Then("새 TEMPLATE 생성 [2026-05, ∞] amount=35만") {
+                val saved = savedSlot.captured
+                saved.rowKind shouldBe BudgetRowKind.TEMPLATE
+                saved.yearMonth shouldBe "2026-05"
+                saved.endYearMonth shouldBe null
+                saved.amount shouldBe 350_000L
+                result.amount shouldBe 350_000L
+                result.yearMonth shouldBe "2026-05"
             }
         }
     }

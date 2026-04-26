@@ -151,8 +151,10 @@ jobs:
                -p 8081:8080 \
                --env-file /tmp/bb_env \
                bb-backend:latest
-             # Health check — Flyway/Hibernate 마이그레이션 여유 (10회 × 6s)
-             for i in $(seq 1 10); do
+             # Health check — Flyway/Hibernate 마이그레이션 여유 (20회 × 6s = 120s)
+             # 배치 1 A-1 (2026-04-26): Spring Boot 가 60s 넘어 70~80s 시작하는 케이스
+             # (#182 deploy fail 원인) 대응. timeout 완화.
+             for i in $(seq 1 20); do
                sleep 6
                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
                if [ "$STATUS" = "200" ]; then
