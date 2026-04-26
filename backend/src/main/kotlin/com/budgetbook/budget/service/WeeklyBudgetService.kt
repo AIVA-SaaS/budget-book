@@ -41,7 +41,9 @@ class WeeklyBudgetService(
         val weekRanges = calculateWeekRanges(ym)
 
         // Only WEEKLY budgets for the weekly view
-        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val allBudgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        )
         val weeklyBudgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
         // Early return if no WEEKLY budgets
@@ -192,7 +194,9 @@ class WeeklyBudgetService(
         val (weekStart, weekEnd) = weekRanges[currentWeekIndex]
 
         // Only WEEKLY budgets
-        val allBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val allBudgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        )
         val weeklyBudgets = allBudgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
         // Early return if no WEEKLY budgets
@@ -372,7 +376,9 @@ class WeeklyBudgetService(
      * be scaled using [calculateProRataBudget].
      */
     private fun calculatePerWeekBudgetAmount(coupleId: UUID, yearMonth: String, userId: UUID): Long {
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        val budgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        )
         val weeklyBudgets = budgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
         if (weeklyBudgets.isEmpty()) return 0L
 

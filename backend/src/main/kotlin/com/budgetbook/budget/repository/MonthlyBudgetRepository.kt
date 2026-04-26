@@ -8,12 +8,23 @@ import java.util.UUID
 
 interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
 
+    /**
+     * Phase 25 후속 C-2.5 — V57 모델 (TEMPLATE/OVERRIDE) 기반 조회.
+     * - OVERRIDE: yearMonth == :yearMonth 인 단일월 행
+     * - TEMPLATE: yearMonth <= :yearMonth AND (endYearMonth IS NULL OR endYearMonth >= :yearMonth)
+     * 같은 scope (couple, category, group) 의 OVERRIDE 가 같은 월에 있으면 OVERRIDE 우선 —
+     * 호출 측 `MonthlyBudgetResolver.resolveForMonth` 에서 dedup.
+     */
     @Query("""
         SELECT b FROM MonthlyBudget b
         WHERE b.couple.id = :coupleId
         AND (
-            b.yearMonth = :yearMonth
-            OR (b.periodType = com.budgetbook.budget.domain.PeriodType.NONE AND b.yearMonth <= :yearMonth)
+            (b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.OVERRIDE AND b.yearMonth = :yearMonth)
+            OR (
+                b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.TEMPLATE
+                AND b.yearMonth <= :yearMonth
+                AND (b.endYearMonth IS NULL OR b.endYearMonth >= :yearMonth)
+            )
         )
     """)
     fun findByCoupleIdAndYearMonth(
@@ -27,8 +38,12 @@ interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
         LEFT JOIN FETCH b.category
         WHERE b.couple.id = :coupleId
         AND (
-            b.yearMonth = :yearMonth
-            OR (b.periodType = com.budgetbook.budget.domain.PeriodType.NONE AND b.yearMonth <= :yearMonth)
+            (b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.OVERRIDE AND b.yearMonth = :yearMonth)
+            OR (
+                b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.TEMPLATE
+                AND b.yearMonth <= :yearMonth
+                AND (b.endYearMonth IS NULL OR b.endYearMonth >= :yearMonth)
+            )
         )
         AND (b.visibility = com.budgetbook.common.entity.Visibility.SHARED OR b.owner.id = :userId)
     """)

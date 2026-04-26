@@ -103,8 +103,10 @@ class SmartAnalysisService(
         // Rule 2: BUDGET_WARNING - budget >80% used by mid-month
         val dayOfMonth = LocalDate.now().dayOfMonth
         if (dayOfMonth < 20) {
-            val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(
-                coupleId, currentYm.toString(), userId
+            val budgets = com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+                budgetRepository.findByCoupleIdAndYearMonthAndUserId(
+                    coupleId, currentYm.toString(), userId
+                )
             )
             val currentStart = currentYm.atDay(1)
             val currentEnd = currentYm.atEndOfMonth()
@@ -278,8 +280,10 @@ class SmartAnalysisService(
     fun getBudgetSuggestions(userId: UUID): List<BudgetSuggestion> {
         val couple = getActiveCouple(userId)
         val currentYm = YearMonth.now()
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(
-            couple.id, currentYm.toString(), userId
+        val budgets = com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(
+                couple.id, currentYm.toString(), userId
+            )
         )
         if (budgets.isEmpty()) return emptyList()
 
@@ -327,8 +331,10 @@ class SmartAnalysisService(
         coupleId: UUID,
         currentYm: YearMonth
     ): List<Insight> {
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(
-            coupleId, currentYm.toString(), userId
+        val budgets = com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(
+                coupleId, currentYm.toString(), userId
+            )
         )
         val result = mutableListOf<Insight>()
 

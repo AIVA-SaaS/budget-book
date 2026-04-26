@@ -386,7 +386,9 @@ class StatisticsService(
         // 3. byBudget — find budgets covering this period
         val yearMonths = generateYearMonths(dateFrom, dateTo)
         val allBudgets = yearMonths.flatMap { ym ->
-            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, ym, userId)
+            com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+                budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, ym, userId)
+            )
         }.distinctBy { it.id }
 
         val budgetCategoryIds = allBudgets.mapNotNull { it.category?.id }.toSet()
