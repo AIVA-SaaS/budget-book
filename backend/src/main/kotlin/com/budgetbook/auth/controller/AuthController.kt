@@ -43,6 +43,7 @@ class AuthController(
         return ApiResponse.ok(userResponse)
     }
 
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
     @PatchMapping("/me")
     fun updateProfile(
         @AuthUser userId: UUID,
@@ -52,6 +53,7 @@ class AuthController(
         return ApiResponse.ok(userResponse)
     }
 
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping("/me/profile-image")
     fun uploadProfileImage(
         @AuthUser userId: UUID,
@@ -61,12 +63,14 @@ class AuthController(
         return ApiResponse.ok(userResponse)
     }
 
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @DeleteMapping("/me/profile-image")
     fun removeProfileImage(@AuthUser userId: UUID): ApiResponse<UserResponse> {
         val userResponse = authService.removeProfileImage(userId)
         return ApiResponse.ok(userResponse)
     }
 
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
     @PostMapping("/logout")
     fun logout(
         @AuthUser userId: UUID,

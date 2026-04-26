@@ -49,12 +49,19 @@ class _ReportPageState extends State<ReportPage> {
     });
     // MonthCubit 동기화 — MonthSyncHandler가 ReportBloc.LoadMonthlyReport + AiInsightBloc 자동 처리
     context.read<MonthCubit>().changeMonth(year, month);
-    // LoadWeeklyReport은 week 파라미터가 필요하므로 페이지 자체에서 dispatch
+    // LoadWeeklyReport은 week 파라미터가 필요하므로 페이지 자체에서 dispatch.
+    // 배치 1 F-3 (2026-04-26): 과거 월에 week=1 하드코딩되어 있던 것을
+    // 해당 월의 마지막 주(현실적으로 사용자가 가장 보고 싶은 주)로 변경.
     final now = DateTime.now();
     final week = (year == now.year && month == now.month)
         ? _currentWeekOfMonth(now)
-        : 1;
+        : _lastWeekOfMonth(year, month);
     context.read<ReportBloc>().add(LoadWeeklyReport(year: year, month: month, week: week));
+  }
+
+  static int _lastWeekOfMonth(int year, int month) {
+    final lastDay = DateTime(year, month + 1, 0); // 다음달 0일 = 이번달 마지막 일
+    return _currentWeekOfMonth(lastDay);
   }
 
   @override
