@@ -90,11 +90,13 @@ class ReportService(
             else -> "UNDER"
         }
 
-        // Calculate category spending with 4-week average comparison
+        // Calculate category spending with 4-week average comparison.
+        // 배치 2 D-1 (2026-04-26): 현재 주의 카테고리 집계는 이미 로드한 weekTransactions
+        // 에서 in-memory 계산 → sumByCategoryForCouple 중복 호출 제거.
         val prevStart = weekStart.minusDays(28)
         val prevEnd = weekStart.minusDays(1)
-        val topOverspendCategories = calculateCategorySpending(
-            couple.id, weekStart, weekEnd, prevStart, prevEnd, userId
+        val topOverspendCategories = calculateCategorySpendingFromTransactions(
+            couple.id, weekTransactions, prevStart, prevEnd, userId
         )
 
         // Daily spending breakdown
@@ -238,20 +240,19 @@ class ReportService(
         }
     }
 
-    private fun calculateCategorySpending(
+    /**
+     * 배치 2 D-1 (2026-04-26): 이미 로드된 transactions 에서 카테고리 집계 — 쿼리 중복 제거.
+     * 이전 버전 calculateCategorySpending 은 sumByCategoryForCouple 두 번 호출 (current + prev).
+     * 본 helper 는 current 는 in-memory 로 계산, prev 만 쿼리 1회.
+     */
+    private fun calculateCategorySpendingFromTransactions(
         coupleId: UUID,
-        weekStart: LocalDate,
-        weekEnd: LocalDate,
+        weekTransactions: List<com.budgetbook.transaction.domain.Transaction>,
         prevStart: LocalDate,
         prevEnd: LocalDate,
         userId: UUID
     ): List<CategorySpendingItem> {
-        // Current week spending by category
-        val currentResults = transactionRepository.sumByCategoryForCouple(
-            coupleId, weekStart, weekEnd, TransactionType.EXPENSE, userId
-        )
-
-        // Previous 4 weeks spending by category (for average)
+        // Previous 4 weeks spending by category (for average) — 별도 쿼리 1회 필요
         val prevResults = transactionRepository.sumByCategoryForCouple(
             coupleId, prevStart, prevEnd, TransactionType.EXPENSE, userId
         )
@@ -261,24 +262,21 @@ class ReportService(
             catId to amount
         }
 
-        return currentResults.map { row ->
-            val amount = row[0] as Long
-            val count = (row[1] as Long).toInt()
-            val catId = row[2] as UUID
-            val catName = row[3] as String
-            val catType = (row[4] as Enum<*>).name
-            val catIcon = row[5] as? String
-            val catColor = row[6] as? String
-
-            val avgAmount = (prevMap[catId] ?: 0L) / 4
-
+        // 현재 주 집계는 weekTransactions 에서 in-memory groupBy
+        val grouped = weekTransactions
+            .filter { it.category != null }
+            .groupBy { it.category!! }
+        return grouped.map { (cat, txs) ->
+            val amount = txs.sumOf { it.amount }
+            val count = txs.size
+            val avgAmount = (prevMap[cat.id] ?: 0L) / 4
             CategorySpendingItem(
                 category = CategorySummary(
-                    id = catId,
-                    name = catName,
-                    type = catType,
-                    icon = catIcon,
-                    color = catColor
+                    id = cat.id,
+                    name = cat.name,
+                    type = cat.type.name,
+                    icon = cat.icon,
+                    color = cat.color
                 ),
                 amount = amount,
                 averageAmount = avgAmount,
