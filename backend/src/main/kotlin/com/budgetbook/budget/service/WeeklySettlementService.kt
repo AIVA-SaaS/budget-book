@@ -43,8 +43,9 @@ class WeeklySettlementService(
         val weekRanges = WeeklyBudgetService.calculateWeekRanges(ym)
 
         // Load all weekly budgets for this couple/month
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
-            .filter { it.budgetPeriod == com.budgetbook.budget.domain.BudgetPeriod.WEEKLY }
+        val budgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        ).filter { it.budgetPeriod == com.budgetbook.budget.domain.BudgetPeriod.WEEKLY }
 
         // Load existing settlements
         val existingSettlements = settlementRepository.findByCoupleIdAndYearMonth(couple.id, yearMonth)

@@ -26,7 +26,9 @@ class BudgetAlertService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val budgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        )
         if (budgets.isEmpty()) return emptyList()
 
         // Single aggregation query: GROUP BY category (with visibility filter)
