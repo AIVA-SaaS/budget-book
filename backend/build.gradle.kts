@@ -4,6 +4,28 @@ plugins {
     alias(libs.plugins.kotlin.jpa)
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    // 배치 3 G-4 (2026-04-26) — 코드 커버리지. `./gradlew koverHtmlReport` / `koverXmlReport`.
+    alias(libs.plugins.kover)
+}
+
+// Kover 설정 — XML/HTML 리포트만 활성, 임계치는 별도 enforcement 없음 (단계적 도입).
+kover {
+    reports {
+        verify {
+            // 향후 임계치 필요 시 활성화. 현재는 측정만.
+            // rule { bound { minValue = 60 } }
+        }
+        filters {
+            excludes {
+                classes(
+                    "com.budgetbook.BudgetBookApplicationKt",
+                    "com.budgetbook.config.*",
+                    "com.budgetbook.*.dto.*",
+                    "com.budgetbook.*.domain.*"
+                )
+            }
+        }
+    }
 }
 
 group = "com.budgetbook"

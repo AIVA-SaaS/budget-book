@@ -64,11 +64,23 @@ jobs:
       # 무관하고, runtime @Value/@ConfigurationProperties 검증은 deploy health check 에서 수행됨.
       - name: Build and Test
         if: steps.filter.outputs.backend == 'true'
-        run: ./gradlew build
+        run: ./gradlew build koverXmlReport koverHtmlReport
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/budgetbook_test
           SPRING_DATASOURCE_USERNAME: budgetbook
           SPRING_DATASOURCE_PASSWORD: budgetbook
+
+      # 배치 3 G-4 (2026-04-26) — Kover XML/HTML 리포트 artifact 업로드
+      - name: Upload coverage report
+        if: steps.filter.outputs.backend == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/build/reports/kover/report.xml
+            backend/build/reports/kover/html/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Skipped (no backend changes)
         if: steps.filter.outputs.backend != 'true'
