@@ -429,10 +429,13 @@ class BudgetService(
             request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(viewingMonth))
         } else null
 
-        // V57 OVERRIDE partial unique 충돌 체크
+        // V57 OVERRIDE partial unique 충돌 체크 (E-3 fix: rowKind=OVERRIDE 만 검사 —
+        // 기존 existsByCoupleIdAndCategoryGroupAndYearMonth 는 TEMPLATE 행도 포함하여
+        // viewingMonth == template.yearMonth 케이스에서 자기 자신을 false-positive 로
+        // 매칭하던 버그 해결).
         val categoryIdForCheck = resolvedCategory?.id
         val groupIdForCheck = resolvedGroup?.id
-        val overrideExists = budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(
+        val overrideExists = budgetRepository.existsOverrideByCoupleIdAndCategoryGroupAndYearMonth(
             couple.id, categoryIdForCheck, groupIdForCheck, viewingMonth
         )
         if (overrideExists) {

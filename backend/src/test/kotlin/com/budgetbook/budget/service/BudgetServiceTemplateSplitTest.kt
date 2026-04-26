@@ -65,7 +65,7 @@ class BudgetServiceTemplateSplitTest : BehaviorSpec({
             rowKind = BudgetRowKind.TEMPLATE, amount = 250_000L
         )
         every { budgetRepository.findById(template.id) } returns Optional.of(template)
-        every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(
+        every { budgetRepository.existsOverrideByCoupleIdAndCategoryGroupAndYearMonth(
             couple.id, foodCat.id, null, "2026-05"
         ) } returns false
         val savedSlot = slot<MonthlyBudget>()
@@ -103,7 +103,7 @@ class BudgetServiceTemplateSplitTest : BehaviorSpec({
             rowKind = BudgetRowKind.TEMPLATE, amount = 250_000L
         )
         every { budgetRepository.findById(template.id) } returns Optional.of(template)
-        every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(
+        every { budgetRepository.existsOverrideByCoupleIdAndCategoryGroupAndYearMonth(
             couple.id, foodCat.id, null, "2026-05"
         ) } returns true
 
@@ -114,6 +114,39 @@ class BudgetServiceTemplateSplitTest : BehaviorSpec({
                         BudgetUpdateRequest(amount = 300_000L, yearMonth = "2026-05", applyToFuture = false))
                 }
                 ex.code shouldBe "BUDGET_ALREADY_EXISTS"
+            }
+        }
+    }
+
+    // E-3 회귀 방지: viewingMonth == TEMPLATE.yearMonth 케이스 — 자기 자신을
+    // false-positive 매칭하던 버그 (이전 existsByCoupleIdAndCategoryGroupAndYearMonth
+    // 가 rowKind 무관하게 매칭) 검증.
+    Given("TEMPLATE 시작월 == viewingMonth (예: 5월에 신규 등록한 TEMPLATE 을 5월 편집)") {
+        val template = MonthlyBudget(
+            couple = couple, category = foodCat,
+            yearMonth = "2026-05", endYearMonth = null,
+            rowKind = BudgetRowKind.TEMPLATE, amount = 250_000L
+        )
+        every { budgetRepository.findById(template.id) } returns Optional.of(template)
+        // OVERRIDE 만 검사하므로 false (TEMPLATE 자체는 매칭 안됨)
+        every { budgetRepository.existsOverrideByCoupleIdAndCategoryGroupAndYearMonth(
+            couple.id, foodCat.id, null, "2026-05"
+        ) } returns false
+        val savedSlot = slot<MonthlyBudget>()
+        every { budgetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
+
+        When("amount=300000, yearMonth=2026-05, applyToFuture=false 로 update") {
+            val result = service.updateBudget(u1.id, template.id,
+                BudgetUpdateRequest(amount = 300_000L, yearMonth = "2026-05", applyToFuture = false))
+
+            Then("ConflictException 안 던지고 split 정상 동작 — TEMPLATE 보존 + OVERRIDE 신규") {
+                template.amount shouldBe 250_000L
+                template.rowKind shouldBe BudgetRowKind.TEMPLATE
+                val saved = savedSlot.captured
+                saved.rowKind shouldBe BudgetRowKind.OVERRIDE
+                saved.yearMonth shouldBe "2026-05"
+                saved.amount shouldBe 300_000L
+                result.amount shouldBe 300_000L
             }
         }
     }
