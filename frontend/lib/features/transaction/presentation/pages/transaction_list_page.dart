@@ -44,6 +44,8 @@ class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodName;
   final String? initialCategoryId;
   final String? initialCategoryName;
+  /// Phase 25 후속 — 예산/분석에서 그룹 단위로 거래 필터.
+  final String? initialCategoryGroupId;
 
   const TransactionListPage({
     super.key,
@@ -51,6 +53,7 @@ class TransactionListPage extends StatefulWidget {
     this.initialPaymentMethodName,
     this.initialCategoryId,
     this.initialCategoryName,
+    this.initialCategoryGroupId,
   });
 
   @override
@@ -75,6 +78,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
     categoryIds: widget.initialCategoryId != null ? {widget.initialCategoryId!} : const {},
+    categoryGroupIds: widget.initialCategoryGroupId != null
+        ? {widget.initialCategoryGroupId!}
+        : const {},
     categoryName: widget.initialCategoryName,
     paymentMethodIds: widget.initialPaymentMethodId != null ? {widget.initialPaymentMethodId!} : const {},
     paymentMethodName: widget.initialPaymentMethodName,

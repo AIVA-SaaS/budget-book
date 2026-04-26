@@ -743,25 +743,31 @@ class _BudgetListPageState extends State<BudgetListPage> {
             ),
           ],
         ),
+        // 사용자 요청: 클릭 시 수정이 아닌 거래 탭의 필터로 세부 내역.
+        // (수정은 PopupMenu(...) 의 'edit' 항목으로 가능)
         onTap: () {
           final state = context.read<BudgetBloc>().state;
           final year =
               state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
-          // Show transactions for this budget's category
+          final params = <String, String>{
+            'year': '$year',
+            'month': '$month',
+          };
           if (budget.category != null) {
-            showBudgetTransactionsSheet(
-              context: context,
-              year: year,
-              month: month,
-              categoryId: budget.category!.id,
-              categoryName: budget.targetLabel,
-            );
-          } else {
-            // For group/total budgets, go to edit
-            context.push('/budgets/edit/${budget.id}?year=$year&month=$month');
+            params['categoryId'] = budget.category!.id;
+            params['categoryName'] =
+                Uri.encodeComponent(budget.targetLabel);
+          } else if (budget.groupId != null) {
+            params['categoryGroupId'] = budget.groupId!;
+            params['categoryName'] =
+                Uri.encodeComponent(budget.targetLabel);
           }
+          // total budget: 필터 없이 month 만 적용
+          final query =
+              params.entries.map((e) => '${e.key}=${e.value}').join('&');
+          context.go('/transactions?$query');
         },
       ),
     );
