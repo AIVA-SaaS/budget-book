@@ -23,6 +23,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
     String periodType = 'MONTHLY',
     DateTime? startDate,
     DateTime? endDate,
+    bool applyToFuture = false,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -36,6 +37,7 @@ class BudgetRepositoryImpl implements BudgetRepository {
         if (pocketId != null) 'pocketId': pocketId,
         if (startDate != null) 'startDate': startDate.toIso8601String().split('T')[0],
         if (endDate != null) 'endDate': endDate.toIso8601String().split('T')[0],
+        if (applyToFuture) 'applyToFuture': true,
       };
       final result = await remoteDataSource.createBudget(data);
       return Right(result);

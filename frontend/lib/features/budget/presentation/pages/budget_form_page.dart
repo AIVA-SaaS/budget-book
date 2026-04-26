@@ -321,21 +321,21 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   return null;
                 },
               ),
-            if (isEditing) ...[
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-                title: const Text('이후 모든 일정에 반영'),
-                subtitle: const Text(
-                  '체크 안 함: 이번 달만 변경 (미래 일정 보존)\n체크 함: 이번 달부터 미래 모든 달에 적용',
-                  style: TextStyle(fontSize: 12),
-                ),
-                value: _applyToFuture,
-                onChanged: (v) => setState(() => _applyToFuture = v ?? false),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text('이후 모든 일정에 반영'),
+              subtitle: Text(
+                isEditing
+                    ? '체크 안 함: 이번 달만 변경 (미래 일정 보존)\n체크 함: 이번 달부터 미래 모든 달에 적용'
+                    : '체크 안 함: 이번 달만 적용\n체크 함: 이번 달부터 미래 모든 달 자동 적용',
+                style: const TextStyle(fontSize: 12),
               ),
-            ],
+              value: _applyToFuture,
+              onChanged: (v) => setState(() => _applyToFuture = v ?? false),
+            ),
             const SizedBox(height: 32),
             // Submit button
             FilledButton(
@@ -701,6 +701,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           periodType: periodType,
           startDate: _periodSelection.startDate,
           endDate: _periodSelection.endDate,
+          applyToFuture: _applyToFuture,
         ));
       }
     }

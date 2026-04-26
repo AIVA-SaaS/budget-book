@@ -42,7 +42,15 @@ data class BudgetRequest(
 
     val pocketId: UUID? = null,
 
-    val visibility: String? = "SHARED"
+    val visibility: String? = "SHARED",
+
+    /**
+     * Phase 25 후속 E-1 — 신규 등록 시 사용자가 "이후 모든 일정에 반영" 체크.
+     * - false (default): 단일월 OVERRIDE (기존 동작)
+     * - true: TEMPLATE (yearMonth ~ 무기한). 같은 scope 의 기존 TEMPLATE 자동 종료 (V57 unique 충돌 회피).
+     * endYearMonth 가 명시적으로 주어진 경우 그 값이 우선.
+     */
+    val applyToFuture: Boolean = false
 )
 
 data class BudgetUpdateRequest(

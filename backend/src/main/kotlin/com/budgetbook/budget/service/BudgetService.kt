@@ -133,12 +133,18 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
-        // Phase 25 후속 C-2 — endYearMonth 와 rowKind 결정.
-        // - request.endYearMonth == null → 단일월 OVERRIDE (endYearMonth=yearMonth)
-        // - endYearMonth != yearMonth → TEMPLATE (yearMonth ~ endYearMonth, endYearMonth=null 도 무기한 TEMPLATE)
+        // Phase 25 후속 C-2 / E-1 — endYearMonth 와 rowKind 결정.
+        // 우선순위:
+        //   1) request.applyToFuture=true → TEMPLATE (yearMonth ~ 무기한)
+        //   2) request.endYearMonth == null → 단일월 OVERRIDE
+        //   3) request.endYearMonth == yearMonth → 단일월 OVERRIDE
+        //   4) 그 외 → TEMPLATE (yearMonth ~ request.endYearMonth)
         val rowKind: BudgetRowKind
         val effectiveEndYearMonth: String?
-        if (request.endYearMonth == null) {
+        if (request.applyToFuture) {
+            rowKind = BudgetRowKind.TEMPLATE
+            effectiveEndYearMonth = null
+        } else if (request.endYearMonth == null) {
             rowKind = BudgetRowKind.OVERRIDE
             effectiveEndYearMonth = request.yearMonth
         } else if (request.endYearMonth == request.yearMonth) {
@@ -166,6 +172,12 @@ class BudgetService(
             visibility = visibility,
             owner = owner
         )
+
+        // E-1: TEMPLATE 신규 등록 시 같은 scope 의 기존 TEMPLATE 자동 종료
+        // (V57 partial unique 충돌 회피 + 사용자 의도 보존).
+        if (rowKind == BudgetRowKind.TEMPLATE) {
+            terminateConflictingTemplate(budget)
+        }
 
         val saved = budgetRepository.save(budget)
         syncEventPublisher.publish(SyncEvent(
