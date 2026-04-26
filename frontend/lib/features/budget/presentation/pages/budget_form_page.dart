@@ -62,6 +62,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   bool _initialized = false;
   bool _isSubmitting = false;
   bool _isDeleting = false;
+  bool _applyToFuture = false;
 
   bool get isEditing => widget.budgetId != null;
 
@@ -320,6 +321,21 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   return null;
                 },
               ),
+            if (isEditing) ...[
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                title: const Text('이후 모든 일정에 반영'),
+                subtitle: const Text(
+                  '체크 시 이번 달부터 미래 모든 달에 적용됩니다',
+                  style: TextStyle(fontSize: 12),
+                ),
+                value: _applyToFuture,
+                onChanged: (v) => setState(() => _applyToFuture = v ?? false),
+              ),
+            ],
             const SizedBox(height: 32),
             // Submit button
             FilledButton(
@@ -572,26 +588,47 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
   }
 
   void _confirmDelete(BuildContext context) {
+    bool applyToFutureInDialog = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('삭제'),
-        content: const Text('이 예산을 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: const Text('삭제'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('이 예산을 삭제하시겠습니까?'),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                title: const Text('이후 모든 일정에 반영'),
+                value: applyToFutureInDialog,
+                onChanged: (v) => setStateDialog(() => applyToFutureInDialog = v ?? false),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() => _isDeleting = true);
-              this.context.read<BudgetBloc>().add(DeleteBudget(widget.budgetId!));
-            },
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('삭제'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() => _isDeleting = true);
+                this.context.read<BudgetBloc>().add(
+                      DeleteBudget(widget.budgetId!,
+                          applyToFuture: applyToFutureInDialog),
+                    );
+              },
+              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+              child: const Text('삭제'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -650,6 +687,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
           categoryId: _selectedCategoryId,
           groupId: _selectedGroupId,
           yearMonth: yearMonth,
+          applyToFuture: _applyToFuture,
         ));
       } else {
         bloc.add(CreateBudget(

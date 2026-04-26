@@ -175,6 +175,7 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
         categoryId: event.categoryId,
         groupId: event.groupId,
         yearMonth: event.yearMonth,
+        applyToFuture: event.applyToFuture,
       );
       result.fold(
         (failure) {
@@ -215,7 +216,10 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
   ) async {
     try {
       final currentState = state;
-      final result = await budgetRepository.deleteBudget(event.id);
+      final result = await budgetRepository.deleteBudget(
+        event.id,
+        applyToFuture: event.applyToFuture,
+      );
       result.fold(
         (failure) {
           if (currentState is BudgetLoaded) {
