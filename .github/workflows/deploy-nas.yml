@@ -7,6 +7,13 @@ on:
   push:
     branches: [main]
 
+# 2026-04-26 deploy fail 분석: 병렬 머지 시 동일 NAS 의 /tmp/bb-deploy 폴더 충돌.
+# concurrency group 으로 NAS deploy 를 직렬화. 새 push 시 진행 중인 run 취소 안 함
+# (cancel-in-progress=false) — 모두 차례로 완료.
+concurrency:
+  group: deploy-nas
+  cancel-in-progress: false
+
 permissions:
   contents: read
   issues: write
