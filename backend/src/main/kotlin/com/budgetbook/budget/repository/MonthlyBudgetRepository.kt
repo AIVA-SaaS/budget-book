@@ -55,6 +55,30 @@ interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
 
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): MonthlyBudget?
 
+    /**
+     * Phase 25 후속 C-2.6 — 같은 scope (couple, category, group) 의 활성 TEMPLATE 1건 조회.
+     * V57 partial unique 보장으로 결과는 0~1건. categoryId/groupId 가 null 이면 미할당 scope.
+     * "활성" = `yearMonth <= :targetYearMonth AND (endYearMonth IS NULL OR endYearMonth >= :targetYearMonth)`.
+     * `:excludeId` 는 자기 자신 제외용 (currentRow 가 이미 TEMPLATE 인 케이스 등).
+     */
+    @Query("""
+        SELECT b FROM MonthlyBudget b
+        WHERE b.couple.id = :coupleId
+        AND b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.TEMPLATE
+        AND ((:categoryId IS NULL AND b.category IS NULL) OR b.category.id = :categoryId)
+        AND ((:groupId IS NULL AND b.group IS NULL) OR b.group.id = :groupId)
+        AND b.yearMonth <= :targetYearMonth
+        AND (b.endYearMonth IS NULL OR b.endYearMonth >= :targetYearMonth)
+        AND (:excludeId IS NULL OR b.id <> :excludeId)
+    """)
+    fun findActiveTemplateInScope(
+        @Param("coupleId") coupleId: UUID,
+        @Param("categoryId") categoryId: UUID?,
+        @Param("groupId") groupId: UUID?,
+        @Param("targetYearMonth") targetYearMonth: String,
+        @Param("excludeId") excludeId: UUID?
+    ): MonthlyBudget?
+
     @Query("""
         SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END
         FROM MonthlyBudget b

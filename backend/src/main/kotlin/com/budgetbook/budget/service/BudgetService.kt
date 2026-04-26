@@ -280,7 +280,10 @@ class BudgetService(
         // Phase 25 후속 C-2 — applyToFuture=true 시 이 행을 TEMPLATE 으로 승격하고
         // endYearMonth=null (무기한) 으로 설정. 이후 같은 scope 의 OVERRIDE 가
         // 추가되면 우선순위에 따라 그 월만 덮어쓴다.
+        // C-2.6: 승격 전, 같은 scope 의 다른 활성 TEMPLATE 이 있으면 자동 종료
+        // (V57 partial unique 충돌 방지 + 사용자 의도 보존).
         if (request.applyToFuture) {
+            terminateConflictingTemplate(budget)
             budget.rowKind = BudgetRowKind.TEMPLATE
             budget.endYearMonth = null
         }
@@ -308,16 +311,19 @@ class BudgetService(
         // Phase 25 후속 C-2 — applyToFuture=true + TEMPLATE 인 경우, 행 삭제 대신
         // endYearMonth=(yearMonth-1) 로 종료. 이전 월들은 그대로 유효 처리.
         // - yearMonth == startYM 이면 시작월에서 종료가 불가능 → 행 삭제.
-        // - OVERRIDE 는 단일월이므로 applyToFuture 와 무관하게 그대로 삭제.
+        // - OVERRIDE + applyToFuture: C-2.6 — 같은 scope 의 활성 TEMPLATE 도 종료 (사용자가
+        //   "이 월 OVERRIDE + 미래 TEMPLATE 모두 종료" 의도로 누른 것으로 해석).
         if (applyToFuture && budget.rowKind == BudgetRowKind.TEMPLATE) {
             val prev = previousYearMonth(budget.yearMonth)
             if (prev >= budget.yearMonth) {
-                // 시작월보다 앞 월이 없는 비정상 상태 — 그냥 삭제
                 budgetRepository.delete(budget)
             } else {
                 budget.endYearMonth = prev
                 budgetRepository.save(budget)
             }
+        } else if (applyToFuture && budget.rowKind == BudgetRowKind.OVERRIDE) {
+            terminateConflictingTemplate(budget)
+            budgetRepository.delete(budget)
         } else {
             budgetRepository.delete(budget)
         }
@@ -335,6 +341,31 @@ class BudgetService(
     private fun previousYearMonth(yearMonth: String): String {
         val ym = YearMonth.parse(yearMonth)
         return ym.minusMonths(1).toString()
+    }
+
+    /**
+     * Phase 25 후속 C-2.6 — 주어진 budget 과 같은 scope (couple, category, group) 의
+     * 활성 TEMPLATE 을 (target.yearMonth - 1) 로 종료. 자기 자신은 제외.
+     *
+     * - 활성 TEMPLATE 이 없으면 no-op.
+     * - 종료 시점이 시작월보다 이르면 (TEMPLATE 시작월 == budget.yearMonth) 행 삭제.
+     * - V57 partial unique 보장으로 결과는 0~1건만 고려.
+     */
+    private fun terminateConflictingTemplate(budget: MonthlyBudget) {
+        val existing = budgetRepository.findActiveTemplateInScope(
+            coupleId = budget.couple.id,
+            categoryId = budget.category?.id,
+            groupId = budget.group?.id,
+            targetYearMonth = budget.yearMonth,
+            excludeId = budget.id
+        ) ?: return
+        val prev = previousYearMonth(budget.yearMonth)
+        if (prev < existing.yearMonth) {
+            budgetRepository.delete(existing)
+        } else {
+            existing.endYearMonth = prev
+            budgetRepository.save(existing)
+        }
     }
 
     @Transactional(readOnly = true)
