@@ -221,7 +221,9 @@ class ReportService(
     }
 
     private fun calculateWeeklyBudget(coupleId: UUID, yearMonth: String, weeksInMonth: Int, userId: UUID): Long {
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        val budgets = com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        )
         val weeklyBudgets = budgets.filter { it.budgetPeriod == BudgetPeriod.WEEKLY }
 
         if (weeklyBudgets.isEmpty()) return 0L
@@ -314,7 +316,9 @@ class ReportService(
         currentCategoryExpenses: List<Array<Any?>>
     ): List<GroupSpendingSummary> {
         val groups = categoryGroupRepository.findByCoupleIdAndUserIdOrderByDisplayOrder(coupleId, userId)
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        val budgets = com.budgetbook.budget.service.MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(coupleId, yearMonth, userId)
+        )
 
         val expenseByCategoryId = currentCategoryExpenses.associate { row ->
             (row[2] as UUID) to (row[0] as Long)

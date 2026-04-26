@@ -182,8 +182,8 @@ class BudgetService(
     fun getBudgetsByMonth(userId: UUID, year: Int, month: Int): List<BudgetResponse> {
         val couple = getActiveCouple(userId)
         val yearMonth = formatYearMonth(year, month)
-        return budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
-            .map { it.toResponse() }
+        val rows = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        return MonthlyBudgetResolver.resolveForMonth(rows).map { it.toResponse() }
     }
 
     @Transactional
@@ -345,7 +345,9 @@ class BudgetService(
         val startDate = ym.atDay(1)
         val endDate = ym.atEndOfMonth()
 
-        val budgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        val budgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
+        )
 
         val categoryExpenseResults = transactionRepository.sumByCategoryForCouple(
             couple.id, startDate, endDate, TransactionType.EXPENSE, userId
@@ -492,12 +494,16 @@ class BudgetService(
             )
         }
 
-        val sourceBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, sourceYearMonth, userId)
+        val sourceBudgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, sourceYearMonth, userId)
+        )
         if (sourceBudgets.isEmpty()) {
             throw NotFoundException("BUDGET_NOT_FOUND", "No budgets found for $sourceYearMonth.")
         }
 
-        val existingTargetBudgets = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, targetYearMonth, userId)
+        val existingTargetBudgets = MonthlyBudgetResolver.resolveForMonth(
+            budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, targetYearMonth, userId)
+        )
         val existingKeys = existingTargetBudgets.map { Pair(it.category?.id, it.group?.id) }.toSet()
 
         val numberOfWeeks = calculateNumberOfWeeks(targetYearMonth)
