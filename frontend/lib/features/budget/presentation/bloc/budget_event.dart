@@ -38,6 +38,7 @@ class CreateBudget extends BudgetEvent {
   final String periodType;
   final DateTime? startDate;
   final DateTime? endDate;
+  final bool applyToFuture;
 
   const CreateBudget({
     this.categoryId,
@@ -50,6 +51,7 @@ class CreateBudget extends BudgetEvent {
     this.periodType = 'MONTHLY',
     this.startDate,
     this.endDate,
+    this.applyToFuture = false,
   });
 
   @override
@@ -64,6 +66,7 @@ class CreateBudget extends BudgetEvent {
         periodType,
         startDate,
         endDate,
+        applyToFuture,
       ];
 }
 
