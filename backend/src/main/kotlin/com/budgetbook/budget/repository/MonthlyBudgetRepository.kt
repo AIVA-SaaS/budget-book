@@ -106,4 +106,27 @@ interface MonthlyBudgetRepository : JpaRepository<MonthlyBudget, UUID> {
         @Param("groupId") groupId: UUID?,
         @Param("yearMonth") yearMonth: String
     ): Boolean
+
+    /**
+     * Phase 25 후속 E-3 — OVERRIDE 행 충돌 전용 검사.
+     * V57 partial unique `uk_monthly_budgets_override_month` 가 OVERRIDE-only 이므로,
+     * split semantic 에서 OVERRIDE 신규 가능 여부 체크 시 TEMPLATE 행을 제외해야 한다.
+     * 기존 `existsByCoupleIdAndCategoryGroupAndYearMonth` 는 rowKind 무관하게 매칭하여
+     * TEMPLATE 자체를 false-positive 로 잡는 버그가 있었다.
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END
+        FROM MonthlyBudget b
+        WHERE b.couple.id = :coupleId
+        AND b.rowKind = com.budgetbook.budget.domain.BudgetRowKind.OVERRIDE
+        AND b.yearMonth = :yearMonth
+        AND ((:categoryId IS NULL AND b.category IS NULL) OR b.category.id = :categoryId)
+        AND ((:groupId IS NULL AND b.group IS NULL) OR b.group.id = :groupId)
+    """)
+    fun existsOverrideByCoupleIdAndCategoryGroupAndYearMonth(
+        @Param("coupleId") coupleId: UUID,
+        @Param("categoryId") categoryId: UUID?,
+        @Param("groupId") groupId: UUID?,
+        @Param("yearMonth") yearMonth: String
+    ): Boolean
 }
