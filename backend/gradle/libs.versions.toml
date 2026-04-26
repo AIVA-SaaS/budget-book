@@ -10,6 +10,7 @@ flyway = "10.15.0"
 jjwt = "0.12.6"
 sentry = "7.14.0"
 micrometer-prometheus = "1.12.5"
+kover = "0.8.0"
 
 [libraries]
 # Spring Boot
@@ -60,3 +61,4 @@ kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotl
 kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
