@@ -36,74 +36,135 @@ jobs:
               - '.github/workflows/deploy-nas.yml'
 
   # ── Backend 배포 (변경 시에만) ──
+  # E-2 (2026-04-26): GitHub Actions runner 에서 gradle bootJar 실행 (cache 활용)
+  # → JAR + 경량 runtime Dockerfile 만 SSH 로 NAS 전송. NAS 는 image build 만 (jre + jar).
+  # 기존: NAS 컨테이너 안에서 매 빌드 fresh gradle (5m20s) → 7m12s 총.
+  # 신: Actions cache hit 시 gradle ~30s + scp ~10s + image build ~10s + health ~30s ≈ 1-2m.
   deploy-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Deploy Backend to NAS
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
         with:
-          host: ${{ secrets.NAS_HOST }}
-          username: ${{ secrets.NAS_USERNAME }}
-          key: ${{ secrets.NAS_SSH_KEY }}
-          port: ${{ secrets.NAS_SSH_PORT }}
-          command_timeout: 10m
-          script: |
-            set -e
-            export PATH=/usr/local/bin:$PATH
-            cd /volume1/docker/budget-book
+          distribution: temurin
+          java-version: '21'
 
-            git fetch origin main --depth=1
-            git reset --hard origin/main
+      - name: Setup Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v3
 
-            cd backend
-            # NAS Docker 엔진에 buildx 미설치 → legacy builder 사용.
-            # 동일 태그 재사용으로 Docker 가 layer cache 자동 활용.
-            docker build -t bb-backend:latest .
+      - name: Build bootJar
+        run: ./gradlew bootJar --no-daemon
 
-            cat > /tmp/bb_env << 'ENVEOF'
-            SPRING_PROFILES_ACTIVE=prod
-            SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable
-            DB_HOST=host.docker.internal
-            DB_PORT=5433
-            DB_NAME=budgetbook
-            DB_USERNAME=budgetbook
-            DB_PASSWORD=${{ secrets.NAS_DB_PASSWORD }}
-            JWT_SECRET=${{ secrets.NAS_JWT_SECRET }}
-            FRONTEND_URL=https://aiva-bb.duckdns.org
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            REDIS_URL=redis://host.docker.internal:6380
-            FLYWAY_ENABLED=true
-            SERVER_FORWARD_HEADERS_STRATEGY=framework
-            SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER=X-Forwarded-Proto
-            ENVEOF
-            sed -i 's/^            //' /tmp/bb_env
+      - name: Locate JAR
+        id: jar
+        run: |
+          JAR=$(ls build/libs/*-SNAPSHOT.jar 2>/dev/null | head -1)
+          if [ -z "$JAR" ]; then JAR=$(ls build/libs/*.jar | grep -v plain | head -1); fi
+          if [ -z "$JAR" ]; then echo "ERR: no jar" >&2; exit 1; fi
+          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "Built: $JAR ($(du -h "$JAR" | cut -f1))"
 
-            docker stop bb_app 2>/dev/null || true
-            docker rm bb_app 2>/dev/null || true
-            docker run -d \
-              --name bb_app \
-              --restart unless-stopped \
-              --add-host=host.docker.internal:host-gateway \
-              -p 8081:8080 \
-              --env-file /tmp/bb_env \
-              bb-backend:latest
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/nas_key
+          chmod 600 ~/.ssh/nas_key
+          ssh-keyscan -p ${{ secrets.NAS_SSH_PORT }} ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-            # Health check — V54 같은 무거운 마이그레이션/Hibernate 스키마 검증
-            # 여유 확보 (10회 × 6s = 60s). 실제 장애 시에만 fail.
-            for i in $(seq 1 10); do
-              sleep 6
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
-              if [ "$STATUS" = "200" ]; then
-                echo "Backend UP (attempt $i)"
-                exit 0
-              fi
-            done
-            echo "FAILED: Backend did not start"
-            docker logs --tail 60 bb_app
-            exit 1
+      - name: Generate runtime Dockerfile
+        run: |
+          cat > /tmp/Dockerfile.runtime << 'EOF'
+          FROM eclipse-temurin:21-jre-alpine
+          RUN addgroup -S app && adduser -S app -G app
+          WORKDIR /app
+          COPY app.jar app.jar
+          USER app
+          EXPOSE 8080
+          ENTRYPOINT ["java", \
+            "-Xms128m", "-Xmx384m", \
+            "-XX:+UseSerialGC", \
+            "-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", \
+            "-Dspring.jmx.enabled=false", \
+            "-jar", "app.jar"]
+          EOF
+
+      - name: Transfer JAR + Dockerfile to NAS
+        run: |
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            'rm -rf /tmp/bb-deploy && mkdir -p /tmp/bb-deploy'
+          scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
+            "${{ steps.jar.outputs.path }}" \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/bb-deploy/app.jar
+          scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
+            /tmp/Dockerfile.runtime \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/bb-deploy/Dockerfile
+
+      - name: Build image + restart container on NAS
+        env:
+          NAS_DB_PASSWORD: ${{ secrets.NAS_DB_PASSWORD }}
+          NAS_JWT_SECRET: ${{ secrets.NAS_JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          # env 파일을 SSH 경유로 NAS 에 작성 (secrets 노출 최소화: stdin heredoc).
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            "cat > /tmp/bb_env" << ENVEOF
+          SPRING_PROFILES_ACTIVE=prod
+          SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/budgetbook?sslmode=disable
+          DB_HOST=host.docker.internal
+          DB_PORT=5433
+          DB_NAME=budgetbook
+          DB_USERNAME=budgetbook
+          DB_PASSWORD=${NAS_DB_PASSWORD}
+          JWT_SECRET=${NAS_JWT_SECRET}
+          FRONTEND_URL=https://aiva-bb.duckdns.org
+          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          REDIS_URL=redis://host.docker.internal:6380
+          FLYWAY_ENABLED=true
+          SERVER_FORWARD_HEADERS_STRATEGY=framework
+          SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER=X-Forwarded-Proto
+          ENVEOF
+
+          # 빌드 + 컨테이너 재기동 + health check
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            'set -e
+             export PATH=/usr/local/bin:$PATH
+             cd /tmp/bb-deploy
+             docker build -t bb-backend:latest .
+             docker stop bb_app 2>/dev/null || true
+             docker rm bb_app 2>/dev/null || true
+             docker run -d \
+               --name bb_app \
+               --restart unless-stopped \
+               --add-host=host.docker.internal:host-gateway \
+               -p 8081:8080 \
+               --env-file /tmp/bb_env \
+               bb-backend:latest
+             # Health check — Flyway/Hibernate 마이그레이션 여유 (10회 × 6s)
+             for i in $(seq 1 10); do
+               sleep 6
+               STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/actuator/health 2>/dev/null || echo "000")
+               if [ "$STATUS" = "200" ]; then
+                 echo "Backend UP (attempt $i)"
+                 # cleanup
+                 rm -rf /tmp/bb-deploy /tmp/bb_env
+                 exit 0
+               fi
+             done
+             echo "FAILED: Backend did not start"
+             docker logs --tail 60 bb_app
+             exit 1'
 
   # ── Frontend 배포 (변경 시에만) ──
   deploy-frontend:

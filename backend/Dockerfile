@@ -1,3 +1,6 @@
+# 로컬 docker build 용 (배포는 .github/workflows/deploy-nas.yml 가 GitHub Actions
+# runner 에서 빌드한 JAR 만 NAS 로 전송 + 인라인 runtime Dockerfile 사용 — E-2 2026-04-26).
+# 본 Dockerfile 은 로컬 검증/대체 경로 호환을 위해 기존 multi-stage 형태 유지.
 FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
 COPY build.gradle.kts settings.gradle.kts ./
