@@ -79,6 +79,7 @@ class UpdateBudget extends BudgetEvent {
   final String? categoryId;
   final String? groupId;
   final String? yearMonth;
+  final bool applyToFuture;
 
   const UpdateBudget({
     required this.id,
@@ -92,6 +93,7 @@ class UpdateBudget extends BudgetEvent {
     this.categoryId,
     this.groupId,
     this.yearMonth,
+    this.applyToFuture = false,
   });
 
   @override
@@ -107,16 +109,18 @@ class UpdateBudget extends BudgetEvent {
         categoryId,
         groupId,
         yearMonth,
+        applyToFuture,
       ];
 }
 
 class DeleteBudget extends BudgetEvent {
   final String id;
+  final bool applyToFuture;
 
-  const DeleteBudget(this.id);
+  const DeleteBudget(this.id, {this.applyToFuture = false});
 
   @override
-  List<Object?> get props => [id];
+  List<Object?> get props => [id, applyToFuture];
 }
 
 class CopyPreviousMonthBudgets extends BudgetEvent {

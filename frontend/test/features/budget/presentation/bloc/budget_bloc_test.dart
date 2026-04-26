@@ -87,6 +87,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
     String? categoryId,
     String? groupId,
     String? yearMonth,
+    bool applyToFuture = false,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateBudget, [], {
@@ -101,6 +102,7 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
           #categoryId: categoryId,
           #groupId: groupId,
           #yearMonth: yearMonth,
+          #applyToFuture: applyToFuture,
         }),
         returnValue: Future.value(
           Right<Failure, Budget>(_dummyBudget),
@@ -108,9 +110,14 @@ class MockBudgetRepository extends Mock implements BudgetRepository {
       ) as Future<Either<Failure, Budget>>;
 
   @override
-  Future<Either<Failure, void>> deleteBudget(String id) =>
+  Future<Either<Failure, void>> deleteBudget(
+    String? id, {
+    bool applyToFuture = false,
+  }) =>
       super.noSuchMethod(
-        Invocation.method(#deleteBudget, [id]),
+        Invocation.method(#deleteBudget, [id], {
+          #applyToFuture: applyToFuture,
+        }),
         returnValue: Future.value(const Right<Failure, void>(null)),
       ) as Future<Either<Failure, void>>;
 
@@ -435,6 +442,84 @@ void main() {
             operationError: 'Failed to delete budget',
           ),
         ],
+      );
+
+      // Phase 25 후속 C-3 — applyToFuture 가 repository 까지 전달되는지 검증
+      blocTest<BudgetBloc, BudgetState>(
+        'forwards applyToFuture=true to repository.deleteBudget',
+        build: () {
+          when(mockRepository.deleteBudget('budget-1',
+                  applyToFuture: true))
+              .thenAnswer((_) async => const Right(null));
+          when(mockRepository.getBudgets(year: 2026, month: 3))
+              .thenAnswer((_) async => Right([tBudget2]));
+          when(mockRepository.getBudgetSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(tSummary));
+          return budgetBloc;
+        },
+        seed: () => BudgetLoaded(
+          budgets: tBudgets,
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) => bloc.add(
+          const DeleteBudget('budget-1', applyToFuture: true),
+        ),
+        verify: (_) {
+          verify(mockRepository.deleteBudget('budget-1',
+                  applyToFuture: true))
+              .called(1);
+        },
+      );
+    });
+
+    // Phase 25 후속 C-3 — UpdateBudget 에 applyToFuture 가 repository 까지 전달
+    group('UpdateBudget with applyToFuture', () {
+      blocTest<BudgetBloc, BudgetState>(
+        'forwards applyToFuture=true to repository.updateBudget',
+        build: () {
+          when(mockRepository.updateBudget(
+            id: 'budget-1',
+            amount: 200000,
+            budgetPeriod: null,
+            weeklyAmount: null,
+            pocketId: null,
+            periodType: null,
+            startDate: null,
+            endDate: null,
+            applyToFuture: true,
+          )).thenAnswer((_) async => Right(tBudget1));
+          when(mockRepository.getBudgets(year: 2026, month: 3))
+              .thenAnswer((_) async => Right(tBudgets));
+          when(mockRepository.getBudgetSummary(year: 2026, month: 3))
+              .thenAnswer((_) async => const Right(tSummary));
+          return budgetBloc;
+        },
+        seed: () => BudgetLoaded(
+          budgets: tBudgets,
+          summary: tSummary,
+          year: 2026,
+          month: 3,
+        ),
+        act: (bloc) => bloc.add(const UpdateBudget(
+          id: 'budget-1',
+          amount: 200000,
+          applyToFuture: true,
+        )),
+        verify: (_) {
+          verify(mockRepository.updateBudget(
+            id: 'budget-1',
+            amount: 200000,
+            budgetPeriod: null,
+            weeklyAmount: null,
+            pocketId: null,
+            periodType: null,
+            startDate: null,
+            endDate: null,
+            applyToFuture: true,
+          )).called(1);
+        },
       );
     });
 
