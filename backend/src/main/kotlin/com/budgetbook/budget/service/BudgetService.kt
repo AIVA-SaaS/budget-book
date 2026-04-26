@@ -195,6 +195,22 @@ class BudgetService(
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
         validatePrivateOwner(budget, userId)
 
+        // Phase 25 후속 C-2.7 — TEMPLATE 행 편집 split semantic.
+        // 사용자 의도는 "viewingMonth (= request.yearMonth) 만 변경" 인데, TEMPLATE 행을
+        // 그대로 update 하면 활성 범위 [yearMonth, endYearMonth] 전체에 영향. 따라서:
+        //   - applyToFuture=false + 편집 대상 = TEMPLATE + viewingMonth 가 활성 범위 내
+        //     → split: 원본 TEMPLATE 보존 + viewingMonth 단일 OVERRIDE 신규.
+        // applyToFuture=true 케이스는 기존 C-2 동작 유지 (전체 TEMPLATE 범위 적용).
+        val viewingMonth = request.yearMonth
+        val needsSplit = !request.applyToFuture
+            && budget.rowKind == BudgetRowKind.TEMPLATE
+            && viewingMonth != null
+            && viewingMonth >= budget.yearMonth
+            && (budget.endYearMonth == null || viewingMonth <= budget.endYearMonth!!)
+        if (needsSplit) {
+            return performTemplateSplit(userId, couple, budget, request, viewingMonth!!)
+        }
+
         // Update category if provided
         request.categoryId?.let { catId ->
             val cat = categoryRepository.findById(catId)
@@ -341,6 +357,105 @@ class BudgetService(
     private fun previousYearMonth(yearMonth: String): String {
         val ym = YearMonth.parse(yearMonth)
         return ym.minusMonths(1).toString()
+    }
+
+    /**
+     * Phase 25 후속 C-2.7 — TEMPLATE 행 편집 시 viewingMonth 단일 OVERRIDE 로 split.
+     *
+     * 호출 조건: applyToFuture=false + budget.rowKind=TEMPLATE + viewingMonth 가 활성 범위 내.
+     * 효과:
+     *  - 원본 TEMPLATE 행 보존 (변경 없음).
+     *  - viewingMonth 단일 OVERRIDE 신규 생성 — request 의 새 값 반영.
+     *  - V57 partial unique `(couple, cat, group, year_month) WHERE row_kind=OVERRIDE` 충돌 시
+     *    ConflictException (이미 OVERRIDE 가 있으면 사용자가 '편집' 진입 자체가 OVERRIDE 였어야 함).
+     */
+    private fun performTemplateSplit(
+        userId: UUID,
+        couple: Couple,
+        template: MonthlyBudget,
+        request: BudgetUpdateRequest,
+        viewingMonth: String
+    ): BudgetResponse {
+        // category/group 결정 (request 우선, 없으면 원본)
+        val resolvedCategory = request.categoryId?.let { catId ->
+            val cat = categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+            cat
+        } ?: if (request.groupId != null) null else template.category
+
+        val resolvedGroup = request.groupId?.let { gId ->
+            categoryGroupRepository.findByIdAndCoupleId(gId, couple.id)
+                ?: throw NotFoundException("GROUP_NOT_FOUND", "Specified category group does not exist.")
+        } ?: if (request.categoryId != null) null else template.group
+
+        val resolvedPocket = request.pocketId?.let {
+            val p = moneyPocketRepository.findById(it).orElseThrow {
+                NotFoundException("POCKET_NOT_FOUND", "Pocket not found.")
+            }
+            OwnershipValidator.validateOwnership(p.couple.id, couple, "Pocket")
+            p
+        } ?: template.pocket
+
+        val resolvedBudgetPeriod = request.budgetPeriod?.let { BudgetPeriod.valueOf(it) }
+            ?: template.budgetPeriod
+        val resolvedPeriodType = request.periodType?.let { PeriodType.valueOf(it) }
+            ?: template.periodType
+        val (sd, ed) = resolveStartEndDates(resolvedPeriodType, viewingMonth, request.startDate, request.endDate)
+
+        val visibility = when {
+            resolvedCategory != null -> resolvedCategory.visibility
+            resolvedGroup != null -> resolvedGroup.visibility
+            else -> Visibility.SHARED
+        }
+        val owner = if (visibility == Visibility.PRIVATE) {
+            userRepository.findById(userId)
+                .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        } else null
+
+        val weeklyAmount = if (resolvedBudgetPeriod == BudgetPeriod.WEEKLY) {
+            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(viewingMonth))
+        } else null
+
+        // V57 OVERRIDE partial unique 충돌 체크
+        val categoryIdForCheck = resolvedCategory?.id
+        val groupIdForCheck = resolvedGroup?.id
+        val overrideExists = budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(
+            couple.id, categoryIdForCheck, groupIdForCheck, viewingMonth
+        )
+        if (overrideExists) {
+            throw ConflictException(
+                "BUDGET_ALREADY_EXISTS",
+                "An OVERRIDE budget already exists for this scope and month."
+            )
+        }
+
+        val newOverride = MonthlyBudget(
+            couple = couple,
+            category = resolvedCategory,
+            group = resolvedGroup,
+            yearMonth = viewingMonth,
+            endYearMonth = viewingMonth,
+            rowKind = BudgetRowKind.OVERRIDE,
+            amount = request.amount,
+            budgetPeriod = resolvedBudgetPeriod,
+            weeklyAmount = weeklyAmount,
+            periodType = resolvedPeriodType,
+            startDate = sd,
+            endDate = ed,
+            pocket = resolvedPocket,
+            visibility = visibility,
+            owner = owner
+        )
+        val saved = budgetRepository.save(newOverride)
+        syncEventPublisher.publish(SyncEvent(
+            type = "BUDGET_UPDATED",
+            entityType = "BUDGET",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
     }
 
     /**
