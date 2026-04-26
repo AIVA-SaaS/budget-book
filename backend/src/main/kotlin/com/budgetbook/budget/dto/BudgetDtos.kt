@@ -67,6 +67,13 @@ data class BudgetUpdateRequest(
     val visibility: String? = null,
 
     /**
+     * Phase 25 후속 C-2.7 — 사용자가 편집 화면을 열 때 보고 있던 월 ("YYYY-MM").
+     * - TEMPLATE 행 편집 시 split semantic 의 기준 월로 사용.
+     * - null 이면 split 비활성 (기존 단순 update).
+     */
+    val yearMonth: String? = null,
+
+    /**
      * Phase 25 후속 C-2 — 사용자가 "이후 모든 일정에 반영" 체크 시 true.
      * - false (default): 단일월 OVERRIDE 만 추가/갱신 (기존 동작)
      * - true: 기존 TEMPLATE 의 endYearMonth = (대상월-1) 로 종료 + 새 TEMPLATE

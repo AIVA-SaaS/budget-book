@@ -682,15 +682,16 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 final month =
                     state is BudgetLoaded ? state.month : DateTime.now().month;
                 if (value == 'transactions') {
-                  if (budget.category != null) {
-                    showBudgetTransactionsSheet(
-                      context: context,
-                      year: year,
-                      month: month,
-                      categoryId: budget.category!.id,
-                      categoryName: budget.targetLabel,
-                    );
-                  }
+                  // Phase 25 후속 U-1 — 모든 예산 종류(카테고리/그룹/총) 거래 보기 통일.
+                  showBudgetTransactionsSheet(
+                    context: context,
+                    year: year,
+                    month: month,
+                    categoryId: budget.category?.id,
+                    categoryGroupId:
+                        budget.category == null ? budget.groupId : null,
+                    categoryName: budget.targetLabel,
+                  );
                 } else if (value == 'edit') {
                   context.push(
                       '/budgets/edit/${budget.id}?year=$year&month=$month');
@@ -708,17 +709,16 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 }
               },
               itemBuilder: (context) => [
-                if (budget.category != null)
-                  const PopupMenuItem(
-                    value: 'transactions',
-                    child: Row(
-                      children: [
-                        Icon(Icons.receipt_long, size: 18),
-                        SizedBox(width: 8),
-                        Text('거래 보기'),
-                      ],
-                    ),
+                const PopupMenuItem(
+                  value: 'transactions',
+                  child: Row(
+                    children: [
+                      Icon(Icons.receipt_long, size: 18),
+                      SizedBox(width: 8),
+                      Text('거래 보기'),
+                    ],
                   ),
+                ),
                 const PopupMenuItem(
                   value: 'edit',
                   child: Row(
@@ -743,31 +743,15 @@ class _BudgetListPageState extends State<BudgetListPage> {
             ),
           ],
         ),
-        // 사용자 요청: 클릭 시 수정이 아닌 거래 탭의 필터로 세부 내역.
-        // (수정은 PopupMenu(...) 의 'edit' 항목으로 가능)
+        // Phase 25 후속 U-1 — 행 클릭 = 편집 진입 (모든 예산 통일).
+        // 거래 보기 / 삭제는 PopupMenu 통해 접근.
         onTap: () {
           final state = context.read<BudgetBloc>().state;
           final year =
               state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
-          final params = <String, String>{
-            'year': '$year',
-            'month': '$month',
-          };
-          if (budget.category != null) {
-            params['categoryId'] = budget.category!.id;
-            params['categoryName'] =
-                Uri.encodeComponent(budget.targetLabel);
-          } else if (budget.groupId != null) {
-            params['categoryGroupId'] = budget.groupId!;
-            params['categoryName'] =
-                Uri.encodeComponent(budget.targetLabel);
-          }
-          // total budget: 필터 없이 month 만 적용
-          final query =
-              params.entries.map((e) => '${e.key}=${e.value}').join('&');
-          context.go('/transactions?$query');
+          context.push('/budgets/edit/${budget.id}?year=$year&month=$month');
         },
       ),
     );

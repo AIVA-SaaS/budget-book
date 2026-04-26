@@ -329,7 +329,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 dense: true,
                 title: const Text('이후 모든 일정에 반영'),
                 subtitle: const Text(
-                  '체크 시 이번 달부터 미래 모든 달에 적용됩니다',
+                  '체크 안 함: 이번 달만 변경 (미래 일정 보존)\n체크 함: 이번 달부터 미래 모든 달에 적용',
                   style: TextStyle(fontSize: 12),
                 ),
                 value: _applyToFuture,

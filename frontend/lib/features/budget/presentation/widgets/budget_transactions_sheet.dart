@@ -10,12 +10,18 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_e
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 
-/// Shows a bottom sheet with transactions filtered by categoryId for a budget item.
+/// Shows a bottom sheet with transactions filtered for a budget item.
+///
+/// Phase 25 후속 U-1 — 모든 예산 행에 거래 보기 통일:
+/// - category 예산: `categoryId` 로 필터
+/// - group 예산: `categoryGroupId` 로 필터
+/// - total (미할당) 예산: 둘 다 null — 해당 월 전체 거래
 void showBudgetTransactionsSheet({
   required BuildContext context,
   required int year,
   required int month,
-  required String? categoryId,
+  String? categoryId,
+  String? categoryGroupId,
   required String categoryName,
   String? dateFrom,
   String? dateTo,
@@ -40,6 +46,8 @@ void showBudgetTransactionsSheet({
               year: year,
               month: month,
               categoryId: categoryId,
+              categoryGroupIds:
+                  categoryGroupId != null ? {categoryGroupId} : const {},
               dateFrom: dateFrom,
               dateTo: dateTo,
             ));
