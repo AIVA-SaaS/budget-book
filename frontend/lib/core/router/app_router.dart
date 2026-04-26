@@ -238,11 +238,13 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 final paymentMethodName = state.uri.queryParameters['paymentMethodName'];
                 final categoryId = state.uri.queryParameters['categoryId'];
                 final categoryName = state.uri.queryParameters['categoryName'];
+                // Phase 25 후속 — 예산/분석 에서 그룹 단위 필터 지원
+                final categoryGroupId = state.uri.queryParameters['categoryGroupId'];
 
                 // Reload when: explicit params provided, first load, or clearing a stale filter.
                 final bloc = getIt<TransactionBloc>();
                 final transferBloc = getIt<TransferBloc>();
-                final hasExplicitParams = yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null;
+                final hasExplicitParams = yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null || categoryGroupId != null;
                 // Detect stale category/payment filter: bloc was filtered but URL has no filter
                 final hasStaleFilter = !hasExplicitParams &&
                     bloc.state is TransactionLoaded &&
@@ -257,6 +259,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     month: month,
                     categoryId: categoryId,
                     paymentMethodId: paymentMethodId,
+                    categoryGroupIds: categoryGroupId != null
+                        ? {categoryGroupId}
+                        : const <String>{},
                   ));
                   transferBloc.add(LoadTransfers(year: year, month: month));
                 }
@@ -275,6 +280,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     initialPaymentMethodName: paymentMethodName,
                     initialCategoryId: categoryId,
                     initialCategoryName: categoryName,
+                    initialCategoryGroupId: categoryGroupId,
                   ),
                 );
               },

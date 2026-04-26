@@ -73,9 +73,11 @@ class BudgetController(
     @DeleteMapping("/{id}")
     fun deleteBudget(
         @AuthUser userId: UUID,
-        @PathVariable id: UUID
+        @PathVariable id: UUID,
+        // Phase 25 후속 C-2 — true 시 TEMPLATE 인 경우 (yearMonth-1) 로 종료, 아니면 즉시 삭제
+        @RequestParam(name = "applyToFuture", required = false, defaultValue = "false") applyToFuture: Boolean
     ): ResponseEntity<Void> {
-        budgetService.deleteBudget(userId, id)
+        budgetService.deleteBudget(userId, id, applyToFuture)
         return ResponseEntity.noContent().build()
     }
 

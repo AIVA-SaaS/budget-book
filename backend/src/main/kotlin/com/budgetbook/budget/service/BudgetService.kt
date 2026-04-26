@@ -2,6 +2,7 @@ package com.budgetbook.budget.service
 
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.budget.domain.BudgetPeriod
+import com.budgetbook.budget.domain.BudgetRowKind
 import com.budgetbook.budget.domain.MonthlyBudget
 import com.budgetbook.budget.domain.PeriodType
 import com.budgetbook.budget.dto.BudgetRequest
@@ -132,11 +133,29 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
+        // Phase 25 후속 C-2 — endYearMonth 와 rowKind 결정.
+        // - request.endYearMonth == null → 단일월 OVERRIDE (endYearMonth=yearMonth)
+        // - endYearMonth != yearMonth → TEMPLATE (yearMonth ~ endYearMonth, endYearMonth=null 도 무기한 TEMPLATE)
+        val rowKind: BudgetRowKind
+        val effectiveEndYearMonth: String?
+        if (request.endYearMonth == null) {
+            rowKind = BudgetRowKind.OVERRIDE
+            effectiveEndYearMonth = request.yearMonth
+        } else if (request.endYearMonth == request.yearMonth) {
+            rowKind = BudgetRowKind.OVERRIDE
+            effectiveEndYearMonth = request.yearMonth
+        } else {
+            rowKind = BudgetRowKind.TEMPLATE
+            effectiveEndYearMonth = request.endYearMonth
+        }
+
         val budget = MonthlyBudget(
             couple = couple,
             category = category,
             group = group,
             yearMonth = request.yearMonth,
+            endYearMonth = effectiveEndYearMonth,
+            rowKind = rowKind,
             amount = request.amount,
             budgetPeriod = budgetPeriod,
             weeklyAmount = weeklyAmount,
@@ -258,6 +277,14 @@ class BudgetService(
             budget.owner = null
         }
 
+        // Phase 25 후속 C-2 — applyToFuture=true 시 이 행을 TEMPLATE 으로 승격하고
+        // endYearMonth=null (무기한) 으로 설정. 이후 같은 scope 의 OVERRIDE 가
+        // 추가되면 우선순위에 따라 그 월만 덮어쓴다.
+        if (request.applyToFuture) {
+            budget.rowKind = BudgetRowKind.TEMPLATE
+            budget.endYearMonth = null
+        }
+
         val saved = budgetRepository.save(budget)
         syncEventPublisher.publish(SyncEvent(
             type = "BUDGET_UPDATED",
@@ -270,7 +297,7 @@ class BudgetService(
     }
 
     @Transactional
-    fun deleteBudget(userId: UUID, budgetId: UUID) {
+    fun deleteBudget(userId: UUID, budgetId: UUID, applyToFuture: Boolean = false) {
         val couple = getActiveCouple(userId)
         val budget = budgetRepository.findById(budgetId)
             .orElseThrow { NotFoundException("BUDGET_NOT_FOUND", "Budget does not exist.") }
@@ -278,7 +305,23 @@ class BudgetService(
         OwnershipValidator.validateOwnership(budget.couple.id, couple, "Budget")
         validatePrivateOwner(budget, userId)
 
-        budgetRepository.delete(budget)
+        // Phase 25 후속 C-2 — applyToFuture=true + TEMPLATE 인 경우, 행 삭제 대신
+        // endYearMonth=(yearMonth-1) 로 종료. 이전 월들은 그대로 유효 처리.
+        // - yearMonth == startYM 이면 시작월에서 종료가 불가능 → 행 삭제.
+        // - OVERRIDE 는 단일월이므로 applyToFuture 와 무관하게 그대로 삭제.
+        if (applyToFuture && budget.rowKind == BudgetRowKind.TEMPLATE) {
+            val prev = previousYearMonth(budget.yearMonth)
+            if (prev >= budget.yearMonth) {
+                // 시작월보다 앞 월이 없는 비정상 상태 — 그냥 삭제
+                budgetRepository.delete(budget)
+            } else {
+                budget.endYearMonth = prev
+                budgetRepository.save(budget)
+            }
+        } else {
+            budgetRepository.delete(budget)
+        }
+
         syncEventPublisher.publish(SyncEvent(
             type = "BUDGET_DELETED",
             entityType = "BUDGET",
@@ -286,6 +329,12 @@ class BudgetService(
             coupleId = couple.id,
             authorId = userId
         ))
+    }
+
+    /** Phase 25 후속 C-2 — "YYYY-MM" 의 한 달 이전 문자열. */
+    private fun previousYearMonth(yearMonth: String): String {
+        val ym = YearMonth.parse(yearMonth)
+        return ym.minusMonths(1).toString()
     }
 
     @Transactional(readOnly = true)
