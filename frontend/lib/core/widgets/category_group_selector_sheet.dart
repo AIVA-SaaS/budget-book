@@ -17,6 +17,14 @@ import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
 
+/// Sentinel identifier used for the virtual "잔액 조정" (balance adjustment)
+/// category option (회차 4 — Phase 23 PR-X3 복원).
+///
+/// 실제 카테고리 UUID 와 절대 충돌하지 않는 상수. sheet 에서 핀 카드로 노출되며
+/// 선택 시 호출자가 `type=ADJUSTMENT, categoryId=null` 로 변환해야 한다 —
+/// `AdjustmentSubmission.resolve` helper 참조.
+const String kAdjustmentSentinel = '__ADJUSTMENT__';
+
 /// Selection mode for [CategoryGroupSelectorSheet].
 ///
 /// - [singleCategory]: Legacy behavior — tapping a category fires
@@ -53,6 +61,17 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
   /// Multi-mode apply callback with `(categoryIds, groupIds)`.
   final void Function(Set<String> categoryIds, Set<String> groupIds)? onApplyMulti;
 
+  /// 회차 4 (PR-X3 복원) — true 면 sheet 최상단에 "잔액 조정" 핀 카드 노출.
+  /// onSelected 가 sentinel `Category(id=kAdjustmentSentinel)` 로 호출됨.
+  /// 호출자(transaction_form_page) 가 type=ADJUSTMENT 로 전환.
+  /// Multi 모드에서는 무시.
+  final bool showAdjustmentOption;
+
+  /// 회차 4 신규 — true 면 sheet 가 "잔액 조정" 1개만 노출.
+  /// 기존 그룹/카테고리/+ 버튼 모두 숨김. 잔액 조정 거래 수정 진입 시 사용.
+  /// `showAdjustmentOption` 와 동시 활성 시 adjustmentOnly 가 우선.
+  final bool adjustmentOnly;
+
   const CategoryGroupSelectorSheet({
     super.key,
     this.selectedCategoryId,
@@ -64,6 +83,8 @@ class CategoryGroupSelectorSheet extends StatefulWidget {
     this.initialCategoryIds = const {},
     this.initialGroupIds = const {},
     this.onApplyMulti,
+    this.showAdjustmentOption = false,
+    this.adjustmentOnly = false,
   })  : assert(
           mode == CategorySelectionMode.singleCategory ? onSelected != null : true,
           'CategorySelectionMode.singleCategory requires onSelected',
@@ -315,6 +336,19 @@ class _CategoryGroupSelectorSheetState
             .toList();
 
         final List<Widget> children = [];
+
+        // 회차 4 — adjustmentOnly 모드: "잔액 조정" 1개만 노출, 다른 그룹/+ 버튼 모두 숨김.
+        // 잔액 조정 거래 수정 진입 시 사용. early-return 으로 다른 섹션 빌드 차단.
+        if (!_isMulti && widget.adjustmentOnly) {
+          children.add(_buildAdjustmentPinnedOption(context));
+          return ListView(shrinkWrap: true, children: children);
+        }
+
+        // 회차 4 (PR-X3 복원) — showAdjustmentOption: 핀 카드 최상단 노출.
+        if (!_isMulti && widget.showAdjustmentOption) {
+          children.add(_buildAdjustmentPinnedOption(context));
+          children.add(const Divider(height: 1));
+        }
 
         // Favorites section at the top
         if (favoriteCategories.isNotEmpty) {
@@ -756,6 +790,72 @@ class _CategoryGroupSelectorSheetState
             widget.onSelectedWithGroupName?.call(category, groupName);
             Navigator.of(context).pop();
           }
+        },
+      ),
+    );
+  }
+
+  /// 회차 4 (PR-X3 복원) — sheet 최상단 "잔액 조정" 핀 카드.
+  /// 시각적으로 구별되는 tertiaryContainer 색상. 클릭 시 `onSelected` 가
+  /// sentinel `Category(id=kAdjustmentSentinel)` 로 호출됨.
+  Widget _buildAdjustmentPinnedOption(BuildContext context) {
+    final theme = Theme.of(context);
+    final isSelected = widget.selectedCategoryId == kAdjustmentSentinel ||
+        widget.categoryType == 'ADJUSTMENT';
+    final sentinelCategory = Category(
+      id: kAdjustmentSentinel,
+      name: '잔액 조정',
+      type: 'ADJUSTMENT',
+      isDefault: true,
+      displayOrder: -1,
+      createdAt: DateTime.now(),
+    );
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected
+              ? theme.colorScheme.tertiary
+              : theme.colorScheme.tertiary.withValues(alpha: 0.3),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        key: const Key('adjustment-pinned-option'),
+        dense: true,
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundColor: theme.colorScheme.tertiary.withValues(alpha: 0.2),
+          child: Icon(
+            Icons.tune,
+            color: theme.colorScheme.tertiary,
+            size: 18,
+          ),
+        ),
+        title: Text(
+          '잔액 조정',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onTertiaryContainer,
+          ),
+        ),
+        subtitle: Text(
+          '실제 잔액에 맞춰 증가/감소 기록 (통계 제외)',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onTertiaryContainer.withValues(alpha: 0.7),
+            fontSize: 11,
+          ),
+        ),
+        trailing: isSelected
+            ? Icon(Icons.check, color: theme.colorScheme.tertiary)
+            : null,
+        onTap: () {
+          widget.onSelected?.call(sentinelCategory);
+          widget.onSelectedWithGroupName?.call(sentinelCategory, null);
+          Navigator.of(context).pop();
         },
       ),
     );
