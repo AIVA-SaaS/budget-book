@@ -132,6 +132,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool _aiLoading = false;
   Timer? _aiDebounceTimer;
 
+  /// 회차 5 — _onSubmit 후 spinner 무한 회귀 방지용 timeout 가드.
+  Timer? _submitTimeoutTimer;
+
   // FocusNodes for keyboard navigation on selector fields
   final FocusNode _categoryFocusNode = FocusNode();
   final FocusNode _paymentMethodFocusNode = FocusNode();
@@ -491,6 +494,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   void dispose() {
     _debounceTimer?.cancel();
     _aiDebounceTimer?.cancel();
+    _submitTimeoutTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _descriptionController.removeListener(_onDescriptionChanged);
@@ -528,6 +532,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             // from the list page behind) would trigger premature navigation.
             if (!_isSubmitting) return;
             if (state is TransactionLoaded) {
+              _submitTimeoutTimer?.cancel();
               _isSubmitting = false;
               final now = DateTime.now();
               getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
@@ -542,6 +547,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 context.pop();
               }
             } else if (state is TransactionError) {
+              _submitTimeoutTimer?.cancel();
               setState(() => _isSubmitting = false);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1854,6 +1860,18 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     }
 
     setState(() => _isSubmitting = true);
+    // 회차 5 — 응답 지연 시 spinner 무한 방지. 15초 후 자동 해제 + 안내.
+    _submitTimeoutTimer?.cancel();
+    _submitTimeoutTimer = Timer(const Duration(seconds: 15), () {
+      if (!mounted || !_isSubmitting) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    });
     final rawAmount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
