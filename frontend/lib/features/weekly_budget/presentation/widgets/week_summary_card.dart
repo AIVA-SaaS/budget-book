@@ -5,13 +5,18 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 class WeekSummaryCard extends StatelessWidget {
   final WeeklyWeek weekSummary;
   final bool isCurrentWeek;
-  final void Function(WeeklyBudgetItem item)? onItemTap;
+
+  /// 행 builder. 카드는 자체적으로 InkWell/PopupMenu 를 만들지 않고
+  /// 부모가 제공하는 [itemRowBuilder] 를 통해 BudgetRowActions 등을 주입.
+  /// (하네스 audit `budget_row_action_unification` — 행 동선 단일 진입점 강제)
+  final Widget Function(BuildContext context, WeeklyBudgetItem item, Widget rowBody)?
+      itemRowBuilder;
 
   const WeekSummaryCard({
     super.key,
     required this.weekSummary,
     this.isCurrentWeek = false,
-    this.onItemTap,
+    this.itemRowBuilder,
   });
 
   @override
@@ -108,62 +113,64 @@ class WeekSummaryCard extends StatelessWidget {
               ...weekSummary.items.map((item) {
                 final progress = (item.usageRate / 100).clamp(0.0, 1.0);
                 final itemColor = _getUsageColor(item.usageRate);
-                return InkWell(
-                  onTap: onItemTap != null && item.categoryId != null
-                      ? () => onItemTap!(item)
-                      : null,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
+                final rowBody = Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
                               children: [
                                 Icon(Icons.folder_outlined,
                                     size: 14,
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
-                                Text(
-                                  item.displayName,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                Flexible(
+                                  child: Text(
+                                    item.displayName,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (onItemTap != null && item.categoryId != null) ...[
-                                  const SizedBox(width: 2),
-                                  Icon(Icons.chevron_right, size: 14,
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.4)),
-                                ],
+                                const SizedBox(width: 2),
+                                Icon(Icons.chevron_right,
+                                    size: 14,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.4)),
                               ],
                             ),
-                            Text(
-                              '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 5,
-                            backgroundColor: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.1),
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(itemColor),
                           ),
+                          Text(
+                            '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.1),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(itemColor),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
+                if (itemRowBuilder != null) {
+                  return itemRowBuilder!(context, item, rowBody);
+                }
+                return rowBody;
               }),
             ],
           ],
