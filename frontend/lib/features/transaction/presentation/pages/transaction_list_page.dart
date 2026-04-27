@@ -778,7 +778,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
               title: const Text('복사'),
               onTap: () {
                 Navigator.pop(ctx);
-                context.push('/transactions/create', extra: transaction);
+                // 배치 4 D-4 (2026-04-26): copyFromId query param — 새로고침 유실 fix
+                context.push('/transactions/create?copyFromId=${transaction.id}');
               },
             ),
             ListTile(
