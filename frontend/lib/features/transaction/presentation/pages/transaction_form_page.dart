@@ -57,7 +57,13 @@ class TransactionFormPage extends StatefulWidget {
 
   /// Pre-fill fields from an existing transaction (for copy).
   /// Date defaults to today; all other fields are copied.
+  /// 배치 4 D-4 (2026-04-26): state.extra 사용은 deprecated — 웹 새로고침 시 유실.
+  /// 신규 진입은 copyFromId (query param) 권장. 본 필드는 기존 호환을 위해 유지.
   final tx_entity.Transaction? copyFrom;
+
+  /// 배치 4 D-4: copy-from transaction 의 id (query param 으로 전달).
+  /// 새로고침 시에도 URL 에서 보존되어 prefill 가능.
+  final String? copyFromId;
 
   /// Optional initial date for the transaction.
   /// Used when navigating from a date header in the transaction list.
@@ -76,6 +82,7 @@ class TransactionFormPage extends StatefulWidget {
     this.transactionId,
     this.initialType,
     this.copyFrom,
+    this.copyFromId,
     this.initialDate,
     this.initialPaymentMethodId,
     this.initialTab,
@@ -190,23 +197,57 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       _isLoadingTransaction = true;
       _loadTransaction();
     } else if (widget.copyFrom != null) {
-      // Pre-fill from copied transaction (date defaults to today)
-      final src = widget.copyFrom!;
-      _descriptionController.text = src.description;
-      _memoController.text = src.memo ?? '';
-      _selectedType = src.type;
-      _selectedCategoryId = src.category?.id;
-      _selectedCategoryDisplayName = src.category?.displayName;
-      _selectedPaymentMethodId = src.paymentMethodId;
-      _selectedPocketId = src.pocketId;
-      // Set amount after frame to ensure CurrencyInputFormatter doesn't strip commas
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _amountController.text = CurrencyFormatter.format(src.amount);
-        }
-      });
+      _prefillFromTransaction(widget.copyFrom!);
+    } else if (widget.copyFromId != null) {
+      // 배치 4 D-4: query param 으로 전달된 copy-from id → API 로 fetch 후 prefill.
+      // 새로고침 시에도 URL 에서 보존되어 정상 동작.
+      _isLoadingTransaction = true;
+      _loadCopyFromTransaction(widget.copyFromId!);
     } else {
       _loadDefaultPaymentMethod();
+    }
+  }
+
+  void _prefillFromTransaction(tx_entity.Transaction src) {
+    _descriptionController.text = src.description;
+    _memoController.text = src.memo ?? '';
+    _selectedType = src.type;
+    _selectedCategoryId = src.category?.id;
+    _selectedCategoryDisplayName = src.category?.displayName;
+    _selectedPaymentMethodId = src.paymentMethodId;
+    _selectedPocketId = src.pocketId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _amountController.text = CurrencyFormatter.format(src.amount);
+      }
+    });
+  }
+
+  Future<void> _loadCopyFromTransaction(String id) async {
+    try {
+      final repo = context.read<TransactionBloc>().transactionRepository;
+      final result = await repo.getTransaction(id);
+      result.fold(
+        (failure) {
+          if (mounted) {
+            setState(() => _isLoadingTransaction = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('복사할 거래를 불러올 수 없습니다: ${failure.message}'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
+        },
+        (transaction) {
+          if (mounted) {
+            setState(() => _isLoadingTransaction = false);
+            _prefillFromTransaction(transaction);
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingTransaction = false);
     }
   }
 

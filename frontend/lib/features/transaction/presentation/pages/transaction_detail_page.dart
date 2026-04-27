@@ -30,7 +30,9 @@ class TransactionDetailPage extends StatelessWidget {
               if (state is TransactionLoaded) {
                 final txn = _findTransaction(state);
                 if (txn != null) {
-                  context.push('/transactions/create', extra: txn);
+                  // 배치 4 D-4 (2026-04-26): state.extra 새로고침 유실 fix —
+                  // copyFromId query param 으로 전달, form page 가 fetch.
+                  context.push('/transactions/create?copyFromId=${txn.id}');
                 }
               }
             },
