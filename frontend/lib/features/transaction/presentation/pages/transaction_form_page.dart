@@ -350,17 +350,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         },
         (transaction) {
           if (mounted) {
+            // 회차 5 회귀 fix — _prefillFromTransaction 단일 진입점 사용.
+            // 이전: raw amount 직접 set + ADJUSTMENT 분기 누락 → 감소(-1) 거래
+            // 수정 시 controller 에 "-1" 표시 + 라디오 부호 충돌로 수정 불가.
             setState(() {
               _isLoadingTransaction = false;
-              _amountController.text = CurrencyFormatter.format(transaction.amount);
-              _descriptionController.text = transaction.description;
-              _memoController.text = transaction.memo ?? '';
-              _selectedType = transaction.type;
-              _selectedCategoryId = transaction.category?.id;
-              _selectedCategoryDisplayName = transaction.category?.displayName;
-              _selectedPaymentMethodId = transaction.paymentMethodId;
-              _selectedPocketId = transaction.pocketId;
               _selectedDate = DateTime.parse(transaction.transactionDate);
+              _prefillFromTransaction(transaction);
             });
           }
         },
