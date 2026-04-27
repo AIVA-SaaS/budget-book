@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
+import 'package:budget_book/features/transaction/domain/adjustment_submission.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_bloc.dart';
 import 'package:budget_book/features/category/presentation/bloc/category_state.dart';
@@ -102,6 +103,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   late String _selectedType;
   String? _selectedCategoryId;
   String? _selectedCategoryDisplayName;
+
+  /// 회차 4 — 잔액 조정 모드 방향 (true=증가/+, false=감소/-).
+  /// _isAdjustmentSelected 일 때만 의미 있음.
+  bool _adjustmentIsIncrease = true;
+
+  bool get _isAdjustmentSelected =>
+      _selectedType == 'ADJUSTMENT' ||
+      _selectedCategoryId == kAdjustmentSentinel;
   String? _selectedPaymentMethodId;
   String? _selectedPocketId;
   late DateTime _selectedDate;
@@ -216,9 +225,18 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _selectedCategoryDisplayName = src.category?.displayName;
     _selectedPaymentMethodId = src.paymentMethodId;
     _selectedPocketId = src.pocketId;
+    // 회차 4 — ADJUSTMENT 거래 prefill: sentinel 카테고리 + 부호로 방향 추정.
+    if (src.type == 'ADJUSTMENT') {
+      _selectedCategoryId = kAdjustmentSentinel;
+      _selectedCategoryDisplayName = '잔액 조정';
+      _adjustmentIsIncrease = src.amount >= 0;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _amountController.text = CurrencyFormatter.format(src.amount);
+        // ADJUSTMENT 는 form 에 절대값 표시 (방향은 radio 로). 그 외는 그대로.
+        final displayAmount =
+            src.type == 'ADJUSTMENT' ? src.amount.abs() : src.amount;
+        _amountController.text = CurrencyFormatter.format(displayAmount);
       }
     });
   }
@@ -723,6 +741,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       child: _buildCategoryPicker(context),
                     ),
                   ),
+                  // 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 radio.
+                  if (_isAdjustmentSelected) ...[
+                    const SizedBox(height: 12),
+                    _buildAdjustmentBanner(context),
+                  ],
                   const SizedBox(height: 16),
                   // Payment method picker with keyboard support
                   FocusTraversalOrder(
@@ -1272,27 +1295,78 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
 
-  Widget _buildCategoryPicker(BuildContext context) {
-    // 회차 3 — ADJUSTMENT(잔액 조정) 거래는 카테고리 고정. picker 비활성.
-    // (Phase 23 PR-X3 sentinel 카테고리는 #144 revert 로 제거됨.
-    //  사용자 결정: 카테고리는 항상 "잔액 조정" 으로 고정, 통계 제외 유지)
-    if (_selectedType == 'ADJUSTMENT') {
-      return ItemSelectorField(
-        key: const Key('adjustment-category-readonly'),
-        label: '카테고리',
-        selectedLabel: '잔액 조정',
-        prefixIcon: Icons.tune,
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('잔액 조정 거래는 카테고리를 변경할 수 없습니다'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-      );
-    }
+  /// 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 ChoiceChip.
+  /// 잔액 조정 카테고리 선택 시 노출. 부호는 submit 시 helper 가 처리.
+  Widget _buildAdjustmentBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('adjustment-banner'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.tertiary.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune, size: 18, color: theme.colorScheme.tertiary),
+              const SizedBox(width: 6),
+              Text(
+                '잔액 조정 모드',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '통계 집계 제외 · 잔액 계산 포함',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onTertiaryContainer
+                        .withValues(alpha: 0.7),
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  key: const Key('adjustment-direction-increase'),
+                  label: const Center(child: Text('증가 (+)')),
+                  selected: _adjustmentIsIncrease,
+                  onSelected: (_) =>
+                      setState(() => _adjustmentIsIncrease = true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  key: const Key('adjustment-direction-decrease'),
+                  label: const Center(child: Text('감소 (-)')),
+                  selected: !_adjustmentIsIncrease,
+                  onSelected: (_) =>
+                      setState(() => _adjustmentIsIncrease = false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildCategoryPicker(BuildContext context) {
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, catState) {
         final categories = catState is CategoryLoaded
@@ -1401,26 +1475,28 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   }
 
   void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
+    // 회차 4 — sheet 진입 정책:
+    // - 거래 등록 (create) + non-ADJUSTMENT: showAdjustmentOption=true (sentinel 핀 카드)
+    // - 거래 수정 (edit) 의 ADJUSTMENT: adjustmentOnly=true (잔액 조정 1개만)
+    // - 그 외: 기존 동작.
+    final isEditingAdjustment = isEditing && _isAdjustmentSelected;
+    final canShowAdjustment = !isEditing;
+    // ADJUSTMENT 일 때 categoryType 은 시트 내부 그룹 필터에 영향. EXPENSE 로 fallback.
+    final effectiveType =
+        _selectedType == 'ADJUSTMENT' ? 'EXPENSE' : _selectedType;
+
     showDialog(
       context: context,
       builder: (_) => CategoryGroupSelectorSheet(
         selectedCategoryId: _selectedCategoryId,
-        categoryType: _selectedType,
+        categoryType: effectiveType,
+        showAdjustmentOption: canShowAdjustment,
+        adjustmentOnly: isEditingAdjustment,
         onSelected: (category) {
-          setState(() {
-            _selectedCategoryId = category?.id;
-            _selectedCategoryDisplayName = null;
-          });
+          _applyCategorySelection(category, null);
         },
         onSelectedWithGroupName: (category, groupName) {
-          setState(() {
-            _selectedCategoryId = category?.id;
-            if (category != null && groupName != null && groupName.isNotEmpty) {
-              _selectedCategoryDisplayName = '$groupName > ${category.name}';
-            } else {
-              _selectedCategoryDisplayName = category?.name;
-            }
-          });
+          _applyCategorySelection(category, groupName);
         },
         onDelete: (id) {
           if (_selectedCategoryId == id) {
@@ -1429,6 +1505,30 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         },
       ),
     );
+  }
+
+  /// 회차 4 — sentinel 카테고리 선택 처리. 일반 카테고리는 기존 동작.
+  void _applyCategorySelection(Category? category, String? groupName) {
+    setState(() {
+      if (category?.id == kAdjustmentSentinel) {
+        // sentinel 선택 → ADJUSTMENT 모드 자동 전환.
+        _selectedType = 'ADJUSTMENT';
+        _selectedCategoryId = kAdjustmentSentinel;
+        _selectedCategoryDisplayName = '잔액 조정';
+      } else {
+        _selectedCategoryId = category?.id;
+        if (category != null && groupName != null && groupName.isNotEmpty) {
+          _selectedCategoryDisplayName = '$groupName > ${category.name}';
+        } else {
+          _selectedCategoryDisplayName = category?.name;
+        }
+        // ADJUSTMENT → 일반 카테고리 변경 시 type 도 EXPENSE 로 복귀
+        // (사용자가 잔액 조정을 취소하고 다른 카테고리로 변경하는 경우).
+        if (_selectedType == 'ADJUSTMENT' && category != null) {
+          _selectedType = 'EXPENSE';
+        }
+      }
+    });
   }
 
   void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
@@ -1733,11 +1833,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   void _onSubmit() {
     // Validate custom pickers (not part of Form)
-    // ADJUSTMENT 거래는 카테고리 고정이므로 카테고리 필수 검증 skip.
-    // (회차 3 — special_type_picker_branch 정책)
-    final isAdjustment = _selectedType == 'ADJUSTMENT';
+    // ADJUSTMENT (sentinel 카테고리 포함) 는 카테고리 필수 검증 skip.
+    // (회차 3 — special_type_picker_branch 정책 + 회차 4 sentinel 포함)
     bool hasPickerError = false;
-    if (!isAdjustment && _selectedCategoryId == null) {
+    if (!_isAdjustmentSelected && _selectedCategoryId == null) {
       setState(() => _categoryError = '카테고리를 선택하세요');
       hasPickerError = true;
     } else {
@@ -1755,19 +1854,29 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     }
 
     setState(() => _isSubmitting = true);
-    final amount = CurrencyFormatter.parse(_amountController.text.trim())!;
+    final rawAmount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final memo =
         _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
     final bloc = context.read<TransactionBloc>();
 
+    // 회차 4 — sentinel/ADJUSTMENT 처리: type/categoryId/amount 변환.
+    final submission = AdjustmentSubmission.resolve(
+      selectedType: _selectedType,
+      selectedCategoryId: _selectedCategoryId,
+      rawAmount: rawAmount,
+      isIncrease: _adjustmentIsIncrease,
+    );
+    final amount = submission.amount;
+    final resolvedCategoryId = submission.categoryId;
+
     if (isEditing) {
       bloc.add(UpdateTransaction(
         id: widget.transactionId!,
         amount: amount,
         description: description,
-        categoryId: _selectedCategoryId,
+        categoryId: resolvedCategoryId,
         transactionDate: dateStr,
         memo: memo,
         clearMemo: memo == null,
@@ -1776,10 +1885,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       ));
     } else {
       bloc.add(CreateTransaction(
-        type: _selectedType,
+        type: submission.type,
         amount: amount,
         description: description,
-        categoryId: _selectedCategoryId,
+        categoryId: resolvedCategoryId,
         transactionDate: dateStr,
         memo: memo,
         paymentMethodId: _selectedPaymentMethodId,
