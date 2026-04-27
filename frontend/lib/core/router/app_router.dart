@@ -382,7 +382,9 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
         final tab = state.uri.queryParameters['tab'];
+        // 배치 4 D-4 (2026-04-26): state.extra 는 새로고침 유실 → copyFromId query param 권장
         final copyFrom = state.extra as Transaction?;
+        final copyFromId = state.uri.queryParameters['copyFromId'];
         final dateStr = state.uri.queryParameters['date'];
         final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
         DateTime? initialDate;
@@ -414,6 +416,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             initialType: copyFrom?.type ?? type,
             initialTab: tab,
             copyFrom: copyFrom,
+            copyFromId: copyFromId,
             initialDate: initialDate,
             initialPaymentMethodId: initialPaymentMethodId,
           ),
