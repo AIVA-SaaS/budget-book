@@ -376,14 +376,17 @@ class _CategoryGroupSelectorSheetState
           children.add(const Divider());
         }
 
-        // Shared section — only show groups that have categories matching the type
+        // Shared section — show all groups (including empty) so newly-created
+        // groups appear in the sheet immediately for "+ 카테고리 추가" entry.
+        // (회차 2 #15/#16 fix — hierarchical_empty_group_display 정책)
         for (final group in sharedGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
-          if (filteredCategories.isEmpty) continue;
+          // 멀티 모드(필터 sheet) 에서는 선택할 카테고리가 없으면 의미 없으므로 skip.
+          if (_isMulti && filteredCategories.isEmpty) continue;
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
@@ -459,14 +462,14 @@ class _CategoryGroupSelectorSheetState
           children.add(const SizedBox(height: 4));
         }
 
-        // Private groups — only show groups that have categories matching the type
+        // Private groups — show all (including empty) for the same reason.
         for (final group in privateGroups) {
           final filteredCategories = group.categories
               .where((c) => c.type == widget.categoryType)
               .toList()
             ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
-          if (filteredCategories.isEmpty) continue;
+          if (_isMulti && filteredCategories.isEmpty) continue;
 
           final isExpanded = _expandedGroupIds.contains(group.id);
 
@@ -523,13 +526,9 @@ class _CategoryGroupSelectorSheetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group header — expandable if has sub-categories, selectable if empty
+        // Group header — expandable. 빈 그룹은 expand 시 "+ 하위 카테고리 추가" 만 노출.
         InkWell(
           onTap: () {
-            if (categories.isEmpty) {
-              // Empty group should not appear (filtered above), but as safety:
-              return;
-            }
             setState(() {
               if (isExpanded) {
                 _expandedGroupIds.remove(group.id);
@@ -574,7 +573,7 @@ class _CategoryGroupSelectorSheetState
                       ),
                       if (categories.isEmpty)
                         Text(
-                          '탭하여 선택',
+                          '카테고리 없음 — 탭하여 추가',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context)
                                     .colorScheme

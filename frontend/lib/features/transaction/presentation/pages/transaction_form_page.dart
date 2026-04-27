@@ -393,10 +393,19 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     final result = await repo.getSuggestions(query);
     if (!mounted) return;
     result.fold(
-      (_) => setState(() => _suggestions = []),
+      (_) => setState(() {
+        _suggestions = [];
+        _expandedSuggestion = null;
+      }),
       (data) => setState(() {
         _suggestions = data;
-        _expandedSuggestion = null;
+        // expand 보존 — 사용자가 chip expand 한 뒤 fetch 재발화 시
+        // 같은 description 가 응답에 있으면 expand 유지, 없으면 null.
+        // (SuggestionGroup 는 description 기준 Equatable)
+        if (_expandedSuggestion != null &&
+            !data.contains(_expandedSuggestion)) {
+          _expandedSuggestion = null;
+        }
       }),
     );
   }
