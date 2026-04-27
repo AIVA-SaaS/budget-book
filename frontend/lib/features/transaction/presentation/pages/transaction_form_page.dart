@@ -1273,6 +1273,26 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
 
   Widget _buildCategoryPicker(BuildContext context) {
+    // 회차 3 — ADJUSTMENT(잔액 조정) 거래는 카테고리 고정. picker 비활성.
+    // (Phase 23 PR-X3 sentinel 카테고리는 #144 revert 로 제거됨.
+    //  사용자 결정: 카테고리는 항상 "잔액 조정" 으로 고정, 통계 제외 유지)
+    if (_selectedType == 'ADJUSTMENT') {
+      return ItemSelectorField(
+        key: const Key('adjustment-category-readonly'),
+        label: '카테고리',
+        selectedLabel: '잔액 조정',
+        prefixIcon: Icons.tune,
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('잔액 조정 거래는 카테고리를 변경할 수 없습니다'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+      );
+    }
+
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, catState) {
         final categories = catState is CategoryLoaded
@@ -1713,8 +1733,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   void _onSubmit() {
     // Validate custom pickers (not part of Form)
+    // ADJUSTMENT 거래는 카테고리 고정이므로 카테고리 필수 검증 skip.
+    // (회차 3 — special_type_picker_branch 정책)
+    final isAdjustment = _selectedType == 'ADJUSTMENT';
     bool hasPickerError = false;
-    if (_selectedCategoryId == null) {
+    if (!isAdjustment && _selectedCategoryId == null) {
       setState(() => _categoryError = '카테고리를 선택하세요');
       hasPickerError = true;
     } else {
