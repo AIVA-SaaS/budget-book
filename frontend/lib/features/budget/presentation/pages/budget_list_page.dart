@@ -8,6 +8,7 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
+import 'package:budget_book/features/budget/presentation/widgets/budget_row_actions.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
 import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
@@ -16,7 +17,6 @@ import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/account_balance_card.dart';
-import 'package:budget_book/features/budget/presentation/widgets/budget_transactions_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -292,25 +292,55 @@ class _BudgetListPageState extends State<BudgetListPage> {
             ...state.overview!.weeks.map((week) {
               final isCurrent = state.currentWeek != null &&
                   week.weekNumber == state.currentWeek!.weekNumber;
+              final parts = state.overview!.yearMonth.split('-');
+              final year = int.parse(parts[0]);
+              final month = int.parse(parts[1]);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: WeekSummaryCard(
-                    weekSummary: week,
-                    isCurrentWeek: isCurrent,
-                    onItemTap: (item) {
-                      final parts = state.overview!.yearMonth.split('-');
-                      final year = int.parse(parts[0]);
-                      final month = int.parse(parts[1]);
-                      showBudgetTransactionsSheet(
-                        context: context,
-                        year: year,
-                        month: month,
-                        categoryId: item.categoryId,
-                        categoryName: item.displayName,
-                        dateFrom: week.weekStart,
-                        dateTo: week.weekEnd,
-                      );
-                    }),
+                  weekSummary: week,
+                  isCurrentWeek: isCurrent,
+                  itemRowBuilder: (ctx, item, rowBody) {
+                    void reloadWeekly() {
+                      getIt<WeeklyBudgetBloc>()
+                        ..add(LoadWeeklyOverview(year: year, month: month))
+                        ..add(const LoadCurrentWeek());
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: BudgetRowActions(
+                            budgetId: item.budgetId,
+                            categoryId: item.categoryId,
+                            categoryGroupId:
+                                item.categoryId == null ? item.groupId : null,
+                            label: item.displayName,
+                            dateFrom: week.weekStart,
+                            dateTo: week.weekEnd,
+                            year: year,
+                            month: month,
+                            onAfterDelete: reloadWeekly,
+                            child: rowBody,
+                          ),
+                        ),
+                        BudgetRowActions.menuButton(
+                          context: ctx,
+                          budgetId: item.budgetId,
+                          categoryId: item.categoryId,
+                          categoryGroupId:
+                              item.categoryId == null ? item.groupId : null,
+                          label: item.displayName,
+                          dateFrom: week.weekStart,
+                          dateTo: week.weekEnd,
+                          year: year,
+                          month: month,
+                          onAfterDelete: reloadWeekly,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               );
             }),
           ],
@@ -411,77 +441,104 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     : item.usageRate > 80
                         ? Colors.orange
                         : Colors.green;
-                return InkWell(
-                  onTap: item.categoryId != null
-                      ? () {
-                          // Parse yearMonth for the API call
-                          final parts = currentWeek.yearMonth.split('-');
-                          final year = int.parse(parts[0]);
-                          final month = int.parse(parts[1]);
-                          showBudgetTransactionsSheet(
-                            context: context,
-                            year: year,
-                            month: month,
-                            categoryId: item.categoryId,
-                            categoryName: item.displayName,
-                            dateFrom: currentWeek.weekStart,
-                            dateTo: currentWeek.weekEnd,
-                          );
-                        }
-                      : null,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
+                final parts = currentWeek.yearMonth.split('-');
+                final year = int.parse(parts[0]);
+                final month = int.parse(parts[1]);
+                final rowBody = Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
                               children: [
-                                Text(
-                                  item.displayName,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onPrimaryContainer,
+                                Flexible(
+                                  child: Text(
+                                    item.displayName,
+                                    style:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          theme.colorScheme.onPrimaryContainer,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (item.categoryId != null) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 16,
-                                    color: theme.colorScheme.onPrimaryContainer
-                                        .withValues(alpha: 0.5),
-                                  ),
-                                ],
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: theme.colorScheme.onPrimaryContainer
+                                      .withValues(alpha: 0.5),
+                                ),
                               ],
                             ),
-                            Text(
-                              '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 6,
-                            backgroundColor: theme
-                                .colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.15),
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(statusColor),
                           ),
+                          Text(
+                            '${numberFormat.format(item.spentAmount)}원 / ${numberFormat.format(item.budgetAmount)}원',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: theme.colorScheme.onPrimaryContainer
+                              .withValues(alpha: 0.15),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(statusColor),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                );
+                return Row(
+                  children: [
+                    Expanded(
+                      child: BudgetRowActions(
+                        budgetId: item.budgetId,
+                        categoryId: item.categoryId,
+                        categoryGroupId:
+                            item.categoryId == null ? item.groupId : null,
+                        label: item.displayName,
+                        dateFrom: currentWeek.weekStart,
+                        dateTo: currentWeek.weekEnd,
+                        year: year,
+                        month: month,
+                        onAfterDelete: () {
+                          getIt<WeeklyBudgetBloc>()
+                            ..add(LoadWeeklyOverview(year: year, month: month))
+                            ..add(const LoadCurrentWeek());
+                        },
+                        child: rowBody,
+                      ),
+                    ),
+                    BudgetRowActions.menuButton(
+                      context: context,
+                      budgetId: item.budgetId,
+                      categoryId: item.categoryId,
+                      categoryGroupId:
+                          item.categoryId == null ? item.groupId : null,
+                      label: item.displayName,
+                      dateFrom: currentWeek.weekStart,
+                      dateTo: currentWeek.weekEnd,
+                      year: year,
+                      month: month,
+                      onAfterDelete: () {
+                        getIt<WeeklyBudgetBloc>()
+                          ..add(LoadWeeklyOverview(year: year, month: month))
+                          ..add(const LoadCurrentWeek());
+                      },
+                    ),
+                  ],
                 );
               }),
             ],
@@ -674,84 +731,35 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            PopupMenuButton<String>(
-              onSelected: (value) async {
+            BudgetRowActions.menuButton(
+              context: context,
+              budgetId: budget.id,
+              categoryId: budget.category?.id,
+              categoryGroupId:
+                  budget.category == null ? budget.groupId : null,
+              label: budget.targetLabel,
+              dateFrom: null,
+              dateTo: null,
+              year: () {
                 final state = context.read<BudgetBloc>().state;
-                final year =
-                    state is BudgetLoaded ? state.year : DateTime.now().year;
-                final month =
-                    state is BudgetLoaded ? state.month : DateTime.now().month;
-                if (value == 'transactions') {
-                  // Phase 25 후속 U-1 — 모든 예산 종류(카테고리/그룹/총) 거래 보기 통일.
-                  showBudgetTransactionsSheet(
-                    context: context,
-                    year: year,
-                    month: month,
-                    categoryId: budget.category?.id,
-                    categoryGroupId:
-                        budget.category == null ? budget.groupId : null,
-                    categoryName: budget.targetLabel,
-                  );
-                } else if (value == 'edit') {
-                  context.push(
-                      '/budgets/edit/${budget.id}?year=$year&month=$month');
-                } else if (value == 'delete') {
-                  final confirmed = await showDeleteConfirmDialog(
-                    context,
-                    title: '예산 삭제',
-                    itemName: budget.targetLabel,
-                  );
-                  if (confirmed && context.mounted) {
-                    context
-                        .read<BudgetBloc>()
-                        .add(DeleteBudget(budget.id));
-                  }
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'transactions',
-                  child: Row(
-                    children: [
-                      Icon(Icons.receipt_long, size: 18),
-                      SizedBox(width: 8),
-                      Text('거래 보기'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 18),
-                      SizedBox(width: 8),
-                      Text('수정'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 18, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('삭제', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
+                return state is BudgetLoaded ? state.year : DateTime.now().year;
+              }(),
+              month: () {
+                final state = context.read<BudgetBloc>().state;
+                return state is BudgetLoaded ? state.month : DateTime.now().month;
+              }(),
+              onAfterDelete: () {},
             ),
           ],
         ),
-        // Phase 25 후속 U-1 — 행 클릭 = 편집 진입 (모든 예산 통일).
-        // 거래 보기 / 삭제는 PopupMenu 통해 접근.
         onTap: () {
           final state = context.read<BudgetBloc>().state;
           final year =
               state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
-          context.push('/budgets/edit/${budget.id}?year=$year&month=$month');
+          BudgetRowActions.openEdit(context,
+              budgetId: budget.id, year: year, month: month);
         },
       ),
     );
