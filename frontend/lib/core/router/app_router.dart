@@ -284,6 +284,101 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   ),
                 );
               },
+              // 회차 6 — 거래 sub-page 를 ShellRoute branch nested 로 두어
+              // BottomNav 유지. 기존 root level GoRoute 4개에서 이전됨.
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  builder: (context, state) {
+                    final type = state.uri.queryParameters['type'];
+                    final tab = state.uri.queryParameters['tab'];
+                    // 배치 4 D-4 (2026-04-26): state.extra 는 새로고침 유실 → copyFromId query param 권장
+                    final copyFrom = state.extra as Transaction?;
+                    final copyFromId = state.uri.queryParameters['copyFromId'];
+                    final dateStr = state.uri.queryParameters['date'];
+                    final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
+                    DateTime? initialDate;
+                    if (dateStr != null) {
+                      initialDate = DateTime.tryParse(dateStr);
+                    }
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                    getIt<PocketBloc>().add(const LoadPockets());
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<TransactionBloc>.value(
+                          value: getIt<TransactionBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PaymentMethodBloc>.value(
+                          value: getIt<PaymentMethodBloc>(),
+                        ),
+                        BlocProvider<PocketBloc>.value(
+                          value: getIt<PocketBloc>(),
+                        ),
+                        BlocProvider<TransferBloc>.value(
+                          value: getIt<TransferBloc>(),
+                        ),
+                      ],
+                      child: TransactionFormPage(
+                        initialType: copyFrom?.type ?? type,
+                        initialTab: tab,
+                        copyFrom: copyFrom,
+                        copyFromId: copyFromId,
+                        initialDate: initialDate,
+                        initialPaymentMethodId: initialPaymentMethodId,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'edit/:id',
+                  builder: (context, state) {
+                    final transactionId = state.pathParameters['id']!;
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                    getIt<PocketBloc>().add(const LoadPockets());
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<TransactionBloc>.value(
+                          value: getIt<TransactionBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PaymentMethodBloc>.value(
+                          value: getIt<PaymentMethodBloc>(),
+                        ),
+                        BlocProvider<PocketBloc>.value(
+                          value: getIt<PocketBloc>(),
+                        ),
+                        BlocProvider<TransferBloc>.value(
+                          value: getIt<TransferBloc>(),
+                        ),
+                      ],
+                      child: TransactionFormPage(
+                        transactionId: transactionId,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'import',
+                  builder: (context, state) => const TransactionImportPage(),
+                ),
+                GoRoute(
+                  path: 'detail/:id',
+                  builder: (context, state) {
+                    final transactionId = state.pathParameters['id']!;
+                    return BlocProvider<TransactionBloc>.value(
+                      value: getIt<TransactionBloc>(),
+                      child: TransactionDetailPage(transactionId: transactionId),
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -376,101 +471,8 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       redirect: (context, state) => '/asset-management',
     ),
-    GoRoute(
-      path: '/transactions/create',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final type = state.uri.queryParameters['type'];
-        final tab = state.uri.queryParameters['tab'];
-        // 배치 4 D-4 (2026-04-26): state.extra 는 새로고침 유실 → copyFromId query param 권장
-        final copyFrom = state.extra as Transaction?;
-        final copyFromId = state.uri.queryParameters['copyFromId'];
-        final dateStr = state.uri.queryParameters['date'];
-        final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
-        DateTime? initialDate;
-        if (dateStr != null) {
-          initialDate = DateTime.tryParse(dateStr);
-        }
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-        getIt<PocketBloc>().add(const LoadPockets());
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<TransactionBloc>.value(
-              value: getIt<TransactionBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PaymentMethodBloc>.value(
-              value: getIt<PaymentMethodBloc>(),
-            ),
-            BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>(),
-            ),
-            BlocProvider<TransferBloc>.value(
-              value: getIt<TransferBloc>(),
-            ),
-          ],
-          child: TransactionFormPage(
-            initialType: copyFrom?.type ?? type,
-            initialTab: tab,
-            copyFrom: copyFrom,
-            copyFromId: copyFromId,
-            initialDate: initialDate,
-            initialPaymentMethodId: initialPaymentMethodId,
-          ),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/transactions/edit/:id',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final transactionId = state.pathParameters['id']!;
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-        getIt<PocketBloc>().add(const LoadPockets());
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<TransactionBloc>.value(
-              value: getIt<TransactionBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PaymentMethodBloc>.value(
-              value: getIt<PaymentMethodBloc>(),
-            ),
-            BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>(),
-            ),
-            BlocProvider<TransferBloc>.value(
-              value: getIt<TransferBloc>(),
-            ),
-          ],
-          child: TransactionFormPage(
-            transactionId: transactionId,
-          ),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/transactions/import',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const TransactionImportPage(),
-    ),
-    GoRoute(
-      path: '/transactions/detail/:id',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final transactionId = state.pathParameters['id']!;
-        return BlocProvider<TransactionBloc>.value(
-          value: getIt<TransactionBloc>(),
-          child: TransactionDetailPage(transactionId: transactionId),
-        );
-      },
-    ),
+    // 회차 6 — /transactions/{create,edit,detail,import} 라우트는
+    // ShellRoute Tab 0 의 nested route 로 이동하여 BottomNav 유지.
     GoRoute(
       path: '/budgets/create',
       parentNavigatorKey: _rootNavigatorKey,
