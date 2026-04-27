@@ -99,7 +99,32 @@ class TransactionDetailPage extends StatelessWidget {
   Widget _buildContent(BuildContext context, Transaction txn) {
     final theme = Theme.of(context);
     final isExpense = txn.isExpense;
-    final amountColor = isExpense ? Colors.red : Colors.blue;
+    final isAdjustment = txn.isAdjustment;
+    // 회차 5 — ADJUSTMENT 는 signed amount. 부호별 색/prefix/라벨/아이콘 분기.
+    // (transaction_list_tile.dart 와 동일 정책)
+    final Color amountColor;
+    final String amountPrefix;
+    final String typeLabel;
+    final IconData typeIcon;
+    if (isAdjustment) {
+      final isIncrease = txn.amount >= 0;
+      amountColor =
+          isIncrease ? Colors.green.shade700 : Colors.red.shade700;
+      amountPrefix = isIncrease ? '+' : '-';
+      typeLabel = isIncrease ? '잔액 증가' : '잔액 감소';
+      typeIcon = isIncrease ? Icons.tune : Icons.tune;
+    } else if (isExpense) {
+      amountColor = Colors.red;
+      amountPrefix = '-';
+      typeLabel = '지출';
+      typeIcon = Icons.arrow_downward;
+    } else {
+      amountColor = Colors.blue;
+      amountPrefix = '+';
+      typeLabel = '수입';
+      typeIcon = Icons.arrow_upward;
+    }
+    final displayAmount = txn.amount.abs();
     final category = txn.category;
 
     String formattedDate;
@@ -128,20 +153,20 @@ class TransactionDetailPage extends StatelessWidget {
             child: Column(
               children: [
                 Icon(
-                  isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                  typeIcon,
                   size: 36,
                   color: amountColor,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  isExpense ? '지출' : '수입',
+                  typeLabel,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: amountColor,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${isExpense ? "-" : "+"}${CurrencyFormatter.format(txn.amount)}원',
+                  '$amountPrefix${CurrencyFormatter.format(displayAmount)}원',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: amountColor,
                     fontWeight: FontWeight.bold,
