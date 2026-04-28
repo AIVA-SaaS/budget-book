@@ -76,8 +76,28 @@ class _MainShellPageState extends State<MainShellPage> {
       final now = DateTime.now();
       switch (index) {
         case 0:
-          getIt<TransactionBloc>()
-              .add(LoadTransactions(year: now.year, month: now.month));
+          // 회차 9 (2026-04-28) — 탭 전환 시 LoadTransactions 호출 시 currentFilter 보존.
+          // 이전 회귀: visibility 등 필터가 reset 되어 chip 표시는 유지되나 list 는 전체 노출.
+          final txnBloc = getIt<TransactionBloc>();
+          final f = txnBloc.currentFilter;
+          txnBloc.add(LoadTransactions(
+            year: now.year, month: now.month,
+            keyword: f.keyword,
+            categoryId: f.categoryId,
+            categoryIds: f.categoryIds,
+            categoryGroupIds: f.categoryGroupIds,
+            paymentMethodId: f.paymentMethodId,
+            paymentMethodIds: f.paymentMethodIds,
+            pocketId: f.pocketId,
+            pocketIds: f.pocketIds,
+            amountMin: f.amountMin,
+            amountMax: f.amountMax,
+            dateFrom: f.dateFrom,
+            dateTo: f.dateTo,
+            type: f.type,
+            transactionTypes: f.transactionTypes,
+            visibility: f.visibility,
+          ));
         // Tab 1 (Analysis) — wrapper 가 자체 BudgetBloc/StatisticsBloc 처리
         case 2:
           // Tab 2 (Assets) — refresh payment method data + card settlement summary
