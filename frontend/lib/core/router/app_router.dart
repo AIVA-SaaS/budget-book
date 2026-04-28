@@ -109,6 +109,12 @@ class _BlocListenable extends ChangeNotifier {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// 회차 10 — Tab 1 (분석) navigator key.
+/// 분석 sub-page 9개가 Tab 1 의 nested routes 로 들어가 navigator stack 에 push.
+/// → BottomNav 유지. URL 은 /analysis/budgets/create 등으로 prefix 변경.
+/// 기존 /budgets/create 등 root-level path 는 redirect 으로 backward compat.
+final _analysisNavigatorKey = GlobalKey<NavigatorState>();
+
 /// Key used to store onboarding completion flag in SharedPreferences.
 const String kOnboardingCompleted = 'onboarding_completed';
 
@@ -398,11 +404,202 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
           ],
         ),
         // Tab 1: Analysis (Phase 25 Step 11 — 분석 탭 신규, A/B 병존)
+        // 회차 10 — 분석 sub-page 9개를 Tab 1 nested routes 로 이전.
+        // URL prefix `/analysis/` 추가됨. root-level 기존 path 는 redirect 유지.
         StatefulShellBranch(
+          navigatorKey: _analysisNavigatorKey,
           routes: [
             GoRoute(
               path: '/analysis',
               builder: (context, state) => const AnalysisPage(),
+              routes: [
+                GoRoute(
+                  path: 'budgets/create',
+                  builder: (context, state) {
+                    final year = int.tryParse(
+                            state.uri.queryParameters['year'] ?? '') ??
+                        DateTime.now().year;
+                    final month = int.tryParse(
+                            state.uri.queryParameters['month'] ?? '') ??
+                        DateTime.now().month;
+                    getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PocketBloc>().add(const LoadPockets());
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<BudgetBloc>.value(
+                          value: getIt<BudgetBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PocketBloc>.value(
+                          value: getIt<PocketBloc>(),
+                        ),
+                      ],
+                      child: BudgetFormPage(year: year, month: month),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'budgets/edit/:id',
+                  builder: (context, state) {
+                    final year = int.tryParse(
+                            state.uri.queryParameters['year'] ?? '') ??
+                        DateTime.now().year;
+                    final month = int.tryParse(
+                            state.uri.queryParameters['month'] ?? '') ??
+                        DateTime.now().month;
+                    getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PocketBloc>().add(const LoadPockets());
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<BudgetBloc>.value(
+                          value: getIt<BudgetBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PocketBloc>.value(
+                          value: getIt<PocketBloc>(),
+                        ),
+                      ],
+                      child: BudgetFormPage(
+                        budgetId: state.pathParameters['id'],
+                        year: year,
+                        month: month,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'weekly-budgets',
+                  builder: (context, state) {
+                    final now = DateTime.now();
+                    return BlocProvider<WeeklyBudgetBloc>.value(
+                      value: getIt<WeeklyBudgetBloc>()
+                        ..add(LoadWeeklyOverview(year: now.year, month: now.month))
+                        ..add(const LoadCurrentWeek()),
+                      child: const WeeklyBudgetPage(),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'weekly-budgets/settlement',
+                  builder: (context, state) {
+                    final now = DateTime.now();
+                    return BlocProvider<WeeklySettlementBloc>.value(
+                      value: getIt<WeeklySettlementBloc>()
+                        ..add(LoadSettlements(year: now.year, month: now.month)),
+                      child: const WeeklySettlementPage(),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'reports',
+                  builder: (context, state) {
+                    final now = DateTime.now();
+                    return BlocProvider<ReportBloc>.value(
+                      value: getIt<ReportBloc>()
+                        ..add(LoadMonthlyReport(year: now.year, month: now.month))
+                        ..add(LoadWeeklyReport(
+                            year: now.year, month: now.month, week: 1)),
+                      child: const ReportPage(),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'period-summary',
+                  builder: (context, state) {
+                    final now = DateTime.now();
+                    final dateFrom =
+                        '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+                    final lastDay = DateTime(now.year, now.month + 1, 0).day;
+                    final dateTo =
+                        '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+                    return BlocProvider<PeriodSummaryBloc>.value(
+                      value: getIt<PeriodSummaryBloc>()
+                        ..add(LoadPeriodSummary(dateFrom: dateFrom, dateTo: dateTo)),
+                      child: const PeriodSummaryPage(),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'spending-plans',
+                  builder: (context, state) {
+                    final now = DateTime.now();
+                    final startDate =
+                        '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+                    final lastDay = DateTime(now.year, now.month + 1, 0).day;
+                    final endDate =
+                        '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+                    getIt<SpendingPlanBloc>().add(LoadSpendingPlans(
+                      startDate: startDate,
+                      endDate: endDate,
+                    ));
+                    return BlocProvider<SpendingPlanBloc>.value(
+                      value: getIt<SpendingPlanBloc>(),
+                      child: const SpendingPlanListPage(),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'spending-plans/create',
+                  builder: (context, state) {
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                    final now = DateTime.now();
+                    getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<SpendingPlanBloc>.value(
+                          value: getIt<SpendingPlanBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PaymentMethodBloc>.value(
+                          value: getIt<PaymentMethodBloc>(),
+                        ),
+                        BlocProvider<BudgetBloc>.value(
+                          value: getIt<BudgetBloc>(),
+                        ),
+                      ],
+                      child: SpendingPlanFormPage(
+                        isWishlist: state.uri.queryParameters['wishlist'] == 'true',
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'spending-plans/edit/:id',
+                  builder: (context, state) {
+                    final planId = state.pathParameters['id']!;
+                    getIt<CategoryBloc>().add(const LoadCategories());
+                    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                    final now = DateTime.now();
+                    getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
+                    return MultiBlocProvider(
+                      providers: [
+                        BlocProvider<SpendingPlanBloc>.value(
+                          value: getIt<SpendingPlanBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>.value(
+                          value: getIt<CategoryBloc>(),
+                        ),
+                        BlocProvider<PaymentMethodBloc>.value(
+                          value: getIt<PaymentMethodBloc>(),
+                        ),
+                        BlocProvider<BudgetBloc>.value(
+                          value: getIt<BudgetBloc>(),
+                        ),
+                      ],
+                      child: SpendingPlanFormPage(planId: planId),
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -488,66 +685,24 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     ),
     // 회차 6 — /transactions/{create,edit,detail,import} 라우트는
     // ShellRoute Tab 0 의 nested route 로 이동하여 BottomNav 유지.
+    // 회차 10 — /budgets/{create,edit/:id}, /weekly-budgets, /weekly-budgets/settlement,
+    // /reports, /period-summary, /spending-plans/* 9개는 Tab 1 분석 nested 로 이전.
+    // 기존 path 는 redirect 으로 backward compat (deep link / 북마크).
     GoRoute(
       path: '/budgets/create',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final year = int.tryParse(
-                state.uri.queryParameters['year'] ?? '') ??
-            DateTime.now().year;
-        final month = int.tryParse(
-                state.uri.queryParameters['month'] ?? '') ??
-            DateTime.now().month;
-        getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PocketBloc>().add(const LoadPockets());
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<BudgetBloc>.value(
-              value: getIt<BudgetBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>(),
-            ),
-          ],
-          child: BudgetFormPage(year: year, month: month),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/budgets/create$q';
       },
     ),
     GoRoute(
       path: '/budgets/edit/:id',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final year = int.tryParse(
-                state.uri.queryParameters['year'] ?? '') ??
-            DateTime.now().year;
-        final month = int.tryParse(
-                state.uri.queryParameters['month'] ?? '') ??
-            DateTime.now().month;
-        getIt<BudgetBloc>().add(LoadBudgets(year: year, month: month));
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PocketBloc>().add(const LoadPockets());
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<BudgetBloc>.value(
-              value: getIt<BudgetBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PocketBloc>.value(
-              value: getIt<PocketBloc>(),
-            ),
-          ],
-          child: BudgetFormPage(
-            budgetId: state.pathParameters['id'],
-            year: year,
-            month: month,
-          ),
-        );
+      redirect: (context, state) {
+        final id = state.pathParameters['id']!;
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/budgets/edit/$id$q';
       },
     ),
     GoRoute(
@@ -578,57 +733,33 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
     GoRoute(
       path: '/weekly-budgets',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        return BlocProvider<WeeklyBudgetBloc>.value(
-          value: getIt<WeeklyBudgetBloc>()
-            ..add(LoadWeeklyOverview(year: now.year, month: now.month))
-            ..add(const LoadCurrentWeek()),
-          child: const WeeklyBudgetPage(),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/weekly-budgets$q';
       },
     ),
     GoRoute(
       path: '/weekly-budgets/settlement',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        return BlocProvider<WeeklySettlementBloc>.value(
-          value: getIt<WeeklySettlementBloc>()
-            ..add(LoadSettlements(year: now.year, month: now.month)),
-          child: const WeeklySettlementPage(),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/weekly-budgets/settlement$q';
       },
     ),
     GoRoute(
       path: '/reports',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        return BlocProvider<ReportBloc>.value(
-          value: getIt<ReportBloc>()
-            ..add(LoadMonthlyReport(year: now.year, month: now.month))
-            ..add(LoadWeeklyReport(
-                year: now.year, month: now.month, week: 1)),
-          child: const ReportPage(),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/reports$q';
       },
     ),
     GoRoute(
       path: '/period-summary',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        final dateFrom =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-        final lastDay = DateTime(now.year, now.month + 1, 0).day;
-        final dateTo =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
-        return BlocProvider<PeriodSummaryBloc>.value(
-          value: getIt<PeriodSummaryBloc>()
-            ..add(LoadPeriodSummary(dateFrom: dateFrom, dateTo: dateTo)),
-          child: const PeriodSummaryPage(),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/period-summary$q';
       },
     ),
     GoRoute(
@@ -871,82 +1002,30 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         );
       },
     ),
-    // Spending Plans
+    // Spending Plans — 회차 10 redirect to /analysis/spending-plans/*
     GoRoute(
       path: '/spending-plans',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final now = DateTime.now();
-        final startDate =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-        final lastDay = DateTime(now.year, now.month + 1, 0).day;
-        final endDate =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
-        getIt<SpendingPlanBloc>().add(LoadSpendingPlans(
-          startDate: startDate,
-          endDate: endDate,
-        ));
-        return BlocProvider<SpendingPlanBloc>.value(
-          value: getIt<SpendingPlanBloc>(),
-          child: const SpendingPlanListPage(),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/spending-plans$q';
       },
     ),
     GoRoute(
       path: '/spending-plans/create',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-        final now = DateTime.now();
-        getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<SpendingPlanBloc>.value(
-              value: getIt<SpendingPlanBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PaymentMethodBloc>.value(
-              value: getIt<PaymentMethodBloc>(),
-            ),
-            BlocProvider<BudgetBloc>.value(
-              value: getIt<BudgetBloc>(),
-            ),
-          ],
-          child: SpendingPlanFormPage(
-            isWishlist: state.uri.queryParameters['wishlist'] == 'true',
-          ),
-        );
+      redirect: (context, state) {
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/spending-plans/create$q';
       },
     ),
     GoRoute(
       path: '/spending-plans/edit/:id',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final planId = state.pathParameters['id']!;
-        getIt<CategoryBloc>().add(const LoadCategories());
-        getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-        final now = DateTime.now();
-        getIt<BudgetBloc>().add(LoadBudgets(year: now.year, month: now.month));
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider<SpendingPlanBloc>.value(
-              value: getIt<SpendingPlanBloc>(),
-            ),
-            BlocProvider<CategoryBloc>.value(
-              value: getIt<CategoryBloc>(),
-            ),
-            BlocProvider<PaymentMethodBloc>.value(
-              value: getIt<PaymentMethodBloc>(),
-            ),
-            BlocProvider<BudgetBloc>.value(
-              value: getIt<BudgetBloc>(),
-            ),
-          ],
-          child: SpendingPlanFormPage(planId: planId),
-        );
+      redirect: (context, state) {
+        final id = state.pathParameters['id']!;
+        final q = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
+        return '/analysis/spending-plans/edit/$id$q';
       },
     ),
     // Insurances
