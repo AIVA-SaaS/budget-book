@@ -98,40 +98,10 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         emit(const TransactionLoading());
       }
 
-      // 결제수단만 필터 (BE getPaymentMethodStats 는 dateRange 미지원 → dateRange 없을 때만).
-      // PR-C3: 복수 필드(categoryIds 등) 도 hasOnlyPaymentMethodFilter 판정에 포함.
-      //        단수 paymentMethodId 또는 복수 paymentMethodIds.length == 1 일 때만
-      //        BE 엔드포인트가 정확히 집계 가능.
-      final hasOnlyPaymentMethodFilter = (event.paymentMethodId != null ||
-              event.paymentMethodIds.length == 1) &&
-          event.keyword == null &&
-          event.categoryId == null &&
-          event.categoryIds.isEmpty &&
-          event.categoryGroupIds.isEmpty &&
-          event.pocketId == null &&
-          event.pocketIds.isEmpty &&
-          event.amountMin == null &&
-          event.amountMax == null &&
-          event.type == null &&
-          event.transactionTypes.isEmpty &&
-          event.dateFrom == null &&
-          event.dateTo == null;
-
-      // 필터 없음 — 월 summary 또는 dateRange summary 호출.
-      // getSummary 는 dateFrom/To 를 수용하므로 dateRange 만 설정된 경우도 여기 포함.
-      final hasNoFilters = event.keyword == null &&
-          event.categoryId == null &&
-          event.categoryIds.isEmpty &&
-          event.categoryGroupIds.isEmpty &&
-          event.paymentMethodId == null &&
-          event.paymentMethodIds.isEmpty &&
-          event.pocketId == null &&
-          event.pocketIds.isEmpty &&
-          event.amountMin == null &&
-          event.amountMax == null &&
-          event.type == null &&
-          event.transactionTypes.isEmpty;
-
+      // 회차 8 — BE getSummary 가 모든 필터 지원하도록 확장됨.
+      // 이전 hasNoFilters / hasOnlyPaymentMethodFilter 분기 제거.
+      // 항상 BE summary 호출 + 모든 필터 전달 → 정확한 (filtered) 월 합계.
+      // FE 의 client-side fold (page 단위 부정확) 는 제거됨.
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
         month: event.month,
@@ -154,20 +124,29 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         size: _pageSize,
       );
 
-      // Fetch server totals for full-month or payment-method filtered view
       int? serverIncome;
       int? serverExpense;
 
-      if (hasNoFilters && statisticsRepository != null) {
-        // 날짜 범위(dateFrom/dateTo)가 설정되면 해당 범위로 summary 재조회.
-        // 없으면 월 기준. BE 는 둘 다 수용 (dateFrom/dateTo 가 있으면 year/month 무시).
+      if (statisticsRepository != null) {
         final results = await Future.wait([
           txnFuture,
           statisticsRepository!.getSummary(
             year: event.year,
             month: event.month,
+            visibility: event.visibility ?? 'ALL',
             dateFrom: event.dateFrom,
             dateTo: event.dateTo,
+            categoryId: event.categoryId,
+            paymentMethodId: event.paymentMethodId,
+            pocketId: event.pocketId,
+            categoryIds: event.categoryIds,
+            categoryGroupIds: event.categoryGroupIds,
+            paymentMethodIds: event.paymentMethodIds,
+            pocketIds: event.pocketIds,
+            amountMin: event.amountMin,
+            amountMax: event.amountMax,
+            keyword: event.keyword,
+            transactionTypes: event.transactionTypes,
           ),
         ]);
         final txnResult = results[0] as Either;
@@ -187,6 +166,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: 0,
             serverTotalIncome: serverIncome,
             serverTotalExpense: serverExpense,
+            scrollToDate: event.scrollToDate,
             dateFrom: event.dateFrom,
             dateTo: event.dateTo,
           )),
@@ -194,49 +174,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return;
       }
 
-      if (hasOnlyPaymentMethodFilter && statisticsRepository != null) {
-        // 결제수단만 필터 — BE getPaymentMethodStats 는 현재 dateFrom/To 미지원.
-        // 날짜 범위 설정된 상황은 hasOnlyPaymentMethodFilter 조건을 벗어나므로
-        // 아래 일반 경로(Future<Either>.txnFuture) 로 떨어짐 (client-side 계산).
-        final results = await Future.wait([
-          txnFuture,
-          statisticsRepository!.getPaymentMethodStats(year: event.year, month: event.month),
-        ]);
-        final txnResult = results[0] as Either;
-        final pmStatsResult = results[1] as Either;
-        // PR-C3: 단수 paymentMethodId 또는 paymentMethodIds.first (len==1 가드 위에서 처리).
-        final targetPmId = event.paymentMethodId ??
-            (event.paymentMethodIds.isNotEmpty
-                ? event.paymentMethodIds.first
-                : null);
-        pmStatsResult.fold((_) {}, (statsList) {
-          for (final stat in (statsList as List)) {
-            final pmStat = stat as dynamic;
-            if (pmStat.paymentMethodId == targetPmId) {
-              serverExpense = pmStat.totalAmount as int;
-              serverIncome = 0;
-              break;
-            }
-          }
-        });
-        txnResult.fold(
-          (failure) => emit(TransactionError((failure as dynamic).message as String)),
-          (page) => emit(TransactionLoaded(
-            transactions: ((page as dynamic).content as List).cast(),
-            year: event.year,
-            month: event.month,
-            totalElements: (page as dynamic).totalElements as int,
-            hasMore: !((page as dynamic).last as bool),
-            currentPage: 0,
-            serverTotalIncome: serverIncome,
-            serverTotalExpense: serverExpense,
-            dateFrom: event.dateFrom,
-            dateTo: event.dateTo,
-          )),
-        );
-        return;
-      }
-
+      // statisticsRepository 미주입 (테스트 케이스 등) 에만 fallback — server total 없음.
       final result = await txnFuture;
       result.fold(
         (failure) => emit(TransactionError(failure.message)),

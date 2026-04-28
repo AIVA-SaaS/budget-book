@@ -7,12 +7,25 @@ import 'package:budget_book/features/statistics/domain/entities/payment_method_s
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 
 abstract class StatisticsRepository {
+  /// 회차 8 — 모든 필터 지원으로 확장. BE 가 정확한 (filtered) 월 합계 반환.
+  /// FE 는 client-side fold 대신 이 응답 그대로 사용해야 한다.
   Future<Either<Failure, StatisticsSummary>> getSummary({
     required int year,
     required int month,
     String visibility = 'ALL',
     String? dateFrom,
     String? dateTo,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
+    Set<String> paymentMethodIds = const {},
+    Set<String> pocketIds = const {},
+    int? amountMin,
+    int? amountMax,
+    String? keyword,
+    Set<String> transactionTypes = const {},
   });
 
   Future<Either<Failure, List<CategoryStatistics>>> getCategoryBreakdown({
