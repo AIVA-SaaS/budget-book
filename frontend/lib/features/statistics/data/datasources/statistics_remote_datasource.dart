@@ -7,12 +7,24 @@ import 'package:budget_book/features/statistics/data/models/payment_method_stati
 import 'package:budget_book/features/statistics/data/models/period_summary_model.dart';
 
 abstract class StatisticsRemoteDataSource {
+  /// 회차 8 — 모든 필터 지원 확장
   Future<StatisticsSummaryModel> getSummary({
     required int year,
     required int month,
     String visibility = 'ALL',
     String? dateFrom,
     String? dateTo,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
+    Set<String> paymentMethodIds = const {},
+    Set<String> pocketIds = const {},
+    int? amountMin,
+    int? amountMax,
+    String? keyword,
+    Set<String> transactionTypes = const {},
   });
 
   Future<List<CategoryStatisticsModel>> getCategoryBreakdown({
@@ -60,6 +72,17 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     String visibility = 'ALL',
     String? dateFrom,
     String? dateTo,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
+    Set<String> paymentMethodIds = const {},
+    Set<String> pocketIds = const {},
+    int? amountMin,
+    int? amountMax,
+    String? keyword,
+    Set<String> transactionTypes = const {},
   }) async {
     final params = <String, dynamic>{
       'year': year,
@@ -67,6 +90,18 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
       'visibility': visibility,
       if (dateFrom != null) 'dateFrom': dateFrom,
       if (dateTo != null) 'dateTo': dateTo,
+      if (categoryId != null) 'categoryId': categoryId,
+      if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+      if (pocketId != null) 'pocketId': pocketId,
+      if (categoryIds.isNotEmpty) 'categoryIds': categoryIds.toList(),
+      if (categoryGroupIds.isNotEmpty) 'categoryGroupIds': categoryGroupIds.toList(),
+      if (paymentMethodIds.isNotEmpty) 'paymentMethodIds': paymentMethodIds.toList(),
+      if (pocketIds.isNotEmpty) 'pocketIds': pocketIds.toList(),
+      if (amountMin != null) 'amountMin': amountMin,
+      if (amountMax != null) 'amountMax': amountMax,
+      if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      if (transactionTypes.isNotEmpty)
+        'transactionTypes': transactionTypes.toList(),
     };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsSummary,

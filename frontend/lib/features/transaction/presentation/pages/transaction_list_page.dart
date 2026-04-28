@@ -495,12 +495,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 pmFilter: filterPmId,
               );
 
-              // 필터 적용 시에는 client-side summary 우선 (server total 은 월 전체).
-              // 검색 키워드도 client-side 필터링이므로 same.
-              final hasClientFilter = _filterState.hasActiveFilters ||
-                  _searchController.text.trim().isNotEmpty;
-              final hasServerTotals =
-                  state.serverTotalIncome != null && !hasClientFilter;
+              // 회차 8 — BE getSummary 가 모든 필터 지원하도록 확장됨.
+              // FE client-side fold (page 단위 부정확) 제거.
+              // 모든 케이스에서 BE 가 계산한 정확한 합계(state.totalIncome/Expense) 사용.
+              // server total 미수신 시 (statisticsRepository 미주입) 만 client summary fallback.
+              final hasServerTotals = state.serverTotalIncome != null;
               final displayIncome = hasServerTotals
                   ? state.totalIncome
                   : summary.totalIncome;
