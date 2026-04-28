@@ -37,8 +37,22 @@ class StatisticsController(
         @RequestParam @Min(1) @Max(12) month: Int,
         @ModelAttribute filter: CommonFilterParams
     ): ApiResponse<StatisticsSummaryResponse> {
+        // 회차 8 — 모든 필터 전달 (FE client-side fold 제거 / 합계 정확성)
         return ApiResponse.ok(statisticsService.getMonthlySummary(
-            userId, year, month, filter.visibility ?: "ALL", filter.dateFrom, filter.dateTo
+            userId = userId, year = year, month = month,
+            visibility = filter.visibility ?: "ALL",
+            dateFrom = filter.dateFrom, dateTo = filter.dateTo,
+            categoryId = filter.categoryId,
+            paymentMethodId = filter.paymentMethodId,
+            pocketId = filter.pocketId,
+            categoryIds = filter.categoryIds,
+            categoryGroupIds = filter.categoryGroupIds,
+            paymentMethodIds = filter.paymentMethodIds,
+            pocketIds = filter.pocketIds,
+            amountMin = filter.amountMin,
+            amountMax = filter.amountMax,
+            keyword = filter.keyword,
+            transactionTypes = filter.transactionTypes ?: emptyList()
         ))
     }
 

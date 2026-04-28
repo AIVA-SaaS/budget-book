@@ -49,29 +49,114 @@ class StatisticsService(
     }
 
     @Transactional(readOnly = true)
-    fun getMonthlySummary(userId: UUID, year: Int, month: Int, visibility: String = "ALL", dateFrom: LocalDate? = null, dateTo: LocalDate? = null): StatisticsSummaryResponse {
+    fun getMonthlySummary(
+        userId: UUID,
+        year: Int,
+        month: Int,
+        visibility: String = "ALL",
+        dateFrom: LocalDate? = null,
+        dateTo: LocalDate? = null,
+        // 회차 8 — 모든 필터 지원 (period-summary 패턴 차용). client-side fold 부정확 회귀 fix.
+        categoryId: UUID? = null,
+        paymentMethodId: UUID? = null,
+        pocketId: UUID? = null,
+        categoryIds: List<UUID> = emptyList(),
+        categoryGroupIds: List<UUID> = emptyList(),
+        paymentMethodIds: List<UUID> = emptyList(),
+        pocketIds: List<UUID> = emptyList(),
+        amountMin: Long? = null,
+        amountMax: Long? = null,
+        keyword: String? = null,
+        transactionTypes: List<String> = emptyList()
+    ): StatisticsSummaryResponse {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
         val yearMonth = YearMonth.of(year, month)
         val startDate = dateFrom ?: yearMonth.atDay(1)
         val endDate = dateTo ?: yearMonth.atEndOfMonth()
 
-        val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId, visFilter)
-
-        // Phase 22: ADJUSTMENT 는 집계/카운트 모두 제외. EXPENSE/INCOME 의 Transaction 건수만 카운트.
-        var transactionCount = 0
-        for (row in results) {
-            val type = row[0] as TransactionType
-            val count = (row[2] as Long).toInt()
-            if (type == TransactionType.INCOME || type == TransactionType.EXPENSE) {
-                transactionCount += count
+        // PR-C2 + 회차 8: 단수+복수 병합, 그룹 펼치기
+        val effectiveCategoryIds = categoryIds.toMutableSet().also { set ->
+            categoryId?.let { set.add(it) }
+            if (categoryGroupIds.isNotEmpty()) {
+                set.addAll(categoryRepository.findByGroupIdIn(categoryGroupIds).map { it.id })
             }
         }
+        val effectivePaymentMethodIds = paymentMethodIds.toMutableSet().also { set ->
+            paymentMethodId?.let { set.add(it) }
+        }
+        val effectivePocketIds = pocketIds.toMutableSet().also { set ->
+            pocketId?.let { set.add(it) }
+        }
+        val effectiveTypes = transactionTypes.mapNotNull {
+            try { TransactionType.valueOf(it) } catch (_: IllegalArgumentException) { null }
+        }.toSet()
 
-        // Phase 22 S1: 집계는 ExpenseCalculator 단일 진입점 사용.
-        val totalIncome = expenseCalculator.totalIncome(couple.id, startDate, endDate, userId, visFilter)
-        val totalExpense = expenseCalculator.totalExpense(couple.id, startDate, endDate, userId, visFilter)
-        val totalTransfer = expenseCalculator.totalTransfer(couple.id, startDate, endDate)
+        val hasContentFilters = effectiveCategoryIds.isNotEmpty() ||
+            effectivePaymentMethodIds.isNotEmpty() ||
+            effectivePocketIds.isNotEmpty() ||
+            amountMin != null ||
+            amountMax != null ||
+            !keyword.isNullOrBlank() ||
+            effectiveTypes.isNotEmpty()
+
+        val totalIncome: Long
+        val totalExpense: Long
+        val totalTransfer: Long
+        val transactionCount: Int
+
+        if (hasContentFilters) {
+            // 회차 8 — 모든 필터 지원: Specifications-based query 로 정확한 합계 계산.
+            val incomeSpec = TransactionSpecifications.withFilters(
+                coupleId = couple.id, startDate = startDate, endDate = endDate,
+                type = TransactionType.INCOME, categoryId = null, keyword = keyword,
+                paymentMethodId = null, pocketId = null,
+                amountMin = amountMin, amountMax = amountMax, userId = userId,
+                visibility = visFilter,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds
+            )
+            val expenseSpec = TransactionSpecifications.withFilters(
+                coupleId = couple.id, startDate = startDate, endDate = endDate,
+                type = TransactionType.EXPENSE, categoryId = null, keyword = keyword,
+                paymentMethodId = null, pocketId = null,
+                amountMin = amountMin, amountMax = amountMax, userId = userId,
+                visibility = visFilter,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds
+            )
+
+            val incomeTransactions = transactionRepository.findAll(incomeSpec)
+            val expenseTransactions = transactionRepository.findAll(expenseSpec)
+
+            // transactionTypes 필터 — INCOME/EXPENSE 만 받음 (TRANSFER 는 별도, ADJUSTMENT 통계 제외)
+            val includeIncome = effectiveTypes.isEmpty() || effectiveTypes.contains(TransactionType.INCOME)
+            val includeExpense = effectiveTypes.isEmpty() || effectiveTypes.contains(TransactionType.EXPENSE)
+
+            totalIncome = if (includeIncome) incomeTransactions.sumOf { it.amount } else 0L
+            totalExpense = if (includeExpense) expenseTransactions.sumOf { it.amount } else 0L
+            // Transfer 는 카테고리/결제수단/포켓 없으므로 필터 활성 시 제외
+            totalTransfer = 0L
+            transactionCount = (if (includeIncome) incomeTransactions.size else 0) +
+                (if (includeExpense) expenseTransactions.size else 0)
+        } else {
+            // No content filters: ExpenseCalculator 일원화 (Phase 22 S1).
+            val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId, visFilter)
+            var count = 0
+            for (row in results) {
+                val type = row[0] as TransactionType
+                val rowCount = (row[2] as Long).toInt()
+                if (type == TransactionType.INCOME || type == TransactionType.EXPENSE) {
+                    count += rowCount
+                }
+            }
+            transactionCount = count
+            totalIncome = expenseCalculator.totalIncome(couple.id, startDate, endDate, userId, visFilter)
+            totalExpense = expenseCalculator.totalExpense(couple.id, startDate, endDate, userId, visFilter)
+            totalTransfer = expenseCalculator.totalTransfer(couple.id, startDate, endDate)
+        }
 
         return StatisticsSummaryResponse(
             yearMonth = yearMonth.toString(),
