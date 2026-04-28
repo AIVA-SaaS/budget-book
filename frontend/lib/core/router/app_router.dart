@@ -254,14 +254,29 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   final loadedState = bloc.state is TransactionLoaded ? bloc.state as TransactionLoaded : null;
                   final year = int.tryParse(yearParam ?? '') ?? loadedState?.year ?? now.year;
                   final month = int.tryParse(monthParam ?? '') ?? loadedState?.month ?? now.month;
+                  // 회차 9 — URL explicit param 없는 필터 (visibility, keyword 등) 는
+                  // currentFilter 에서 보존. URL param 우선.
+                  final f = bloc.currentFilter;
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,
-                    categoryId: categoryId,
-                    paymentMethodId: paymentMethodId,
+                    categoryId: categoryId ?? f.categoryId,
+                    paymentMethodId: paymentMethodId ?? f.paymentMethodId,
                     categoryGroupIds: categoryGroupId != null
                         ? {categoryGroupId}
-                        : const <String>{},
+                        : f.categoryGroupIds,
+                    keyword: f.keyword,
+                    categoryIds: f.categoryIds,
+                    paymentMethodIds: f.paymentMethodIds,
+                    pocketId: f.pocketId,
+                    pocketIds: f.pocketIds,
+                    amountMin: f.amountMin,
+                    amountMax: f.amountMax,
+                    dateFrom: f.dateFrom,
+                    dateTo: f.dateTo,
+                    type: f.type,
+                    transactionTypes: f.transactionTypes,
+                    visibility: f.visibility,
                   ));
                   transferBloc.add(LoadTransfers(year: year, month: month));
                 }
