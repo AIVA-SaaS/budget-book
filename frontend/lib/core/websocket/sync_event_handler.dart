@@ -82,8 +82,28 @@ class SyncEventHandler {
   void _refreshTransactions() {
     try {
       final now = DateTime.now();
+      // 회차 9 — WebSocket sync 시 currentFilter 보존. server-side 변경 시
+      // list 가 필터 reset 되지 않도록.
       final bloc = _getIt<TransactionBloc>();
-      bloc.add(LoadTransactions(year: now.year, month: now.month));
+      final f = bloc.currentFilter;
+      bloc.add(LoadTransactions(
+        year: now.year, month: now.month,
+        keyword: f.keyword,
+        categoryId: f.categoryId,
+        categoryIds: f.categoryIds,
+        categoryGroupIds: f.categoryGroupIds,
+        paymentMethodId: f.paymentMethodId,
+        paymentMethodIds: f.paymentMethodIds,
+        pocketId: f.pocketId,
+        pocketIds: f.pocketIds,
+        amountMin: f.amountMin,
+        amountMax: f.amountMax,
+        dateFrom: f.dateFrom,
+        dateTo: f.dateTo,
+        type: f.type,
+        transactionTypes: f.transactionTypes,
+        visibility: f.visibility,
+      ));
       _logger.d('Dispatched LoadTransactions refresh');
     } catch (e) {
       _logger.e('Failed to refresh transactions: $e');
