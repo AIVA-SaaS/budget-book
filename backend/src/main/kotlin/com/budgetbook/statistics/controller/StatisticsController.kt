@@ -75,8 +75,14 @@ class StatisticsController(
         @RequestParam @Min(1) @Max(12) month: Int,
         @ModelAttribute filter: CommonFilterParams
     ): ApiResponse<List<PaymentMethodStatResponse>> {
+        // 회차 11-1 — dateFrom/dateTo 전달 (통계 페이지의 dateRange 필터 일관성)
         return ApiResponse.ok(paymentMethodStatisticsService.getPaymentMethodStats(
-            userId, year, month, filter.visibility ?: "ALL"
+            userId = userId,
+            year = year,
+            month = month,
+            visibility = filter.visibility ?: "ALL",
+            dateFrom = filter.dateFrom,
+            dateTo = filter.dateTo
         ))
     }
 

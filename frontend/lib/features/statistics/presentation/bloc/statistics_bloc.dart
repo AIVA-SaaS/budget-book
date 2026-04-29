@@ -309,10 +309,13 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     ));
 
     try {
+      // 회차 11-1 — dateRange 일관 전달 (설정된 경우)
       final result = await statisticsRepository.getPaymentMethodStats(
         year: event.year,
         month: event.month,
         visibility: state.visibilityFilter,
+        dateFrom: state.dateFrom,
+        dateTo: state.dateTo,
       );
       result.fold(
         (failure) => emit(state.copyWith(
@@ -341,7 +344,11 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       dateTo: event.dateTo,
       dateRangeLabel: event.label,
     ));
+    // 회차 11-1 — dateRange 변경 시 _onChangeVisibilityFilter 와 동일하게
+    // PaymentMethodStats / YearComparison 도 reload (LoadAllStatistics 만으로 미반영).
     add(LoadAllStatistics(year: state.year, month: state.month));
+    add(LoadPaymentMethodStats(year: state.year, month: state.month));
+    add(LoadYearComparison(year: state.year, month: state.month));
   }
 
   void _onClearDateRangeFilter(
@@ -349,6 +356,9 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
     Emitter<StatisticsState> emit,
   ) {
     emit(state.copyWith(clearDateRange: true));
+    // 회차 11-1 — clear 도 동일하게 모든 sub-tab reload.
     add(LoadAllStatistics(year: state.year, month: state.month));
+    add(LoadPaymentMethodStats(year: state.year, month: state.month));
+    add(LoadYearComparison(year: state.year, month: state.month));
   }
 }
