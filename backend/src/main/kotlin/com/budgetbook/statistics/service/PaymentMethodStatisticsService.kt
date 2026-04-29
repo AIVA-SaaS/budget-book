@@ -9,6 +9,7 @@ import com.budgetbook.transfer.domain.TransferKinds
 import com.budgetbook.transfer.repository.TransferRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
 
@@ -33,12 +34,21 @@ class PaymentMethodStatisticsService(
     }
 
     @Transactional(readOnly = true)
-    fun getPaymentMethodStats(userId: UUID, year: Int, month: Int, visibility: String = "ALL"): List<PaymentMethodStatResponse> {
+    fun getPaymentMethodStats(
+        userId: UUID,
+        year: Int,
+        month: Int,
+        visibility: String = "ALL",
+        dateFrom: LocalDate? = null,
+        dateTo: LocalDate? = null
+    ): List<PaymentMethodStatResponse> {
         val couple = coupleResolver.getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
         val yearMonth = YearMonth.of(year, month)
-        val startDate = yearMonth.atDay(1)
-        val endDate = yearMonth.atEndOfMonth()
+        // 회차 11-1 — dateFrom/dateTo 모두 non-null 이면 그 범위 사용 (사용자 dateRange 필터),
+        // 아니면 month 의 전체 범위 사용 (기본).
+        val startDate = dateFrom ?: yearMonth.atDay(1)
+        val endDate = dateTo ?: yearMonth.atEndOfMonth()
 
         // 1. Transaction-based expense stats (existing)
         val txResults = transactionRepository.sumByPaymentMethodForCouple(

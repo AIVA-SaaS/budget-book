@@ -47,6 +47,8 @@ abstract class StatisticsRepository {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<Either<Failure, PeriodSummary>> getPeriodSummary({

@@ -45,6 +45,8 @@ abstract class StatisticsRemoteDataSource {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   });
 
   Future<PeriodSummaryModel> getPeriodSummary({
@@ -160,10 +162,19 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   }) async {
+    final params = <String, dynamic>{
+      'year': year,
+      'month': month,
+      'visibility': visibility,
+      if (dateFrom != null) 'dateFrom': dateFrom,
+      if (dateTo != null) 'dateTo': dateTo,
+    };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsPaymentMethods,
-      queryParameters: {'year': year, 'month': month, 'visibility': visibility},
+      queryParameters: params,
     );
     final data = response.data['data'] as List<dynamic>;
     return data

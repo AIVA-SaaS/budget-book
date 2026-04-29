@@ -103,10 +103,16 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
     required int year,
     required int month,
     String visibility = 'ALL',
+    String? dateFrom,
+    String? dateTo,
   }) async {
     try {
       final result = await remoteDataSource.getPaymentMethodStats(
-        year: year, month: month, visibility: visibility,
+        year: year,
+        month: month,
+        visibility: visibility,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
       );
       return Right(result);
     } on DioException catch (e) {
