@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:dartz/dartz.dart';
 
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/websocket/sync_event.dart';
 import 'package:budget_book/core/websocket/sync_event_handler.dart';
 import 'package:budget_book/core/error/failure.dart';
@@ -131,6 +132,8 @@ void main() {
     testGetIt.registerFactory<CategoryBloc>(() => categoryBloc);
     testGetIt.registerFactory<PaymentMethodBloc>(() => paymentMethodBloc);
     testGetIt.registerFactory<CategoryGroupBloc>(() => categoryGroupBloc);
+    // 회차 12 P2 Phase A — sync handler 가 MonthCubit 사용 (사용자가 보던 month 유지).
+    testGetIt.registerLazySingleton<MonthCubit>(() => MonthCubit());
 
     handler = SyncEventHandler(getIt: testGetIt);
   });

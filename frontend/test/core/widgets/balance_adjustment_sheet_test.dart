@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
@@ -52,16 +53,20 @@ void main() {
     if (getIt.isRegistered<TransactionBloc>()) getIt.unregister<TransactionBloc>();
     if (getIt.isRegistered<PaymentMethodBloc>()) getIt.unregister<PaymentMethodBloc>();
     if (getIt.isRegistered<DashboardBloc>()) getIt.unregister<DashboardBloc>();
+    if (getIt.isRegistered<MonthCubit>()) getIt.unregister<MonthCubit>();
 
     getIt.registerSingleton<TransactionBloc>(mockTransactionBloc);
     getIt.registerSingleton<PaymentMethodBloc>(mockPaymentMethodBloc);
     getIt.registerSingleton<DashboardBloc>(mockDashboardBloc);
+    // 회차 12 P2 Phase A — sheet 가 MonthCubit 사용 (보던 month 유지).
+    getIt.registerLazySingleton<MonthCubit>(() => MonthCubit());
   });
 
   tearDown(() {
     if (getIt.isRegistered<TransactionBloc>()) getIt.unregister<TransactionBloc>();
     if (getIt.isRegistered<PaymentMethodBloc>()) getIt.unregister<PaymentMethodBloc>();
     if (getIt.isRegistered<DashboardBloc>()) getIt.unregister<DashboardBloc>();
+    if (getIt.isRegistered<MonthCubit>()) getIt.unregister<MonthCubit>();
   });
 
   Widget buildSheet({int currentBalance = 150000}) {
