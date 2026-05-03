@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
@@ -73,7 +74,10 @@ class _MainShellPageState extends State<MainShellPage> {
     // Phase 25 Step 13/14 — 예산/통계 탭 제거. 4탭 최종 인덱스 매핑:
     // 0:거래, 1:분석, 2:자산, 3:더보기
     if (index != previousIndex) {
-      final now = DateTime.now();
+      // 회차 12 P2 Phase A (2026-05-03) — `now.year/month` 강제 사용 회귀 fix.
+      // MonthCubit 단일 source of truth. BottomNav 탭 전환 시 사용자가 보던
+      // month 유지. 이전 회귀: 4월 보던 중 BottomNav 거래 탭 클릭 시 5월로 reset.
+      final monthState = getIt<MonthCubit>().state;
       switch (index) {
         case 0:
           // 회차 9 (2026-04-28) — 탭 전환 시 LoadTransactions 호출 시 currentFilter 보존.
@@ -81,7 +85,7 @@ class _MainShellPageState extends State<MainShellPage> {
           final txnBloc = getIt<TransactionBloc>();
           final f = txnBloc.currentFilter;
           txnBloc.add(LoadTransactions(
-            year: now.year, month: now.month,
+            year: monthState.year, month: monthState.month,
             keyword: f.keyword,
             categoryId: f.categoryId,
             categoryIds: f.categoryIds,
@@ -103,7 +107,7 @@ class _MainShellPageState extends State<MainShellPage> {
           // Tab 2 (Assets) — refresh payment method data + card settlement summary
           getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
           getIt<PaymentMethodBloc>().add(
-              LoadCardSettlementSummary(year: now.year, month: now.month));
+              LoadCardSettlementSummary(year: monthState.year, month: monthState.month));
         // Tab 3 (Settings) needs no refresh
       }
     }
