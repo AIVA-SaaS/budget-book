@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
@@ -530,8 +531,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             if (state is TransactionLoaded) {
               _submitTimeoutTimer?.cancel();
               _isSubmitting = false;
-              final now = DateTime.now();
-              getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+              // 회차 12 P2 Phase A — 거래 등록 후 dashboard reload 시 사용자가 보던
+              // month 유지 (MonthCubit). 이전: now 강제로 다른 월 보던 사용자에게
+              // 현재월 dashboard 가 표시되어 sync 깨짐.
+              final monthState = getIt<MonthCubit>().state;
+              getIt<DashboardBloc>().add(LoadDashboard(year: monthState.year, month: monthState.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
               if (_continueMode) {
                 _resetFormForContinue();

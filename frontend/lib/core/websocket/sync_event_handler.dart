@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
 
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
@@ -81,13 +82,16 @@ class SyncEventHandler {
 
   void _refreshTransactions() {
     try {
-      final now = DateTime.now();
+      // 회차 12 P2 Phase A (2026-05-03) — `now.year/month` 강제 사용 회귀 fix.
+      // 사용자가 보던 month (MonthCubit) 유지. 이전: partner 가 거래 추가 시
+      // 사용자 4월 보는 중에도 5월로 list reset.
+      final monthState = _getIt<MonthCubit>().state;
       // 회차 9 — WebSocket sync 시 currentFilter 보존. server-side 변경 시
       // list 가 필터 reset 되지 않도록.
       final bloc = _getIt<TransactionBloc>();
       final f = bloc.currentFilter;
       bloc.add(LoadTransactions(
-        year: now.year, month: now.month,
+        year: monthState.year, month: monthState.month,
         keyword: f.keyword,
         categoryId: f.categoryId,
         categoryIds: f.categoryIds,
@@ -112,9 +116,10 @@ class SyncEventHandler {
 
   void _refreshBudgets() {
     try {
-      final now = DateTime.now();
+      // 회차 12 P2 Phase A — MonthCubit 사용 (사용자가 보던 month 유지).
+      final monthState = _getIt<MonthCubit>().state;
       final bloc = _getIt<BudgetBloc>();
-      bloc.add(LoadBudgets(year: now.year, month: now.month));
+      bloc.add(LoadBudgets(year: monthState.year, month: monthState.month));
       _logger.d('Dispatched LoadBudgets refresh');
     } catch (e) {
       _logger.e('Failed to refresh budgets: $e');
@@ -173,9 +178,10 @@ class SyncEventHandler {
 
   void _refreshTransfers() {
     try {
-      final now = DateTime.now();
+      // 회차 12 P2 Phase A — MonthCubit 사용.
+      final monthState = _getIt<MonthCubit>().state;
       final bloc = _getIt<TransferBloc>();
-      bloc.add(LoadTransfers(year: now.year, month: now.month));
+      bloc.add(LoadTransfers(year: monthState.year, month: monthState.month));
       _logger.d('Dispatched LoadTransfers refresh');
     } catch (e) {
       _logger.e('Failed to refresh transfers: $e');
@@ -184,9 +190,10 @@ class SyncEventHandler {
 
   void _refreshDashboard() {
     try {
-      final now = DateTime.now();
+      // 회차 12 P2 Phase A — MonthCubit 사용.
+      final monthState = _getIt<MonthCubit>().state;
       final bloc = _getIt<DashboardBloc>();
-      bloc.add(LoadDashboard(year: now.year, month: now.month));
+      bloc.add(LoadDashboard(year: monthState.year, month: monthState.month));
       _logger.d('Dispatched LoadDashboard refresh');
     } catch (e) {
       _logger.e('Failed to refresh dashboard: $e');

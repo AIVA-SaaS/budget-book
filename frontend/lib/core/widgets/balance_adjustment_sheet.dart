@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/calculator_amount_field.dart';
@@ -116,8 +117,10 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
     ));
 
     // Refresh related blocs
+    // 회차 12 P2 Phase A — dashboard reload 시 보던 month 유지 (MonthCubit).
     getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-    getIt<DashboardBloc>().add(LoadDashboard(year: now.year, month: now.month));
+    final monthState = getIt<MonthCubit>().state;
+    getIt<DashboardBloc>().add(LoadDashboard(year: monthState.year, month: monthState.month));
 
     Navigator.of(context).pop(true);
   }
