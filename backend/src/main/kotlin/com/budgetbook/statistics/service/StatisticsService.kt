@@ -495,17 +495,18 @@ class StatisticsService(
             couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId
         )
 
+        // 회차 12 P4 — month 필터 적용 (period-summary 의 dateFrom/To 기준).
         val plannedByCategory = if (budgetCategoryIds.isNotEmpty()) {
-            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, budgetCategoryIds, userId)
+            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, budgetCategoryIds, userId, dateFrom, dateTo)
                 .associate { (it[0] as UUID) to (it[1] as Long) }
         } else emptyMap()
 
         val plannedByGroup = if (budgetGroupIds.isNotEmpty()) {
-            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, budgetGroupIds, userId)
+            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, budgetGroupIds, userId, dateFrom, dateTo)
                 .associate { (it[0] as UUID) to (it[1] as Long) }
         } else emptyMap()
 
-        val totalPlanned = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId)
+        val totalPlanned = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId, dateFrom, dateTo)
 
         val byBudget = allBudgets.map { budget ->
             val catId = budget.category?.id
