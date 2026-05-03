@@ -164,6 +164,8 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
         return SuggestionPattern(
           categoryId: pm['categoryId'] as String?,
           categoryName: pm['categoryName'] as String?,
+          // 회차 12 follow-up — BE 응답에 categoryGroupName 추가됨
+          categoryGroupName: pm['categoryGroupName'] as String?,
           categoryIcon: pm['categoryIcon'] as String?,
           categoryColor: pm['categoryColor'] as String?,
           paymentMethodId: pm['paymentMethodId'] as String?,

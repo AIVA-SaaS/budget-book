@@ -132,6 +132,9 @@ data class SuggestionResponse(
 data class SuggestionPattern(
     val categoryId: UUID? = null,
     val categoryName: String? = null,
+    // 회차 12 follow-up (2026-05-04) — 카테고리 표시 통일.
+    // FE 가 "그룹 > 하위" 형식으로 표시할 때 group lookup 부하 없이 사용.
+    val categoryGroupName: String? = null,
     val categoryIcon: String? = null,
     val categoryColor: String? = null,
     val paymentMethodId: UUID? = null,

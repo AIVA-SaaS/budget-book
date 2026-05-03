@@ -10,7 +10,6 @@ import 'package:budget_book/core/services/couple_prefs.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/calculator_amount_field.dart';
-import 'package:budget_book/core/widgets/amount_input_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -435,12 +434,15 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           TextSelection.collapsed(offset: group.description.length);
       if (pattern != null) {
         _selectedCategoryId = pattern.categoryId;
-        // 회차 12 P3 — 자동 선택도 picker 직접 선택과 동일한 "그룹 > 하위" 형식.
+        // 회차 12 P3 + follow-up — 자동 선택도 picker 직접 선택과 동일한 "그룹 > 하위" 형식.
+        // BE 응답의 categoryGroupName 우선 사용. fallback 으로 helper (group lookup).
         _selectedCategoryDisplayName = pattern.categoryName != null
-            ? formatCategoryDisplay(
-                pattern.categoryId,
-                categoryName: pattern.categoryName!,
-              )
+            ? (pattern.categoryGroupName != null && pattern.categoryGroupName!.isNotEmpty
+                ? '${pattern.categoryGroupName} > ${pattern.categoryName}'
+                : formatCategoryDisplay(
+                    pattern.categoryId,
+                    categoryName: pattern.categoryName!,
+                  ))
             : null;
         _selectedPaymentMethodId = pattern.paymentMethodId;
       }
@@ -474,11 +476,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   void _applyAiCategory(AiClassifyResult result) {
     setState(() {
       _selectedCategoryId = result.categoryId;
-      // 회차 12 P3 — AI 추천도 "그룹 > 하위" 형식 통일.
-      _selectedCategoryDisplayName = formatCategoryDisplay(
-        result.categoryId,
-        categoryName: result.categoryName,
-      );
+      // 회차 12 P3 + follow-up — AI 추천도 "그룹 > 하위" 형식 통일.
+      // AiClassifyResult.groupName 직접 사용 (BE 응답).
+      _selectedCategoryDisplayName = result.groupName.isNotEmpty
+          ? '${result.groupName} > ${result.categoryName}'
+          : result.categoryName;
       _aiResult = null;
     });
   }
@@ -738,8 +740,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: ActionChip(
                         avatar: const Icon(Icons.auto_awesome, size: 16),
-                        // 회차 12 P3 — AI 추천 chip 도 "그룹 > 하위" 형식.
-                        label: Text('AI 추천: ${formatCategoryDisplay(_aiResult!.categoryId, categoryName: _aiResult!.categoryName)}'),
+                        // 회차 12 P3 + follow-up — AI 추천 chip 도 "그룹 > 하위" 형식.
+                        // result.groupName 직접 사용.
+                        label: Text(_aiResult!.groupName.isNotEmpty
+                            ? 'AI 추천: ${_aiResult!.groupName} > ${_aiResult!.categoryName}'
+                            : 'AI 추천: ${_aiResult!.categoryName}'),
                         onPressed: () => _applyAiCategory(_aiResult!),
                       ),
                     ),
@@ -1009,13 +1014,18 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
             ),
             const SizedBox(height: 16),
-            // Amount — 회차 12 P5: 공통 controller 사용 (수입/지출/이체 간 유지).
-            AmountInputField(
+            // Amount — 회차 12 P5/B-fix: 지출/수입 탭과 동일한 CalculatorAmountField
+            // 사용. 이전: AmountInputField 였으나 controller 단일화에도 widget 차이로
+            // 텍스트 표시 깨짐. 사용자 요구 "공통화" 의도 반영하여 widget 도 통일.
+            CalculatorAmountField(
               controller: _amountController,
-              labelText: '금액',
-              filterDigitsOnly: true,
+              decoration: const InputDecoration(
+                labelText: '금액',
+                suffixText: '원',
+                prefixIcon: Icon(Icons.payments),
+              ),
               validator: (value) {
-                if (value == null || value.isEmpty) return '금액을 입력하세요';
+                if (value == null || value.trim().isEmpty) return '금액을 입력하세요';
                 final amount = CurrencyFormatter.parse(value);
                 if (amount == null || amount <= 0) return '유효한 금액을 입력하세요';
                 if (amount > 999999999) {
@@ -1202,10 +1212,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             const SizedBox(height: 4),
             // Grouped patterns sorted by count
             ..._expandedSuggestion!.patterns.map((p) {
-              // 회차 12 P3 — suggestion picker label 도 "그룹 > 하위" 형식.
-              final categoryLabel = p.categoryId != null && p.categoryName != null
-                  ? formatCategoryDisplay(p.categoryId, categoryName: p.categoryName!)
-                  : p.categoryName;
+              // 회차 12 P3 + follow-up — suggestion picker label 도 "그룹 > 하위" 형식.
+              // BE 응답의 categoryGroupName 우선 사용.
+              final categoryLabel = p.categoryName == null
+                  ? null
+                  : (p.categoryGroupName != null && p.categoryGroupName!.isNotEmpty
+                      ? '${p.categoryGroupName} > ${p.categoryName}'
+                      : formatCategoryDisplay(p.categoryId, categoryName: p.categoryName!));
               final label = [
                 categoryLabel,
                 p.paymentMethodName,

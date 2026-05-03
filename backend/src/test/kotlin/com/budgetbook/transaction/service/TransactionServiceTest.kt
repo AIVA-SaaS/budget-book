@@ -441,8 +441,8 @@ class TransactionServiceTest : BehaviorSpec({
 
         When("matching descriptions exist") {
             every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
-                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, 3L),
-                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, 1L)
+                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, null, 3L),
+                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, null, 1L)
             )
 
             val result = service.getSuggestions(user1.id, "점심", 10)
@@ -466,7 +466,7 @@ class TransactionServiceTest : BehaviorSpec({
 
         When("limit exceeds max") {
             every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
-                arrayOf<Any?>("점심", null, null, null, null, null, null, 1L)
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 1L)
             )
 
             val result = service.getSuggestions(user1.id, "점심", 100)
@@ -479,8 +479,8 @@ class TransactionServiceTest : BehaviorSpec({
 
         When("limit is zero or negative") {
             every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
-                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, 5L),
-                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, 2L)
+                arrayOf<Any?>("점심 식사", null, null, null, null, null, null, null, 5L),
+                arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, null, 2L)
             )
 
             val result = service.getSuggestions(user1.id, "점심", 0)
