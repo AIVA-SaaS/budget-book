@@ -498,7 +498,7 @@ class StatisticsServiceTest : BehaviorSpec({
             } returns 3200000L
 
             // spending plan
-            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 0L
 
             // byPaymentMethod
             every {
@@ -560,7 +560,7 @@ class StatisticsServiceTest : BehaviorSpec({
                 transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
             } returns 0L
 
-            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 0L
 
             every {
                 transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
@@ -615,7 +615,7 @@ class StatisticsServiceTest : BehaviorSpec({
             every {
                 transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
             } returns 3000000L
-            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 0L
             every {
                 transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
             } returns emptyList()
@@ -694,7 +694,7 @@ class StatisticsServiceTest : BehaviorSpec({
             every {
                 transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
             } returns 2500000L
-            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 0L
             every {
                 transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
             } returns emptyList()
@@ -739,7 +739,7 @@ class StatisticsServiceTest : BehaviorSpec({
             every {
                 transactionRepository.sumAmountByCoupleIdAndDateRange(couple.id, dateFrom, dateTo, TransactionType.EXPENSE, user1.id)
             } returns 0L
-            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 0L
+            every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 0L
             every {
                 transactionRepository.sumByPaymentMethodWithTypeForCouple(couple.id, dateFrom, dateTo, any(), "ALL")
             } returns emptyList()
