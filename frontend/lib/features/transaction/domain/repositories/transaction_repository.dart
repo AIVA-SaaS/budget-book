@@ -78,6 +78,8 @@ class SuggestionGroup {
 class SuggestionPattern {
   final String? categoryId;
   final String? categoryName;
+  // 회차 12 follow-up — 카테고리 표시 통일 ("$groupName > $categoryName")
+  final String? categoryGroupName;
   final String? categoryIcon;
   final String? categoryColor;
   final String? paymentMethodId;
@@ -87,6 +89,7 @@ class SuggestionPattern {
   const SuggestionPattern({
     this.categoryId,
     this.categoryName,
+    this.categoryGroupName,
     this.categoryIcon,
     this.categoryColor,
     this.paymentMethodId,

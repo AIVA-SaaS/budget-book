@@ -419,9 +419,11 @@ class TransactionService(
                 categoryName = row[2] as? String,
                 categoryIcon = row[3] as? String,
                 categoryColor = row[4] as? String,
-                paymentMethodId = row[5] as? UUID,
-                paymentMethodName = row[6] as? String,
-                count = (row[7] as Long)
+                // 회차 12 follow-up — categoryGroupName 추가 (인덱스 5)
+                categoryGroupName = row[5] as? String,
+                paymentMethodId = row[6] as? UUID,
+                paymentMethodName = row[7] as? String,
+                count = (row[8] as Long)
             )
             grouped.getOrPut(description) { mutableListOf() }.add(pattern)
         }

@@ -255,9 +255,11 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("visFilter") visFilter: String = "ALL"
     ): List<Array<Any>>
 
+    // 회차 12 follow-up (2026-05-04) — categoryGroupName 추가 (FE 카테고리 표시 통일).
     @Query("""
         SELECT t.description,
                t.category.id, t.category.name, t.category.icon, t.category.color,
+               t.category.group.name,
                t.paymentMethod.id, t.paymentMethod.name,
                COUNT(t)
         FROM Transaction t
@@ -265,6 +267,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         AND LOWER(t.description) LIKE LOWER(CONCAT(:query, '%'))
         GROUP BY t.description,
                  t.category.id, t.category.name, t.category.icon, t.category.color,
+                 t.category.group.name,
                  t.paymentMethod.id, t.paymentMethod.name
         ORDER BY t.description, COUNT(t) DESC
     """)
