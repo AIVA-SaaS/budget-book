@@ -65,6 +65,10 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
         @Param("endDate") endDate: LocalDate
     ): List<SpendingPlan>
 
+    // 회차 12 P4 (2026-05-03) — month 필터 추가.
+    // 이전 버그: target month 무관하게 모든 spending plan 합산 → budget UI 에서
+    // 입력 안 한 달에도 plannedAmount 0 아닌 값 표시 (도메인 분리 위반).
+    // targetDate IS NULL (날짜 미지정 plan) 은 모든 월에 포함.
     @Query("""
         SELECT sp.category.id, COALESCE(SUM(sp.amount), 0)
         FROM SpendingPlan sp
@@ -72,12 +76,15 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
         AND sp.category.id IN :categoryIds
         AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
         AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        AND (sp.targetDate IS NULL OR sp.targetDate BETWEEN :startDate AND :endDate)
         GROUP BY sp.category.id
     """)
     fun sumPlannedAmountByCategoryIds(
         @Param("coupleId") coupleId: UUID,
         @Param("categoryIds") categoryIds: Set<UUID>,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
 
     @Query("""
@@ -86,10 +93,13 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
         WHERE sp.couple.id = :coupleId
         AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
         AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        AND (sp.targetDate IS NULL OR sp.targetDate BETWEEN :startDate AND :endDate)
     """)
     fun sumTotalPlannedAmount(
         @Param("coupleId") coupleId: UUID,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
     ): Long
 
     @Query("""
@@ -101,12 +111,15 @@ interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
         AND cg.id IN :groupIds
         AND sp.status IN (com.budgetbook.spendingplan.domain.SpendingPlanStatus.WISHLIST, com.budgetbook.spendingplan.domain.SpendingPlanStatus.PLANNED)
         AND (sp.visibility = com.budgetbook.common.entity.Visibility.SHARED OR sp.owner.id = :userId)
+        AND (sp.targetDate IS NULL OR sp.targetDate BETWEEN :startDate AND :endDate)
         GROUP BY cg.id
     """)
     fun sumPlannedAmountByGroupIds(
         @Param("coupleId") coupleId: UUID,
         @Param("groupIds") groupIds: Set<UUID>,
-        @Param("userId") userId: UUID
+        @Param("userId") userId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate
     ): List<Array<Any>>
 
     fun findByIdAndCoupleId(id: UUID, coupleId: UUID): SpendingPlan?

@@ -765,7 +765,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
     );
   }
 
-  /// 3-segment progress bar: spent (solid) + planned (semi-transparent) + remaining (grey).
+  /// 회차 12 P4 (2026-05-03) — 도메인 분리.
+  /// 이전: 3-segment (spent + planned + remaining). 사용자 요구로 plannedAmount
+  /// 표시 제거 (계획 정보는 별도 분석 영역으로 이전 예정). 2-segment
+  /// (spent + remaining) 단순 progress bar.
   Widget _buildBudgetProgressBar(
     BuildContext context,
     BudgetSummaryItem? summaryItem,
@@ -776,81 +779,23 @@ class _BudgetListPageState extends State<BudgetListPage> {
     }
 
     final spentAmount = summaryItem?.spentAmount ?? 0;
-    final plannedAmount = summaryItem?.plannedAmount ?? 0;
-
     final spentRatio = (spentAmount / budgetAmount).clamp(0.0, 1.0);
-    final plannedRatio = (plannedAmount / budgetAmount).clamp(0.0, 1.0 - spentRatio);
     final usageRate = summaryItem?.usageRate ?? 0.0;
     final spentColor = _getProgressColor(usageRate);
 
-    // If no planned amount, use simple progress bar
-    if (plannedAmount <= 0) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: spentRatio,
-          minHeight: 6,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          color: spentColor,
-        ),
-      );
-    }
-
-    // 3-segment bar using CustomPaint-like approach with stacked bars
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 6,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final totalWidth = constraints.maxWidth;
-            final spentWidth = totalWidth * spentRatio;
-            final plannedWidth = totalWidth * plannedRatio;
-
-            return Stack(
-              children: [
-                // Background (remaining)
-                Container(
-                  width: totalWidth,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                // Planned (semi-transparent, behind spent)
-                if (plannedWidth > 0)
-                  Positioned(
-                    left: spentWidth,
-                    child: Container(
-                      width: plannedWidth,
-                      height: 6,
-                      color: spentColor.withValues(alpha: 0.3),
-                    ),
-                  ),
-                // Spent (solid)
-                if (spentWidth > 0)
-                  Container(
-                    width: spentWidth,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: spentColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(4),
-                        bottomLeft: const Radius.circular(4),
-                        topRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
-                        bottomRight: plannedWidth > 0 ? Radius.zero : const Radius.circular(4),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
+      child: LinearProgressIndicator(
+        value: spentRatio,
+        minHeight: 6,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: spentColor,
       ),
     );
   }
 
-  /// Subtitle text showing spent + planned / budget.
+  /// 회차 12 P4 — subtitle 에서 + 계획 표시 제거 (도메인 분리).
+  /// plannedAmount branch 제거. spent/budget 만 표시.
   Widget _buildBudgetSubtitleText(
     BuildContext context,
     BudgetSummaryItem? summaryItem,
@@ -859,17 +804,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
     double usageRate,
   ) {
     final spentAmount = summaryItem?.spentAmount ?? 0;
-    final plannedAmount = summaryItem?.plannedAmount ?? 0;
-
-    if (plannedAmount > 0) {
-      return Text(
-        '사용 ${numberFormat.format(spentAmount)} + 계획 ${numberFormat.format(plannedAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
-        style: Theme.of(context).textTheme.bodySmall,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
     return Text(
       '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
       style: Theme.of(context).textTheme.bodySmall,

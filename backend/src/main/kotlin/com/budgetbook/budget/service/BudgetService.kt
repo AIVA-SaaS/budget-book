@@ -644,21 +644,23 @@ class BudgetService(
             emptyMap()
         }
 
-        // Pre-compute planned amounts from spending plans (WISHLIST/PLANNED status)
+        // 회차 12 P4 (2026-05-03) — month 필터 추가. 이전: 모든 spending plan
+        // 합산 → 입력 안 한 달에도 plannedAmount 표시. targetDate IS NULL 인
+        // plan 은 모든 월 포함 (날짜 미지정 의도 반영).
         val categoryIds = budgets.mapNotNull { it.category?.id }.toSet()
         val plannedByCategory: Map<UUID, Long> = if (categoryIds.isNotEmpty()) {
-            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, categoryIds, userId)
+            spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, categoryIds, userId, startDate, endDate)
                 .associate { row -> (row[0] as UUID) to (row[1] as Long) }
         } else {
             emptyMap()
         }
         val plannedByGroup: Map<UUID, Long> = if (groupIds.isNotEmpty()) {
-            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, groupIds, userId)
+            spendingPlanRepository.sumPlannedAmountByGroupIds(couple.id, groupIds, userId, startDate, endDate)
                 .associate { row -> (row[0] as UUID) to (row[1] as Long) }
         } else {
             emptyMap()
         }
-        val totalPlannedAmount = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId)
+        val totalPlannedAmount = spendingPlanRepository.sumTotalPlannedAmount(couple.id, userId, startDate, endDate)
 
         val items = budgets.map { budget ->
             val categoryId = budget.category?.id

@@ -55,9 +55,8 @@ class BudgetSummaryCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    summary.totalPlanned > 0
-                        ? '사용 ${CurrencyFormatter.format(summary.totalSpent)} + 계획 ${CurrencyFormatter.format(summary.totalPlanned)}원'
-                        : '지출: ${CurrencyFormatter.format(summary.totalSpent)}원',
+                    // 회차 12 P4 — 도메인 분리: 계획 정보 제거. 지출만 표시.
+                    '지출: ${CurrencyFormatter.format(summary.totalSpent)}원',
                     style: Theme.of(context).textTheme.bodyMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

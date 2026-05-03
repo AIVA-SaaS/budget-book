@@ -60,9 +60,9 @@ class BudgetServiceTest : BehaviorSpec({
     val category = Category(couple = couple, name = "식비", type = CategoryType.EXPENSE, icon = "restaurant", color = "#FF5733", isDefault = true)
 
     // Default: no planned spending (individual tests can override)
-    every { spendingPlanRepository.sumPlannedAmountByCategoryIds(any(), any(), any()) } returns emptyList()
-    every { spendingPlanRepository.sumPlannedAmountByGroupIds(any(), any(), any()) } returns emptyList()
-    every { spendingPlanRepository.sumTotalPlannedAmount(any(), any()) } returns 0L
+    every { spendingPlanRepository.sumPlannedAmountByCategoryIds(any(), any(), any(), any(), any()) } returns emptyList()
+    every { spendingPlanRepository.sumPlannedAmountByGroupIds(any(), any(), any(), any(), any()) } returns emptyList()
+    every { spendingPlanRepository.sumTotalPlannedAmount(any(), any(), any(), any()) } returns 0L
 
     // --- createBudget ---
 
@@ -771,10 +771,11 @@ class BudgetServiceTest : BehaviorSpec({
         ) } returns 80000L
 
         // Planned spending: 30000 for category, 50000 total
-        every { spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, setOf(category.id), user1.id) } returns listOf(
+        // 회차 12 P4 — month 필터 인자 추가
+        every { spendingPlanRepository.sumPlannedAmountByCategoryIds(couple.id, setOf(category.id), user1.id, any(), any()) } returns listOf(
             arrayOf(category.id as Any, 30000L as Any)
         )
-        every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id) } returns 50000L
+        every { spendingPlanRepository.sumTotalPlannedAmount(couple.id, user1.id, any(), any()) } returns 50000L
 
         When("getBudgetSummary is called") {
             val result = service.getBudgetSummary(user1.id, 2026, 3)
