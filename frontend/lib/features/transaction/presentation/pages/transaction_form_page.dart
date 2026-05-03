@@ -144,10 +144,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   late final TabController _tabController;
 
   // Transfer form fields (used when tab index == 2)
+  // 회차 12 P5 (2026-05-03) — 공통 controllers (_amountController/_descriptionController/_memoController)
+  // 사용으로 통일. _transfer*Controller 별도 controllers 제거.
+  // 사용자 요구: 수입/지출/예산/이체 탭 전환 시 공통 항목 (금액/설명/메모) 유지.
   final _transferFormKey = GlobalKey<FormState>();
-  late final TextEditingController _transferAmountController;
-  late final TextEditingController _transferDescriptionController;
-  late final TextEditingController _transferMemoController;
   String? _transferSourcePaymentMethodId;
   String? _transferDestinationPaymentMethodId;
   late DateTime _transferDate;
@@ -199,10 +199,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         : 'EXPENSE';
     _selectedDate = widget.initialDate ?? DateTime.now();
 
-    // Initialize transfer form controllers
-    _transferAmountController = TextEditingController();
-    _transferDescriptionController = TextEditingController();
-    _transferMemoController = TextEditingController();
+    // 회차 12 P5 — transfer 별도 controllers 제거. 공통 controller 사용.
     _transferDate = widget.initialDate ?? DateTime.now();
 
     if (isEditing) {
@@ -498,9 +495,6 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _amountController.dispose();
     _descriptionController.dispose();
     _memoController.dispose();
-    _transferAmountController.dispose();
-    _transferDescriptionController.dispose();
-    _transferMemoController.dispose();
     _categoryFocusNode.dispose();
     _paymentMethodFocusNode.dispose();
     _pocketFocusNode.dispose();
@@ -918,7 +912,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       }
     }
 
-    final amount = CurrencyFormatter.parse(_transferAmountController.text);
+    // 회차 12 P5 — 공통 controller 사용으로 통일.
+    final amount = CurrencyFormatter.parse(_amountController.text);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('금액을 입력해주세요')),
@@ -926,12 +921,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       return;
     }
 
-    final description = _transferDescriptionController.text.trim().isEmpty
+    final description = _descriptionController.text.trim().isEmpty
         ? null
-        : _transferDescriptionController.text.trim();
-    final memo = _transferMemoController.text.trim().isEmpty
+        : _descriptionController.text.trim();
+    final memo = _memoController.text.trim().isEmpty
         ? null
-        : _transferMemoController.text.trim();
+        : _memoController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_transferDate);
 
     setState(() => _isTransferSubmitting = true);
@@ -998,9 +993,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
             ),
             const SizedBox(height: 16),
-            // Amount
+            // Amount — 회차 12 P5: 공통 controller 사용 (수입/지출/이체 간 유지).
             AmountInputField(
-              controller: _transferAmountController,
+              controller: _amountController,
               labelText: '금액',
               filterDigitsOnly: true,
               validator: (value) {
@@ -1097,9 +1092,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   value == null ? '입금 결제수단을 선택하세요' : null,
             ),
             const SizedBox(height: 16),
-            // Description
+            // Description — 회차 12 P5: 공통 controller 사용
             TextFormField(
-              controller: _transferDescriptionController,
+              controller: _descriptionController,
               decoration: const InputDecoration(
                 labelText: '내용 (선택)',
                 prefixIcon: Icon(Icons.description),
@@ -1108,9 +1103,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               maxLength: 255,
             ),
             const SizedBox(height: 8),
-            // Memo
+            // Memo — 회차 12 P5: 공통 controller 사용
             TextFormField(
-              controller: _transferMemoController,
+              controller: _memoController,
               decoration: const InputDecoration(
                 labelText: '메모 (선택)',
                 prefixIcon: Icon(Icons.notes),
