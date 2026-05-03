@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
+import 'package:budget_book/core/utils/category_display_helper.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/services/couple_prefs.dart';
@@ -437,7 +438,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           TextSelection.collapsed(offset: group.description.length);
       if (pattern != null) {
         _selectedCategoryId = pattern.categoryId;
-        _selectedCategoryDisplayName = pattern.categoryName;
+        // 회차 12 P3 — 자동 선택도 picker 직접 선택과 동일한 "그룹 > 하위" 형식.
+        _selectedCategoryDisplayName = pattern.categoryName != null
+            ? formatCategoryDisplay(
+                pattern.categoryId,
+                categoryName: pattern.categoryName!,
+              )
+            : null;
         _selectedPaymentMethodId = pattern.paymentMethodId;
       }
       _suggestions = [];
@@ -470,7 +477,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   void _applyAiCategory(AiClassifyResult result) {
     setState(() {
       _selectedCategoryId = result.categoryId;
-      _selectedCategoryDisplayName = result.categoryName;
+      // 회차 12 P3 — AI 추천도 "그룹 > 하위" 형식 통일.
+      _selectedCategoryDisplayName = formatCategoryDisplay(
+        result.categoryId,
+        categoryName: result.categoryName,
+      );
       _aiResult = null;
     });
   }
@@ -733,7 +744,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: ActionChip(
                         avatar: const Icon(Icons.auto_awesome, size: 16),
-                        label: Text('AI 추천: ${_aiResult!.categoryName}'),
+                        // 회차 12 P3 — AI 추천 chip 도 "그룹 > 하위" 형식.
+                        label: Text('AI 추천: ${formatCategoryDisplay(_aiResult!.categoryId, categoryName: _aiResult!.categoryName)}'),
                         onPressed: () => _applyAiCategory(_aiResult!),
                       ),
                     ),
@@ -1195,8 +1207,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             const SizedBox(height: 4),
             // Grouped patterns sorted by count
             ..._expandedSuggestion!.patterns.map((p) {
+              // 회차 12 P3 — suggestion picker label 도 "그룹 > 하위" 형식.
+              final categoryLabel = p.categoryId != null && p.categoryName != null
+                  ? formatCategoryDisplay(p.categoryId, categoryName: p.categoryName!)
+                  : p.categoryName;
               final label = [
-                p.categoryName,
+                categoryLabel,
                 p.paymentMethodName,
               ].where((s) => s != null).join(' · ');
               return Padding(
