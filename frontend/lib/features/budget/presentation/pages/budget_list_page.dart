@@ -30,7 +30,15 @@ class BudgetListPage extends StatefulWidget {
   /// Phase 25 Step 11 — 분석 탭 wrapper 에서는 false. 자체 진입(/budgets) 시 true.
   final bool showAppBar;
 
-  const BudgetListPage({super.key, this.showAppBar = true});
+  /// 회차 12 follow-up (2026-05-04) — 분석 탭 wrapper 에서 MonthNavigator 를
+  /// 부모 (AnalysisPage) 가 단일 표시. 이 페이지의 자체 MonthNavigator 는 hide.
+  final bool showMonthNavigator;
+
+  const BudgetListPage({
+    super.key,
+    this.showAppBar = true,
+    this.showMonthNavigator = true,
+  });
 
   @override
   State<BudgetListPage> createState() => _BudgetListPageState();
@@ -256,14 +264,16 @@ class _BudgetListPageState extends State<BudgetListPage> {
 
     return Column(
       children: [
-        MonthNavigator(
-          year: state.year,
-          month: state.month,
-          onMonthChanged: (m) {
-            getIt<WeeklyBudgetBloc>()
-                .add(LoadWeeklyOverview(year: m.year, month: m.month));
-          },
-        ),
+        // 회차 12 follow-up — 분석 탭 wrapper 에서는 부모가 단일 표시 (hide).
+        if (widget.showMonthNavigator)
+          MonthNavigator(
+            year: state.year,
+            month: state.month,
+            onMonthChanged: (m) {
+              getIt<WeeklyBudgetBloc>()
+                  .add(LoadWeeklyOverview(year: m.year, month: m.month));
+            },
+          ),
         Expanded(
           child: RefreshIndicator(
       onRefresh: () async {
@@ -552,7 +562,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
     return Column(
       children: [
         // MonthNavigator는 MonthCubit.state를 자동으로 watch하여 표시/업데이트.
-        const MonthNavigator(),
+        // 회차 12 follow-up — 분석 탭 wrapper 에서는 부모가 단일 표시 (hide).
+        if (widget.showMonthNavigator) const MonthNavigator(),
         if (state.summary != null)
           BudgetSummaryCard(summary: state.summary!),
         Expanded(

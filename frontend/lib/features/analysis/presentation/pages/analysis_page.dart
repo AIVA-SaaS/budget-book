@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
@@ -33,10 +34,22 @@ class AnalysisPage extends StatelessWidget {
             ],
           ),
         ),
-        body: const TabBarView(
+        // 회차 12 follow-up (2026-05-04) — 사용자 요구 반영.
+        // 이전: TabBar 아래의 각 sub-tab 안에 MonthNavigator (예산은 월간/주간
+        // SegmentedButton 아래) → 가독성 떨어짐.
+        // 신규: TabBar 바로 아래에 단일 MonthNavigator. 예산/통계 두 sub-tab
+        // 공유. MonthCubit 단일 source 라 sync 자동.
+        body: const Column(
           children: [
-            _BudgetTabWrapper(),
-            _StatisticsTabWrapper(),
+            MonthNavigator(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _BudgetTabWrapper(),
+                  _StatisticsTabWrapper(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -56,7 +69,7 @@ class _BudgetTabWrapper extends StatelessWidget {
           year: DateTime.now().year,
           month: DateTime.now().month,
         )),
-      child: const BudgetListPage(showAppBar: false),
+      child: const BudgetListPage(showAppBar: false, showMonthNavigator: false),
     );
   }
 }
@@ -74,7 +87,7 @@ class _StatisticsTabWrapper extends StatelessWidget {
       value: getIt<StatisticsBloc>()
         ..add(LoadAllStatistics(year: now.year, month: now.month))
         ..add(LoadPaymentMethodStats(year: now.year, month: now.month)),
-      child: const StatisticsPage(showAppBar: false),
+      child: const StatisticsPage(showAppBar: false, showMonthNavigator: false),
     );
   }
 }
