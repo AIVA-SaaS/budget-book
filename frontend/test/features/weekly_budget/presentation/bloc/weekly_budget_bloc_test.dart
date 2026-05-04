@@ -165,8 +165,8 @@ void main() {
         seed: () => WeeklyBudgetLoaded(currentWeek: tCurrentWeek),
         act: (bloc) =>
             bloc.add(const LoadWeeklyOverview(year: 2026, month: 3)),
+        // 회차 12 follow-up — 이미 Loaded 면 Loading state 가 emit 되지 않음.
         expect: () => [
-          const WeeklyBudgetLoading(),
           WeeklyBudgetLoaded(
               overview: tOverview, currentWeek: tCurrentWeek, year: 2026, month: 3),
         ],

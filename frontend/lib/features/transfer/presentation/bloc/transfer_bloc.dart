@@ -25,14 +25,30 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     try {
       _currentYear = event.year;
       _currentMonth = event.month;
-      emit(const TransferLoading());
+      // 회차 12 follow-up — race fix.
+      final currentLoaded =
+          state is TransferLoaded ? state as TransferLoaded : null;
+      if (currentLoaded == null) {
+        emit(const TransferLoading());
+      }
 
       final result = await transferRepository.getTransfers(
         year: event.year,
         month: event.month,
       );
       result.fold(
-        (failure) => emit(TransferError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(TransferLoaded(
+              transfers: currentLoaded.transfers,
+              year: currentLoaded.year,
+              month: currentLoaded.month,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(TransferError(failure.message));
+          }
+        },
         (transfers) => emit(TransferLoaded(
           transfers: transfers,
           year: event.year,

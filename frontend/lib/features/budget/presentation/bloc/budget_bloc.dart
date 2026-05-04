@@ -25,7 +25,13 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     try {
       _currentYear = event.year;
       _currentMonth = event.month;
-      emit(const BudgetLoading());
+
+      // 회차 12 follow-up — race fix. 기존 Loaded 가 있으면 Loading 단계 skip.
+      final currentLoaded =
+          state is BudgetLoaded ? state as BudgetLoaded : null;
+      if (currentLoaded == null) {
+        emit(const BudgetLoading());
+      }
 
       final budgetsResult = await budgetRepository.getBudgets(
         year: event.year,
@@ -37,7 +43,19 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
       );
 
       budgetsResult.fold(
-        (failure) => emit(BudgetError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(BudgetLoaded(
+              budgets: currentLoaded.budgets,
+              summary: currentLoaded.summary,
+              year: currentLoaded.year,
+              month: currentLoaded.month,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(BudgetError(failure.message));
+          }
+        },
         (budgets) {
           summaryResult.fold(
             (failure) => emit(BudgetLoaded(

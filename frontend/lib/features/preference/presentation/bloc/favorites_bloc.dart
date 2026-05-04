@@ -19,14 +19,25 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     Emitter<FavoritesState> emit,
   ) async {
     try {
-      emit(const FavoritesLoading());
+      // 회차 12 follow-up — race fix.
+      if (state is! FavoritesLoaded) {
+        emit(const FavoritesLoading());
+      }
       final result = await preferenceRepository.getFavorites();
       result.fold(
-        (failure) => emit(FavoritesError(failure.message)),
+        (failure) {
+          if (state is FavoritesLoaded) {
+            // keep — operationError 가 없으므로 상태 유지만
+          } else {
+            emit(FavoritesError(failure.message));
+          }
+        },
         (favorites) => emit(FavoritesLoaded(favorites)),
       );
     } catch (_) {
-      emit(const FavoritesError('즐겨찾기를 불러오지 못했습니다'));
+      if (state is! FavoritesLoaded) {
+        emit(const FavoritesError('즐겨찾기를 불러오지 못했습니다'));
+      }
     }
   }
 

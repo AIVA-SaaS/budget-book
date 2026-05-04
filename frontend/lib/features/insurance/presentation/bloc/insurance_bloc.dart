@@ -23,23 +23,34 @@ class InsuranceBloc extends Bloc<InsuranceEvent, InsuranceState> {
   ) async {
     try {
       _lastActiveFilter = event.activeOnly;
-      emit(const InsuranceLoading());
+      // 회차 12 follow-up — race fix.
+      final currentLoaded =
+          state is InsuranceLoaded ? state as InsuranceLoaded : null;
+      if (currentLoaded == null) {
+        emit(const InsuranceLoading());
+      }
 
       final result =
           await insuranceRepository.getInsurances(active: event.activeOnly);
       result.fold(
-        (failure) => emit(InsuranceError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            // 기존 data 유지
+          } else {
+            emit(InsuranceError(failure.message));
+          }
+        },
         (insurances) {
-          final currentState = state;
           emit(InsuranceLoaded(
             insurances: insurances,
-            summary:
-                currentState is InsuranceLoaded ? currentState.summary : null,
+            summary: currentLoaded?.summary,
           ));
         },
       );
     } catch (e) {
-      emit(const InsuranceError('예기치 않은 오류가 발생했습니다'));
+      if (state is! InsuranceLoaded) {
+        emit(const InsuranceError('예기치 않은 오류가 발생했습니다'));
+      }
     }
   }
 
