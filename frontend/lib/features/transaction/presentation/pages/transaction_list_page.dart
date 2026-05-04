@@ -107,6 +107,41 @@ class _TransactionListPageState extends State<TransactionListPage> {
     _loadViewMode();
   }
 
+  @override
+  void didUpdateWidget(covariant TransactionListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 회차 12 follow-up A (2026-05-04) — _filterState desync 회귀 fix.
+    // GoRouter 가 같은 path 재진입 시 State 재사용 → `late _filterState` initializer
+    // 가 한 번만 fire → widget.initialPaymentMethodId 새 값이라도 _filterState 는
+    // 빈 값 그대로 → UI "전체" 표시 / 필터 chip 제거 안 됨 / list 는 BE 필터 적용
+    // (sync 깨짐).
+    //
+    // 자산 → 결제수단 클릭 (`/transactions?paymentMethodId=X`) 시 widget 새 prop
+    // 으로 _filterState 동기화. payment_method/category/categoryGroup 모두 처리.
+    final pmChanged = widget.initialPaymentMethodId != oldWidget.initialPaymentMethodId;
+    final catChanged = widget.initialCategoryId != oldWidget.initialCategoryId;
+    final groupChanged = widget.initialCategoryGroupId != oldWidget.initialCategoryGroupId;
+    if (pmChanged || catChanged || groupChanged) {
+      setState(() {
+        _filterState = _filterState.copyWith(
+          paymentMethodIds: widget.initialPaymentMethodId != null
+              ? {widget.initialPaymentMethodId!}
+              : const {},
+          paymentMethodName: widget.initialPaymentMethodName,
+          categoryIds: widget.initialCategoryId != null
+              ? {widget.initialCategoryId!}
+              : const {},
+          categoryName: widget.initialCategoryName,
+          categoryGroupIds: widget.initialCategoryGroupId != null
+              ? {widget.initialCategoryGroupId!}
+              : const {},
+          // copyWith 의 clearCategory/clearPaymentMethod 는 nullable name 까지
+          // 클리어. 위 explicit 값 set 으로 동일 효과 (initialXxxId == null 시 빈 set).
+        );
+      });
+    }
+  }
+
   Future<void> _loadViewMode() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_kTxViewModePrefKey);
