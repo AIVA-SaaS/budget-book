@@ -17,7 +17,15 @@ class StatisticsPage extends StatelessWidget {
   /// Phase 25 Step 11 — 분석 탭 wrapper 에서는 false. 자체 진입(/statistics) 시 true.
   final bool showAppBar;
 
-  const StatisticsPage({super.key, this.showAppBar = true});
+  /// 회차 12 follow-up (2026-05-04) — 분석 탭 wrapper 가 부모 단일 MonthNavigator
+  /// 표시. 이 페이지의 자체 MonthNavigator hide.
+  final bool showMonthNavigator;
+
+  const StatisticsPage({
+    super.key,
+    this.showAppBar = true,
+    this.showMonthNavigator = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +62,8 @@ class StatisticsPage extends StatelessWidget {
             return Column(
               children: [
                 // Month navigator (hidden when date range is active)
-                if (!state.hasDateRange)
+                // 회차 12 follow-up — 분석 탭 wrapper 시 부모 단일 표시 (hide).
+                if (showMonthNavigator && !state.hasDateRange)
                   // MonthNavigator는 MonthCubit.state를 자동 watch
                   const MonthNavigator(),
                 // Date range indicator (shown when active)
