@@ -1158,41 +1158,47 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
           ),
           const SizedBox(height: 2),
-          Row(
-            children: [
-              if (settlement != null) ...[
+          // 회차 12 follow-up (2026-05-04) — 모바일에서 chip 3개 + trailing
+          // (Switch + PopupMenu) 가로 overflow 방지. Wrap 으로 좁은 화면 시
+          // 자동 줄바꿈.
+          if (settlement != null)
+            Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              children: [
                 _SubChip(
                     label: '전월',
                     value: prevAmount,
                     bg: Colors.grey.shade200,
                     fg: Colors.grey.shade800),
-                const SizedBox(width: 4),
                 _SubChip(
                     label: '미결제',
                     value: unpaidAmount,
                     bg: unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50,
                     fg: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
-                const SizedBox(width: 4),
                 _SubChip(
                     label: '이번달',
                     value: currAmount,
                     bg: Colors.blue.shade50,
                     fg: Colors.blue.shade800),
               ],
-            ],
-          ),
+            ),
         ],
       );
     } else {
       // 비-카드: 잔액 표시 (null 시 0원 fallback) + 기본 결제수단 뱃지
       final balance = method.balance ?? 0;
       final sign = balance >= 0 ? Colors.green.shade800 : Colors.red.shade800;
+      // 회차 12 follow-up — 모바일에서 잔액 + "기본" 라벨 overflow 방지.
       subtitle = Row(
         children: [
-          Text(
-            '잔액: ${CurrencyFormatter.formatWithSign(balance)}',
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700, color: sign),
+          Flexible(
+            child: Text(
+              '잔액: ${CurrencyFormatter.formatWithSign(balance)}',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: sign),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (method.isDefault) ...[
             const SizedBox(width: 8),
@@ -1250,13 +1256,20 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Switch(
-            value: method.isActive,
-            onChanged: (value) {
-              context.read<PaymentMethodBloc>().add(
-                    UpdatePaymentMethod(id: method.id, isActive: value),
-                  );
-            },
+          // 회차 12 follow-up (2026-05-04) — 모바일에서 Switch 가 trailing 공간
+          // 과도하게 차지하여 subtitle chip overflow 유발. visualDensity +
+          // materialTapTargetSize 로 컴팩트화.
+          Transform.scale(
+            scale: 0.85,
+            child: Switch(
+              value: method.isActive,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: (value) {
+                context.read<PaymentMethodBloc>().add(
+                      UpdatePaymentMethod(id: method.id, isActive: value),
+                    );
+              },
+            ),
           ),
           PopupMenuButton<String>(
             onSelected: (action) {
