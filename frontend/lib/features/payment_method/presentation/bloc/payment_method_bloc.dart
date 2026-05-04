@@ -25,12 +25,41 @@ class PaymentMethodBloc
     Emitter<PaymentMethodState> emit,
   ) async {
     try {
-      emit(const PaymentMethodLoading());
+      // 회차 12 follow-up (2026-05-04) — race 회귀 fix.
+      // 이전: 항상 PaymentMethodLoading emit → fetch → Loaded.
+      //   결과: 자산 탭 진입 시 기존 Loaded data 가 잠시 빈 상태 (Loading) 로
+      //   transition → _AssetSummaryHeader 가 SizedBox.shrink → "총자산 안 나옴"
+      //   + _PaymentMethodTab 도 빈 화면 ("결제수단이 없습니다" 처럼 보임).
+      // 신규: 기존 Loaded 가 있으면 그대로 keep, fetch 후 update. Loading 은 첫
+      //   진입 (Initial/Error 상태) 에서만 emit.
+      final currentLoaded =
+          state is PaymentMethodLoaded ? state as PaymentMethodLoaded : null;
+      if (currentLoaded == null) {
+        emit(const PaymentMethodLoading());
+      }
       final result = await paymentMethodRepository.getPaymentMethods();
       result.fold(
-        (failure) => emit(PaymentMethodError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            // 기존 data 보존 + 에러만 표시
+            emit(PaymentMethodLoaded(
+              currentLoaded.paymentMethods,
+              cardPendings: currentLoaded.cardPendings,
+              cardSettlementSummary: currentLoaded.cardSettlementSummary,
+              operationError: failure.message,
+            ));
+          } else {
+            emit(PaymentMethodError(failure.message));
+          }
+        },
         (methods) {
-          emit(PaymentMethodLoaded(methods));
+          emit(PaymentMethodLoaded(
+            methods,
+            // 기존 settlement summary / cardPendings 는 별도 event 로 갱신.
+            // 첫 fetch 가 아니면 보존하여 잠시 사라짐 회피.
+            cardPendings: currentLoaded?.cardPendings,
+            cardSettlementSummary: currentLoaded?.cardSettlementSummary,
+          ));
           // Auto-load card settlement summary if credit cards exist
           if (methods.any((pm) => pm.isCredit)) {
             final now = DateTime.now();
