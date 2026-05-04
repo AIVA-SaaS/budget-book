@@ -107,14 +107,15 @@ class AssetManagementPage extends StatelessWidget {
                 ],
               ),
             ),
-            // 회차 12 follow-up (2026-05-04) — 사용자 요구: 자산 금액
-            // (_AssetSummaryHeader) 와 사용 금액 (_CardSettlementHeader) 사이에
-            // 있던 MonthNavigator 를 페이지 최상단으로 이동.
+            // 회차 12 follow-up Phase 1 (2026-05-04) — MonthNavigator 최상단 이동.
+            // 회차 12 follow-up Phase 2 (2026-05-04) — 자산 금액 (총자산/부채/순자산)
+            // 과 사용 금액 (전월/미결제/이번달) 을 PageView 로 통합. 좌우 스와이프 +
+            // dot indicator 로 동일 영역에서 데이터 전환. 결제수단 탭 + credit 보유
+            // 시에만 2 page, 그외는 자산 1 page.
             body: const Column(
               children: [
                 MonthNavigator(),
-                _AssetSummaryHeader(),
-                _CardSettlementHeader(),
+                _AssetPagerHeader(),
                 Expanded(
                   child: TabBarView(
                     children: [
@@ -1588,6 +1589,172 @@ class _PaymentMethodListItem {
       _PaymentMethodListItem._(isHeader: false, paymentMethod: method, type: method.type);
 }
 
+/// 회차 12 follow-up Phase 2 (2026-05-04) — 자산 / 사용 금액 PageView 스와핑.
+///
+/// 결제수단 탭 (index 0) + credit card 보유 시: 2 page (자산 / 사용) PageView +
+/// dot indicator. 좌우 스와이프 또는 dot 클릭으로 전환.
+/// 그외 (다른 탭 또는 credit 미보유): 자산 1 page 만.
+class _AssetPagerHeader extends StatefulWidget {
+  const _AssetPagerHeader();
+
+  @override
+  State<_AssetPagerHeader> createState() => _AssetPagerHeaderState();
+}
+
+class _AssetPagerHeaderState extends State<_AssetPagerHeader> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabController = DefaultTabController.of(context);
+    return ListenableBuilder(
+      listenable: tabController,
+      builder: (context, _) {
+        return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
+          builder: (context, state) {
+            final isPaymentTab = tabController.index == 0;
+            final hasCredit = state is PaymentMethodLoaded &&
+                state.paymentMethods.any((pm) => pm.isCredit && pm.isActive);
+            final summary =
+                state is PaymentMethodLoaded ? state.cardSettlementSummary : null;
+            final showCardPage = isPaymentTab && hasCredit && summary != null;
+
+            if (!showCardPage) {
+              // 결제수단 탭 외 또는 credit 없음 → 자산 단일 표시 (PageView X).
+              return const _AssetSummaryHeader();
+            }
+
+            // 2 page PageView. 동일 height (Padding + Row of 3 cards).
+            return Column(
+              children: [
+                SizedBox(
+                  height: 96,
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (i) =>
+                        setState(() => _currentPage = i),
+                    children: [
+                      const _AssetSummaryHeader(),
+                      _CardSettlementCardsView(summary: summary),
+                    ],
+                  ),
+                ),
+                _PageDotIndicator(
+                  count: 2,
+                  current: _currentPage,
+                  onDotTap: (i) {
+                    _pageController.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PageDotIndicator extends StatelessWidget {
+  final int count;
+  final int current;
+  final ValueChanged<int> onDotTap;
+
+  const _PageDotIndicator({
+    required this.count,
+    required this.current,
+    required this.onDotTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(count, (i) {
+          final active = i == current;
+          return GestureDetector(
+            onTap: () => onDotTap(i),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 16 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+/// 회차 12 follow-up Phase 2 — _CardSettlementHeader cards 부분만 추출하여
+/// _AssetPagerHeader 의 page 2 로 사용.
+class _CardSettlementCardsView extends StatelessWidget {
+  final CardSettlementSummary summary;
+
+  const _CardSettlementCardsView({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SettlementCard(
+              label: '전월 사용',
+              amount: summary.previousMonth.totalAmount,
+              count: summary.previousMonth.cards.length,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SettlementCard(
+              label: '미결제',
+              amount: summary.unpaidMonth?.totalAmount ?? 0,
+              count: summary.unpaidMonth?.cards.length ?? 0,
+              color: (summary.unpaidMonth?.totalAmount ?? 0) > 0
+                  ? theme.colorScheme.error
+                  : Colors.green.shade700,
+              highlight: (summary.unpaidMonth?.totalAmount ?? 0) > 0,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SettlementCard(
+              label: '이번달 사용',
+              amount: summary.currentMonth.totalAmount,
+              count: summary.currentMonth.cards.length,
+              color: Colors.blue.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Phase 25 Step 3 — 자산 탭 상단 총자산 / 부채 / 순자산 3카드.
 /// 데이터 출처:
 ///   - 총자산: CASH / DEBIT / BANK 의 balance 합계 (null 은 0 처리)
@@ -1657,84 +1824,8 @@ class _AssetSummaryHeader extends StatelessWidget {
   }
 }
 
-/// Phase 25 Step 5 — MonthNavigator + 3열 카드 summary (전월/미결제/이번달).
-/// 결제수단 탭(index 1) 선택 + credit 카드 보유 시에만 렌더.
-/// v1.0 payment_method_page.dart:131-161, 351-440 에서 이식.
-class _CardSettlementHeader extends StatelessWidget {
-  const _CardSettlementHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = DefaultTabController.of(context);
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        // 사용자 요청 순서 변경: 결제수단 탭이 index 0
-        if (controller.index != 0) return const SizedBox.shrink();
-
-        return BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
-          builder: (context, state) {
-            if (state is! PaymentMethodLoaded) {
-              return const SizedBox.shrink();
-            }
-            final hasCredit =
-                state.paymentMethods.any((pm) => pm.isCredit && pm.isActive);
-            if (!hasCredit) return const SizedBox.shrink();
-
-            final summary = state.cardSettlementSummary;
-            // 회차 12 follow-up — MonthNavigator 는 부모 (자산 페이지 최상단)
-            // 가 단일 표시. 여기서는 cards 만.
-            if (summary == null) {
-              return const SizedBox.shrink();
-            }
-
-            final theme = Theme.of(context);
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _SettlementCard(
-                          label: '전월 사용',
-                          amount: summary.previousMonth.totalAmount,
-                          count: summary.previousMonth.cards.length,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _SettlementCard(
-                          label: '미결제',
-                          amount: summary.unpaidMonth?.totalAmount ?? 0,
-                          count: summary.unpaidMonth?.cards.length ?? 0,
-                          color: (summary.unpaidMonth?.totalAmount ?? 0) > 0
-                              ? theme.colorScheme.error
-                              : Colors.green.shade700,
-                          highlight: (summary.unpaidMonth?.totalAmount ?? 0) > 0,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _SettlementCard(
-                          label: '이번달 사용',
-                          amount: summary.currentMonth.totalAmount,
-                          count: summary.currentMonth.cards.length,
-                          color: Colors.blue.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
+// 회차 12 follow-up Phase 2 — 기존 _CardSettlementHeader 제거. 자산/사용 영역
+// PageView 통합 후 cards 부분은 _CardSettlementCardsView 로 분리됨.
 
 class _SettlementCard extends StatelessWidget {
   final String label;
