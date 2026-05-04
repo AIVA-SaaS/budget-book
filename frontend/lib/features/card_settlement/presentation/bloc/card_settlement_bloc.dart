@@ -24,7 +24,10 @@ class CardSettlementBloc
     LoadSettlement event,
     Emitter<CardSettlementState> emit,
   ) async {
-    emit(const CardSettlementLoading());
+    // 회차 12 follow-up — race fix.
+    if (state is! CardSettlementLoaded) {
+      emit(const CardSettlementLoading());
+    }
 
     final result = await cardSettlementRepository.getSettlementTransactions(
       paymentMethodId: event.paymentMethodId,
@@ -33,7 +36,11 @@ class CardSettlementBloc
     );
 
     result.fold(
-      (failure) => emit(CardSettlementError(failure.message)),
+      (failure) {
+        if (state is! CardSettlementLoaded) {
+          emit(CardSettlementError(failure.message));
+        }
+      },
       (response) => emit(CardSettlementLoaded(
         transactions: response.transactions,
         selectedIds: response.transactions.map((t) => t.id).toSet(),

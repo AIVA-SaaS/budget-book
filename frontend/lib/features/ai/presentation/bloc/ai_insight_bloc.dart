@@ -16,7 +16,10 @@ class AiInsightBloc extends Bloc<AiInsightEvent, AiInsightState> {
     LoadInsights event,
     Emitter<AiInsightState> emit,
   ) async {
-    emit(const AiInsightLoading());
+    // 회차 12 follow-up — race fix.
+    if (state is! AiInsightLoaded) {
+      emit(const AiInsightLoading());
+    }
     try {
       final response = await remoteDataSource.getInsights(
         event.year,
@@ -27,7 +30,9 @@ class AiInsightBloc extends Bloc<AiInsightEvent, AiInsightState> {
         generatedAt: response.generatedAt,
       ));
     } catch (e) {
-      emit(const AiInsightError('인사이트를 불러올 수 없습니다'));
+      if (state is! AiInsightLoaded) {
+        emit(const AiInsightError('인사이트를 불러올 수 없습니다'));
+      }
     }
   }
 

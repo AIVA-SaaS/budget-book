@@ -46,7 +46,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     Emitter<DashboardState> emit,
   ) async {
     try {
-      emit(const DashboardLoading());
+      // 회차 12 follow-up — race fix. 기존 Loaded 가 있으면 Loading skip.
+      if (state is! DashboardLoaded) {
+        emit(const DashboardLoading());
+      }
 
       // Load all data in parallel
       final futureResults = await Future.wait<dynamic>([

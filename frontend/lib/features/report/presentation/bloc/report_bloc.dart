@@ -31,12 +31,17 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
         event.week,
       );
       result.fold(
-        (failure) => emit(ReportError(failure.message)),
+        (failure) {
+          // 회차 12 follow-up — race fix. 기존 Loaded 가 있으면 덮지 않음.
+          if (state is! ReportLoaded) emit(ReportError(failure.message));
+        },
         (report) =>
             emit(ReportLoaded(weeklyReport: report, monthlyReport: currentMonthly)),
       );
     } catch (e) {
-      emit(const ReportError('예기치 않은 오류가 발생했습니다'));
+      if (state is! ReportLoaded) {
+        emit(const ReportError('예기치 않은 오류가 발생했습니다'));
+      }
     }
   }
 
@@ -59,12 +64,17 @@ class ReportBloc extends Bloc<ReportEvent, ReportState> {
         event.month,
       );
       result.fold(
-        (failure) => emit(ReportError(failure.message)),
+        (failure) {
+          // 회차 12 follow-up — race fix. 기존 Loaded 가 있으면 덮지 않음.
+          if (state is! ReportLoaded) emit(ReportError(failure.message));
+        },
         (report) =>
             emit(ReportLoaded(weeklyReport: currentWeekly, monthlyReport: report)),
       );
     } catch (e) {
-      emit(const ReportError('예기치 않은 오류가 발생했습니다'));
+      if (state is! ReportLoaded) {
+        emit(const ReportError('예기치 않은 오류가 발생했습니다'));
+      }
     }
   }
 }

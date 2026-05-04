@@ -441,10 +441,12 @@ void main() {
             {'pocketId': 'pocket-2', 'amount': 400000},
           ],
         )),
-        expect: () => [
-          const PocketLoading(),
-          PocketLoaded(tPockets),
-        ],
+        // 회차 12 follow-up — 이미 Loaded 면 reload 시 Loading 안 emit.
+        // mock 동일 list 반환 → distinct 로 emit skip. verify 로 호출 확인.
+        expect: () => [],
+        verify: (_) {
+          verify(mockRepository.getPockets()).called(1);
+        },
       );
 
       blocTest<PocketBloc, PocketState>(

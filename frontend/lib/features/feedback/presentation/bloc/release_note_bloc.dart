@@ -22,14 +22,23 @@ class ReleaseNoteBloc extends Bloc<ReleaseNoteEvent, ReleaseNoteState> {
     Emitter<ReleaseNoteState> emit,
   ) async {
     try {
-      emit(const ReleaseNoteLoading());
+      // 회차 12 follow-up — race fix.
+      if (state is! ReleaseNoteLoaded) {
+        emit(const ReleaseNoteLoading());
+      }
       final result = await feedbackRepository.getReleaseNotes();
       result.fold(
-        (failure) => emit(ReleaseNoteError(failure.message)),
+        (failure) {
+          if (state is! ReleaseNoteLoaded) {
+            emit(ReleaseNoteError(failure.message));
+          }
+        },
         (notes) => emit(ReleaseNoteLoaded(releaseNotes: notes)),
       );
     } catch (e) {
-      emit(const ReleaseNoteError('예기치 않은 오류가 발생했습니다'));
+      if (state is! ReleaseNoteLoaded) {
+        emit(const ReleaseNoteError('예기치 않은 오류가 발생했습니다'));
+      }
     }
   }
 

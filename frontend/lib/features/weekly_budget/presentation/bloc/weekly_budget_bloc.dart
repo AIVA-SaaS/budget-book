@@ -17,16 +17,31 @@ class WeeklyBudgetBloc extends Bloc<WeeklyBudgetEvent, WeeklyBudgetState> {
     Emitter<WeeklyBudgetState> emit,
   ) async {
     try {
-      final previousCurrentWeek = state is WeeklyBudgetLoaded
-          ? (state as WeeklyBudgetLoaded).currentWeek
+      // 회차 12 follow-up — race fix. 기존 Loaded 가 있으면 Loading 단계 skip.
+      final previousLoaded = state is WeeklyBudgetLoaded
+          ? state as WeeklyBudgetLoaded
           : null;
-      emit(const WeeklyBudgetLoading());
+      final previousCurrentWeek = previousLoaded?.currentWeek;
+      if (previousLoaded == null) {
+        emit(const WeeklyBudgetLoading());
+      }
       final result = await weeklyBudgetRepository.getWeeklyOverview(
         event.year,
         event.month,
       );
       result.fold(
-        (failure) => emit(WeeklyBudgetError(failure.message)),
+        (failure) {
+          if (previousLoaded != null) {
+            emit(WeeklyBudgetLoaded(
+              overview: previousLoaded.overview,
+              currentWeek: previousCurrentWeek,
+              year: previousLoaded.year,
+              month: previousLoaded.month,
+            ));
+          } else {
+            emit(WeeklyBudgetError(failure.message));
+          }
+        },
         (overview) {
           emit(WeeklyBudgetLoaded(
             overview: overview,

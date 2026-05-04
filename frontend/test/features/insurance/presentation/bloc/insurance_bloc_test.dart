@@ -358,8 +358,8 @@ void main() {
           insuranceType: 'HEALTH',
           premiumAmount: 50000,
         )),
+        // 회차 12 follow-up — Loaded 상태에서 reload 시 Loading 안 emit.
         expect: () => [
-          const InsuranceLoading(),
           InsuranceLoaded(insurances: [...tInsurances, tNewInsurance]),
         ],
       );
