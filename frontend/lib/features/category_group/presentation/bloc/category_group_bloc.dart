@@ -22,10 +22,22 @@ class CategoryGroupBloc
     Emitter<CategoryGroupState> emit,
   ) async {
     try {
-      emit(const CategoryGroupLoading());
+      // 회차 12 follow-up — race fix (load 중 기존 data 보존).
+      final currentLoaded =
+          state is CategoryGroupLoaded ? state as CategoryGroupLoaded : null;
+      if (currentLoaded == null) {
+        emit(const CategoryGroupLoading());
+      }
       final result = await categoryGroupRepository.getCategoryGroups();
       result.fold(
-        (failure) => emit(CategoryGroupError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(CategoryGroupLoaded(currentLoaded.groups,
+                operationError: failure.message));
+          } else {
+            emit(CategoryGroupError(failure.message));
+          }
+        },
         (groups) => emit(CategoryGroupLoaded(groups)),
       );
     } catch (e) {

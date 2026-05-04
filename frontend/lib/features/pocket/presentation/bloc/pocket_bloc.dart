@@ -23,10 +23,22 @@ class PocketBloc extends Bloc<PocketEvent, PocketState> {
     Emitter<PocketState> emit,
   ) async {
     try {
-      emit(const PocketLoading());
+      // 회차 12 follow-up — race fix.
+      final currentLoaded =
+          state is PocketLoaded ? state as PocketLoaded : null;
+      if (currentLoaded == null) {
+        emit(const PocketLoading());
+      }
       final result = await pocketRepository.getPockets();
       result.fold(
-        (failure) => emit(PocketError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(PocketLoaded(currentLoaded.pockets,
+                operationError: failure.message));
+          } else {
+            emit(PocketError(failure.message));
+          }
+        },
         (pockets) => emit(PocketLoaded(pockets)),
       );
     } catch (e) {

@@ -30,14 +30,23 @@ class FeedbackBloc extends Bloc<FeedbackEvent, FeedbackState> {
     Emitter<FeedbackState> emit,
   ) async {
     try {
-      emit(const FeedbackLoading());
+      // 회차 12 follow-up — race fix.
+      if (state is! FeedbackLoaded) {
+        emit(const FeedbackLoading());
+      }
       final result = await feedbackRepository.getFeedbacks();
       result.fold(
-        (failure) => emit(FeedbackError(failure.message)),
+        (failure) {
+          if (state is! FeedbackLoaded) {
+            emit(FeedbackError(failure.message));
+          }
+        },
         (feedbacks) => emit(FeedbackLoaded(feedbacks: feedbacks)),
       );
     } catch (e) {
-      emit(const FeedbackError('예기치 않은 오류가 발생했습니다'));
+      if (state is! FeedbackLoaded) {
+        emit(const FeedbackError('예기치 않은 오류가 발생했습니다'));
+      }
     }
   }
 

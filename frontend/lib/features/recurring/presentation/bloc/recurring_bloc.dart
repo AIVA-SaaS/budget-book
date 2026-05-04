@@ -20,10 +20,22 @@ class RecurringBloc extends Bloc<RecurringEvent, RecurringState> {
     Emitter<RecurringState> emit,
   ) async {
     try {
-      emit(const RecurringLoading());
+      // 회차 12 follow-up — race fix.
+      final currentLoaded =
+          state is RecurringLoaded ? state as RecurringLoaded : null;
+      if (currentLoaded == null) {
+        emit(const RecurringLoading());
+      }
       final result = await recurringRepository.getRecurringTransactions();
       result.fold(
-        (failure) => emit(RecurringError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(RecurringLoaded(currentLoaded.transactions,
+                operationError: failure.message));
+          } else {
+            emit(RecurringError(failure.message));
+          }
+        },
         (transactions) => emit(RecurringLoaded(transactions)),
       );
     } catch (e) {

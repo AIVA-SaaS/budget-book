@@ -409,10 +409,13 @@ void main() {
           title: '새 버그',
           content: '내용',
         )),
-        expect: () => [
-          const FeedbackLoading(),
-          FeedbackLoaded(feedbacks: tFeedbacks),
-        ],
+        // 회차 12 follow-up — Loaded 상태에서 reload 시 Loading 안 emit.
+        // mock 이 동일 list 반환 → BLoC distinct (Equatable) 로 emit skip.
+        // 테스트 의도는 reload 호출 verify (verify 절).
+        expect: () => [],
+        verify: (_) {
+          verify(mockRepository.getFeedbacks()).called(1);
+        },
       );
 
       blocTest<FeedbackBloc, FeedbackState>(

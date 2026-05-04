@@ -185,10 +185,12 @@ void main() {
           title: '새 릴리즈',
           content: '내용',
         )),
-        expect: () => [
-          const ReleaseNoteLoading(),
-          ReleaseNoteLoaded(releaseNotes: tNotes),
-        ],
+        // 회차 12 follow-up — Loaded 상태에서 reload 시 Loading 안 emit.
+        // mock 이 동일 list 반환 → distinct 로 emit skip. verify 로 호출 확인.
+        expect: () => [],
+        verify: (_) {
+          verify(mockRepository.getReleaseNotes()).called(1);
+        },
       );
     });
 
@@ -204,10 +206,12 @@ void main() {
         },
         seed: () => ReleaseNoteLoaded(releaseNotes: tNotes),
         act: (bloc) => bloc.add(const PublishReleaseNote('r2')),
-        expect: () => [
-          const ReleaseNoteLoading(),
-          ReleaseNoteLoaded(releaseNotes: tNotes),
-        ],
+        // 회차 12 follow-up — Loaded 상태에서 reload 시 Loading 안 emit.
+        // mock 이 동일 list 반환 → distinct 로 emit skip. verify 로 호출 확인.
+        expect: () => [],
+        verify: (_) {
+          verify(mockRepository.getReleaseNotes()).called(1);
+        },
       );
     });
   });

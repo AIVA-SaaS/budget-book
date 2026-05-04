@@ -21,10 +21,24 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
     Emitter<CategoryState> emit,
   ) async {
     try {
-      emit(const CategoryLoading());
+      // 회차 12 follow-up (2026-05-04) — race 회귀 fix.
+      // 이미 Loaded 상태에서 reload 시 Loading 으로 잠시 transition →
+      // BlocBuilder 가 SizedBox.shrink / empty UI → 깜박임. 기존 data 보존.
+      final currentLoaded =
+          state is CategoryLoaded ? state as CategoryLoaded : null;
+      if (currentLoaded == null) {
+        emit(const CategoryLoading());
+      }
       final result = await categoryRepository.getCategories(type: event.type);
       result.fold(
-        (failure) => emit(CategoryError(failure.message)),
+        (failure) {
+          if (currentLoaded != null) {
+            emit(CategoryLoaded(currentLoaded.categories,
+                operationError: failure.message));
+          } else {
+            emit(CategoryError(failure.message));
+          }
+        },
         (categories) => emit(CategoryLoaded(categories)),
       );
     } catch (_) {
