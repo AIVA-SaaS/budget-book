@@ -197,8 +197,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Web (release, tree-shake)
-        run: flutter build web --release --dart-define=API_BASE_URL=https://aiva-bb.duckdns.org
+      - name: Build Web (release, no PWA SW)
+        # 회차 12 follow-up (2026-05-04) — PWA cache stale 회귀 fix.
+        # `--pwa-strategy=none`: Service Worker 등록 생략 → asset 매번 fetch
+        # (브라우저 자체 cache 활용). 새 빌드 즉시 반영.
+        # 회차 10 의 분석 탭 Icons.insights 추가가 옛 SW 캐시의 tree-shaken
+        # MaterialIcons font 에 codepoint 없어 빈 글리프 표시 회귀 → 영구 fix.
+        # Trade-off: offline 미지원. budget-book 는 인증 필요 앱이라 무관.
+        run: flutter build web --release --pwa-strategy=none --dart-define=API_BASE_URL=https://aiva-bb.duckdns.org
 
       - name: Setup SSH key
         run: |
