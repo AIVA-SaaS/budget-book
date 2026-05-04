@@ -107,8 +107,12 @@ class AssetManagementPage extends StatelessWidget {
                 ],
               ),
             ),
+            // 회차 12 follow-up (2026-05-04) — 사용자 요구: 자산 금액
+            // (_AssetSummaryHeader) 와 사용 금액 (_CardSettlementHeader) 사이에
+            // 있던 MonthNavigator 를 페이지 최상단으로 이동.
             body: const Column(
               children: [
+                MonthNavigator(),
                 _AssetSummaryHeader(),
                 _CardSettlementHeader(),
                 Expanded(
@@ -1678,17 +1682,15 @@ class _CardSettlementHeader extends StatelessWidget {
             if (!hasCredit) return const SizedBox.shrink();
 
             final summary = state.cardSettlementSummary;
+            // 회차 12 follow-up — MonthNavigator 는 부모 (자산 페이지 최상단)
+            // 가 단일 표시. 여기서는 cards 만.
             if (summary == null) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: MonthNavigator(),
-              );
+              return const SizedBox.shrink();
             }
 
             final theme = Theme.of(context);
             return Column(
               children: [
-                const MonthNavigator(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Row(
