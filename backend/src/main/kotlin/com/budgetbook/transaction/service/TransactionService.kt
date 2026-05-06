@@ -512,19 +512,20 @@ class TransactionService(
     /**
      * Phase 22 T11: type 별 amount 부호 검증.
      *
-     * - `EXPENSE` / `INCOME`: 양수만 허용 (> 0). DTO 의 `@Min(0)` 을 대체.
+     * - `EXPENSE` / `INCOME`: 0 이상 허용 (>= 0). V46 (DB 제약 완화) + 회차 1 (2026-05-06 follow-up)
+     *   에서 사용자 요청 "0원 거래 등록 허용" 반영. 음수만 거부.
      * - `ADJUSTMENT`: 부호 있는 증감값. 0 은 의미 없는 조정이므로 거부.
      *
-     * DB CHECK 제약(`ck_transactions_amount`, V54) 과 일치하며,
+     * DB CHECK 제약(`ck_transactions_amount`, V46/V54) 과 일치하며,
      * DTO 에서 일괄 `@Min(0)` 하는 대신 type 별로 정밀하게 검증한다.
      */
     private fun validateAmountForType(type: TransactionType, amount: Long) {
         when (type) {
             TransactionType.EXPENSE, TransactionType.INCOME -> {
-                if (amount <= 0) {
+                if (amount < 0) {
                     throw BusinessException(
                         "VALIDATION_ERROR",
-                        "${type.name} amount 는 0 보다 커야 합니다. (입력: $amount)"
+                        "${type.name} amount 는 0 이상이어야 합니다. (입력: $amount)"
                     )
                 }
             }
