@@ -31,7 +31,9 @@ data class CommonFilterParams(
     // 단수 `type` 과 병존 시 Service 계층에서 `transactionTypes` 우선 (FE `toQueryParams` 와 일치).
     // 빈/null = 필터 없음. 유효 값: EXPENSE / INCOME / ADJUSTMENT (TRANSFER 는 FE 의사-타입).
     val transactionTypes: List<String>? = null,
-    val status: String? = null
+    val status: String? = null,
+    // V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+    val needsReviewOnly: Boolean? = null
 ) {
     /**
      * Resolves effective date range from dateFrom/dateTo or year/month.

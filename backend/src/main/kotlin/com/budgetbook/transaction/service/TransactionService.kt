@@ -76,7 +76,9 @@ class TransactionService(
         pocketIds: List<UUID> = emptyList(),
         // Phase 22 T10: 다중 타입 필터. null/빈 리스트 = 필터 없음.
         // 단수 `type` 과 병존 시 `transactionTypes` 우선 (FE toQueryParams 와 일치).
-        transactionTypes: List<String>? = null
+        transactionTypes: List<String>? = null,
+        // V61 (2026-05-06) — true 면 needs_review=true 거래만.
+        needsReviewOnly: Boolean? = null
     ): PageResponse<TransactionResponse> {
         val couple = getActiveCouple(userId)
 
@@ -150,7 +152,8 @@ class TransactionService(
             effectiveTransactionTypes.isNotEmpty()
         val hasExtendedFilters = keyword != null || paymentMethodId != null ||
             pocketId != null || amountMin != null || amountMax != null ||
-            visibilityFilter != null || hasMultiFilters
+            visibilityFilter != null || hasMultiFilters ||
+            needsReviewOnly == true
 
         val result = if (hasExtendedFilters) {
             // 단수 categoryId 는 Set 에 이미 합쳐졌으므로 Spec 에는 Set 만 전달 (중복 조건 방지).
@@ -176,7 +179,8 @@ class TransactionService(
                 categoryIds = effectiveCategoryIds,
                 paymentMethodIds = effectivePaymentMethodIds,
                 pocketIds = effectivePocketIds,
-                types = effectiveTransactionTypes
+                types = effectiveTransactionTypes,
+                needsReviewOnly = needsReviewOnly
             )
             transactionRepository.findAll(spec, pageable)
         } else {
@@ -260,7 +264,8 @@ class TransactionService(
             settlementDate = settlementDate,
             pocket = pocket,
             visibility = effectiveVisibility,
-            owner = if (effectiveVisibility == Visibility.PRIVATE) user else null
+            owner = if (effectiveVisibility == Visibility.PRIVATE) user else null,
+            needsReview = request.needsReview
         )
 
         val saved = transactionRepository.save(transaction)
@@ -303,6 +308,8 @@ class TransactionService(
         request.description?.let { transaction.description = it }
         request.transactionDate?.let { transaction.transactionDate = it }
         request.memo?.let { transaction.memo = it.value }
+        // V61 (2026-05-06) — null 이면 미변경, true/false 면 명시적 토글
+        request.needsReview?.let { transaction.needsReview = it }
 
         // Handle categoryId with PatchValue (before visibility, as category may force PRIVATE)
         request.categoryId?.let { patchValue ->
@@ -583,6 +590,7 @@ class TransactionService(
         pocketName = pocket?.name,
         visibility = visibility.name,
         ownerId = owner?.id,
+        needsReview = needsReview,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

@@ -119,6 +119,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool _isSubmitting = false;
   bool _continueMode = false;
   bool _keepSameItems = false;
+  /// V61 (2026-05-06) — 사용자가 "확인/입력 필요" 로 마킹한 거래 여부.
+  bool _needsReview = false;
   String? _categoryError;
   String? _paymentMethodError;
 
@@ -226,6 +228,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _selectedCategoryDisplayName = src.category?.displayName;
     _selectedPaymentMethodId = src.paymentMethodId;
     _selectedPocketId = src.pocketId;
+    _needsReview = src.needsReview;
     // 회차 4 — ADJUSTMENT 거래 prefill: sentinel 카테고리 + 부호로 방향 추정.
     if (src.type == 'ADJUSTMENT') {
       _selectedCategoryId = kAdjustmentSentinel;
@@ -784,18 +787,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Memo
+                  // V61 (2026-05-06) — 메모 카드 + needs_review 토글.
+                  // 이전: prefixIcon 있는 좌측정렬 단행 입력 + maxLines:2.
+                  // 변경: 카드 컨테이너 안에 [멀티라인 가운데정렬 메모] + [확인/입력 필요 토글].
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(6),
-                    child: TextFormField(
-                      controller: _memoController,
-                      decoration: const InputDecoration(
-                        labelText: '메모 (선택)',
-                        hintText: '추가 메모',
-                        prefixIcon: Icon(Icons.note),
-                      ),
-                      maxLines: 2,
-                    ),
+                    child: _buildMemoCard(context),
                   ),
                   const SizedBox(height: 24),
                   // Continue mode options (new transactions only)
@@ -1152,6 +1149,104 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// V61 (2026-05-06) — 메모 + needs_review 통합 카드.
+  ///
+  /// 사용자 요청 (2026-05-06):
+  ///   - 메모를 가운데 정렬 + 여러 줄 입력 가능
+  ///   - 메모 영역에 "확인/입력 필요" 토글 (느낌표 표시 활성화)
+  Widget _buildMemoCard(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.note_outlined,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '메모',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: TextFormField(
+              controller: _memoController,
+              minLines: 3,
+              maxLines: 6,
+              textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
+              decoration: const InputDecoration(
+                hintText: '추가 메모 (여러 줄 입력 가능)',
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+          SwitchListTile(
+            value: _needsReview,
+            onChanged: (v) => setState(() => _needsReview = v),
+            dense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            title: Row(
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade700,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('확인/입력 필요로 표시'),
+              ],
+            ),
+            subtitle: const Text(
+              '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1836,6 +1931,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       _amountHint = '';
       _descriptionController.clear();
       _memoController.clear();
+      _needsReview = false;
       _suggestions = [];
       _aiResult = null;
       _aiLoading = false;
@@ -1924,6 +2020,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         clearMemo: memo == null,
         paymentMethodId: _selectedPaymentMethodId,
         pocketId: _selectedPocketId,
+        needsReview: _needsReview,
       ));
     } else {
       bloc.add(CreateTransaction(
@@ -1935,6 +2032,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         memo: memo,
         paymentMethodId: _selectedPaymentMethodId,
         pocketId: _selectedPocketId,
+        needsReview: _needsReview,
       ));
     }
   }

@@ -33,6 +33,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   String? _currentType;
   Set<String> _currentTransactionTypes = const {};
   String? _currentVisibility;
+  bool? _currentNeedsReviewOnly;
 
   /// 전체 필터 상태의 단일 스냅샷.
   /// MonthSyncHandler 등 외부 consumer 가 필드 drop 없이 전체 필터를 전파하도록
@@ -54,6 +55,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         type: _currentType,
         transactionTypes: _currentTransactionTypes,
         visibility: _currentVisibility,
+        needsReviewOnly: _currentNeedsReviewOnly,
       );
 
   int get currentYear => _currentYear;
@@ -93,6 +95,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _currentType = event.type;
       _currentTransactionTypes = event.transactionTypes;
       _currentVisibility = event.visibility;
+      _currentNeedsReviewOnly = event.needsReviewOnly;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());
@@ -120,6 +123,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         type: event.type,
         transactionTypes: event.transactionTypes,
         visibility: event.visibility,
+        needsReviewOnly: event.needsReviewOnly,
         page: 0,
         size: _pageSize,
       );
@@ -242,6 +246,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         type: _currentType,
         transactionTypes: _currentTransactionTypes,
         visibility: _currentVisibility,
+        needsReviewOnly: _currentNeedsReviewOnly,
         page: nextPage,
         size: _pageSize,
       );
@@ -315,6 +320,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         memo: event.memo,
         paymentMethodId: event.paymentMethodId,
         pocketId: event.pocketId,
+        needsReview: event.needsReview,
       );
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
@@ -337,6 +343,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               type: _currentType,
               transactionTypes: _currentTransactionTypes,
               visibility: _currentVisibility,
+              needsReviewOnly: _currentNeedsReviewOnly,
             )),
       );
     } catch (e) {
@@ -372,6 +379,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         clearMemo: event.clearMemo,
         paymentMethodId: event.paymentMethodId,
         pocketId: event.pocketId,
+        needsReview: event.needsReview,
       );
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
@@ -394,6 +402,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               type: _currentType,
               transactionTypes: _currentTransactionTypes,
               visibility: _currentVisibility,
+              needsReviewOnly: _currentNeedsReviewOnly,
             )),
       );
     } catch (e) {

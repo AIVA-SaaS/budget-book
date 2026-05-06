@@ -33,6 +33,7 @@ class MockTransactionRepository extends Mock
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   }) =>
@@ -55,6 +56,7 @@ class MockTransactionRepository extends Mock
           #dateFrom: dateFrom,
           #dateTo: dateTo,
           #visibility: visibility,
+          #needsReviewOnly: needsReviewOnly,
           #page: page,
           #size: size,
         }),
@@ -92,7 +94,7 @@ class MockTransactionRepository extends Mock
     String? memo,
     String? paymentMethodId,
     String? pocketId,
-    String visibility = 'SHARED',
+    bool needsReview = false,
   }) =>
       super.noSuchMethod(
         Invocation.method(#createTransaction, [], {
@@ -104,7 +106,7 @@ class MockTransactionRepository extends Mock
           #memo: memo,
           #paymentMethodId: paymentMethodId,
           #pocketId: pocketId,
-          #visibility: visibility,
+          #needsReview: needsReview,
         }),
         returnValue: Future.value(
           Right<Failure, Transaction>(_dummyTransaction),
@@ -122,6 +124,7 @@ class MockTransactionRepository extends Mock
     bool clearMemo = false,
     String? paymentMethodId,
     String? pocketId,
+    bool? needsReview,
   }) =>
       super.noSuchMethod(
         Invocation.method(#updateTransaction, [], {
@@ -134,6 +137,7 @@ class MockTransactionRepository extends Mock
           #clearMemo: clearMemo,
           #paymentMethodId: paymentMethodId,
           #pocketId: pocketId,
+          #needsReview: needsReview,
         }),
         returnValue: Future.value(
           Right<Failure, Transaction>(_dummyTransaction),

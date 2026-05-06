@@ -10,6 +10,7 @@ enum FilterType {
   transactionType,
   visibility,
   status,
+  needsReview,
 }
 
 class UnifiedFilterState extends Equatable {
@@ -32,6 +33,9 @@ class UnifiedFilterState extends Equatable {
   final String? visibility;
   final String? status;
 
+  /// V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+  final bool needsReviewOnly;
+
   const UnifiedFilterState({
     this.dateFrom,
     this.dateTo,
@@ -48,6 +52,7 @@ class UnifiedFilterState extends Equatable {
     this.transactionTypes = const {},
     this.visibility,
     this.status,
+    this.needsReviewOnly = false,
   });
 
   /// Legacy single-value accessor. Returns the first selected type, or null.
@@ -67,7 +72,8 @@ class UnifiedFilterState extends Equatable {
       (keyword != null && keyword!.isNotEmpty) ||
       transactionTypes.isNotEmpty ||
       (visibility != null && visibility != 'ALL') ||
-      status != null;
+      status != null ||
+      needsReviewOnly;
 
   bool get hasDateRange => dateFrom != null && dateTo != null;
 
@@ -87,6 +93,7 @@ class UnifiedFilterState extends Equatable {
     Set<String>? transactionTypes,
     String? visibility,
     String? status,
+    bool? needsReviewOnly,
     bool clearDateRange = false,
     bool clearCategory = false,
     bool clearPaymentMethod = false,
@@ -96,6 +103,7 @@ class UnifiedFilterState extends Equatable {
     bool clearTransactionType = false,
     bool clearVisibility = false,
     bool clearStatus = false,
+    bool clearNeedsReview = false,
   }) {
     return UnifiedFilterState(
       dateFrom: clearDateRange ? null : (dateFrom ?? this.dateFrom),
@@ -125,6 +133,9 @@ class UnifiedFilterState extends Equatable {
       visibility:
           clearVisibility ? null : (visibility ?? this.visibility),
       status: clearStatus ? null : (status ?? this.status),
+      needsReviewOnly: clearNeedsReview
+          ? false
+          : (needsReviewOnly ?? this.needsReviewOnly),
     );
   }
 
@@ -149,5 +160,6 @@ class UnifiedFilterState extends Equatable {
         transactionTypes,
         visibility,
         status,
+        needsReviewOnly,
       ];
 }

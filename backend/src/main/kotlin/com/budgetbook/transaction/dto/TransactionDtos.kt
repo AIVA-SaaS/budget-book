@@ -32,6 +32,8 @@ data class TransactionResponse(
     val pocketName: String? = null,
     val visibility: String = "SHARED",
     val ownerId: UUID? = null,
+    // V61 (2026-05-06) — 확인/입력 필요 플래그
+    val needsReview: Boolean = false,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -73,7 +75,10 @@ data class CreateTransactionRequest(
 
     val pocketId: UUID? = null,
 
-    val visibility: String? = "SHARED"
+    val visibility: String? = "SHARED",
+
+    // V61 (2026-05-06) — 확인/입력 필요 플래그. 미지정 시 false.
+    val needsReview: Boolean = false
 )
 
 data class UpdateTransactionRequest(
@@ -100,7 +105,10 @@ data class UpdateTransactionRequest(
     @JsonDeserialize(using = UUIDPatchValueDeserializer::class)
     val pocketId: PatchValue<UUID>? = null,
 
-    val visibility: String? = null
+    val visibility: String? = null,
+
+    // V61 (2026-05-06) — null 이면 미변경, true/false 면 토글.
+    val needsReview: Boolean? = null
 )
 
 data class PageResponse<T>(

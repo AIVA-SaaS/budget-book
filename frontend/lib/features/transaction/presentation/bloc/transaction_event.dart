@@ -26,6 +26,8 @@ class LoadTransactions extends TransactionEvent {
   final String? type;
   final Set<String> transactionTypes;
   final String? visibility;
+  /// V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+  final bool? needsReviewOnly;
 
   const LoadTransactions({
     required this.year,
@@ -46,6 +48,7 @@ class LoadTransactions extends TransactionEvent {
     this.type,
     this.transactionTypes = const {},
     this.visibility,
+    this.needsReviewOnly,
   });
 
   @override
@@ -68,6 +71,7 @@ class LoadTransactions extends TransactionEvent {
         type,
         transactionTypes,
         visibility,
+        needsReviewOnly,
       ];
 }
 
@@ -80,6 +84,8 @@ class CreateTransaction extends TransactionEvent {
   final String? memo;
   final String? paymentMethodId;
   final String? pocketId;
+  /// V61 (2026-05-06) — 확인/입력 필요 플래그.
+  final bool needsReview;
 
   const CreateTransaction({
     required this.type,
@@ -90,11 +96,12 @@ class CreateTransaction extends TransactionEvent {
     this.memo,
     this.paymentMethodId,
     this.pocketId,
+    this.needsReview = false,
   });
 
   @override
   List<Object?> get props =>
-      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId, pocketId];
+      [type, amount, description, categoryId, transactionDate, memo, paymentMethodId, pocketId, needsReview];
 }
 
 class UpdateTransaction extends TransactionEvent {
@@ -107,6 +114,8 @@ class UpdateTransaction extends TransactionEvent {
   final bool clearMemo;
   final String? paymentMethodId;
   final String? pocketId;
+  /// V61 (2026-05-06) — null 이면 미변경, true/false 면 토글.
+  final bool? needsReview;
 
   const UpdateTransaction({
     required this.id,
@@ -118,11 +127,12 @@ class UpdateTransaction extends TransactionEvent {
     this.clearMemo = false,
     this.paymentMethodId,
     this.pocketId,
+    this.needsReview,
   });
 
   @override
   List<Object?> get props =>
-      [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId];
+      [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId, needsReview];
 }
 
 class LoadMoreTransactions extends TransactionEvent {
