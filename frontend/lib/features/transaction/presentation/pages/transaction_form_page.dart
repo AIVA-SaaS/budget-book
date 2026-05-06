@@ -538,7 +538,21 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             // Without this guard, any TransactionLoaded change (e.g., LoadMore
             // from the list page behind) would trigger premature navigation.
             if (!_isSubmitting) return;
-            if (state is TransactionLoaded) {
+            // 회차 1 follow-up (2026-05-06) — TransactionLoaded(operationError)
+            // 케이스를 success 와 분리. 이전: BE 검증 실패 후 BLoC catch 가
+            // operationError 가진 TransactionLoaded 로 emit 했을 때 listener 가
+            // 그대로 navigate 했고, 일부 케이스에서는 _isSubmitting 이 풀리지
+            // 않아 무한 로딩. 이제 operationError 가 있으면 에러 경로로 처리.
+            if (state is TransactionLoaded && state.operationError != null) {
+              _submitTimeoutTimer?.cancel();
+              setState(() => _isSubmitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.operationError!),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else if (state is TransactionLoaded) {
               _submitTimeoutTimer?.cancel();
               _isSubmitting = false;
               // 회차 12 P2 Phase A — 거래 등록 후 dashboard reload 시 사용자가 보던
