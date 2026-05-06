@@ -243,65 +243,100 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
                 fontWeight: FontWeight.w600,
               )
             : null,
-        suffixIcon: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // V61 (2026-05-06) — 모바일 계산기 popup. 항상 노출 (PC 도 사용 가능).
-            IconButton(
-              icon: const Icon(Icons.calculate_outlined, size: 22),
-              tooltip: '계산기',
-              onPressed: _openCalculatorPopup,
-              visualDensity: VisualDensity.compact,
-            ),
-            if (widget.controller.text.isNotEmpty) ...[
-              if (_isExpressionMode)
-                IconButton(
-                  icon: Icon(
-                    Icons.check_circle,
-                    color: Theme.of(context).colorScheme.primary,
+        // 회차 1 follow-up (2026-05-06) — suffixIcon 영역 sizing fix.
+        // 이전: Row + IconButton(visualDensity.compact) 조합에서 calculator
+        // 아이콘이 collapse 되어 노출 안 됨. suffixIconConstraints 명시 + 단순
+        // GestureDetector + Padding 으로 재구성하여 항상 가시화.
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 0,
+          minHeight: 40,
+          maxHeight: 48,
+        ),
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // V61 (2026-05-06) — 모바일 계산기 popup. 항상 노출.
+              InkResponse(
+                onTap: _openCalculatorPopup,
+                radius: 20,
+                child: Tooltip(
+                  message: '계산기',
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.calculate_outlined,
+                      size: 22,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                  tooltip: '계산',
-                  onPressed: _evaluateAndReplace,
-                  visualDensity: VisualDensity.compact,
-                ),
-              GestureDetector(
-                onLongPress: () {
-                  widget.controller.clear();
-                },
-                child: IconButton(
-                  icon: const Icon(Icons.backspace_outlined, size: 20),
-                  tooltip: '지우기 (길게 누르면 전체 삭제)',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final text = widget.controller.text;
-                    if (text.isNotEmpty) {
-                      final newText = text.substring(0, text.length - 1);
-                      if (!_isExpressionMode) {
-                        final digits =
-                            newText.replaceAll(RegExp(r'[^\d]'), '');
-                        if (digits.isEmpty) {
-                          widget.controller.text = '';
-                        } else {
-                          final num = int.tryParse(digits);
-                          if (num != null) {
-                            final formatted = CurrencyFormatter.format(num);
-                            widget.controller.text = formatted;
-                            widget.controller.selection =
-                                TextSelection.collapsed(
-                                    offset: formatted.length);
-                          }
-                        }
-                      } else {
-                        widget.controller.text = newText;
-                        widget.controller.selection =
-                            TextSelection.collapsed(offset: newText.length);
-                      }
-                    }
-                  },
                 ),
               ),
+              if (widget.controller.text.isNotEmpty) ...[
+                if (_isExpressionMode)
+                  InkResponse(
+                    onTap: _evaluateAndReplace,
+                    radius: 20,
+                    child: Tooltip(
+                      message: '계산',
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.check_circle,
+                          size: 22,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                GestureDetector(
+                  onLongPress: () {
+                    widget.controller.clear();
+                  },
+                  child: InkResponse(
+                    onTap: () {
+                      final text = widget.controller.text;
+                      if (text.isNotEmpty) {
+                        final newText = text.substring(0, text.length - 1);
+                        if (!_isExpressionMode) {
+                          final digits =
+                              newText.replaceAll(RegExp(r'[^\d]'), '');
+                          if (digits.isEmpty) {
+                            widget.controller.text = '';
+                          } else {
+                            final num = int.tryParse(digits);
+                            if (num != null) {
+                              final formatted = CurrencyFormatter.format(num);
+                              widget.controller.text = formatted;
+                              widget.controller.selection =
+                                  TextSelection.collapsed(
+                                      offset: formatted.length);
+                            }
+                          }
+                        } else {
+                          widget.controller.text = newText;
+                          widget.controller.selection =
+                              TextSelection.collapsed(offset: newText.length);
+                        }
+                      }
+                    },
+                    radius: 20,
+                    child: Tooltip(
+                      message: '지우기 (길게 누르면 전체 삭제)',
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: const Icon(
+                          Icons.backspace_outlined,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       keyboardType: TextInputType.number,

@@ -995,17 +995,39 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("creating an INCOME with zero amount") {
+            // 회차 1 follow-up (2026-05-06) — V46 정책 일치: 0원 거래 허용.
+            // 이전 동작(거부)에서 변경된 정책. 사용자 요청: "0원 입력 가능해야 한다".
             val request = CreateTransactionRequest(
                 type = "INCOME", amount = 0, description = "0원 수입",
                 transactionDate = LocalDate.of(2024, 1, 15)
             )
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
 
-            Then("throws BusinessException with VALIDATION_ERROR") {
-                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
-                    service.createTransaction(user1.id, request)
-                }
-                ex.code shouldBe "VALIDATION_ERROR"
-                verify(exactly = 0) { transactionRepository.save(any()) }
+            val result = service.createTransaction(user1.id, request)
+
+            Then("creates the transaction with amount = 0") {
+                result.type shouldBe "INCOME"
+                result.amount shouldBe 0
+                txSlot.captured.amount shouldBe 0
+            }
+        }
+
+        When("creating an EXPENSE with zero amount") {
+            // 회차 1 follow-up (2026-05-06) — 0원 지출도 허용 (예: 무료 이벤트 기록).
+            val request = CreateTransactionRequest(
+                type = "EXPENSE", amount = 0, description = "0원 지출",
+                transactionDate = LocalDate.of(2024, 1, 15)
+            )
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.save(capture(txSlot)) } answers { txSlot.captured }
+
+            val result = service.createTransaction(user1.id, request)
+
+            Then("creates the transaction with amount = 0") {
+                result.type shouldBe "EXPENSE"
+                result.amount shouldBe 0
+                txSlot.captured.amount shouldBe 0
             }
         }
 
