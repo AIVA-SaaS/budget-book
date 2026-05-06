@@ -35,6 +35,10 @@ class TransactionFilter extends Equatable {
   final Set<String> transactionTypes;
   final String? visibility;
 
+  /// V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+  /// null/false 모두 미적용으로 처리.
+  final bool? needsReviewOnly;
+
   const TransactionFilter({
     this.keyword,
     this.categoryId,
@@ -51,6 +55,7 @@ class TransactionFilter extends Equatable {
     this.type,
     this.transactionTypes = const {},
     this.visibility,
+    this.needsReviewOnly,
   });
 
   /// 비어있는 필터 (기본값).
@@ -72,7 +77,8 @@ class TransactionFilter extends Equatable {
       dateTo != null ||
       type != null ||
       transactionTypes.isNotEmpty ||
-      visibility != null;
+      visibility != null ||
+      needsReviewOnly == true;
 
   TransactionFilter copyWith({
     String? keyword,
@@ -90,6 +96,7 @@ class TransactionFilter extends Equatable {
     String? type,
     Set<String>? transactionTypes,
     String? visibility,
+    bool? needsReviewOnly,
   }) {
     return TransactionFilter(
       keyword: keyword ?? this.keyword,
@@ -107,6 +114,7 @@ class TransactionFilter extends Equatable {
       type: type ?? this.type,
       transactionTypes: transactionTypes ?? this.transactionTypes,
       visibility: visibility ?? this.visibility,
+      needsReviewOnly: needsReviewOnly ?? this.needsReviewOnly,
     );
   }
 
@@ -127,6 +135,7 @@ class TransactionFilter extends Equatable {
         type,
         transactionTypes,
         visibility,
+        needsReviewOnly,
       ];
 }
 
@@ -184,6 +193,10 @@ extension TransactionFilterQueryParams on TransactionFilter {
     if (dateTo != null) params['dateTo'] = dateTo;
     if (visibility != null && visibility != 'ALL') {
       params['visibility'] = visibility;
+    }
+    // V61 (2026-05-06) — true 일 때만 전송 (false/null 모두 미적용).
+    if (needsReviewOnly == true) {
+      params['needsReviewOnly'] = true;
     }
     return params;
   }

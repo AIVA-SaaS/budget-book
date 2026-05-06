@@ -21,6 +21,7 @@ class TransactionModel extends Transaction {
     super.pocketName,
     super.visibility,
     super.ownerId,
+    super.needsReview,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -48,6 +49,7 @@ class TransactionModel extends Transaction {
       pocketName: json['pocketName'] as String?,
       visibility: json['visibility'] as String? ?? 'SHARED',
       ownerId: json['ownerId'] as String?,
+      needsReview: json['needsReview'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

@@ -22,6 +22,7 @@ abstract class TransactionRepository {
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   });
@@ -37,6 +38,7 @@ abstract class TransactionRepository {
     String? memo,
     String? paymentMethodId,
     String? pocketId,
+    bool needsReview = false,
   });
 
   Future<Either<Failure, Transaction>> updateTransaction({
@@ -49,6 +51,7 @@ abstract class TransactionRepository {
     bool clearMemo = false,
     String? paymentMethodId,
     String? pocketId,
+    bool? needsReview,
   });
 
   Future<Either<Failure, void>> deleteTransaction(String id);

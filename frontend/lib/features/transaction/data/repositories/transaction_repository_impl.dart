@@ -31,6 +31,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   }) async {
@@ -53,6 +54,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         dateFrom: dateFrom,
         dateTo: dateTo,
         visibility: visibility,
+        needsReviewOnly: needsReviewOnly,
         page: page,
         size: size,
       );
@@ -86,6 +88,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String? memo,
     String? paymentMethodId,
     String? pocketId,
+    bool needsReview = false,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -97,6 +100,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (memo != null) 'memo': memo,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
         if (pocketId != null) 'pocketId': pocketId,
+        // V61 (2026-05-06) — false 도 명시적으로 보낸다 (BE default 와 일치하지만 명확성).
+        'needsReview': needsReview,
       };
       final result = await remoteDataSource.createTransaction(data);
       return Right(result);
@@ -118,6 +123,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     bool clearMemo = false,
     String? paymentMethodId,
     String? pocketId,
+    bool? needsReview,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -128,6 +134,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         if (memo != null) 'memo': memo else if (clearMemo) 'memo': null,
         if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
         if (pocketId != null) 'pocketId': pocketId,
+        // V61 (2026-05-06) — null 이면 미변경, true/false 면 명시적 토글.
+        if (needsReview != null) 'needsReview': needsReview,
       };
       final result = await remoteDataSource.updateTransaction(id, data);
       return Right(result);

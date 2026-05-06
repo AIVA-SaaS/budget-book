@@ -76,7 +76,15 @@ class Transaction(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
-    var owner: User? = null
+    var owner: User? = null,
+
+    /**
+     * 사용자가 "확인/입력 필요" 로 마킹한 거래 여부.
+     * V61 (2026-05-06) — 메모만으로는 부족한 follow-up 항목을 별도 플래그로 빠르게 식별.
+     * 통계/예산 합계 계산에는 영향 없음 (단순 디스플레이 + 필터링용).
+     */
+    @Column(name = "needs_review", nullable = false)
+    var needsReview: Boolean = false
 ) : BaseTimeEntity()
 
 /**

@@ -204,6 +204,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
           dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
           transactionTypes: _filterState.transactionTypes,
           visibility: _filterState.visibility,
+          needsReviewOnly:
+              _filterState.needsReviewOnly ? true : null,
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
@@ -467,6 +469,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
             FilterType.paymentMethod,
             FilterType.pocket,
             FilterType.amountRange,
+            FilterType.needsReview,
           },
           state: _filterState,
           onFilterChanged: _onFilterChanged,

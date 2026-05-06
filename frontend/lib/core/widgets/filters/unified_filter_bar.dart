@@ -53,6 +53,7 @@ class UnifiedFilterBar extends StatelessWidget {
     if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) count++;
     if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) count++;
     if (enabledFilters.contains(FilterType.dateRange) && state.hasDateRange) count++;
+    if (enabledFilters.contains(FilterType.needsReview) && state.needsReviewOnly) count++;
     return count;
   }
 
@@ -120,6 +121,13 @@ class UnifiedFilterBar extends StatelessWidget {
       chips.add(_ChipData(
         label: state.dateRangeLabel ?? '기간 설정됨',
         onRemove: () => onFilterChanged(state.copyWith(clearDateRange: true)),
+      ));
+    }
+    if (enabledFilters.contains(FilterType.needsReview) && state.needsReviewOnly) {
+      chips.add(_ChipData(
+        label: '확인 필요만',
+        onRemove: () =>
+            onFilterChanged(state.copyWith(clearNeedsReview: true)),
       ));
     }
     return chips;
@@ -202,7 +210,8 @@ class UnifiedFilterBar extends StatelessWidget {
       enabledFilters.contains(FilterType.pocket) ||
       enabledFilters.contains(FilterType.amountRange) ||
       enabledFilters.contains(FilterType.transactionType) ||
-      enabledFilters.contains(FilterType.visibility);
+      enabledFilters.contains(FilterType.visibility) ||
+      enabledFilters.contains(FilterType.needsReview);
 
   void _showAdvancedFilterSheet(BuildContext context) {
     final amountMinController = TextEditingController(
@@ -220,6 +229,7 @@ class UnifiedFilterBar extends StatelessWidget {
     // PR-C: Multi-select transaction types (EXPENSE/INCOME/TRANSFER).
     final Set<String> tempTransactionTypes = Set.of(state.transactionTypes);
     String? tempVisibility = state.visibility;
+    bool tempNeedsReviewOnly = state.needsReviewOnly;
     // 기간도 다른 필터와 동일하게 임시 상태로 보관 → "적용" 버튼 클릭 시 일괄 propagate.
     DateTime? tempDateFrom = state.dateFrom;
     DateTime? tempDateTo = state.dateTo;
@@ -430,6 +440,22 @@ class UnifiedFilterBar extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                         ],
+                        // V61 (2026-05-06) — 확인/입력 필요만 보기 토글
+                        if (enabledFilters
+                            .contains(FilterType.needsReview)) ...[
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('확인/입력 필요만 보기'),
+                            subtitle: const Text(
+                              '느낌표 표시한 거래만 표시합니다',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            value: tempNeedsReviewOnly,
+                            onChanged: (v) =>
+                                setSheetState(() => tempNeedsReviewOnly = v),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -445,6 +471,7 @@ class UnifiedFilterBar extends StatelessWidget {
                                     clearDateRange: true,
                                     clearTransactionType: true,
                                     clearVisibility: true,
+                                    clearNeedsReview: true,
                                   ));
                                 },
                                 child: const Text('초기화'),
@@ -486,6 +513,7 @@ class UnifiedFilterBar extends StatelessWidget {
                                     transactionTypes: tempTransactionTypes,
                                     visibility: tempVisibility,
                                     status: state.status,
+                                    needsReviewOnly: tempNeedsReviewOnly,
                                   ));
                                 },
                                 child: const Text('적용'),
