@@ -68,7 +68,9 @@ class TransactionController(
             paymentMethodIds = filter.paymentMethodIds,
             pocketIds = filter.pocketIds,
             // Phase 22 T10: 다중 타입 필터. `transactionTypes=EXPENSE&transactionTypes=INCOME`.
-            transactionTypes = filter.transactionTypes
+            transactionTypes = filter.transactionTypes,
+            // V61 (2026-05-06) — 확인/입력 필요만 보기.
+            needsReviewOnly = filter.needsReviewOnly
         ))
     }
 

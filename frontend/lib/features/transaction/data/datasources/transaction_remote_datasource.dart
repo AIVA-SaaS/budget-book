@@ -24,6 +24,7 @@ abstract class TransactionRemoteDataSource {
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   });
@@ -59,6 +60,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   }) async {
@@ -81,6 +83,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       type: type,
       transactionTypes: transactionTypes,
       visibility: visibility,
+      needsReviewOnly: needsReviewOnly,
     );
     final queryParams = <String, dynamic>{
       'page': page,

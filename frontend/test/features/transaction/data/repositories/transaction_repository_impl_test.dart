@@ -33,6 +33,7 @@ class MockTransactionRemoteDataSource extends Mock
     String? dateFrom,
     String? dateTo,
     String? visibility,
+    bool? needsReviewOnly,
     int page = 0,
     int size = 20,
   }) =>
@@ -55,6 +56,7 @@ class MockTransactionRemoteDataSource extends Mock
           #dateFrom: dateFrom,
           #dateTo: dateTo,
           #visibility: visibility,
+          #needsReviewOnly: needsReviewOnly,
           #page: page,
           #size: size,
         }),
@@ -263,6 +265,8 @@ void main() {
           'transactionDate': '2024-01-15',
           'categoryId': 'cat-1',
           'memo': '팀 점심',
+          // V61 (2026-05-06) — repo 가 항상 needsReview 포함하여 전송
+          'needsReview': false,
         };
         when(mockDataSource.createTransaction(expectedData))
             .thenAnswer((_) async => tTransactionModel);
@@ -286,6 +290,8 @@ void main() {
           'amount': 0,
           'description': '',
           'transactionDate': '2024-01-15',
+          // V61 (2026-05-06) — repo 가 항상 needsReview 포함하여 전송
+          'needsReview': false,
         };
         final dioException = DioException(
           requestOptions: RequestOptions(path: '/api/v1/transactions'),

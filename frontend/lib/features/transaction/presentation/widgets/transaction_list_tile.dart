@@ -110,6 +110,31 @@ class TransactionListTile extends StatelessWidget {
               ),
               const SizedBox(width: 4),
             ],
+            // V61 (2026-05-06) — needs_review 뱃지. 사용자가 "확인/입력 필요" 로 마킹한 거래.
+            if (transaction.needsReview) ...[
+              Tooltip(
+                message: '확인/입력 필요',
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade700,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             if (isAdjustment) ...[
               Container(
                 padding:

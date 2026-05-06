@@ -20,6 +20,8 @@ class Transaction extends Equatable {
   final String? pocketName;
   final String visibility;
   final String? ownerId;
+  /// V61 (2026-05-06) — 사용자가 "확인/입력 필요" 로 마킹한 거래.
+  final bool needsReview;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -41,6 +43,7 @@ class Transaction extends Equatable {
     this.pocketName,
     this.visibility = 'SHARED',
     this.ownerId,
+    this.needsReview = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -70,6 +73,7 @@ class Transaction extends Equatable {
         pocketName,
         visibility,
         ownerId,
+        needsReview,
         createdAt,
         updatedAt,
       ];

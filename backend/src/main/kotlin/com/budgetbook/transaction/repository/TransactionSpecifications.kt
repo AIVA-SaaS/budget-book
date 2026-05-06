@@ -34,7 +34,10 @@ object TransactionSpecifications {
         paymentMethodIds: Set<UUID> = emptySet(),
         pocketIds: Set<UUID> = emptySet(),
         // Phase 22 T10 다중 타입 필터. 단수 `type` 과 병존 시 호출자(Service) 에서 단수를 null 로 넘김.
-        types: Set<TransactionType> = emptySet()
+        types: Set<TransactionType> = emptySet(),
+        // V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+        // null/false 모두 미적용으로 처리 — "false 만 보기" 시나리오는 현재 요구 없음.
+        needsReviewOnly: Boolean? = null
     ): Specification<Transaction> {
         return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
@@ -84,6 +87,11 @@ object TransactionSpecifications {
 
             amountMax?.let {
                 predicates.add(cb.lessThanOrEqualTo(root.get("amount"), it))
+            }
+
+            // V61 — 확인/입력 필요만 보기. true 일 때만 조건 추가.
+            if (needsReviewOnly == true) {
+                predicates.add(cb.isTrue(root.get("needsReview")))
             }
 
             // Visibility 필터:
