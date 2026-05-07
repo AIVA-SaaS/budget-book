@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
@@ -78,6 +79,16 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   ) async {
     try {
       final previousState = state;
+      // [FilterMeasure 2026-05-07] LoadTransactions 진입 시점 — 직전 _currentXxx 와 event 비교.
+      // desync 가설 확정용. Phase 3 fix 후 제거.
+      debugPrint('[FilterMeasure] LoadTransactions ENTER '
+          'prev._currentPaymentMethodIds=$_currentPaymentMethodIds '
+          'event.paymentMethodIds=${event.paymentMethodIds} '
+          'prev._currentTransactionTypes=$_currentTransactionTypes '
+          'event.transactionTypes=${event.transactionTypes} '
+          'prev._currentCategoryIds=$_currentCategoryIds '
+          'event.categoryIds=${event.categoryIds} '
+          'event.year=${event.year} event.month=${event.month}');
       _currentYear = event.year;
       _currentMonth = event.month;
       _currentKeyword = event.keyword;
@@ -310,6 +321,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     CreateTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    // [FilterMeasure 2026-05-07] CreateTransaction 진입 — 등록되는 결제수단 ID 와
+    // 현재 BLoC 가 보존하는 필터 비교. 가설: _currentXxx 는 그대로 보존되어
+    // post-create LoadTransactions 가 stale 필터로 호출됨.
+    debugPrint('[FilterMeasure] CreateTransaction ENTER '
+        'event.paymentMethodId=${event.paymentMethodId} '
+        '_currentPaymentMethodIds=$_currentPaymentMethodIds '
+        '_currentTransactionTypes=$_currentTransactionTypes');
     try {
       final result = await transactionRepository.createTransaction(
         type: event.type,
