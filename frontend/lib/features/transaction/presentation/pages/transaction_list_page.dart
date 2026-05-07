@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -96,13 +96,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
   @override
   void initState() {
     super.initState();
-    // [FilterMeasure 2026-05-07] initState — page mount 시점 prop / _filterState 출력.
-    // GoRouter 가 State 재사용하면 이 로그가 다시 안 찍힘 → didUpdateWidget 만 fire.
-    debugPrint('[FilterMeasure] TxListPage.initState '
-        'widget.initialPaymentMethodId=${widget.initialPaymentMethodId} '
-        'widget.initialCategoryId=${widget.initialCategoryId} '
-        '_filterState.paymentMethodIds=${_filterState.paymentMethodIds} '
-        '_filterState.categoryIds=${_filterState.categoryIds}');
     if (widget.initialPaymentMethodId != null && _filterState.paymentMethodName == null) {
       final name = PaymentMethodFilter.resolveName(widget.initialPaymentMethodId!);
       if (name != null) {
@@ -128,14 +121,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final pmChanged = widget.initialPaymentMethodId != oldWidget.initialPaymentMethodId;
     final catChanged = widget.initialCategoryId != oldWidget.initialCategoryId;
     final groupChanged = widget.initialCategoryGroupId != oldWidget.initialCategoryGroupId;
-    // [FilterMeasure 2026-05-07] didUpdateWidget — prop change 감지 시 _filterState 만
-    // 갱신하고 BLoC reload 는 안 함. 이 로그로 desync window 의 시작 시점 포착.
-    final blocCurrent = context.read<TransactionBloc>().currentPaymentMethodIds;
-    debugPrint('[FilterMeasure] TxListPage.didUpdateWidget '
-        'pmChanged=$pmChanged old=${oldWidget.initialPaymentMethodId} new=${widget.initialPaymentMethodId} '
-        'catChanged=$catChanged groupChanged=$groupChanged '
-        '_filterState.paymentMethodIds(before)=${_filterState.paymentMethodIds} '
-        'BLoC._currentPaymentMethodIds=$blocCurrent');
     if (pmChanged || catChanged || groupChanged) {
       setState(() {
         _filterState = _filterState.copyWith(
@@ -154,6 +139,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
           // 클리어. 위 explicit 값 set 으로 동일 효과 (initialXxxId == null 시 빈 set).
         );
       });
+      // 회차 1 (2026-05-07) — _filterState 갱신과 동시에 BLoC reload 동기화.
+      // 회차 12 follow-up A 는 _filterState 만 reset 하고 BLoC.currentFilter 는
+      // 이전 값 유지 → 사용자 시나리오: 자산→카카오페이 클릭 후 거래탭 클릭 시
+      // /transactions (paymentMethodId 없는 path) 진입 → didUpdateWidget 가
+      // _filterState 빈 set 으로 reset (UI 는 "전체") 하지만 BLoC._currentPaymentMethodIds
+      // 는 카카오페이 그대로 → BE 호출 시 카카오페이로 필터 → 5건만 노출 (desync).
+      // _reloadWithFilters() 가 _filterState 의 새 값으로 LoadTransactions 발행 →
+      // BLoC._currentXxx 도 동시 갱신 → UI/결과 정합.
+      _reloadWithFilters();
     }
   }
 
@@ -269,15 +263,6 @@ class _TransactionListPageState extends State<TransactionListPage> {
         newState = newState.copyWith(paymentMethodName: name);
       }
     }
-    // [FilterMeasure 2026-05-07] 사용자 명시적 필터 변경 시점.
-    // 이전 _filterState 대비 newState delta + BLoC 의 현재 필터 같이 출력.
-    final blocPm = context.read<TransactionBloc>().currentPaymentMethodIds;
-    debugPrint('[FilterMeasure] TxListPage._onFilterChanged '
-        'old._filterState.paymentMethodIds=${_filterState.paymentMethodIds} '
-        'new.paymentMethodIds=${newState.paymentMethodIds} '
-        'BLoC._currentPaymentMethodIds(pre-reload)=$blocPm '
-        'old.transactionTypes=${_filterState.transactionTypes} '
-        'new.transactionTypes=${newState.transactionTypes}');
     setState(() => _filterState = newState);
     _reloadWithFilters();
   }
