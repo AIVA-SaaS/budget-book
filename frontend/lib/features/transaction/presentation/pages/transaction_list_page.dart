@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -96,6 +96,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
   @override
   void initState() {
     super.initState();
+    // [FilterMeasure 2026-05-07] initState — page mount 시점 prop / _filterState 출력.
+    // GoRouter 가 State 재사용하면 이 로그가 다시 안 찍힘 → didUpdateWidget 만 fire.
+    debugPrint('[FilterMeasure] TxListPage.initState '
+        'widget.initialPaymentMethodId=${widget.initialPaymentMethodId} '
+        'widget.initialCategoryId=${widget.initialCategoryId} '
+        '_filterState.paymentMethodIds=${_filterState.paymentMethodIds} '
+        '_filterState.categoryIds=${_filterState.categoryIds}');
     if (widget.initialPaymentMethodId != null && _filterState.paymentMethodName == null) {
       final name = PaymentMethodFilter.resolveName(widget.initialPaymentMethodId!);
       if (name != null) {
@@ -121,6 +128,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final pmChanged = widget.initialPaymentMethodId != oldWidget.initialPaymentMethodId;
     final catChanged = widget.initialCategoryId != oldWidget.initialCategoryId;
     final groupChanged = widget.initialCategoryGroupId != oldWidget.initialCategoryGroupId;
+    // [FilterMeasure 2026-05-07] didUpdateWidget — prop change 감지 시 _filterState 만
+    // 갱신하고 BLoC reload 는 안 함. 이 로그로 desync window 의 시작 시점 포착.
+    final blocCurrent = context.read<TransactionBloc>().currentPaymentMethodIds;
+    debugPrint('[FilterMeasure] TxListPage.didUpdateWidget '
+        'pmChanged=$pmChanged old=${oldWidget.initialPaymentMethodId} new=${widget.initialPaymentMethodId} '
+        'catChanged=$catChanged groupChanged=$groupChanged '
+        '_filterState.paymentMethodIds(before)=${_filterState.paymentMethodIds} '
+        'BLoC._currentPaymentMethodIds=$blocCurrent');
     if (pmChanged || catChanged || groupChanged) {
       setState(() {
         _filterState = _filterState.copyWith(
@@ -254,6 +269,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
         newState = newState.copyWith(paymentMethodName: name);
       }
     }
+    // [FilterMeasure 2026-05-07] 사용자 명시적 필터 변경 시점.
+    // 이전 _filterState 대비 newState delta + BLoC 의 현재 필터 같이 출력.
+    final blocPm = context.read<TransactionBloc>().currentPaymentMethodIds;
+    debugPrint('[FilterMeasure] TxListPage._onFilterChanged '
+        'old._filterState.paymentMethodIds=${_filterState.paymentMethodIds} '
+        'new.paymentMethodIds=${newState.paymentMethodIds} '
+        'BLoC._currentPaymentMethodIds(pre-reload)=$blocPm '
+        'old.transactionTypes=${_filterState.transactionTypes} '
+        'new.transactionTypes=${newState.transactionTypes}');
     setState(() => _filterState = newState);
     _reloadWithFilters();
   }
