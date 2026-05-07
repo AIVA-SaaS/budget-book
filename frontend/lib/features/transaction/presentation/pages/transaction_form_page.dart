@@ -555,16 +555,6 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             } else if (state is TransactionLoaded) {
               _submitTimeoutTimer?.cancel();
               _isSubmitting = false;
-              // [FilterMeasure 2026-05-07] 거래 등록 성공 직후 — TransactionBloc 의
-              // currentFilter 와 form 에서 등록한 paymentMethodId 비교.
-              // 가설: 등록 후 BLoC._currentPaymentMethodIds 가 stale 한 채로
-              // _onCreateTransaction 핸들러가 자체 LoadTransactions 발행 → 잘못된 결과.
-              final txBloc = getIt<TransactionBloc>();
-              debugPrint('[FilterMeasure] TxFormPage.onSuccess '
-                  'BLoC._currentPaymentMethodIds=${txBloc.currentPaymentMethodIds} '
-                  'submitted.paymentMethodId=$_selectedPaymentMethodId '
-                  'state.year=${state.year} state.month=${state.month} '
-                  'state.totalElements=${state.totalElements}');
               // 회차 12 P2 Phase A — 거래 등록 후 dashboard reload 시 사용자가 보던
               // month 유지 (MonthCubit). 이전: now 강제로 다른 월 보던 사용자에게
               // 현재월 dashboard 가 표시되어 sync 깨짐.
