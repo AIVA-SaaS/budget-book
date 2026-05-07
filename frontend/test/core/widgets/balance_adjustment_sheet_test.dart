@@ -116,7 +116,7 @@ void main() {
       await openSheet(tester);
 
       // Enter 145,000
-      await tester.enterText(find.byType(TextFormField), '145000');
+      await tester.enterText(find.byType(TextFormField).first, '145000');
       await tester.pump();
 
       expect(find.textContaining('지출 거래 생성'), findsOneWidget);
@@ -127,7 +127,7 @@ void main() {
       await openSheet(tester);
 
       // Enter 155,000
-      await tester.enterText(find.byType(TextFormField), '155000');
+      await tester.enterText(find.byType(TextFormField).first, '155000');
       await tester.pump();
 
       expect(find.textContaining('수입 거래 생성'), findsOneWidget);
@@ -137,7 +137,7 @@ void main() {
       await tester.pumpWidget(buildSheet(currentBalance: 150000));
       await openSheet(tester);
 
-      await tester.enterText(find.byType(TextFormField), '150000');
+      await tester.enterText(find.byType(TextFormField).first, '150000');
       await tester.pump();
 
       expect(find.text('현재 잔액과 동일합니다'), findsOneWidget);
@@ -151,7 +151,7 @@ void main() {
       await tester.pumpWidget(buildSheet(currentBalance: 150000));
       await openSheet(tester);
 
-      await tester.enterText(find.byType(TextFormField), '145000');
+      await tester.enterText(find.byType(TextFormField).first, '145000');
       await tester.pump();
 
       // Tap submit
@@ -176,7 +176,7 @@ void main() {
       await tester.pumpWidget(buildSheet(currentBalance: 100000));
       await openSheet(tester);
 
-      await tester.enterText(find.byType(TextFormField), '105000');
+      await tester.enterText(find.byType(TextFormField).first, '105000');
       await tester.pump();
 
       await tester.tap(find.text('조정'));
@@ -187,6 +187,44 @@ void main() {
       final event = captured.first as CreateTransaction;
       expect(event.type, 'INCOME');
       expect(event.amount, 5000);
+    });
+
+    testWidgets('memo (when entered) flows into CreateTransaction.memo',
+        (tester) async {
+      // 회차 1 (2026-05-07) — Dialog 통합 시 메모 기능 이관 검증.
+      await tester.pumpWidget(buildSheet(currentBalance: 100000));
+      await openSheet(tester);
+
+      await tester.enterText(find.byType(TextFormField).first, '120000');
+      await tester.pump();
+
+      // memo field 는 두 번째 TextFormField (calculator amount field 다음).
+      await tester.enterText(find.byType(TextFormField).at(1), '월급 일부 누락');
+      await tester.pump();
+
+      await tester.tap(find.text('조정'));
+      await tester.pumpAndSettle();
+
+      final captured = verify(() => mockTransactionBloc.add(captureAny())).captured;
+      final event = captured.first as CreateTransaction;
+      expect(event.memo, '월급 일부 누락');
+    });
+
+    testWidgets('memo (empty) maps to null memo in CreateTransaction',
+        (tester) async {
+      await tester.pumpWidget(buildSheet(currentBalance: 100000));
+      await openSheet(tester);
+
+      await tester.enterText(find.byType(TextFormField).first, '110000');
+      await tester.pump();
+      // memo 입력 안 함
+
+      await tester.tap(find.text('조정'));
+      await tester.pumpAndSettle();
+
+      final captured = verify(() => mockTransactionBloc.add(captureAny())).captured;
+      final event = captured.first as CreateTransaction;
+      expect(event.memo, isNull);
     });
   });
 }
