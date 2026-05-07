@@ -59,6 +59,9 @@ enum _AdjustmentMode { recordAsTransaction, adjustOnly }
 class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  // 회차 1 (2026-05-07) — payment_method_page Dialog 통합 시 메모 기능 이관.
+  // 잔액만 조정 모드에서 사유 기록용. recordAsTransaction 모드에서도 옵션 메모.
+  final _memoController = TextEditingController();
   int? _actualBalance;
   bool _isSubmitting = false;
   _AdjustmentMode _mode = _AdjustmentMode.recordAsTransaction;
@@ -75,6 +78,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
   void dispose() {
     _amountController.removeListener(_onTextChanged);
     _amountController.dispose();
+    _memoController.dispose();
     super.dispose();
   }
 
@@ -108,12 +112,14 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
         amount = _diff;
     }
 
+    final memo = _memoController.text.trim();
     getIt<TransactionBloc>().add(CreateTransaction(
       type: type,
       amount: amount,
       description: '잔액 수정',
       transactionDate: dateStr,
       paymentMethodId: widget.paymentMethodId,
+      memo: memo.isEmpty ? null : memo,
     ));
 
     // Refresh related blocs
@@ -295,7 +301,21 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                   ],
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+
+            // Memo (optional) — Dialog 통합 시 이관된 메모 입력.
+            TextFormField(
+              controller: _memoController,
+              maxLines: 2,
+              maxLength: 200,
+              decoration: const InputDecoration(
+                labelText: '메모 (선택)',
+                hintText: '잔액 수정 사유',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
 
             // Submit button
             SizedBox(

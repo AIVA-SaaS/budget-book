@@ -8,7 +8,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/card_pending_summary.dart';
-import 'package:budget_book/features/payment_method/presentation/widgets/balance_adjustment_dialog.dart';
+import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
@@ -499,14 +499,15 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
   }
 
   void _showBalanceAdjustment(BuildContext context, PaymentMethod method) {
-    final bloc = context.read<PaymentMethodBloc>();
-    BalanceAdjustmentDialog.show(
+    // 회차 1 (2026-05-07) — Dialog → Sheet 통합. fan-out 표준화 (BalanceAdjustmentSheet
+    // 가 TransactionBloc + PaymentMethodBloc + DashboardBloc 모두 reload).
+    // 이전: Dialog 가 ApiClient 직접 호출 + onSuccess 에서 PaymentMethodBloc 만 reload
+    // → 자산/홈/거래탭 자동 반영 안 됨 (사용자 신고 이슈 A).
+    BalanceAdjustmentSheet.show(
       context,
-      paymentMethod: method,
-      onSuccess: () {
-        // Reload payment methods so the new balance reflects on the tile.
-        bloc.add(const LoadPaymentMethods());
-      },
+      paymentMethodId: method.id,
+      paymentMethodName: method.name,
+      currentBalance: method.balance ?? 0,
     );
   }
 
