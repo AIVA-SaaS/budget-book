@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
@@ -9,6 +10,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 
 /// Bottom sheet for adjusting a payment method's balance.
 ///
@@ -99,8 +101,6 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     // Mode 에 따라 type 과 amount 결정.
-    // - recordAsTransaction: 양수 차이 → INCOME, 음수 → EXPENSE, amount 는 절대값
-    // - adjustOnly: ADJUSTMENT, amount 는 부호 포함 (signed)
     final String type;
     final int amount;
     switch (_mode) {
@@ -113,6 +113,11 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
     }
 
     final memo = _memoController.text.trim();
+    // 회차 1 (2026-05-10) — Z2 race fix.
+    // 이전: POST CreateTransaction 과 GET LoadPaymentMethods 가 병렬 발사 + 시트
+    // 즉시 pop. GET 이 POST commit 전 도착 시 OLD balance 반환 → 화면 stale.
+    // 이제 CreateTransaction 만 dispatch + 시트는 BlocListener<TransactionBloc>
+    // 가 TransactionLoaded(success) 수신 후에 reload + pop 처리. 순차 보장.
     getIt<TransactionBloc>().add(CreateTransaction(
       type: type,
       amount: amount,
@@ -121,21 +126,49 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
       paymentMethodId: widget.paymentMethodId,
       memo: memo.isEmpty ? null : memo,
     ));
+  }
 
-    // Refresh related blocs
-    // 회차 12 P2 Phase A — dashboard reload 시 보던 month 유지 (MonthCubit).
-    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
-    final monthState = getIt<MonthCubit>().state;
-    getIt<DashboardBloc>().add(LoadDashboard(year: monthState.year, month: monthState.month));
-
-    Navigator.of(context).pop(true);
+  void _onTransactionState(BuildContext context, TransactionState state) {
+    if (!_isSubmitting) return;
+    if (state is TransactionLoaded && state.operationError != null) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.operationError!),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+    if (state is TransactionLoaded) {
+      // POST 가 commit 된 시점이 보장된 후에 reload 발사.
+      getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+      final monthState = getIt<MonthCubit>().state;
+      getIt<DashboardBloc>().add(
+          LoadDashboard(year: monthState.year, month: monthState.month));
+      _isSubmitting = false;
+      if (mounted) Navigator.of(context).pop(true);
+      return;
+    }
+    if (state is TransactionError) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    return BlocListener<TransactionBloc, TransactionState>(
+      bloc: getIt<TransactionBloc>(),
+      listener: _onTransactionState,
+      child: Padding(
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -324,12 +357,19 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 onPressed: _isSubmitting || _actualBalance == null || _diff == 0
                     ? null
                     : _submit,
-                child: const Text('조정'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('조정'),
               ),
             ),
           ],
         ),
       ),
+    ),
     );
   }
 

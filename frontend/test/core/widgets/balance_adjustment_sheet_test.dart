@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
@@ -147,7 +148,34 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
+    // 회차 1 (2026-05-10) — Z2 race fix.
+    // BlocListener<TransactionBloc> 가 TransactionLoaded 수신 후에만 다른 BLoC
+    // reload 를 발사한다. 테스트에서 StreamController 를 통해 _submit 호출
+    // **후** 에 emit 하여 실제 production race window 를 시뮬레이션.
+    TransactionLoaded loadedState() => const TransactionLoaded(
+          transactions: [],
+          year: 2026,
+          month: 1,
+          totalElements: 0,
+          hasMore: false,
+        );
+
+    /// helper — controlled stream + initial state.
+    /// emitLoaded() 를 호출하면 Loaded 가 stream 에 push 된다.
+    ({Stream<TransactionState> stream, void Function() emitLoaded}) setupTxStream() {
+      // ignore: close_sinks — managed in test teardown
+      final controller = StreamController<TransactionState>.broadcast();
+      addTearDown(controller.close);
+      return (
+        stream: controller.stream,
+        emitLoaded: () => controller.add(loadedState()),
+      );
+    }
+
     testWidgets('submits EXPENSE transaction when actual < current', (tester) async {
+      final tx = setupTxStream();
+      whenListen(mockTransactionBloc, tx.stream,
+          initialState: const TransactionInitial());
       await tester.pumpWidget(buildSheet(currentBalance: 150000));
       await openSheet(tester);
 
@@ -156,6 +184,9 @@ void main() {
 
       // Tap submit
       await tester.tap(find.text('조정'));
+      await tester.pump();
+      // BE 가 commit 한 후 emit (race 시 BE 응답 도착 시점).
+      tx.emitLoaded();
       await tester.pumpAndSettle();
 
       // Verify CreateTransaction was dispatched
@@ -167,12 +198,15 @@ void main() {
       expect(event.description, '잔액 수정');
       expect(event.paymentMethodId, 'pm-1');
 
-      // Verify blocs are refreshed
+      // Verify blocs are refreshed — only AFTER TransactionLoaded received.
       verify(() => mockPaymentMethodBloc.add(const LoadPaymentMethods())).called(1);
       verify(() => mockDashboardBloc.add(any(that: isA<LoadDashboard>()))).called(1);
     });
 
     testWidgets('submits INCOME transaction when actual > current', (tester) async {
+      final tx = setupTxStream();
+      whenListen(mockTransactionBloc, tx.stream,
+          initialState: const TransactionInitial());
       await tester.pumpWidget(buildSheet(currentBalance: 100000));
       await openSheet(tester);
 
@@ -180,6 +214,8 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.text('조정'));
+      await tester.pump();
+      tx.emitLoaded();
       await tester.pumpAndSettle();
 
       final captured = verify(() => mockTransactionBloc.add(captureAny())).captured;
@@ -191,7 +227,9 @@ void main() {
 
     testWidgets('memo (when entered) flows into CreateTransaction.memo',
         (tester) async {
-      // 회차 1 (2026-05-07) — Dialog 통합 시 메모 기능 이관 검증.
+      final tx = setupTxStream();
+      whenListen(mockTransactionBloc, tx.stream,
+          initialState: const TransactionInitial());
       await tester.pumpWidget(buildSheet(currentBalance: 100000));
       await openSheet(tester);
 
@@ -203,6 +241,8 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.text('조정'));
+      await tester.pump();
+      tx.emitLoaded();
       await tester.pumpAndSettle();
 
       final captured = verify(() => mockTransactionBloc.add(captureAny())).captured;
@@ -212,6 +252,9 @@ void main() {
 
     testWidgets('memo (empty) maps to null memo in CreateTransaction',
         (tester) async {
+      final tx = setupTxStream();
+      whenListen(mockTransactionBloc, tx.stream,
+          initialState: const TransactionInitial());
       await tester.pumpWidget(buildSheet(currentBalance: 100000));
       await openSheet(tester);
 
@@ -220,11 +263,42 @@ void main() {
       // memo 입력 안 함
 
       await tester.tap(find.text('조정'));
+      await tester.pump();
+      tx.emitLoaded();
       await tester.pumpAndSettle();
 
       final captured = verify(() => mockTransactionBloc.add(captureAny())).captured;
       final event = captured.first as CreateTransaction;
       expect(event.memo, isNull);
+    });
+
+    // 회차 1 (2026-05-10) — Z2 race fix 회귀 방지.
+    // CreateTransaction dispatch 직후 TransactionLoaded 가 emit 되기 전에는
+    // PaymentMethod/Dashboard reload 가 fire 되지 않아야 한다 (race 원인).
+    testWidgets('Z2 race: PaymentMethod/Dashboard reload only AFTER TransactionLoaded',
+        (tester) async {
+      // 의도적으로 Loaded 미emit — BLoC 가 처리 중인 시점을 시뮬레이션.
+      whenListen(
+        mockTransactionBloc,
+        const Stream<TransactionState>.empty(),
+        initialState: const TransactionInitial(),
+      );
+      await tester.pumpWidget(buildSheet(currentBalance: 100000));
+      await openSheet(tester);
+
+      await tester.enterText(find.byType(TextFormField).first, '120000');
+      await tester.pump();
+
+      await tester.tap(find.text('조정'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // CreateTransaction 은 dispatch 되어야 한다.
+      verify(() => mockTransactionBloc.add(any(that: isA<CreateTransaction>())))
+          .called(1);
+      // 하지만 PaymentMethod/Dashboard reload 는 아직 NOT 발생.
+      verifyNever(() => mockPaymentMethodBloc.add(const LoadPaymentMethods()));
+      verifyNever(
+          () => mockDashboardBloc.add(any(that: isA<LoadDashboard>())));
     });
   });
 }

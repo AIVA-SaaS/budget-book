@@ -16,6 +16,7 @@ import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
@@ -35,13 +36,30 @@ class MainShellPage extends StatefulWidget {
 }
 
 class _MainShellPageState extends State<MainShellPage> {
+  // 회차 1 (2026-05-10) — defect A fix.
+  // 이전: `int _previousIndex = 0;` 가 _onDestinationSelected 내부에서만
+  // 갱신 → context.go (asset card → /transactions) 같은 cross-branch 진입
+  // 시에는 미갱신 → 다음 BottomNav 거래 탭 시 stale previousIndex 와 비교 →
+  // `index != previousIndex` 분기 진입 → 불필요한 stale LoadTransactions 발사.
+  // navigationShell.currentIndex 가 cross-branch 도 포함한 실제 진입 추적자.
+  // didUpdateWidget 으로 동기화하여 항상 최신.
   int _previousIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _previousIndex = widget.navigationShell.currentIndex;
     _connectWebSocketIfAuthenticated();
     _preloadCommonData();
+  }
+
+  @override
+  void didUpdateWidget(covariant MainShellPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // cross-branch context.go 후 GoRouter 가 navigationShell 을 새 currentIndex
+    // 로 rebuild. _previousIndex 를 이 변경에 동기화하여 다음 BottomNav 탭 시
+    // 정확한 비교가 되도록.
+    _previousIndex = widget.navigationShell.currentIndex;
   }
 
   void _preloadCommonData() {
@@ -80,28 +98,41 @@ class _MainShellPageState extends State<MainShellPage> {
       final monthState = getIt<MonthCubit>().state;
       switch (index) {
         case 0:
-          // 회차 9 (2026-04-28) — 탭 전환 시 LoadTransactions 호출 시 currentFilter 보존.
-          // 이전 회귀: visibility 등 필터가 reset 되어 chip 표시는 유지되나 list 는 전체 노출.
+          // 회차 1 (2026-05-10) — defect A follow-up.
+          // 회차 9 (2026-04-28) 의 case 0 LoadTransactions 가 매 탭 전환마다
+          // 발사되어 router builder 의 dispatch 와 중복 / 충돌 — Network 측정
+          // 으로 동일 탭 진입 시 2~4 회 LoadTransactions 가 fired 됨을 확인.
+          // 회차 12 P2 Phase A 의 "BottomNav 탭 시 month reset 회귀" 만 보호:
+          // BLoC state 의 month 가 MonthCubit 의 month 와 다를 때만 reload.
+          // 그 외에는 case 0 가 reload 하지 않음 (router builder + didUpdateWidget
+          // 가 처리).
           final txnBloc = getIt<TransactionBloc>();
-          final f = txnBloc.currentFilter;
-          txnBloc.add(LoadTransactions(
-            year: monthState.year, month: monthState.month,
-            keyword: f.keyword,
-            categoryId: f.categoryId,
-            categoryIds: f.categoryIds,
-            categoryGroupIds: f.categoryGroupIds,
-            paymentMethodId: f.paymentMethodId,
-            paymentMethodIds: f.paymentMethodIds,
-            pocketId: f.pocketId,
-            pocketIds: f.pocketIds,
-            amountMin: f.amountMin,
-            amountMax: f.amountMax,
-            dateFrom: f.dateFrom,
-            dateTo: f.dateTo,
-            type: f.type,
-            transactionTypes: f.transactionTypes,
-            visibility: f.visibility,
-          ));
+          final txnState = txnBloc.state;
+          final blocMonthDiffers = txnState is TransactionLoaded &&
+              (txnState.year != monthState.year ||
+                  txnState.month != monthState.month);
+          if (blocMonthDiffers) {
+            final f = txnBloc.currentFilter;
+            txnBloc.add(LoadTransactions(
+              year: monthState.year,
+              month: monthState.month,
+              keyword: f.keyword,
+              categoryId: f.categoryId,
+              categoryIds: f.categoryIds,
+              categoryGroupIds: f.categoryGroupIds,
+              paymentMethodId: f.paymentMethodId,
+              paymentMethodIds: f.paymentMethodIds,
+              pocketId: f.pocketId,
+              pocketIds: f.pocketIds,
+              amountMin: f.amountMin,
+              amountMax: f.amountMax,
+              dateFrom: f.dateFrom,
+              dateTo: f.dateTo,
+              type: f.type,
+              transactionTypes: f.transactionTypes,
+              visibility: f.visibility,
+            ));
+          }
         // Tab 1 (Analysis) — wrapper 가 자체 BudgetBloc/StatisticsBloc 처리
         case 2:
           // Tab 2 (Assets) — refresh payment method data + card settlement summary

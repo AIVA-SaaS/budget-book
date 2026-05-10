@@ -27,6 +27,7 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
+import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
@@ -267,9 +268,76 @@ class _TransactionListPageState extends State<TransactionListPage> {
     _reloadWithFilters();
   }
 
+  /// 회차 1 (2026-05-10) — HARD GUARANTEE: 필터 UI ↔ BE 동기화.
+  ///
+  /// 사용자 명령: "필터 미적용되어있는데 거래 항목이 일부 보이는 문제는 절대
+  /// 있어선 안된다." → BlocListener 가 매 TransactionLoaded emit 시 _filterState
+  /// 를 BLoC.currentFilter (실제 BE 에 보낸 필터) 와 강제 동기화. 어떤 dispatch
+  /// 경로 (router builder, MainShell case 0, didUpdateWidget, form save reload)
+  /// 로 BLoC 가 reload 되어도, **emit 후에는 항상** UI 와 BE 가 동치.
+  ///
+  /// 이전 구조 (회차 12 follow-up A + PR #230): _filterState 와 BLoC._currentXxx
+  /// 가 **양분된 store** → 양쪽이 어긋날 가능성 잔존 → 3회 회귀. 본 sync 는
+  /// emit 시점 invariant 로 drift 자체를 self-heal.
+  void _syncFilterStateFromBloc() {
+    final bloc = context.read<TransactionBloc>();
+    // BLoC 의 singular + Set 두 필드를 합쳐서 UI Set 으로 정규화.
+    final pmIds = <String>{
+      if (bloc.currentPaymentMethodId != null) bloc.currentPaymentMethodId!,
+      ...bloc.currentPaymentMethodIds,
+    };
+    final catIds = <String>{
+      if (bloc.currentCategoryId != null) bloc.currentCategoryId!,
+      ...bloc.currentCategoryIds,
+    };
+
+    // 이름 보존 — BLoC 에는 ID 만 있고 사용자에게 보이는 이름은 UI 가 보유.
+    // Set 의 단일 원소가 바뀌면 이름 재해결, 그 외에는 이전 이름 유지.
+    String? pmName = _filterState.paymentMethodName;
+    if (pmIds.length == 1) {
+      final id = pmIds.first;
+      if (_filterState.paymentMethodIds.length != 1 ||
+          _filterState.paymentMethodIds.first != id) {
+        pmName = PaymentMethodFilter.resolveName(id);
+      }
+    } else {
+      pmName = null;
+    }
+    String? catName = _filterState.categoryName;
+    if (catIds.isEmpty) catName = null;
+
+    final synced = UnifiedFilterState(
+      dateFrom: _filterState.dateFrom,
+      dateTo: _filterState.dateTo,
+      dateRangeLabel: _filterState.dateRangeLabel,
+      categoryIds: catIds,
+      categoryGroupIds: bloc.currentCategoryGroupIds,
+      categoryName: catName,
+      paymentMethodIds: pmIds,
+      paymentMethodName: pmName,
+      pocketIds: bloc.currentPocketIds,
+      amountMin: _filterState.amountMin,
+      amountMax: _filterState.amountMax,
+      keyword: _filterState.keyword,
+      transactionTypes: _filterState.transactionTypes,
+      visibility: _filterState.visibility,
+      status: _filterState.status,
+      needsReviewOnly: _filterState.needsReviewOnly,
+    );
+
+    if (synced != _filterState) {
+      setState(() => _filterState = synced);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<TransactionBloc, TransactionState>(
+      // 매 Loaded emit 시 _filterState 를 BLoC 의 실제 적용 필터와 동기화.
+      // listenWhen 으로 Loaded 전후 비교 — Loading/Initial 시점에는 미실행.
+      listenWhen: (previous, current) => current is TransactionLoaded,
+      listener: (context, state) => _syncFilterStateFromBloc(),
+      child: Scaffold(
       appBar: AppBar(
         title: Builder(
           builder: (context) {
@@ -293,6 +361,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           },
         ),
         actions: [
+          _buildBalanceAdjustAction(context),
           IconButton(
             icon: const Icon(Icons.file_upload),
             tooltip: '가져오기',
@@ -341,6 +410,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
         },
       ),
       floatingActionButton: _buildFab(context),
+    ),
     );
   }
 
@@ -352,6 +422,36 @@ class _TransactionListPageState extends State<TransactionListPage> {
       return pmState.paymentMethods.any((pm) => pm.id == pmId && pm.isCredit);
     }
     return false;
+  }
+
+  /// 회차 1 (2026-05-10) — 이슈 Z1: 거래 탭에서 잔액 수정 진입점 추가.
+  /// 단일 BANK 결제수단 필터 활성 시에만 노출.
+  Widget _buildBalanceAdjustAction(BuildContext context) {
+    if (_filterState.paymentMethodIds.length != 1) {
+      return const SizedBox.shrink();
+    }
+    final pmId = _filterState.paymentMethodIds.first;
+    final pmState = getIt<PaymentMethodBloc>().state;
+    if (pmState is! PaymentMethodLoaded) return const SizedBox.shrink();
+    final pm = pmState.paymentMethods
+        .where((p) => p.id == pmId)
+        .cast<dynamic>()
+        .firstOrNull;
+    if (pm == null) return const SizedBox.shrink();
+    final type = pm.type as String?;
+    if (type != 'BANK' && type != 'CASH' && type != 'DEBIT') {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      icon: const Icon(Icons.tune),
+      tooltip: '잔액 수정',
+      onPressed: () => BalanceAdjustmentSheet.show(
+        context,
+        paymentMethodId: pm.id as String,
+        paymentMethodName: pm.name as String,
+        currentBalance: (pm.balance as int?) ?? 0,
+      ),
+    );
   }
 
   Widget _buildFab(BuildContext context) {
