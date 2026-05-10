@@ -247,35 +247,73 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 // Phase 25 후속 — 예산/분석 에서 그룹 단위 필터 지원
                 final categoryGroupId = state.uri.queryParameters['categoryGroupId'];
 
-                // Reload when: explicit params provided, first load, or clearing a stale filter.
+                // 회차 1 (2026-05-10) — defect C fix.
+                // 이전: `paymentMethodId ?? f.paymentMethodId` 등 fallback 으로
+                // URL 에 없는 필터를 BLoC currentFilter 에서 carry. stale 감지
+                // (hasStaleFilter) 후에도 ?? 로 stale 재적용되어 router 자체가
+                // desync 의 한 원인이었음.
+                //
+                // 새 규칙: URL 에 있는 navigation 성 필터 (paymentMethodId,
+                // categoryId, categoryGroupId) 는 URL → BLoC 단방향. URL 에
+                // 없으면 명시적 null/empty 전달 (carry over 금지).
+                // 사용자가 dialog 로 설정한 컨텐트 필터 (visibility, keyword,
+                // dateRange, amountRange, transactionTypes) 는 currentFilter
+                // 에서 보존 (URL 에 안 박히므로 BLoC 가 유일 소스).
                 final bloc = getIt<TransactionBloc>();
                 final transferBloc = getIt<TransferBloc>();
-                final hasExplicitParams = yearParam != null || monthParam != null || paymentMethodId != null || categoryId != null || categoryGroupId != null;
-                // Detect stale category/payment filter: bloc was filtered but URL has no filter
+                final hasExplicitParams = yearParam != null ||
+                    monthParam != null ||
+                    paymentMethodId != null ||
+                    categoryId != null ||
+                    categoryGroupId != null;
+                // URL navigation filter 와 BLoC 의 현재 navigation filter 가
+                // 다른지 — UI/BE desync 방지를 위해 항상 동기화.
+                final urlPmDiffersFromBloc =
+                    bloc.currentPaymentMethodId != paymentMethodId ||
+                        (paymentMethodId == null &&
+                            bloc.currentPaymentMethodIds.isNotEmpty);
+                final urlCatDiffersFromBloc =
+                    bloc.currentCategoryId != categoryId ||
+                        (categoryId == null &&
+                            bloc.currentCategoryIds.isNotEmpty);
+                final urlGroupDiffersFromBloc = (categoryGroupId != null
+                        ? {categoryGroupId}
+                        : <String>{}) !=
+                    bloc.currentCategoryGroupIds;
                 final hasStaleFilter = !hasExplicitParams &&
                     bloc.state is TransactionLoaded &&
-                    (bloc.currentCategoryId != null || bloc.currentPaymentMethodId != paymentMethodId);
-                if (hasExplicitParams || bloc.state is TransactionInitial || hasStaleFilter) {
+                    (urlPmDiffersFromBloc ||
+                        urlCatDiffersFromBloc ||
+                        urlGroupDiffersFromBloc);
+                if (hasExplicitParams ||
+                    bloc.state is TransactionInitial ||
+                    hasStaleFilter) {
                   final now = DateTime.now();
-                  final loadedState = bloc.state is TransactionLoaded ? bloc.state as TransactionLoaded : null;
-                  final year = int.tryParse(yearParam ?? '') ?? loadedState?.year ?? now.year;
-                  final month = int.tryParse(monthParam ?? '') ?? loadedState?.month ?? now.month;
-                  // 회차 9 — URL explicit param 없는 필터 (visibility, keyword 등) 는
-                  // currentFilter 에서 보존. URL param 우선.
+                  final loadedState = bloc.state is TransactionLoaded
+                      ? bloc.state as TransactionLoaded
+                      : null;
+                  final year = int.tryParse(yearParam ?? '') ??
+                      loadedState?.year ??
+                      now.year;
+                  final month = int.tryParse(monthParam ?? '') ??
+                      loadedState?.month ??
+                      now.month;
                   final f = bloc.currentFilter;
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,
-                    categoryId: categoryId ?? f.categoryId,
-                    paymentMethodId: paymentMethodId ?? f.paymentMethodId,
+                    // Navigation 성 — URL 만 사용. 없으면 빈 값.
+                    categoryId: categoryId,
+                    paymentMethodId: paymentMethodId,
                     categoryGroupIds: categoryGroupId != null
                         ? {categoryGroupId}
-                        : f.categoryGroupIds,
+                        : const {},
+                    categoryIds: const {},
+                    paymentMethodIds: const {},
+                    pocketIds: const {},
+                    // Content 필터 — BLoC 보존 (URL 에 박히지 않음).
                     keyword: f.keyword,
-                    categoryIds: f.categoryIds,
-                    paymentMethodIds: f.paymentMethodIds,
                     pocketId: f.pocketId,
-                    pocketIds: f.pocketIds,
                     amountMin: f.amountMin,
                     amountMax: f.amountMax,
                     dateFrom: f.dateFrom,

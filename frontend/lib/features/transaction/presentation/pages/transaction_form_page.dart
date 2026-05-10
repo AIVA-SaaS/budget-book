@@ -1771,27 +1771,55 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   Widget _buildDatePicker(BuildContext context) {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    return InkWell(
-      onTap: () async {
-        final picked = await showCalendarPickerDialog(
-          context: context,
-          initialDate: _selectedDate,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030, 12, 31),
-        );
-        if (picked != null) {
-          setState(() {
-            _selectedDate = picked;
-          });
-        }
-      },
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: '날짜',
-          suffixIcon: Icon(Icons.calendar_today),
+    // 회차 1 (2026-05-10) — 이슈 Y: ±1일 버튼 추가.
+    // 날짜 양 옆 [−][+] 으로 한 손 사용 시 빠른 1일 증감.
+    // 가운데 텍스트 영역 탭은 기존 calendar picker 유지.
+    final firstDate = DateTime(2020);
+    final lastDate = DateTime(2030, 12, 31);
+    final canDec = _selectedDate.isAfter(firstDate);
+    final canInc = _selectedDate.isBefore(lastDate);
+    void shiftDays(int days) {
+      final next = _selectedDate.add(Duration(days: days));
+      if (next.isBefore(firstDate) || next.isAfter(lastDate)) return;
+      setState(() => _selectedDate = next);
+    }
+    return Row(
+      children: [
+        IconButton(
+          onPressed: canDec ? () => shiftDays(-1) : null,
+          icon: const Icon(Icons.remove),
+          tooltip: '이전 날짜',
+          visualDensity: VisualDensity.compact,
         ),
-        child: Text(formattedDate),
-      ),
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              final picked = await showCalendarPickerDialog(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: firstDate,
+                lastDate: lastDate,
+              );
+              if (picked != null) {
+                setState(() => _selectedDate = picked);
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: '날짜',
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(formattedDate),
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: canInc ? () => shiftDays(1) : null,
+          icon: const Icon(Icons.add),
+          tooltip: '다음 날짜',
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
     );
   }
 
