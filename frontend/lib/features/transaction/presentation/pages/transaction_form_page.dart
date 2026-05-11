@@ -1771,9 +1771,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   Widget _buildDatePicker(BuildContext context) {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    // 회차 1 (2026-05-10) — 이슈 Y: ±1일 버튼 추가.
-    // 날짜 양 옆 [−][+] 으로 한 손 사용 시 빠른 1일 증감.
-    // 가운데 텍스트 영역 탭은 기존 calendar picker 유지.
+    // 회차 1 (2026-05-10) 회차 2 — 이슈 Y: ±1일 버튼.
+    // 1차 구현 (Row[IconButton, Expanded(InkWell), IconButton]) 는 TabBarView
+    // swipe 중 지출 탭이 blank 되는 회귀를 유발 — InkWell+InputDecorator 가
+    // Expanded 안에서 트랜지션 중 layout 이상 가능성. 본 fix 는 InkWell +
+    // InputDecorator 의 원본 구조를 그대로 두고 ±1일 버튼을 **별도 sibling**
+    // Row 로 분리하여 결합 제거.
     final firstDate = DateTime(2020);
     final lastDate = DateTime(2030, 12, 31);
     final canDec = _selectedDate.isAfter(firstDate);
@@ -1783,41 +1786,56 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       if (next.isBefore(firstDate) || next.isAfter(lastDate)) return;
       setState(() => _selectedDate = next);
     }
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        IconButton(
-          onPressed: canDec ? () => shiftDays(-1) : null,
-          icon: const Icon(Icons.remove),
-          tooltip: '이전 날짜',
-          visualDensity: VisualDensity.compact,
-        ),
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              final picked = await showCalendarPickerDialog(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: firstDate,
-                lastDate: lastDate,
-              );
-              if (picked != null) {
-                setState(() => _selectedDate = picked);
-              }
-            },
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: '날짜',
-                suffixIcon: Icon(Icons.calendar_today),
-              ),
-              child: Text(formattedDate),
+        InkWell(
+          onTap: () async {
+            final picked = await showCalendarPickerDialog(
+              context: context,
+              initialDate: _selectedDate,
+              firstDate: firstDate,
+              lastDate: lastDate,
+            );
+            if (picked != null) {
+              setState(() => _selectedDate = picked);
+            }
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '날짜',
+              suffixIcon: Icon(Icons.calendar_today),
             ),
+            child: Text(formattedDate),
           ),
         ),
-        IconButton(
-          onPressed: canInc ? () => shiftDays(1) : null,
-          icon: const Icon(Icons.add),
-          tooltip: '다음 날짜',
-          visualDensity: VisualDensity.compact,
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: canDec ? () => shiftDays(-1) : null,
+                icon: const Icon(Icons.remove, size: 16),
+                label: const Text('1일 전'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: canInc ? () => shiftDays(1) : null,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('1일 후'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
