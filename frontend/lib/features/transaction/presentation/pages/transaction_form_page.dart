@@ -96,7 +96,8 @@ class TransactionFormPage extends StatefulWidget {
 
 class _TransactionFormPageState extends State<TransactionFormPage>
     with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
+  final _expenseFormKey = GlobalKey<FormState>();
+  final _incomeFormKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   String _amountHint = '';
   late final TextEditingController _descriptionController;
@@ -677,9 +678,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 controller: _tabController,
                 children: [
                   // Tab 0: Expense form
-                  _buildTransactionFormBody(context),
+                  _buildTransactionFormBody(context, formKey: _expenseFormKey),
                   // Tab 1: Income form
-                  _buildTransactionFormBody(context),
+                  _buildTransactionFormBody(context, formKey: _incomeFormKey),
                   // Tab 2: Transfer form (embedded)
                   _buildTransferFormBody(context),
                 ],
@@ -688,14 +689,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
   }
 
-  Widget _buildTransactionFormBody(BuildContext context) {
+  Widget _buildTransactionFormBody(BuildContext context, {GlobalKey<FormState>? formKey}) {
     // BlocListener is now in the top-level MultiBlocListener in build()
     return SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: Form(
-            key: _formKey,
+            key: formKey ?? _expenseFormKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -2035,7 +2036,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       setState(() => _paymentMethodError = null);
     }
 
-    if (hasPickerError || !(_formKey.currentState?.validate() ?? false)) {
+    final activeFormKey = _tabController.index == 1 ? _incomeFormKey : _expenseFormKey;
+    if (hasPickerError || !(activeFormKey.currentState?.validate() ?? false)) {
       return;
     }
 
