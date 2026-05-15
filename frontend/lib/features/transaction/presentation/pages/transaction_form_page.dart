@@ -139,10 +139,16 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   /// 회차 5 — _onSubmit 후 spinner 무한 회귀 방지용 timeout 가드.
   Timer? _submitTimeoutTimer;
 
-  // FocusNodes for keyboard navigation on selector fields
+  // FocusNodes for keyboard navigation on selector fields.
+  // 지출/수입 탭이 TabBarView 에서 동시에 렌더링될 때 동일 FocusNode 를
+  // 두 Focus 위젯이 공유하면 소유권 충돌 → 지출 탭 검은 화면 회귀.
+  // 탭별 독립 인스턴스 사용.
   final FocusNode _categoryFocusNode = FocusNode();
   final FocusNode _paymentMethodFocusNode = FocusNode();
   final FocusNode _pocketFocusNode = FocusNode();
+  final FocusNode _incomeCategoryFocusNode = FocusNode();
+  final FocusNode _incomePmFocusNode = FocusNode();
+  final FocusNode _incomePocketFocusNode = FocusNode();
 
   // Tab controller for expense/income/transfer tabs
   late final TabController _tabController;
@@ -516,6 +522,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _categoryFocusNode.dispose();
     _paymentMethodFocusNode.dispose();
     _pocketFocusNode.dispose();
+    _incomeCategoryFocusNode.dispose();
+    _incomePmFocusNode.dispose();
+    _incomePocketFocusNode.dispose();
     super.dispose();
   }
 
@@ -680,7 +689,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   // Tab 0: Expense form
                   _buildTransactionFormBody(context, formKey: _expenseFormKey),
                   // Tab 1: Income form
-                  _buildTransactionFormBody(context, formKey: _incomeFormKey),
+                  _buildTransactionFormBody(context,
+                    formKey: _incomeFormKey,
+                    categoryFocusNode: _incomeCategoryFocusNode,
+                    pmFocusNode: _incomePmFocusNode,
+                    pocketFocusNode: _incomePocketFocusNode,
+                  ),
                   // Tab 2: Transfer form (embedded)
                   _buildTransferFormBody(context),
                 ],
@@ -689,7 +703,15 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
   }
 
-  Widget _buildTransactionFormBody(BuildContext context, {GlobalKey<FormState>? formKey}) {
+  Widget _buildTransactionFormBody(BuildContext context, {
+    GlobalKey<FormState>? formKey,
+    FocusNode? categoryFocusNode,
+    FocusNode? pmFocusNode,
+    FocusNode? pocketFocusNode,
+  }) {
+    final catFn = categoryFocusNode ?? _categoryFocusNode;
+    final pmFn = pmFocusNode ?? _paymentMethodFocusNode;
+    final pocketFn = pocketFocusNode ?? _pocketFocusNode;
     // BlocListener is now in the top-level MultiBlocListener in build()
     return SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -771,7 +793,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(3),
                     child: _buildKeyboardActivatableField(
-                      focusNode: _categoryFocusNode,
+                      focusNode: catFn,
                       onActivate: () => _activateCategoryPicker(context),
                       child: _buildCategoryPicker(context),
                     ),
@@ -786,7 +808,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(4),
                     child: _buildKeyboardActivatableField(
-                      focusNode: _paymentMethodFocusNode,
+                      focusNode: pmFn,
                       onActivate: () => _activatePaymentMethodPicker(context),
                       child: _buildPaymentMethodPicker(context),
                     ),
@@ -796,7 +818,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(5),
                     child: _buildKeyboardActivatableField(
-                      focusNode: _pocketFocusNode,
+                      focusNode: pocketFn,
                       onActivate: () => _activatePocketPicker(context),
                       child: _buildPocketPicker(context),
                     ),
