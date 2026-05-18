@@ -237,7 +237,7 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                 } else if (action == 'delete') {
                   _showDeleteDialog(context, method);
                 } else if (action == 'history') {
-                  context.push('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$_year&month=$_month');
+                  context.go('/transactions?paymentMethodId=${method.id}&paymentMethodName=${Uri.encodeComponent(method.name)}&year=$_year&month=$_month');
                 } else if (action == 'adjust_balance') {
                   _showBalanceAdjustment(context, method);
                 }
