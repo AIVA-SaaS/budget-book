@@ -264,8 +264,79 @@ class _TransactionListPageState extends State<TransactionListPage> {
         newState = newState.copyWith(paymentMethodName: name);
       }
     }
+
+    // 회차 1 (2026-05-18) — URL ↔ state desync 회귀 fix.
+    // 사용자 시나리오: 자산 → 국민 선택 → /transactions?paymentMethodId=X 진입
+    // → 거래탭 필터 chip 으로 X 제거 → 자산 재선택(같은 자산) → 필터 미적용 회귀.
+    //
+    // 근본 원인: GoRouter StatefulShellRoute branch 는 **동일 URL 재진입 시
+    // builder 를 재실행하지 않음**. X chip 제거 시점에 _filterState/BLoC 는
+    // 클리어되지만 URL 은 그대로 → 자산 재선택 시 context.go(같은 URL) → no-op →
+    // BLoC reload 미발생.
+    //
+    // 해결: nav 필터(paymentMethodId/categoryId/categoryGroupId) 의 단일↔단일,
+    // 단일→empty, empty→단일 transition 시 URL 도 함께 정리. 다음 navigation
+    // 이 새 URL 로 인식되어 router builder 가 정상 실행. multi-select 케이스는
+    // URL 에 표현 불가 → 변경 안 함 (in-memory BLoC/UI 동기화 유지).
+    final oldPm = _filterState.paymentMethodIds.length == 1
+        ? _filterState.paymentMethodIds.first
+        : null;
+    final newPm = newState.paymentMethodIds.length == 1
+        ? newState.paymentMethodIds.first
+        : null;
+    final oldCat = _filterState.categoryIds.length == 1
+        ? _filterState.categoryIds.first
+        : null;
+    final newCat = newState.categoryIds.length == 1
+        ? newState.categoryIds.first
+        : null;
+    final oldGroup = _filterState.categoryGroupIds.length == 1
+        ? _filterState.categoryGroupIds.first
+        : null;
+    final newGroup = newState.categoryGroupIds.length == 1
+        ? newState.categoryGroupIds.first
+        : null;
+    final oldWasSingleOrNone = _filterState.paymentMethodIds.length <= 1 &&
+        _filterState.categoryIds.length <= 1 &&
+        _filterState.categoryGroupIds.length <= 1;
+    final newIsSingleOrNone = newState.paymentMethodIds.length <= 1 &&
+        newState.categoryIds.length <= 1 &&
+        newState.categoryGroupIds.length <= 1;
+    final navTransition = oldPm != newPm || oldCat != newCat || oldGroup != newGroup;
+    final shouldSyncUrl =
+        navTransition && oldWasSingleOrNone && newIsSingleOrNone;
+
     setState(() => _filterState = newState);
     _reloadWithFilters();
+
+    if (shouldSyncUrl) {
+      _syncUrlForNavigationFilter(newState);
+    }
+  }
+
+  /// nav 필터를 URL 에 반영 (회차 1 — 2026-05-18).
+  /// 단일 nav 필터 (paymentMethodId / categoryId / categoryGroupId) 가 있으면 URL
+  /// 에 포함, 없으면 strip. year/month 는 URL 에서 제외 (BLoC/MonthCubit 가 보존).
+  void _syncUrlForNavigationFilter(UnifiedFilterState s) {
+    final params = <String>[];
+    if (s.paymentMethodIds.length == 1) {
+      params.add('paymentMethodId=${s.paymentMethodIds.first}');
+      if (s.paymentMethodName != null) {
+        params.add(
+            'paymentMethodName=${Uri.encodeComponent(s.paymentMethodName!)}');
+      }
+    }
+    if (s.categoryIds.length == 1) {
+      params.add('categoryId=${s.categoryIds.first}');
+      if (s.categoryName != null) {
+        params.add('categoryName=${Uri.encodeComponent(s.categoryName!)}');
+      }
+    }
+    if (s.categoryGroupIds.length == 1) {
+      params.add('categoryGroupId=${s.categoryGroupIds.first}');
+    }
+    final query = params.isEmpty ? '' : '?${params.join('&')}';
+    context.go('/transactions$query');
   }
 
   /// 회차 1 (2026-05-10) — HARD GUARANTEE: 필터 UI ↔ BE 동기화.
