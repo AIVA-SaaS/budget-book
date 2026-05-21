@@ -120,6 +120,8 @@ jobs:
           NAS_JWT_SECRET: ${{ secrets.NAS_JWT_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
         run: |
           # env 파일을 SSH 경유로 NAS 에 작성 (secrets 노출 최소화: stdin heredoc).
           ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
@@ -136,6 +138,8 @@ jobs:
           FRONTEND_URL=https://aiva-bb.duckdns.org
           GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
           GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID:-disabled}
+          KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET:-disabled}
           REDIS_URL=redis://host.docker.internal:6380
           FLYWAY_ENABLED=true
           SERVER_FORWARD_HEADERS_STRATEGY=framework
