@@ -43,6 +43,8 @@
 | NAS_JWT_SECRET | JWT signing secret |
 | GOOGLE_CLIENT_ID | Google OAuth2 client ID |
 | GOOGLE_CLIENT_SECRET | Google OAuth2 client secret |
+| KAKAO_CLIENT_ID | Kakao OAuth2 REST API key (선택: 미등록 시 카카오 로그인 비활성) |
+| KAKAO_CLIENT_SECRET | Kakao OAuth2 client secret (선택) |
 
 ## Local Development
 - `docker-compose.yml` runs: PostgreSQL (5433), Redis (6380), Backend (8081)

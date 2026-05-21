@@ -51,6 +51,8 @@ services:
       FRONTEND_URL: https://aiva-bb.duckdns.org
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-disabled}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-disabled}
       REDIS_URL: redis://redis:6379
       FLYWAY_ENABLED: "true"
       SERVER_FORWARD_HEADERS_STRATEGY: framework
