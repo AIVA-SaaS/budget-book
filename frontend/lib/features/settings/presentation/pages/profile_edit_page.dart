@@ -154,6 +154,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           title: const Text('프로필 수정'),
         ),
         body: BlocBuilder<AuthBloc, AuthState>(
+          buildWhen: (previous, current) {
+            // While save/upload is in flight, AuthLoading is emitted as a
+            // transient state; keep the previous user-rendered frame to avoid
+            // a flash of an empty (user=null) page.
+            return current is! AuthLoading;
+          },
           builder: (context, state) {
             final user =
                 state is AuthAuthenticated ? state.user : null;
