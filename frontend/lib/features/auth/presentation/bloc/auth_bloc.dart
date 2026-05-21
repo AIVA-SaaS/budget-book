@@ -134,7 +134,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     try {
-      emit(const AuthLoading());
       final result = await authRepository.updateProfile(
         nickname: event.nickname,
         profileImageUrl: event.profileImageUrl,
