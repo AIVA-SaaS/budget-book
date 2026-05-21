@@ -92,12 +92,49 @@ import 'package:budget_book/features/card_settlement/presentation/bloc/card_sett
 import 'package:budget_book/features/card_settlement/presentation/pages/card_settlement_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Adapts a BLoC stream into a [Listenable] for GoRouter.refreshListenable.
+/// Adapts an [AuthBloc] stream into a [Listenable] for
+/// GoRouter.refreshListenable.
+///
+/// IMPORTANT: only notifies on authentication-toggle transitions
+/// (authenticated <-> unauthenticated). Re-emitting the same authentication
+/// group with a different user payload (e.g. profile/nickname/image update)
+/// does NOT trigger a router refresh.
+///
+/// Reason: notifying on every AuthBloc emit causes GoRouter to rebuild its
+/// routerDelegate. When that rebuild races against an in-flight `context.pop()`
+/// inside a BlocListener (both fire from the same stream emit), the rebuild
+/// can re-apply the pre-pop RouteMatchList — the URL never updates and the
+/// previous page is restored ("save → settings flashes in → profile-edit slides
+/// back over it" regression).
+///
+/// The router only cares about coarse auth toggles for its redirect logic;
+/// fine-grained user-data changes are not relevant to navigation.
 class _BlocListenable extends ChangeNotifier {
   late final StreamSubscription _subscription;
+  bool? _wasAuthenticated;
 
-  _BlocListenable(Bloc bloc) {
-    _subscription = bloc.stream.listen((_) => notifyListeners());
+  _BlocListenable(AuthBloc bloc) {
+    _wasAuthenticated = _classify(bloc.state);
+    _subscription = bloc.stream.listen((state) {
+      final isAuth = _classify(state);
+      // Skip transient states (Loading/Initial/Error) — they don't change
+      // the auth group, only intermediate transitions.
+      if (isAuth == null) return;
+      if (isAuth != _wasAuthenticated) {
+        _wasAuthenticated = isAuth;
+        notifyListeners();
+      }
+    });
+  }
+
+  /// Returns:
+  /// - `true` if the state represents authenticated session
+  /// - `false` if explicitly unauthenticated
+  /// - `null` for transient states that should not toggle the listener
+  bool? _classify(AuthState state) {
+    if (state is AuthAuthenticated) return true;
+    if (state is AuthUnauthenticated) return false;
+    return null;
   }
 
   @override
