@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
@@ -122,11 +123,14 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           if (_isSubmitting) {
+            // Capture messenger before route pop so the snackbar is shown on
+            // the destination (settings) page.
+            final messenger = ScaffoldMessenger.of(context);
             setState(() => _isSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
+            context.pop();
+            messenger.showSnackBar(
               const SnackBar(content: Text('프로필이 수정되었습니다')),
             );
-            Navigator.of(context).pop();
           }
           if (_isUploadingImage) {
             setState(() => _isUploadingImage = false);
