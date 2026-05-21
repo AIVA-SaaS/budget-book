@@ -37,10 +37,25 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
 
   void _onSubmit() {
     if (!_formKey.currentState!.validate()) return;
+    final newNickname = _nicknameController.text.trim();
+    final authBloc = context.read<AuthBloc>();
+    final currentState = authBloc.state;
+
+    // Short-circuit when nothing changed: bypass the BLoC so we don't rely on
+    // state-transition semantics (BLoC drops emits when the state is equal).
+    // Avoids the historical "infinite spinner" + router-race-condition class.
+    if (currentState is AuthAuthenticated &&
+        currentState.user.nickname == newNickname) {
+      final messenger = ScaffoldMessenger.of(context);
+      context.pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('변경된 사항이 없습니다')),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
-    context.read<AuthBloc>().add(
-          UpdateProfile(nickname: _nicknameController.text.trim()),
-        );
+    authBloc.add(UpdateProfile(nickname: newNickname));
   }
 
   Future<void> _showImageOptions() async {
@@ -158,12 +173,6 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           title: const Text('프로필 수정'),
         ),
         body: BlocBuilder<AuthBloc, AuthState>(
-          buildWhen: (previous, current) {
-            // While save/upload is in flight, AuthLoading is emitted as a
-            // transient state; keep the previous user-rendered frame to avoid
-            // a flash of an empty (user=null) page.
-            return current is! AuthLoading;
-          },
           builder: (context, state) {
             final user =
                 state is AuthAuthenticated ? state.user : null;
