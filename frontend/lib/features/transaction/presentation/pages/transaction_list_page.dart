@@ -114,40 +114,48 @@ class _TransactionListPageState extends State<TransactionListPage> {
     // 회차 12 follow-up A (2026-05-04) — _filterState desync 회귀 fix.
     // GoRouter 가 같은 path 재진입 시 State 재사용 → `late _filterState` initializer
     // 가 한 번만 fire → widget.initialPaymentMethodId 새 값이라도 _filterState 는
-    // 빈 값 그대로 → UI "전체" 표시 / 필터 chip 제거 안 됨 / list 는 BE 필터 적용
-    // (sync 깨짐).
+    // 빈 값 그대로. 자산→카카오페이 진입 (initialPaymentMethodId: null→X) 시 sync.
     //
-    // 자산 → 결제수단 클릭 (`/transactions?paymentMethodId=X`) 시 widget 새 prop
-    // 으로 _filterState 동기화. payment_method/category/categoryGroup 모두 처리.
-    final pmChanged = widget.initialPaymentMethodId != oldWidget.initialPaymentMethodId;
-    final catChanged = widget.initialCategoryId != oldWidget.initialCategoryId;
-    final groupChanged = widget.initialCategoryGroupId != oldWidget.initialCategoryGroupId;
+    // 회차 2 (2026-05-26) — Bug 1 follow-up: value→null transition 제외.
+    // 이전 로직은 widget.initialPaymentMethodId 가 X→null 로 변할 때도 reset 했음.
+    // 그러나 chip 으로 필터 적용 → 수정 저장 → `context.go('/transactions?year=Y&month=M')`
+    // 흐름에서, URL 이 `?paymentMethodId=X` 에서 year/month 만 있는 URL 로 바뀌면
+    // initialPaymentMethodId 가 X→null 로 바뀐다. 이때 reset 하면 chip 필터가
+    // 사라지는 회귀 (사용자 보고 2026-05-26).
+    //
+    // 새 규칙: null→value, value→다른 value 만 nav 필터 변경 신호. value→null 은
+    // 명시적 reset 신호가 아니라 "URL 에 nav key 가 더 이상 없음" 일 뿐.
+    // 후자 케이스는 router builder 의 carry 로직 + _syncFilterStateFromBloc 가
+    // BLoC.currentFilter 기준으로 _filterState 를 sync → drift 자체를 self-heal.
+    final pmChanged = widget.initialPaymentMethodId !=
+            oldWidget.initialPaymentMethodId &&
+        widget.initialPaymentMethodId != null;
+    final catChanged = widget.initialCategoryId !=
+            oldWidget.initialCategoryId &&
+        widget.initialCategoryId != null;
+    final groupChanged = widget.initialCategoryGroupId !=
+            oldWidget.initialCategoryGroupId &&
+        widget.initialCategoryGroupId != null;
     if (pmChanged || catChanged || groupChanged) {
       setState(() {
         _filterState = _filterState.copyWith(
           paymentMethodIds: widget.initialPaymentMethodId != null
               ? {widget.initialPaymentMethodId!}
-              : const {},
-          paymentMethodName: widget.initialPaymentMethodName,
+              : _filterState.paymentMethodIds,
+          paymentMethodName: widget.initialPaymentMethodId != null
+              ? widget.initialPaymentMethodName
+              : _filterState.paymentMethodName,
           categoryIds: widget.initialCategoryId != null
               ? {widget.initialCategoryId!}
-              : const {},
-          categoryName: widget.initialCategoryName,
+              : _filterState.categoryIds,
+          categoryName: widget.initialCategoryId != null
+              ? widget.initialCategoryName
+              : _filterState.categoryName,
           categoryGroupIds: widget.initialCategoryGroupId != null
               ? {widget.initialCategoryGroupId!}
-              : const {},
-          // copyWith 의 clearCategory/clearPaymentMethod 는 nullable name 까지
-          // 클리어. 위 explicit 값 set 으로 동일 효과 (initialXxxId == null 시 빈 set).
+              : _filterState.categoryGroupIds,
         );
       });
-      // 회차 1 (2026-05-07) — _filterState 갱신과 동시에 BLoC reload 동기화.
-      // 회차 12 follow-up A 는 _filterState 만 reset 하고 BLoC.currentFilter 는
-      // 이전 값 유지 → 사용자 시나리오: 자산→카카오페이 클릭 후 거래탭 클릭 시
-      // /transactions (paymentMethodId 없는 path) 진입 → didUpdateWidget 가
-      // _filterState 빈 set 으로 reset (UI 는 "전체") 하지만 BLoC._currentPaymentMethodIds
-      // 는 카카오페이 그대로 → BE 호출 시 카카오페이로 필터 → 5건만 노출 (desync).
-      // _reloadWithFilters() 가 _filterState 의 새 값으로 LoadTransactions 발행 →
-      // BLoC._currentXxx 도 동시 갱신 → UI/결과 정합.
       _reloadWithFilters();
     }
   }
