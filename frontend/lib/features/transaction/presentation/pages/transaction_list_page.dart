@@ -220,6 +220,26 @@ class _TransactionListPageState extends State<TransactionListPage> {
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
 
+  /// 회차 1 (2026-05-26) — 거래 추가 진입 URL 단일 조립.
+  ///
+  /// 모든 "거래 추가" 진입 경로 (FAB, _DateHeader, empty state, etc.) 는 이
+  /// 헬퍼를 통해서만 URL 을 만든다. 필터된 결제수단(`paymentMethodIds` 단일)
+  /// 이 자동 전파되도록 강제. 새 진입 경로 추가 시 헬퍼 미경유 → 코드 리뷰
+  /// 차단.
+  String _buildCreateTransactionUrl({String? date, String? tab}) {
+    final pmId = _filterState.paymentMethodIds.length == 1
+        ? _filterState.paymentMethodIds.first
+        : null;
+    final params = <String>[
+      if (tab != null) 'tab=$tab',
+      if (date != null) 'date=$date',
+      if (pmId != null) 'paymentMethodId=$pmId',
+    ];
+    return params.isEmpty
+        ? '/transactions/create'
+        : '/transactions/create?${params.join('&')}';
+  }
+
   Future<void> _exportCsv(BuildContext context) async {
     final state = context.read<TransactionBloc>().state;
     final year = state is TransactionLoaded ? state.year : DateTime.now().year;
@@ -526,12 +546,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
   }
 
   Widget _buildFab(BuildContext context) {
-    final pmId = _filterState.paymentMethodIds.isNotEmpty
-        ? _filterState.paymentMethodIds.first
-        : null;
-    final pmParam = pmId != null ? '&paymentMethodId=$pmId' : '';
-
+    // 회차 1 (2026-05-26) — `_buildCreateTransactionUrl` 헬퍼 단일화.
+    // 헬퍼가 _filterState.paymentMethodIds 를 직접 참조 → pmParam 수동 조립 제거.
     if (_isFilteredByCreditCard) {
+      final pmId = _filterState.paymentMethodIds.isNotEmpty
+          ? _filterState.paymentMethodIds.first
+          : null;
       final state = context.read<TransactionBloc>().state;
       final year = state is TransactionLoaded ? state.year : DateTime.now().year;
       final month = state is TransactionLoaded ? state.month : DateTime.now().month;
@@ -548,7 +568,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
           const SizedBox(width: 12),
           FloatingActionButton(
             heroTag: 'add',
-            onPressed: () => context.push('/transactions/create?tab=expense$pmParam'),
+            onPressed: () =>
+                context.push(_buildCreateTransactionUrl(tab: 'expense')),
             tooltip: '거래 추가',
             child: const Icon(Icons.add),
           ),
@@ -557,7 +578,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     }
 
     return FloatingActionButton(
-      onPressed: () => context.push('/transactions/create?tab=expense$pmParam'),
+      onPressed: () =>
+          context.push(_buildCreateTransactionUrl(tab: 'expense')),
       tooltip: '거래 추가',
       child: const Icon(Icons.add),
     );
@@ -887,6 +909,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 dayIncome: dayTransactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount),
                 dayExpense: dayTransactions.where((t) => t.isExpense).fold(0, (s, t) => s + t.amount),
                 dayTransferCount: dayTransferCount,
+                // 회차 1 (2026-05-26) — 필터된 결제수단 자동 prefill 을 위해
+                // URL 조립을 상위에서 위임. 헬퍼 미경유 진입 경로 차단.
+                onAddTap: () => context.push(
+                    _buildCreateTransactionUrl(date: date)),
               ),
               ...items.map((item) {
                 if (item.isTransfer) {
@@ -1086,7 +1112,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
       title: '거래 내역이 없습니다',
       subtitle: '이 달에 기록된 거래가 없습니다',
       actionLabel: '거래 추가',
-      onAction: () => context.push('/transactions/create'),
+      // 회차 1 (2026-05-26) — 필터된 결제수단 자동 전파를 위해 헬퍼 사용.
+      onAction: () => context.push(_buildCreateTransactionUrl()),
     );
   }
 
@@ -1109,12 +1136,17 @@ class _DateHeader extends StatelessWidget {
   final int dayIncome;
   final int dayExpense;
   final int dayTransferCount;
+  /// 회차 1 (2026-05-26) — 거래 추가 진입 콜백.
+  /// 상위 페이지가 `_buildCreateTransactionUrl(date: ...)` 로 URL 을 조립해 inject.
+  /// _DateHeader 가 _filterState 에 접근하지 않게 하여 필터 propagation 강제.
+  final VoidCallback? onAddTap;
 
   const _DateHeader({
     required this.dateStr,
     this.dayIncome = 0,
     this.dayExpense = 0,
     this.dayTransferCount = 0,
+    this.onAddTap,
   });
 
   @override
@@ -1128,7 +1160,8 @@ class _DateHeader extends StatelessWidget {
     }
 
     return InkWell(
-      onTap: () => context.push('/transactions/create?date=$dateStr'),
+      onTap: onAddTap ??
+          () => context.push('/transactions/create?date=$dateStr'),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
