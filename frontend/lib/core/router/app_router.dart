@@ -284,27 +284,34 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 // Phase 25 후속 — 예산/분석 에서 그룹 단위 필터 지원
                 final categoryGroupId = state.uri.queryParameters['categoryGroupId'];
 
-                // 회차 1 (2026-05-10) — defect C fix.
-                // 이전: `paymentMethodId ?? f.paymentMethodId` 등 fallback 으로
-                // URL 에 없는 필터를 BLoC currentFilter 에서 carry. stale 감지
-                // (hasStaleFilter) 후에도 ?? 로 stale 재적용되어 router 자체가
-                // desync 의 한 원인이었음.
+                // 회차 1 (2026-05-26) — Bug 1 fix: chip-applied nav 필터 보존.
                 //
-                // 새 규칙: URL 에 있는 navigation 성 필터 (paymentMethodId,
-                // categoryId, categoryGroupId) 는 URL → BLoC 단방향. URL 에
-                // 없으면 명시적 null/empty 전달 (carry over 금지).
-                // 사용자가 dialog 로 설정한 컨텐트 필터 (visibility, keyword,
-                // dateRange, amountRange, transactionTypes) 는 currentFilter
-                // 에서 보존 (URL 에 안 박히므로 BLoC 가 유일 소스).
+                // 회차 1 (2026-05-10) 의 "URL=nav-filter 단일 소스" 규칙은
+                // cross-tab navigation (자산→카카오페이) 시나리오만 가정. 그러나
+                // chip 으로 적용한 nav 필터는 URL 에 반영되지 않음 (현재 동작).
+                // 거래 수정 저장 후 `context.go('/transactions?year=Y&month=M')`
+                // 호출 시 (form_page edit-save flow) year/month 만 URL 에 존재 →
+                // 이전 규칙은 paymentMethodIds/categoryIds 등을 const {} 로 wipe →
+                // chip 필터 회귀.
+                //
+                // 새 규칙 (필터 source 우선순위):
+                //   1. URL nav filter key (paymentMethodId/categoryId/categoryGroupId)
+                //      가 명시되면 → URL 이 single source (wipe 가능, cross-tab 의도).
+                //   2. URL 에 nav key 없고 year/month 만 있으면 → BLoC nav 필터 carry
+                //      (시점 전환 신호일 뿐 필터 reset 신호가 아님).
+                //   3. URL 에 아무 key 없고 BLoC stale → 기존 stale 감지 + reset.
+                //
+                // Content 필터 (visibility/keyword/dateRange/amountRange/
+                // transactionTypes) 는 모든 경우에 BLoC 가 single source.
                 final bloc = getIt<TransactionBloc>();
                 final transferBloc = getIt<TransferBloc>();
-                final hasExplicitParams = yearParam != null ||
-                    monthParam != null ||
-                    paymentMethodId != null ||
+                final hasExplicitNavFilter = paymentMethodId != null ||
                     categoryId != null ||
                     categoryGroupId != null;
+                final hasYearMonth = yearParam != null || monthParam != null;
+                final hasExplicitParams = hasExplicitNavFilter || hasYearMonth;
                 // URL navigation filter 와 BLoC 의 현재 navigation filter 가
-                // 다른지 — UI/BE desync 방지를 위해 항상 동기화.
+                // 다른지 — cross-tab 진입 시 UI/BE desync 방지.
                 final urlPmDiffersFromBloc =
                     bloc.currentPaymentMethodId != paymentMethodId ||
                         (paymentMethodId == null &&
@@ -336,19 +343,35 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                       loadedState?.month ??
                       now.month;
                   final f = bloc.currentFilter;
+                  // Nav 필터 결정:
+                  //   - URL 에 nav key 명시 → URL 값 (없으면 빈 값으로 wipe).
+                  //   - year/month 만 있는 경우 (또는 stale 감지 미시) → BLoC carry.
+                  final navPaymentMethodId =
+                      hasExplicitNavFilter ? paymentMethodId : f.paymentMethodId;
+                  final navCategoryId =
+                      hasExplicitNavFilter ? categoryId : f.categoryId;
+                  final navCategoryGroupIds = hasExplicitNavFilter
+                      ? (categoryGroupId != null
+                          ? {categoryGroupId}
+                          : const <String>{})
+                      : f.categoryGroupIds;
+                  final navPaymentMethodIds = hasExplicitNavFilter
+                      ? const <String>{}
+                      : f.paymentMethodIds;
+                  final navCategoryIds =
+                      hasExplicitNavFilter ? const <String>{} : f.categoryIds;
+                  final navPocketIds =
+                      hasExplicitNavFilter ? const <String>{} : f.pocketIds;
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,
-                    // Navigation 성 — URL 만 사용. 없으면 빈 값.
-                    categoryId: categoryId,
-                    paymentMethodId: paymentMethodId,
-                    categoryGroupIds: categoryGroupId != null
-                        ? {categoryGroupId}
-                        : const {},
-                    categoryIds: const {},
-                    paymentMethodIds: const {},
-                    pocketIds: const {},
-                    // Content 필터 — BLoC 보존 (URL 에 박히지 않음).
+                    categoryId: navCategoryId,
+                    paymentMethodId: navPaymentMethodId,
+                    categoryGroupIds: navCategoryGroupIds,
+                    categoryIds: navCategoryIds,
+                    paymentMethodIds: navPaymentMethodIds,
+                    pocketIds: navPocketIds,
+                    // Content 필터 — BLoC 보존 (URL 에 안 박힘).
                     keyword: f.keyword,
                     pocketId: f.pocketId,
                     amountMin: f.amountMin,
