@@ -343,25 +343,37 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                       loadedState?.month ??
                       now.month;
                   final f = bloc.currentFilter;
-                  // Nav 필터 결정:
+                  // Nav 필터 결정 (회차 2, 2026-05-26 — chip-clear race 보호):
                   //   - URL 에 nav key 명시 → URL 값 (없으면 빈 값으로 wipe).
-                  //   - year/month 만 있는 경우 (또는 stale 감지 미시) → BLoC carry.
-                  final navPaymentMethodId =
-                      hasExplicitNavFilter ? paymentMethodId : f.paymentMethodId;
-                  final navCategoryId =
-                      hasExplicitNavFilter ? categoryId : f.categoryId;
+                  //   - year/month 만 있는 URL → BLoC carry (시점 전환).
+                  //   - bare URL (year/month 도 없음) → wipe (기존 stale 청소).
+                  //     bare URL 의 carry 는 chip-clear race (context.go('/transactions')
+                  //     직전에 _reloadWithFilters 가 아직 처리 안 됨) 시 잘못된
+                  //     필터를 재적용하므로 금지.
+                  final shouldCarryNavFilter =
+                      !hasExplicitNavFilter && hasYearMonth;
+                  final navPaymentMethodId = hasExplicitNavFilter
+                      ? paymentMethodId
+                      : (shouldCarryNavFilter ? f.paymentMethodId : null);
+                  final navCategoryId = hasExplicitNavFilter
+                      ? categoryId
+                      : (shouldCarryNavFilter ? f.categoryId : null);
                   final navCategoryGroupIds = hasExplicitNavFilter
                       ? (categoryGroupId != null
                           ? {categoryGroupId}
                           : const <String>{})
-                      : f.categoryGroupIds;
-                  final navPaymentMethodIds = hasExplicitNavFilter
-                      ? const <String>{}
-                      : f.paymentMethodIds;
-                  final navCategoryIds =
-                      hasExplicitNavFilter ? const <String>{} : f.categoryIds;
-                  final navPocketIds =
-                      hasExplicitNavFilter ? const <String>{} : f.pocketIds;
+                      : (shouldCarryNavFilter
+                          ? f.categoryGroupIds
+                          : const <String>{});
+                  final navPaymentMethodIds = shouldCarryNavFilter
+                      ? f.paymentMethodIds
+                      : const <String>{};
+                  final navCategoryIds = shouldCarryNavFilter
+                      ? f.categoryIds
+                      : const <String>{};
+                  final navPocketIds = shouldCarryNavFilter
+                      ? f.pocketIds
+                      : const <String>{};
                   bloc.add(LoadTransactions(
                     year: year,
                     month: month,
