@@ -50,7 +50,7 @@ data class UpdateSpendingPlanRequest(
     @field:Size(max = 100)
     val name: String? = null,
 
-    @field:Min(1)
+    @field:Min(0)
     val amount: Long? = null,
 
     val targetDate: LocalDate? = null,

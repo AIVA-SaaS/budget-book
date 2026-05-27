@@ -93,10 +93,26 @@ class InsuranceService(
         val insurance = findInsuranceWithAccess(insuranceId, couple.id, userId)
 
         request.name?.let { insurance.name = it }
-        request.insurer?.let { insurance.insurer = it.value }
+        request.insurer?.let { patchValue ->
+            // Mirror create-side @Size(max=100); PatchValue wrapper bypasses Bean Validation.
+            patchValue.value?.let { insurer ->
+                if (insurer.length > 100) {
+                    throw BusinessException("VALIDATION_ERROR", "insurer must be 100 characters or less.")
+                }
+            }
+            insurance.insurer = patchValue.value
+        }
         request.insuranceType?.let { insurance.insuranceType = it }
         request.premiumAmount?.let { insurance.premiumAmount = it }
-        request.paymentDay?.let { insurance.paymentDay = it.value }
+        request.paymentDay?.let { patchValue ->
+            // Mirror create-side @Min(1)@Max(31); PatchValue wrapper bypasses Bean Validation.
+            patchValue.value?.let { day ->
+                if (day < 1 || day > 31) {
+                    throw BusinessException("VALIDATION_ERROR", "paymentDay must be between 1 and 31.")
+                }
+            }
+            insurance.paymentDay = patchValue.value
+        }
         request.paymentCycle?.let { insurance.paymentCycle = it }
 
         request.paymentMethodId?.let { patchValue ->
