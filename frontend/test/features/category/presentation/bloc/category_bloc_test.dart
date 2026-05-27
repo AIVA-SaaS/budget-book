@@ -356,6 +356,70 @@ void main() {
         ],
       );
     });
+
+    // Regression: 카테고리 이름/그룹 수정이 통계에 반영 안 되던 문제.
+    // 수정 성공 시 onChanged 가 호출되어야 의존 화면(통계/거래/대시보드)이 갱신됨.
+    group('onChanged dependent-refresh callback', () {
+      late int changedCount;
+
+      final tUpdated = Category(
+        id: 'cat-1',
+        name: '부모님',
+        type: 'EXPENSE',
+        isDefault: false,
+        displayOrder: 1,
+        createdAt: DateTime.parse('2024-01-01T12:00:00Z'),
+      );
+
+      blocTest<CategoryBloc, CategoryState>(
+        'invokes onChanged after successful update',
+        build: () {
+          when(mockRepository.updateCategory(id: 'cat-1', name: '부모님'))
+              .thenAnswer((_) async => Right(tUpdated));
+          changedCount = 0;
+          return CategoryBloc(
+            categoryRepository: mockRepository,
+            onChanged: () => changedCount++,
+          );
+        },
+        seed: () => CategoryLoaded(tCategories),
+        act: (bloc) => bloc.add(const UpdateCategory(id: 'cat-1', name: '부모님')),
+        verify: (_) => expect(changedCount, 1),
+      );
+
+      blocTest<CategoryBloc, CategoryState>(
+        'does NOT invoke onChanged when update fails',
+        build: () {
+          when(mockRepository.updateCategory(id: 'cat-1', name: '부모님'))
+              .thenAnswer(
+                  (_) async => const Left(ServerFailure('update failed')));
+          changedCount = 0;
+          return CategoryBloc(
+            categoryRepository: mockRepository,
+            onChanged: () => changedCount++,
+          );
+        },
+        seed: () => CategoryLoaded(tCategories),
+        act: (bloc) => bloc.add(const UpdateCategory(id: 'cat-1', name: '부모님')),
+        verify: (_) => expect(changedCount, 0),
+      );
+
+      blocTest<CategoryBloc, CategoryState>(
+        'invokes onChanged after successful delete',
+        build: () {
+          when(mockRepository.deleteCategory('cat-1'))
+              .thenAnswer((_) async => const Right(null));
+          changedCount = 0;
+          return CategoryBloc(
+            categoryRepository: mockRepository,
+            onChanged: () => changedCount++,
+          );
+        },
+        seed: () => CategoryLoaded(tCategories),
+        act: (bloc) => bloc.add(const DeleteCategory('cat-1')),
+        verify: (_) => expect(changedCount, 1),
+      );
+    });
   });
 
   group('CategoryLoaded', () {
