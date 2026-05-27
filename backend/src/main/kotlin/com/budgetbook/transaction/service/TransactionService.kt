@@ -307,7 +307,16 @@ class TransactionService(
         }
         request.description?.let { transaction.description = it }
         request.transactionDate?.let { transaction.transactionDate = it }
-        request.memo?.let { transaction.memo = it.value }
+        request.memo?.let { patchValue ->
+            // Mirror create-side @Size(max=1000); PatchValue wrapper bypasses Bean Validation
+            // and the DB column is unbounded TEXT, so guard here.
+            patchValue.value?.let { memo ->
+                if (memo.length > 1000) {
+                    throw BusinessException("VALIDATION_ERROR", "memo must be 1000 characters or less.")
+                }
+            }
+            transaction.memo = patchValue.value
+        }
         // V61 (2026-05-06) — null 이면 미변경, true/false 면 명시적 토글
         request.needsReview?.let { transaction.needsReview = it }
 
