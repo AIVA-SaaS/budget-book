@@ -7,7 +7,13 @@ import 'category_state.dart';
 class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
   final CategoryRepository categoryRepository;
 
-  CategoryBloc({required this.categoryRepository})
+  /// Invoked after a successful category mutation (create/update/delete) so
+  /// dependent views (statistics breakdown, transaction list, dashboard) can
+  /// refresh. Wired in DI to [SyncEventHandler.refreshCategoryDependents];
+  /// left null in tests.
+  final void Function()? onChanged;
+
+  CategoryBloc({required this.categoryRepository, this.onChanged})
       : super(const CategoryInitial()) {
     on<LoadCategories>(_onLoadCategories);
     on<CreateCategory>(_onCreateCategory);
@@ -64,7 +70,10 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
       result.fold(
         (failure) => emit(CategoryLoaded(currentCategories,
             operationError: failure.message)),
-        (category) => emit(CategoryLoaded([...currentCategories, category])),
+        (category) {
+          emit(CategoryLoaded([...currentCategories, category]));
+          onChanged?.call();
+        },
       );
     } catch (_) {
       if (state is CategoryLoaded) {
@@ -99,6 +108,7 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
               .map((c) => c.id == updated.id ? updated : c)
               .toList();
           emit(CategoryLoaded(updatedList));
+          onChanged?.call();
         },
       );
     } catch (_) {
@@ -157,6 +167,7 @@ class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
           final updatedList =
               currentCategories.where((c) => c.id != event.id).toList();
           emit(CategoryLoaded(updatedList));
+          onChanged?.call();
         },
       );
     } catch (_) {

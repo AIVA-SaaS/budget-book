@@ -8,7 +8,13 @@ class CategoryGroupBloc
     extends Bloc<CategoryGroupEvent, CategoryGroupState> {
   final CategoryGroupRepository categoryGroupRepository;
 
-  CategoryGroupBloc({required this.categoryGroupRepository})
+  /// Invoked after a successful group mutation (create/update/delete) so
+  /// dependent views (statistics breakdown, transaction list, dashboard) can
+  /// refresh. Wired in DI to [SyncEventHandler.refreshCategoryDependents];
+  /// left null in tests.
+  final void Function()? onChanged;
+
+  CategoryGroupBloc({required this.categoryGroupRepository, this.onChanged})
       : super(const CategoryGroupInitial()) {
     on<LoadCategoryGroups>(_onLoadCategoryGroups);
     on<CreateCategoryGroup>(_onCreateCategoryGroup);
@@ -65,7 +71,10 @@ class CategoryGroupBloc
       result.fold(
         (failure) => emit(CategoryGroupLoaded(currentGroups,
             operationError: failure.message)),
-        (group) => emit(CategoryGroupLoaded([...currentGroups, group])),
+        (group) {
+          emit(CategoryGroupLoaded([...currentGroups, group]));
+          onChanged?.call();
+        },
       );
     } catch (e) {
       emit(CategoryGroupLoaded(currentGroups,
@@ -98,6 +107,7 @@ class CategoryGroupBloc
               .map((g) => g.id == updated.id ? updated : g)
               .toList();
           emit(CategoryGroupLoaded(updatedList));
+          onChanged?.call();
         },
       );
     } catch (e) {
@@ -124,6 +134,7 @@ class CategoryGroupBloc
           final updatedList =
               currentGroups.where((g) => g.id != event.id).toList();
           emit(CategoryGroupLoaded(updatedList));
+          onChanged?.call();
         },
       );
     } catch (e) {
