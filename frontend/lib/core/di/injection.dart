@@ -166,7 +166,12 @@ Future<void> configureDependencies() async {
         remoteDataSource: getIt<CategoryRemoteDataSource>()),
   );
   getIt.registerLazySingleton<CategoryBloc>(
-    () => CategoryBloc(categoryRepository: getIt<CategoryRepository>()),
+    () => CategoryBloc(
+      categoryRepository: getIt<CategoryRepository>(),
+      // 카테고리 변경 → 통계/거래/대시보드 갱신 (self-authored sync 는 skip 되므로
+      // 본인 변경은 이 로컬 트리거로만 의존 화면이 갱신됨).
+      onChanged: () => getIt<SyncEventHandler>().refreshCategoryDependents(),
+    ),
     dispose: (bloc) => bloc.close(),
   );
 
@@ -241,7 +246,9 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<CategoryGroupBloc>(
     () => CategoryGroupBloc(
-        categoryGroupRepository: getIt<CategoryGroupRepository>()),
+      categoryGroupRepository: getIt<CategoryGroupRepository>(),
+      onChanged: () => getIt<SyncEventHandler>().refreshCategoryDependents(),
+    ),
     dispose: (bloc) => bloc.close(),
   );
 

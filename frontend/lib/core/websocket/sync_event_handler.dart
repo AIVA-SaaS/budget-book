@@ -20,6 +20,8 @@ import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart'
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
+import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 
 import 'sync_event.dart';
 
@@ -57,10 +59,16 @@ class SyncEventHandler {
         _refreshDashboard();
       case 'CATEGORY':
         _refreshCategories();
+        // 카테고리 이름/그룹 변경은 통계 breakdown·거래 목록·대시보드의
+        // 카테고리 표시에 영향 → 의존 화면 함께 갱신.
+        refreshCategoryDependents();
       case 'PAYMENT_METHOD':
         _refreshPaymentMethods();
       case 'CATEGORY_GROUP':
         _refreshCategoryGroups();
+        // 그룹 변경은 카테고리의 그룹 표시에도 영향.
+        _refreshCategories();
+        refreshCategoryDependents();
       case 'POCKET':
         _refreshPockets();
         _refreshDashboard();
@@ -197,6 +205,32 @@ class SyncEventHandler {
       _logger.d('Dispatched LoadDashboard refresh');
     } catch (e) {
       _logger.e('Failed to refresh dashboard: $e');
+    }
+  }
+
+  /// Refreshes views whose displayed data depends on category name / group /
+  /// membership: statistics breakdown, transaction list, dashboard.
+  ///
+  /// Called both from the partner's CATEGORY / CATEGORY_GROUP sync events and
+  /// locally after the user's own category/group mutation — the latter is
+  /// necessary because self-authored sync events are skipped (see [handle]),
+  /// and statistics has no other refresh trigger tied to category changes.
+  void refreshCategoryDependents() {
+    _refreshStatistics();
+    _refreshTransactions();
+    _refreshDashboard();
+  }
+
+  void _refreshStatistics() {
+    try {
+      final monthState = _getIt<MonthCubit>().state;
+      final bloc = _getIt<StatisticsBloc>();
+      bloc.add(LoadAllStatistics(year: monthState.year, month: monthState.month));
+      bloc.add(LoadPaymentMethodStats(year: monthState.year, month: monthState.month));
+      bloc.add(LoadYearComparison(year: monthState.year, month: monthState.month));
+      _logger.d('Dispatched statistics refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh statistics: $e');
     }
   }
 }
