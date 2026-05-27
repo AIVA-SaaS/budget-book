@@ -111,7 +111,15 @@ class TransferService(
 
         request.amount?.let { transfer.amount = it }
         request.transferDate?.let { transfer.transferDate = it }
-        request.description?.let { transfer.description = it.value }
+        request.description?.let { patchValue ->
+            // Mirror create-side @Size(max=255); PatchValue wrapper bypasses Bean Validation.
+            patchValue.value?.let { desc ->
+                if (desc.length > 255) {
+                    throw BusinessException("VALIDATION_ERROR", "description must be 255 characters or less.")
+                }
+            }
+            transfer.description = patchValue.value
+        }
         request.memo?.let { transfer.memo = it.value }
 
         request.sourcePaymentMethodId?.let { patchValue ->
