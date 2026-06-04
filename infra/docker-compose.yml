@@ -2,6 +2,20 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: db_postgres_bb
+    # 소형·고빈도 UPDATE 테이블(users 등)이 글로벌 autovacuum 임계치(50 + 0.2*N)에
+    # 도달하지 못해 죽은 튜플/TOAST 블로트가 누적되던 문제(2026-06-05) 대응.
+    # 임계치를 낮춰 작은 테이블도 자동으로 vacuum/analyze 되도록 함.
+    # (프로덕션에는 ALTER SYSTEM 으로 이미 적용됨 — 본 설정은 재생성/신규 환경 대비 source of truth)
+    command:
+      - "postgres"
+      - "-c"
+      - "autovacuum_vacuum_threshold=10"
+      - "-c"
+      - "autovacuum_vacuum_scale_factor=0.05"
+      - "-c"
+      - "autovacuum_analyze_threshold=10"
+      - "-c"
+      - "autovacuum_analyze_scale_factor=0.05"
     ports:
       - "5433:5432"
     environment:
