@@ -1,5 +1,6 @@
 package com.budgetbook.couple.service
 
+import com.budgetbook.auth.domain.hasRealEmail
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.service.CategoryGroupService
 import com.budgetbook.category.service.CategoryService
@@ -92,19 +93,26 @@ class CoupleService(
             throw ConflictException("COUPLE_ALREADY_EXISTS", "User is already in an active couple.")
         }
 
+        // Email gate: inviter must have a real email before linking a partner
+        val inviter = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        if (!inviter.hasRealEmail()) {
+            throw BusinessException(
+                "EMAIL_REQUIRED_FOR_COUPLE",
+                "Email registration is required before linking a partner."
+            )
+        }
+
         // Cancel any existing pending invitations from this user
         coupleInvitationRepository.updateStatusByInviterIdAndStatus(
             userId, InvitationStatus.PENDING, InvitationStatus.CANCELLED
         )
 
-        val user = userRepository.findById(userId)
-            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
-
         val code = generateInvitationCode()
         val expiresAt = Instant.now().plusSeconds(24 * 60 * 60) // 24 hours
 
         val invitation = CoupleInvitation(
-            inviter = user,
+            inviter = inviter,
             invitationCode = code,
             expiresAt = expiresAt
         )
@@ -134,6 +142,14 @@ class CoupleService(
 
         val acceptingUser = userRepository.findById(userId)
             .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+
+        // Email gate: accepting user must have a real email before linking a partner
+        if (!acceptingUser.hasRealEmail()) {
+            throw BusinessException(
+                "EMAIL_REQUIRED_FOR_COUPLE",
+                "Email registration is required before linking a partner."
+            )
+        }
 
         // Check if accepting user is already in a real couple
         val activeCouple = coupleRepository.findRealCoupleByUserIdAndStatus(userId, CoupleStatus.ACTIVE)

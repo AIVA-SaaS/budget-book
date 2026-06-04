@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:budget_book/features/auth/domain/entities/user.dart';
@@ -48,23 +49,21 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, User>> updateProfile({
     String? nickname,
+    String? email,
     String? profileImageUrl,
     bool clearProfileImage = false,
   }) async {
     try {
       final result = await remoteDataSource.updateProfile(
         nickname: nickname,
+        email: email,
         profileImageUrl: profileImageUrl,
         clearProfileImage: clearProfileImage,
       );
       return Right(result);
     } on DioException catch (e) {
-      return Left(
-        ServerFailure(
-          e.response?.data?['error']?['message'] as String? ??
-              'Failed to update profile',
-        ),
-      );
+      // Use mapDioError to preserve the server error code (e.g. EMAIL_ALREADY_IN_USE).
+      return Left(mapDioError(e, 'Failed to update profile'));
     } catch (e) {
       return const Left(ServerFailure('Failed to update profile'));
     }

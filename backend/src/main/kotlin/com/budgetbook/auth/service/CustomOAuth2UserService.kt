@@ -1,6 +1,7 @@
 package com.budgetbook.auth.service
 
 import com.budgetbook.auth.domain.AuthProvider
+import com.budgetbook.auth.domain.EmailPolicy
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.event.UserCreatedEvent
 import com.budgetbook.auth.repository.UserRepository
@@ -59,9 +60,12 @@ class CustomOAuth2UserService(
         val kakaoAccount = attributes["kakao_account"] as? Map<String, Any> ?: emptyMap()
         val profile = kakaoAccount["profile"] as? Map<String, Any> ?: emptyMap()
 
+        val providerId = attributes["id"].toString()
+        val email = kakaoAccount["email"] as? String
+            ?: EmailPolicy.buildPlaceholderEmail(AuthProvider.KAKAO, providerId)
         return OAuth2UserInfo(
-            providerId = attributes["id"].toString(),
-            email = kakaoAccount["email"] as? String ?: "",
+            providerId = providerId,
+            email = email,
             name = profile["nickname"] as? String ?: "Unknown",
             profileImageUrl = profile["thumbnail_image_url"] as? String
         )
@@ -76,20 +80,23 @@ class CustomOAuth2UserService(
             return userRepository.save(byProvider)
         }
 
-        // 2. Check if email is already registered with a different provider - block auto-linking
-        val byEmail = userRepository.findByEmail(userInfo.email)
-        if (byEmail != null) {
-            log.warn(
-                "OAuth2 login blocked: email={} already registered with provider={}, attempted provider={}",
-                userInfo.email, byEmail.provider, provider
-            )
-            throw OAuth2AuthenticationException(
-                OAuth2Error(
-                    "account_exists",
-                    "This email is already registered with ${byEmail.provider}. Please log in using ${byEmail.provider}.",
-                    null
+        // 2. Check if email is already registered with a different provider - block auto-linking.
+        // Placeholder emails are provider-scoped and inherently unique, so skip this check.
+        if (EmailPolicy.isRealEmail(userInfo.email)) {
+            val byEmail = userRepository.findByEmail(userInfo.email)
+            if (byEmail != null) {
+                log.warn(
+                    "OAuth2 login blocked: email={} already registered with provider={}, attempted provider={}",
+                    userInfo.email, byEmail.provider, provider
                 )
-            )
+                throw OAuth2AuthenticationException(
+                    OAuth2Error(
+                        "account_exists",
+                        "This email is already registered with ${byEmail.provider}. Please log in using ${byEmail.provider}.",
+                        null
+                    )
+                )
+            }
         }
 
         // 3. New user

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/core/storage/secure_storage.dart';
 import 'package:budget_book/core/utils/error_reporter.dart';
 import 'package:budget_book/features/auth/domain/repositories/auth_repository.dart';
@@ -136,11 +137,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final result = await authRepository.updateProfile(
         nickname: event.nickname,
+        email: event.email,
         profileImageUrl: event.profileImageUrl,
         clearProfileImage: event.clearProfileImage,
       );
       result.fold(
-        (failure) => emit(AuthError(failure.message)),
+        (failure) => emit(AuthError(
+          failure.message,
+          errorCode: failure is ServerFailure ? failure.code : null,
+        )),
         (user) => emit(AuthAuthenticated(user)),
       );
     } catch (e) {

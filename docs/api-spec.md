@@ -182,6 +182,8 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Event Types](#event-types)
 - [Redis Cache Strategy](#redis-cache-strategy)
 - [Common Data Types](#common-data-types)
+- [Admin](#admin)
+  - [Hard Delete User by Email](#1-hard-delete-user-by-email)
 - [Error Codes](#error-codes)
 
 ---
@@ -406,7 +408,7 @@ Note: `coupleId` is omitted from the response when the user is not in an active 
 
 ### 4. Update Profile
 
-Updates the current user's profile information (nickname, profile image).
+Updates the current user's profile information (nickname, profile image, email).
 
 | Item        | Value                        |
 |:------------|:-----------------------------|
@@ -428,14 +430,23 @@ Updates the current user's profile information (nickname, profile image).
 | `nickname`          | `string`  | No       | New nickname (1-50 chars)          |
 | `profileImageUrl`   | `string`  | No       | New profile image URL              |
 | `clearProfileImage` | `boolean` | No       | Set true to remove profile image   |
+| `email`             | `string`  | No       | Register or update user email address. Constraints: (1) placeholder domain (`@no-email.local`) is not accepted, (2) must not be already in use by another account. |
 
 ```json
 {
   "nickname": "새닉네임",
   "profileImageUrl": null,
-  "clearProfileImage": false
+  "clearProfileImage": false,
+  "email": "user@example.com"
 }
 ```
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `INVALID_EMAIL` | Placeholder domain (`@no-email.local`) supplied as email |
+| `400`  | `EMAIL_ALREADY_IN_USE` | Email is already used by another account |
 
 **Response `200 OK`**: `ApiResponse<UserResponse>`
 
@@ -560,6 +571,13 @@ Generates a new 8-character invitation code. The previous pending invitation for
 }
 ```
 
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `409`  | `COUPLE_ALREADY_EXISTS` | User is already in an active couple |
+| `400`  | `EMAIL_REQUIRED_FOR_COUPLE` | Caller has a placeholder or empty email; a real email must be registered before creating an invitation |
+
 ---
 
 ### 2. Get My Invitation Status
@@ -649,6 +667,7 @@ Accepts an invitation code and links the two users as a couple. Default categori
 | `410`  | `INVITATION_EXPIRED` | Invitation code has expired |
 | `409`  | `COUPLE_ALREADY_EXISTS` | Accepting user is already in a couple |
 | `400`  | `SELF_INVITATION` | User cannot accept their own invitation |
+| `400`  | `EMAIL_REQUIRED_FOR_COUPLE` | Caller has a placeholder or empty email; a real email must be registered before accepting an invitation |
 
 ---
 
@@ -4824,6 +4843,93 @@ spring:
 
 ---
 
+## Admin
+
+Admin-only endpoints. All requests require `Authorization: Bearer {accessToken}` and the authenticated user must have `role = ADMIN`. Non-admin requests receive `403 FORBIDDEN`.
+
+Base path: `/api/v1/admin`
+
+---
+
+### 1. Hard Delete User by Email
+
+Permanently removes a user and all data they own from the database. This operation is irreversible.
+
+**Constraints:**
+- Target user must not have a real partner in an active couple (self-couple or no couple only).
+- System account (`00000000-0000-0000-0000-000000000001`) cannot be deleted.
+- Admin cannot delete their own account.
+- `confirm` must be `true` as an explicit safety gate.
+
+| Item        | Value                              |
+|:------------|:-----------------------------------|
+| **Method**  | `DELETE`                           |
+| **Path**    | `/api/v1/admin/users`              |
+| **Auth**    | Required (`role = ADMIN`)          |
+
+**Request Headers**
+
+| Header          | Value                        |
+|:----------------|:-----------------------------|
+| `Authorization` | `Bearer {accessToken}`       |
+| `Content-Type`  | `application/json`           |
+
+**Request Body**: `AdminHardDeleteUserRequest`
+
+| Field     | Type      | Required | Description                                                  |
+|:----------|:----------|:--------:|:-------------------------------------------------------------|
+| `email`   | `string`  | Yes      | Email address of the user to delete (must be valid email format) |
+| `confirm` | `boolean` | Yes      | Must be `true` to execute deletion (safety gate)             |
+
+**Example Request**
+
+```json
+{
+  "email": "user@example.com",
+  "confirm": true
+}
+```
+
+**Response `200 OK`**: `ApiResponse<AdminDeleteUserResponse>`
+
+`AdminDeleteUserResponse`:
+
+| Field              | Type       | Description                                           |
+|:-------------------|:-----------|:------------------------------------------------------|
+| `deletedUserId`    | `UUID`     | ID of the deleted user                                |
+| `email`            | `string`   | Email of the deleted user                             |
+| `deletedCoupleIds` | `UUID[]`   | IDs of couple records that were deleted (may be empty)|
+| `deletedAt`        | `string`   | ISO 8601 datetime of when the deletion was performed  |
+
+**Example Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "deletedUserId": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "deletedCoupleIds": ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+    "deletedAt": "2026-06-04T10:30:00Z"
+  },
+  "timestamp": "2026-06-04T10:30:00Z"
+}
+```
+
+**Error Responses**
+
+| Status | Error Code                       | Description                                              |
+|:------:|:---------------------------------|:---------------------------------------------------------|
+| `400`  | `DELETE_NOT_CONFIRMED`           | `confirm` field is absent or not `true`                  |
+| `400`  | `CANNOT_DELETE_SYSTEM_ACCOUNT`   | Target is the system account; hard-delete is not allowed |
+| `400`  | `CANNOT_DELETE_SELF`             | Admin cannot delete their own account                    |
+| `400`  | `COUPLE_HAS_PARTNER`             | Target user has a real partner; cannot delete shared data|
+| `400`  | `VALIDATION_ERROR`               | Email format is invalid or required fields are missing   |
+| `403`  | `FORBIDDEN`                      | Caller does not have `ADMIN` role                        |
+| `404`  | `USER_NOT_FOUND`                 | No user found with the given email                       |
+
+---
+
 ## Error Codes
 
 | Error Code                        | HTTP Status | Description                                          |
@@ -4862,3 +4968,11 @@ spring:
 | `SPENDING_PLAN_NOT_FOUND`         | `404`       | Requested spending plan does not exist or belongs to another couple |
 | `FEEDBACK_NOT_FOUND`              | `404`       | Requested feedback post does not exist                               |
 | `INVALID_STATUS`                  | `400`       | Operation not allowed for the resource's current status (e.g., editing a non-SUBMITTED feedback, completing an already-completed plan) |
+| `DELETE_NOT_CONFIRMED`            | `400`       | Deletion request must include `confirm=true`                         |
+| `CANNOT_DELETE_SYSTEM_ACCOUNT`    | `400`       | System account cannot be hard-deleted                                |
+| `CANNOT_DELETE_SELF`              | `400`       | Admin cannot delete their own account                                |
+| `COUPLE_HAS_PARTNER`              | `400`       | User has a real partner; cannot hard-delete shared data              |
+| `CANNOT_DELETE_ADMIN`             | `400`       | Admin accounts cannot be hard-deleted via this endpoint              |
+| `EMAIL_REQUIRED_FOR_COUPLE`       | `400`       | Email registration is required before linking a partner              |
+| `EMAIL_ALREADY_IN_USE`            | `400`       | Email is already used by another account                             |
+| `INVALID_EMAIL`                   | `400`       | Invalid email (placeholder domain not allowed)                       |

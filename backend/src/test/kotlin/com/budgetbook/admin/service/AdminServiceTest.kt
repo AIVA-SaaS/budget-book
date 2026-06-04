@@ -23,6 +23,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import jakarta.persistence.EntityManager
+import jakarta.persistence.Query
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.time.Instant
@@ -37,8 +39,9 @@ class AdminServiceTest : BehaviorSpec({
     val coupleRepository = mockk<CoupleRepository>()
     val transactionRepository = mockk<TransactionRepository>()
     val announcementRepository = mockk<AnnouncementRepository>()
+    val entityManager = mockk<EntityManager>(relaxed = true)
 
-    val adminService = AdminService(userRepository, coupleRepository, transactionRepository, announcementRepository)
+    val adminService = AdminService(userRepository, coupleRepository, transactionRepository, announcementRepository, entityManager)
 
     val adminUser = User(
         email = "admin@example.com",
@@ -353,6 +356,138 @@ class AdminServiceTest : BehaviorSpec({
                 shouldThrow<NotFoundException> {
                     adminService.getAnnouncement(unknownId)
                 }
+            }
+        }
+    }
+
+    // --- deleteUserByEmail ---
+
+    Given("admin requests hard delete of a user by email") {
+        val nativeQuery = mockk<jakarta.persistence.Query>(relaxed = true)
+        every { entityManager.createNativeQuery(any()) } returns nativeQuery
+        every { nativeQuery.setParameter(any<String>(), any()) } returns nativeQuery
+        every { nativeQuery.executeUpdate() } returns 0
+
+        When("confirm is false") {
+            Then("throws BusinessException DELETE_NOT_CONFIRMED") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, "target@example.com", confirm = false)
+                }.code shouldBe "DELETE_NOT_CONFIRMED"
+            }
+        }
+
+        When("email does not exist") {
+            every { userRepository.findByEmail("notfound@example.com") } returns null
+
+            Then("throws NotFoundException USER_NOT_FOUND") {
+                shouldThrow<NotFoundException> {
+                    adminService.deleteUserByEmail(adminUser.id, "notfound@example.com", confirm = true)
+                }.code shouldBe "USER_NOT_FOUND"
+            }
+        }
+
+        When("target user has SYSTEM provider") {
+            val systemUser = User(
+                email = "system@internal",
+                nickname = "System",
+                provider = AuthProvider.SYSTEM,
+                providerId = "system"
+            )
+            every { userRepository.findByEmail(systemUser.email) } returns systemUser
+
+            Then("throws BusinessException CANNOT_DELETE_SYSTEM_ACCOUNT") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, systemUser.email, confirm = true)
+                }.code shouldBe "CANNOT_DELETE_SYSTEM_ACCOUNT"
+            }
+        }
+
+        When("admin tries to delete their own account") {
+            every { userRepository.findByEmail(adminUser.email) } returns adminUser
+
+            Then("throws BusinessException CANNOT_DELETE_SELF") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, adminUser.email, confirm = true)
+                }.code shouldBe "CANNOT_DELETE_SELF"
+            }
+        }
+
+        When("target user is another ADMIN account") {
+            val anotherAdmin = User(
+                email = "admin2@example.com",
+                nickname = "Admin2",
+                provider = AuthProvider.GOOGLE,
+                providerId = "google-admin2",
+                role = UserRole.ADMIN
+            )
+            every { userRepository.findByEmail(anotherAdmin.email) } returns anotherAdmin
+
+            Then("throws BusinessException CANNOT_DELETE_ADMIN") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, anotherAdmin.email, confirm = true)
+                }.code shouldBe "CANNOT_DELETE_ADMIN"
+            }
+        }
+
+        When("target user has a real partner in a ACTIVE couple") {
+            val partner = User(
+                email = "partner@example.com",
+                nickname = "Partner",
+                provider = AuthProvider.GOOGLE,
+                providerId = "google-partner"
+            )
+            val realCouple = Couple(user1 = regularUser, user2 = partner, status = CoupleStatus.ACTIVE, isSelf = false)
+            every { userRepository.findByEmail(regularUser.email) } returns regularUser
+            every { coupleRepository.findAllByUserId(regularUser.id) } returns listOf(realCouple)
+
+            Then("throws BusinessException COUPLE_HAS_PARTNER") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, regularUser.email, confirm = true)
+                }.code shouldBe "COUPLE_HAS_PARTNER"
+            }
+        }
+
+        When("target user has a DISSOLVED couple with a real partner") {
+            val partner = User(
+                email = "partner@example.com",
+                nickname = "Partner",
+                provider = AuthProvider.GOOGLE,
+                providerId = "google-partner"
+            )
+            val dissolvedCouple = Couple(
+                user1 = regularUser,
+                user2 = partner,
+                status = CoupleStatus.DISSOLVED,
+                isSelf = false
+            )
+            every { userRepository.findByEmail(regularUser.email) } returns regularUser
+            every { coupleRepository.findAllByUserId(regularUser.id) } returns listOf(dissolvedCouple)
+
+            Then("throws BusinessException COUPLE_HAS_PARTNER (shared-data safety guard)") {
+                shouldThrow<BusinessException> {
+                    adminService.deleteUserByEmail(adminUser.id, regularUser.email, confirm = true)
+                }.code shouldBe "COUPLE_HAS_PARTNER"
+            }
+        }
+
+        When("target user has only a self-couple (no partner)") {
+            val selfCouple = Couple(user1 = regularUser, user2 = null, status = CoupleStatus.ACTIVE, isSelf = true)
+            every { userRepository.findByEmail(regularUser.email) } returns regularUser
+            every { coupleRepository.findAllByUserId(regularUser.id) } returns listOf(selfCouple)
+
+            val result = adminService.deleteUserByEmail(adminUser.id, regularUser.email, confirm = true)
+
+            Then("returns DeleteUserResult with correct fields") {
+                result.deletedUserId shouldBe regularUser.id
+                result.email shouldBe regularUser.email
+                result.deletedCoupleIds shouldBe listOf(selfCouple.id)
+                result.deletedAt shouldNotBe null
+            }
+
+            Then("entityManager native queries are executed") {
+                verify(atLeast = 1) { entityManager.createNativeQuery(any()) }
+                verify { entityManager.flush() }
+                verify { entityManager.clear() }
             }
         }
     }
