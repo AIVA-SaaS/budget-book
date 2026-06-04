@@ -5,8 +5,8 @@ class AppInfoPage extends StatelessWidget {
   const AppInfoPage({super.key});
 
   static const _version = '1.0.0';
-  static const _privacyUrl = 'https://budget-book.app/privacy';
-  static const _termsUrl = 'https://budget-book.app/terms';
+  static const _privacyUrl = 'https://aiva-bb.duckdns.org/privacy.html';
+  static const _termsUrl = 'https://aiva-bb.duckdns.org/terms.html';
 
   @override
   Widget build(BuildContext context) {
