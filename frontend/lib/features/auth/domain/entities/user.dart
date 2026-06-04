@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:budget_book/core/utils/email_policy.dart';
 
 class User extends Equatable {
   final String id;
@@ -20,6 +21,9 @@ class User extends Equatable {
     this.coupleId,
     required this.createdAt,
   });
+
+  /// Returns true when this user has a verified, non-placeholder email.
+  bool get hasRegisteredEmail => !isPlaceholderEmail(email);
 
   @override
   List<Object?> get props => [

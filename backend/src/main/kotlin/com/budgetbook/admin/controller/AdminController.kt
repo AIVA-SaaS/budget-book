@@ -4,6 +4,8 @@ import com.budgetbook.admin.dto.AdminUserDetailResponse
 import com.budgetbook.admin.dto.AdminUserResponse
 import com.budgetbook.admin.dto.AnnouncementResponse
 import com.budgetbook.admin.dto.CreateAnnouncementRequest
+import com.budgetbook.admin.dto.DeleteUserByEmailRequest
+import com.budgetbook.admin.dto.DeleteUserResult
 import com.budgetbook.admin.dto.PagedResponse
 import com.budgetbook.admin.dto.SystemStatsResponse
 import com.budgetbook.admin.dto.UpdateAnnouncementRequest
@@ -48,6 +50,15 @@ class AdminController(
         @PathVariable userId: UUID
     ): ApiResponse<AdminUserDetailResponse> {
         val result = adminService.getUserDetail(userId)
+        return ApiResponse.ok(result)
+    }
+
+    @DeleteMapping("/users")
+    fun deleteUserByEmail(
+        @AuthUser adminUserId: UUID,
+        @Valid @RequestBody request: DeleteUserByEmailRequest
+    ): ApiResponse<DeleteUserResult> {
+        val result = adminService.deleteUserByEmail(adminUserId, request.email, request.confirm)
         return ApiResponse.ok(result)
     }
 

@@ -51,6 +51,7 @@ class _MainShellPageState extends State<MainShellPage> {
     _previousIndex = widget.navigationShell.currentIndex;
     _connectWebSocketIfAuthenticated();
     _preloadCommonData();
+    _promptEmailRegistrationIfNeeded();
   }
 
   @override
@@ -68,6 +69,41 @@ class _MainShellPageState extends State<MainShellPage> {
     getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
     getIt<FavoritesBloc>().add(const LoadFavorites());
     getIt<CoupleBloc>().add(const LoadCouple());
+  }
+
+  /// Kakao users who did not consent to email sharing are stored with a
+  /// placeholder email. Prompt them once per shell entry to register a real
+  /// email (required for partner linking + account recovery).
+  void _promptEmailRegistrationIfNeeded() {
+    final authState = getIt<AuthBloc>().state;
+    if (authState is AuthAuthenticated && !authState.user.hasRegisteredEmail) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('이메일 등록 안내'),
+            content: const Text(
+              '계정에 이메일이 등록되어 있지 않습니다.\n'
+              '파트너 연결과 계정 보호를 위해 이메일을 등록해 주세요.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('나중에'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  context.push('/settings/profile-edit');
+                },
+                child: const Text('이메일 등록'),
+              ),
+            ],
+          ),
+        );
+      });
+    }
   }
 
   Future<void> _connectWebSocketIfAuthenticated() async {

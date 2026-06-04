@@ -4,11 +4,15 @@ import com.budgetbook.admin.dto.AdminUserDetailResponse
 import com.budgetbook.admin.dto.AdminUserResponse
 import com.budgetbook.admin.dto.AnnouncementResponse
 import com.budgetbook.admin.dto.CreateAnnouncementRequest
+import com.budgetbook.admin.dto.DeleteUserByEmailRequest
+import com.budgetbook.admin.dto.DeleteUserResult
 import com.budgetbook.admin.dto.PagedResponse
 import com.budgetbook.admin.dto.SystemStatsResponse
 import com.budgetbook.admin.dto.UpdateAnnouncementRequest
 import com.budgetbook.admin.service.AdminService
+import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -176,5 +180,38 @@ class AdminControllerTest : FunSpec({
 
         result.success shouldBe true
         verify { adminService.deleteAnnouncement(announcementId) }
+    }
+
+    // --- DELETE /api/v1/admin/users ---
+
+    test("deleteUserByEmail returns 200 with DeleteUserResult on success") {
+        val deletedUserId = UUID.randomUUID()
+        val coupleId = UUID.randomUUID()
+        val request = DeleteUserByEmailRequest(email = "target@example.com", confirm = true)
+        val resultData = DeleteUserResult(
+            deletedUserId = deletedUserId,
+            email = "target@example.com",
+            deletedCoupleIds = listOf(coupleId),
+            deletedAt = Instant.now()
+        )
+        every { adminService.deleteUserByEmail(adminUserId, "target@example.com", true) } returns resultData
+
+        val result = controller.deleteUserByEmail(adminUserId, request)
+
+        result.success shouldBe true
+        result.data!!.deletedUserId shouldBe deletedUserId
+        result.data!!.email shouldBe "target@example.com"
+        result.data!!.deletedCoupleIds shouldBe listOf(coupleId)
+    }
+
+    test("deleteUserByEmail with confirm=false propagates BusinessException from service") {
+        val request = DeleteUserByEmailRequest(email = "target@example.com", confirm = false)
+        every {
+            adminService.deleteUserByEmail(adminUserId, "target@example.com", false)
+        } throws BusinessException("DELETE_NOT_CONFIRMED", "Deletion must be explicitly confirmed (confirm=true)")
+
+        shouldThrow<BusinessException> {
+            controller.deleteUserByEmail(adminUserId, request)
+        }.code shouldBe "DELETE_NOT_CONFIRMED"
     }
 })

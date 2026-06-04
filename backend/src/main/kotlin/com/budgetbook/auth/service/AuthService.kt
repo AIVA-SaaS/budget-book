@@ -1,5 +1,6 @@
 package com.budgetbook.auth.service
 
+import com.budgetbook.auth.domain.EmailPolicy
 import com.budgetbook.auth.domain.RefreshToken
 import com.budgetbook.auth.dto.LogoutRequest
 import com.budgetbook.auth.dto.RefreshTokenRequest
@@ -103,6 +104,20 @@ class AuthService(
             user.profileImageUrl = null
         } else {
             request.profileImageUrl?.let { user.profileImageUrl = it }
+        }
+
+        request.email?.let { rawEmail ->
+            val trimmed = rawEmail.trim()
+            // Reject direct placeholder domain input
+            if (EmailPolicy.isPlaceholderEmail(trimmed)) {
+                throw BusinessException("INVALID_EMAIL", "Cannot use a reserved email domain.")
+            }
+            // Reject duplicate email belonging to a different user
+            val existing = userRepository.findByEmail(trimmed)
+            if (existing != null && existing.id != user.id) {
+                throw BusinessException("EMAIL_ALREADY_IN_USE", "This email is already in use by another account.")
+            }
+            user.email = trimmed
         }
 
         val savedUser = userRepository.save(user)

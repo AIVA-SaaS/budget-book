@@ -1,6 +1,7 @@
 package com.budgetbook.auth.service
 
 import com.budgetbook.auth.domain.AuthProvider
+import com.budgetbook.auth.domain.EmailPolicy
 import com.budgetbook.auth.security.CustomOAuth2User
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
@@ -22,9 +23,12 @@ class CustomOidcUserService(
         val registrationId = userRequest.clientRegistration.registrationId
         val provider = AuthProvider.valueOf(registrationId.uppercase())
 
+        val providerId = oidcUser.subject
+        val email = oidcUser.email
+            ?: EmailPolicy.buildPlaceholderEmail(provider, providerId)
         val userInfo = CustomOAuth2UserService.OAuth2UserInfo(
-            providerId = oidcUser.subject,
-            email = oidcUser.email ?: "",
+            providerId = providerId,
+            email = email,
             name = oidcUser.fullName ?: oidcUser.preferredUsername ?: "Unknown",
             profileImageUrl = oidcUser.picture
         )

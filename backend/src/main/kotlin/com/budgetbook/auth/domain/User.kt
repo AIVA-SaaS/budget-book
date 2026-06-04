@@ -41,3 +41,6 @@ class User(
 
 enum class AuthProvider { GOOGLE, KAKAO, SYSTEM }
 enum class UserRole { USER, ADMIN }
+
+/** Returns true when this user has a real (non-placeholder) email address. */
+fun User.hasRealEmail(): Boolean = EmailPolicy.isRealEmail(email)

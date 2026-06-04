@@ -51,8 +51,12 @@ class CoupleLinked extends CoupleState {
 class CoupleError extends CoupleState {
   final String message;
 
-  const CoupleError(this.message);
+  /// Optional server error code (e.g. EMAIL_REQUIRED_FOR_COUPLE) so the UI
+  /// can branch on specific failures instead of showing a generic message.
+  final String? errorCode;
+
+  const CoupleError(this.message, {this.errorCode});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, errorCode];
 }

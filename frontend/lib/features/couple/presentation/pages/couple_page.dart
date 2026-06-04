@@ -25,17 +25,49 @@ class _CouplePageState extends State<CouplePage> {
     super.dispose();
   }
 
+  /// Shown when the partner-link API rejects a placeholder-email user
+  /// (BE returns EMAIL_REQUIRED_FOR_COUPLE). Guides the user to register
+  /// a real email in the profile-edit screen before linking a partner.
+  void _showEmailRequiredDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('이메일 등록 필요'),
+        content: const Text(
+          '파트너 연결 전 이메일 등록이 필요합니다.\n정보 수정 화면에서 이메일을 등록해 주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.push('/settings/profile-edit');
+            },
+            child: const Text('이메일 등록'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<CoupleBloc, CoupleState>(
       listener: (context, state) {
         if (state is CoupleError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          if (state.errorCode == 'EMAIL_REQUIRED_FOR_COUPLE') {
+            _showEmailRequiredDialog(context);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
         } else if (state is CoupleLinked) {
           // Refresh auth state to update coupleId so router guard is aware
           context.read<AuthBloc>().add(const AuthRefreshUser());

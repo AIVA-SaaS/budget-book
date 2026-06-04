@@ -42,20 +42,22 @@ class AuthSessionExpired extends AuthEvent {
   const AuthSessionExpired();
 }
 
-/// Updates the current user's profile (nickname, profile image).
+/// Updates the current user's profile (nickname, email, profile image).
 class UpdateProfile extends AuthEvent {
   final String? nickname;
+  final String? email;
   final String? profileImageUrl;
   final bool clearProfileImage;
 
   const UpdateProfile({
     this.nickname,
+    this.email,
     this.profileImageUrl,
     this.clearProfileImage = false,
   });
 
   @override
-  List<Object?> get props => [nickname, profileImageUrl, clearProfileImage];
+  List<Object?> get props => [nickname, email, profileImageUrl, clearProfileImage];
 }
 
 /// Uploads a profile image from the given file bytes.

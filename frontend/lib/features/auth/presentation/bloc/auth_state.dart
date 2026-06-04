@@ -37,8 +37,12 @@ class AuthUnauthenticated extends AuthState {
 class AuthError extends AuthState {
   final String message;
 
-  const AuthError(this.message);
+  /// Optional server error code (e.g. EMAIL_ALREADY_IN_USE, INVALID_EMAIL).
+  /// Populated when the repository returns a [ServerFailure] with a code.
+  final String? errorCode;
+
+  const AuthError(this.message, {this.errorCode});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, errorCode];
 }

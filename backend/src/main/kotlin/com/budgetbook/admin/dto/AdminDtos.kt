@@ -2,12 +2,27 @@ package com.budgetbook.admin.dto
 
 import com.budgetbook.admin.domain.Announcement
 import com.budgetbook.auth.domain.User
+import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
 
 // --- User Management DTOs ---
+
+data class DeleteUserByEmailRequest(
+    @field:NotBlank(message = "Email is required")
+    @field:Email(message = "Invalid email format")
+    val email: String,
+    val confirm: Boolean = false
+)
+
+data class DeleteUserResult(
+    val deletedUserId: UUID,
+    val email: String,
+    val deletedCoupleIds: List<UUID>,
+    val deletedAt: Instant
+)
 
 data class AdminUserResponse(
     val id: UUID,

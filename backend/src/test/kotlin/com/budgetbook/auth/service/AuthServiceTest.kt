@@ -531,4 +531,107 @@ class AuthServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- updateProfile email field ---
+
+    Given("a Kakao user with placeholder email updating to a real email") {
+        val kakaoUser = User(
+            email = "kakao_12345@no-email.local",
+            nickname = "KakaoUser",
+            provider = AuthProvider.KAKAO,
+            providerId = "12345"
+        )
+
+        every { userRepository.findById(kakaoUser.id) } returns Optional.of(kakaoUser)
+        every { userRepository.findByEmail("real@example.com") } returns null
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(kakaoUser.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called with a real email") {
+            val request = UpdateProfileRequest(email = "real@example.com")
+            val result = authService.updateProfile(kakaoUser.id, request)
+
+            Then("email is updated successfully") {
+                result.email shouldBe "real@example.com"
+            }
+
+            Then("evicts user cache") {
+                verify { userCacheService.evict(kakaoUser.id) }
+            }
+        }
+    }
+
+    Given("a user trying to update email to a placeholder domain value") {
+        val user = User(
+            email = "kakao_abc@no-email.local",
+            nickname = "KakaoUser2",
+            provider = AuthProvider.KAKAO,
+            providerId = "abc"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+
+        When("updateProfile is called with a placeholder-domain email") {
+            val request = UpdateProfileRequest(email = "attacker_xyz@no-email.local")
+
+            Then("throws BusinessException with INVALID_EMAIL") {
+                val exception = shouldThrow<BusinessException> {
+                    authService.updateProfile(user.id, request)
+                }
+                exception.code shouldBe "INVALID_EMAIL"
+            }
+        }
+    }
+
+    Given("a user trying to update email to one already used by another account") {
+        val existingUser = User(
+            email = "taken@example.com",
+            nickname = "ExistingUser",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-existing"
+        )
+        val user = User(
+            email = "kakao_dup@no-email.local",
+            nickname = "KakaoUser3",
+            provider = AuthProvider.KAKAO,
+            providerId = "dup"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.findByEmail("taken@example.com") } returns existingUser
+
+        When("updateProfile is called with the taken email") {
+            val request = UpdateProfileRequest(email = "taken@example.com")
+
+            Then("throws BusinessException with EMAIL_ALREADY_IN_USE") {
+                val exception = shouldThrow<BusinessException> {
+                    authService.updateProfile(user.id, request)
+                }
+                exception.code shouldBe "EMAIL_ALREADY_IN_USE"
+            }
+        }
+    }
+
+    Given("a user updating email to their own current email") {
+        val user = User(
+            email = "mine@example.com",
+            nickname = "SameEmailUser",
+            provider = AuthProvider.GOOGLE,
+            providerId = "google-same"
+        )
+
+        every { userRepository.findById(user.id) } returns Optional.of(user)
+        every { userRepository.findByEmail("mine@example.com") } returns user
+        every { userRepository.save(any()) } returnsArgument 0
+        every { coupleRepository.findByUserIdAndStatus(user.id, CoupleStatus.ACTIVE) } returns null
+
+        When("updateProfile is called with the same email") {
+            val request = UpdateProfileRequest(email = "mine@example.com")
+            val result = authService.updateProfile(user.id, request)
+
+            Then("succeeds (same-user idempotent update)") {
+                result.email shouldBe "mine@example.com"
+            }
+        }
+    }
 })
