@@ -11,6 +11,7 @@ jjwt = "0.12.6"
 sentry = "7.14.0"
 micrometer-prometheus = "1.12.5"
 kover = "0.8.0"
+testcontainers = "1.19.8"
 
 [libraries]
 # Spring Boot
@@ -54,6 +55,8 @@ kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest"
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-spring" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 spring-security-test = { module = "org.springframework.security:spring-security-test" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

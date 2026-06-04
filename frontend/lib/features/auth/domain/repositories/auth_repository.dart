@@ -8,6 +8,7 @@ abstract class AuthRepository {
   Future<Either<Failure, User>> getCurrentUser();
   Future<Either<Failure, User>> updateProfile({
     String? nickname,
+    String? email,
     String? profileImageUrl,
     bool clearProfileImage = false,
   });

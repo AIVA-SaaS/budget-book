@@ -474,4 +474,66 @@ class CoupleServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- Email gate for couple linking ---
+
+    val placeholderUser = User(
+        email = "kakao_99999999@no-email.local",
+        nickname = "NoEmailUser",
+        provider = AuthProvider.KAKAO,
+        providerId = "99999999"
+    )
+
+    Given("a Kakao user with placeholder email (no real email) trying to create invitation") {
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(placeholderUser.id, CoupleStatus.ACTIVE) } returns null
+        every { userRepository.findById(placeholderUser.id) } returns Optional.of(placeholderUser)
+
+        When("createInvitation is called") {
+            Then("throws BusinessException with EMAIL_REQUIRED_FOR_COUPLE") {
+                val ex = shouldThrow<BusinessException> {
+                    coupleService.createInvitation(placeholderUser.id)
+                }
+                ex.code shouldBe "EMAIL_REQUIRED_FOR_COUPLE"
+            }
+        }
+    }
+
+    Given("a Kakao user with placeholder email trying to accept an invitation") {
+        val invitation = CoupleInvitation(
+            inviter = user1,
+            invitationCode = "TESTCODE",
+            status = InvitationStatus.PENDING,
+            expiresAt = Instant.now().plusSeconds(3600)
+        )
+
+        every { coupleInvitationRepository.findByInvitationCode("TESTCODE") } returns invitation
+        every { userRepository.findById(placeholderUser.id) } returns Optional.of(placeholderUser)
+
+        When("acceptInvitation is called by placeholder user") {
+            Then("throws BusinessException with EMAIL_REQUIRED_FOR_COUPLE") {
+                val ex = shouldThrow<BusinessException> {
+                    coupleService.acceptInvitation(placeholderUser.id, "TESTCODE")
+                }
+                ex.code shouldBe "EMAIL_REQUIRED_FOR_COUPLE"
+            }
+        }
+    }
+
+    Given("a user with real email trying to create invitation") {
+        // user1 has email "user1@example.com" which is real
+        every { coupleRepository.findRealCoupleByUserIdAndStatus(user1.id, CoupleStatus.ACTIVE) } returns null
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { coupleInvitationRepository.updateStatusByInviterIdAndStatus(user1.id, InvitationStatus.PENDING, InvitationStatus.CANCELLED) } returns Unit
+
+        val invitationSlot = slot<CoupleInvitation>()
+        every { coupleInvitationRepository.save(capture(invitationSlot)) } answers { invitationSlot.captured }
+
+        When("createInvitation is called") {
+            val result = coupleService.createInvitation(user1.id)
+
+            Then("succeeds and returns invitation code") {
+                result.code shouldHaveLength 8
+            }
+        }
+    }
 })

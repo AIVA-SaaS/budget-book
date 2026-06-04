@@ -84,6 +84,8 @@ dependencies {
     testImplementation(libs.kotest.extensions.spring)
     testImplementation(libs.mockk)
     testImplementation(libs.spring.security.test)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.junit.jupiter)
 }
 
 kotlin {
@@ -94,4 +96,15 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Pass Docker socket to the forked test JVM so Testcontainers can find Docker Desktop on macOS.
+    // Docker Desktop 4.x proxy rejects /v1.32/info (docker-java default) with empty 400.
+    // Testcontainers uses its own shaded docker-java which reads API version from "api.version"
+    // environment variable (not DOCKER_API_VERSION). Setting this to "1.44" bypasses the v1.32 issue.
+    val varRunSock = "/var/run/docker.sock"
+    val dockerHost = System.getenv("DOCKER_HOST") ?: "unix://$varRunSock"
+    environment("DOCKER_HOST", dockerHost)
+    environment("api.version", "1.44")          // Testcontainers shaded docker-java reads this key
+    environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", varRunSock)
+    systemProperty("DOCKER_HOST", dockerHost)
+    systemProperty("api.version", "1.44")
 }

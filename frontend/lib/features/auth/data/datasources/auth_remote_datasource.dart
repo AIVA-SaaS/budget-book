@@ -9,6 +9,7 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> getCurrentUser();
   Future<UserModel> updateProfile({
     String? nickname,
+    String? email,
     String? profileImageUrl,
     bool clearProfileImage = false,
   });
@@ -44,11 +45,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> updateProfile({
     String? nickname,
+    String? email,
     String? profileImageUrl,
     bool clearProfileImage = false,
   }) async {
     final data = <String, dynamic>{};
     if (nickname != null) data['nickname'] = nickname;
+    if (email != null) data['email'] = email;
     if (profileImageUrl != null) data['profileImageUrl'] = profileImageUrl;
     if (clearProfileImage) data['clearProfileImage'] = true;
 

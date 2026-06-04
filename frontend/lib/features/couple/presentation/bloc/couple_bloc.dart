@@ -47,7 +47,10 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
       emit(const CoupleLoading());
       final result = await coupleRepository.createInvitation();
       result.fold(
-        (failure) => emit(CoupleError(failure.message)),
+        (failure) => emit(CoupleError(
+          failure.message,
+          errorCode: failure is ServerFailure ? failure.code : null,
+        )),
         (invitation) => emit(CoupleInvitationPending(invitation)),
       );
     } catch (_) {
@@ -63,7 +66,10 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
       emit(const CoupleLoading());
       final result = await coupleRepository.acceptInvitation(event.code);
       result.fold(
-        (failure) => emit(CoupleError(failure.message)),
+        (failure) => emit(CoupleError(
+          failure.message,
+          errorCode: failure is ServerFailure ? failure.code : null,
+        )),
         (couple) => emit(CoupleLinked(couple)),
       );
     } catch (_) {
@@ -122,7 +128,10 @@ class CoupleBloc extends Bloc<CoupleEvent, CoupleState> {
       emit(const CoupleLoading());
       final result = await coupleRepository.dissolveCouple();
       result.fold(
-        (failure) => emit(CoupleError(failure.message)),
+        (failure) => emit(CoupleError(
+          failure.message,
+          errorCode: failure is ServerFailure ? failure.code : null,
+        )),
         (_) => emit(const CoupleNotLinked()),
       );
     } catch (_) {
