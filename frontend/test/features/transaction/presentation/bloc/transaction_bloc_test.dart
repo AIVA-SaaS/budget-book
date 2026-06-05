@@ -378,6 +378,96 @@ void main() {
           )).called(1);
         },
       );
+
+      // 버그1 회귀: 보고 있던 달과 다른 달의 거래를 등록하면, 재조회는
+      // **등록한 거래의 달**로 이뤄져야 한다 (이전: 보고 있던 달로 재조회 →
+      // 신규 거래가 목록에 안 보임).
+      blocTest<TransactionBloc, TransactionState>(
+        'reloads the created transaction\'s month, not the viewed month',
+        build: () {
+          when(mockRepository.createTransaction(
+            type: 'EXPENSE',
+            amount: 15000,
+            description: '점심 식사',
+            categoryId: 'cat-1',
+            transactionDate: '2024-06-10',
+            memo: null,
+          )).thenAnswer((_) async => Right(tTransaction1));
+          when(mockRepository.getTransactions(
+            year: anyNamed('year'),
+            month: anyNamed('month'),
+            size: 30,
+          )).thenAnswer((_) async => Right(tPageResponse));
+          return transactionBloc;
+        },
+        act: (bloc) {
+          // 5월을 보던 중 (currentYear/Month = 2024/5)
+          bloc.add(const LoadTransactions(year: 2024, month: 5));
+          // 6월 거래 등록
+          bloc.add(const CreateTransaction(
+            type: 'EXPENSE',
+            amount: 15000,
+            description: '점심 식사',
+            categoryId: 'cat-1',
+            transactionDate: '2024-06-10',
+          ));
+        },
+        verify: (_) {
+          // 재조회가 6월로 이뤄졌는지 (5월 아님)
+          verify(mockRepository.getTransactions(
+            year: 2024,
+            month: 6,
+            size: 30,
+          )).called(1);
+        },
+      );
+
+      // 버그3 회귀: 응답 지연 중 중복 등록 이벤트가 들어와도 1건만 생성.
+      blocTest<TransactionBloc, TransactionState>(
+        'drops duplicate create events while one is in-flight',
+        build: () {
+          when(mockRepository.createTransaction(
+            type: 'EXPENSE',
+            amount: 15000,
+            description: '점심 식사',
+            categoryId: 'cat-1',
+            transactionDate: '2024-01-15',
+            memo: null,
+          )).thenAnswer((_) async {
+            // 응답 지연 시뮬레이션 — 두 번째 이벤트가 in-flight 중 도착하도록.
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            return Right(tTransaction1);
+          });
+          when(mockRepository.getTransactions(
+            year: anyNamed('year'),
+            month: anyNamed('month'),
+            size: 30,
+          )).thenAnswer((_) async => Right(tPageResponse));
+          return transactionBloc;
+        },
+        act: (bloc) {
+          const event = CreateTransaction(
+            type: 'EXPENSE',
+            amount: 15000,
+            description: '점심 식사',
+            categoryId: 'cat-1',
+            transactionDate: '2024-01-15',
+          );
+          bloc.add(event);
+          bloc.add(event); // 연타 — in-flight 중이면 drop 되어야 함
+        },
+        wait: const Duration(milliseconds: 100),
+        verify: (_) {
+          verify(mockRepository.createTransaction(
+            type: 'EXPENSE',
+            amount: 15000,
+            description: '점심 식사',
+            categoryId: 'cat-1',
+            transactionDate: '2024-01-15',
+            memo: null,
+          )).called(1); // 2번이 아니라 1번만 호출
+        },
+      );
     });
 
     group('DeleteTransaction', () {

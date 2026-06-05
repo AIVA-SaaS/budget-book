@@ -61,6 +61,22 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   int get currentYear => _currentYear;
   int get currentMonth => _currentMonth;
 
+  /// 생성/수정 in-flight 가드.
+  /// 응답 지연 중 사용자가 등록 버튼을 다시 눌러도(폼 15초 타임아웃이 버튼을
+  /// 재활성화) 같은 요청이 진행 중이면 중복 이벤트를 drop → 중복 거래 생성 방지.
+  /// flutter_bloc 기본 concurrent 처리에서 두 번째 핸들러가 이 플래그를 보고 멈춘다.
+  bool _isMutating = false;
+
+  /// 거래 날짜('yyyy-MM-dd')의 연/월. 등록/수정 후 해당 거래의 달로 포커싱하기
+  /// 위해 사용. 파싱 실패/미지정 시 현재 포커스 월 유지.
+  ({int year, int month}) _focusMonthFor(String? transactionDate) {
+    if (transactionDate != null) {
+      final d = DateTime.tryParse(transactionDate);
+      if (d != null) return (year: d.year, month: d.month);
+    }
+    return (year: _currentYear, month: _currentMonth);
+  }
+
   TransactionBloc({required this.transactionRepository, this.statisticsRepository})
       : super(const TransactionInitial()) {
     on<LoadTransactions>(_onLoadTransactions);
@@ -310,6 +326,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     CreateTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    // 중복 등록 방지: 같은 생성/수정이 진행 중이면 즉시 drop.
+    if (_isMutating) return;
+    _isMutating = true;
     try {
       final result = await transactionRepository.createTransaction(
         type: event.type,
@@ -322,11 +341,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         pocketId: event.pocketId,
         needsReview: event.needsReview,
       );
+      // 등록 성공 후에는 **방금 등록한 거래의 달**로 재조회해야 한다.
+      // (이전: _currentYear/_currentMonth = 보고 있던 달 → 다른 달 거래 등록 시
+      //  목록은 이전 달만 보이고 신규 거래가 사라지던 버그)
+      final focus = _focusMonthFor(event.transactionDate);
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
         (_) => add(LoadTransactions(
-              year: _currentYear,
-              month: _currentMonth,
+              year: focus.year,
+              month: focus.month,
               keyword: _currentKeyword,
               categoryId: _currentCategoryId,
               categoryIds: _currentCategoryIds,
@@ -361,6 +384,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       } else {
         emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
       }
+    } finally {
+      _isMutating = false;
     }
   }
 
@@ -368,6 +393,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     UpdateTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    // 중복 수정 방지: 같은 생성/수정이 진행 중이면 즉시 drop.
+    if (_isMutating) return;
+    _isMutating = true;
     try {
       final result = await transactionRepository.updateTransaction(
         id: event.id,
@@ -381,11 +409,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         pocketId: event.pocketId,
         needsReview: event.needsReview,
       );
+      // 수정 성공 후에는 **수정된 거래의 달**로 재조회 (날짜를 다른 달로 옮긴
+      // 경우 목록/네비게이터가 그 달을 가리키도록). transactionDate 미변경
+      // (null) 이면 현재 포커스 월 유지.
+      final focus = _focusMonthFor(event.transactionDate);
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
         (_) => add(LoadTransactions(
-              year: _currentYear,
-              month: _currentMonth,
+              year: focus.year,
+              month: focus.month,
               keyword: _currentKeyword,
               categoryId: _currentCategoryId,
               categoryIds: _currentCategoryIds,
@@ -420,6 +452,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       } else {
         emit(const TransactionError('예기치 않은 오류가 발생했습니다'));
       }
+    } finally {
+      _isMutating = false;
     }
   }
 
