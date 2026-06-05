@@ -10,6 +10,10 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
 
+  /// 생성/수정 in-flight 가드 — 응답 지연 중 연타로 인한 중복 이체 생성 방지.
+  /// (거래 등록 중복 방지와 동일 패턴: TransactionBloc._isMutating)
+  bool _isMutating = false;
+
   TransferBloc({required this.transferRepository})
       : super(const TransferInitial()) {
     on<LoadTransfers>(_onLoadTransfers);
@@ -65,6 +69,9 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     Emitter<TransferState> emit,
   ) async {
     debugPrint('[TransferBloc] createTransfer: source=${event.sourcePaymentMethodId}, dest=${event.destinationPaymentMethodId}, amount=${event.amount}, date=${event.transferDate}');
+    // 중복 이체 방지: 같은 생성/수정이 진행 중이면 즉시 drop.
+    if (_isMutating) return;
+    _isMutating = true;
     try {
       final result = await transferRepository.createTransfer(
         sourcePaymentMethodId: event.sourcePaymentMethodId,
@@ -98,6 +105,8 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     } catch (e) {
       debugPrint('[TransferBloc] createTransfer EXCEPTION: $e');
       emit(const TransferError('예기치 않은 오류가 발생했습니다'));
+    } finally {
+      _isMutating = false;
     }
   }
 
@@ -105,6 +114,9 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
     UpdateTransfer event,
     Emitter<TransferState> emit,
   ) async {
+    // 중복 수정 방지: 같은 생성/수정이 진행 중이면 즉시 drop.
+    if (_isMutating) return;
+    _isMutating = true;
     try {
       final result = await transferRepository.updateTransfer(
         id: event.id,
@@ -136,6 +148,8 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       );
     } catch (e) {
       emit(const TransferError('예기치 않은 오류가 발생했습니다'));
+    } finally {
+      _isMutating = false;
     }
   }
 

@@ -556,11 +556,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             } else if (state is TransactionLoaded) {
               _submitTimeoutTimer?.cancel();
               _isSubmitting = false;
-              // 회차 12 P2 Phase A — 거래 등록 후 dashboard reload 시 사용자가 보던
-              // month 유지 (MonthCubit). 이전: now 강제로 다른 월 보던 사용자에게
-              // 현재월 dashboard 가 표시되어 sync 깨짐.
-              final monthState = getIt<MonthCubit>().state;
-              getIt<DashboardBloc>().add(LoadDashboard(year: monthState.year, month: monthState.month));
+              // 등록/수정한 거래의 달로 전역 포커스 이동.
+              // state.year/month = 방금 등록/수정한 거래의 달 (TransactionBloc 가
+              // 거래 날짜 기준으로 재조회). MonthCubit 을 맞춰 네비게이터 + 모든
+              // 월 의존 뷰를 동기화 → "다른 달 등록 시 이전 달만 보임"(버그1) 및
+              // "달력 6월 / 내역 5월" 불일치(버그2)를 함께 해소.
+              // 같은 달이면 changeMonth 는 no-op 이므로 아래 명시 reload 유지.
+              getIt<MonthCubit>().changeMonth(state.year, state.month);
+              getIt<DashboardBloc>().add(LoadDashboard(year: state.year, month: state.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
               if (_continueMode) {
                 _resetFormForContinue();
