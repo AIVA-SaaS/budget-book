@@ -9,6 +9,15 @@ class PaymentMethodBloc
     extends Bloc<PaymentMethodEvent, PaymentMethodState> {
   final PaymentMethodRepository paymentMethodRepository;
 
+  /// 마지막으로 명시적으로 조회한 카드정산 요약의 달.
+  /// `LoadPaymentMethods` 의 auto-load 가 now() 하드코딩 대신 이 값을 재사용해,
+  /// 새로고침/파트너 동기화 시 선택한 달(예: 5월) 정산이 현재 달(6월) 로
+  /// 덮이는 wrong-month drift 를 방지 (network trace 확인, 2026-06-12).
+  /// MonthSyncHandler 가 changeMonth 직후 LoadCardSettlementSummary(선택달) 를
+  /// 큐잉하므로, 네트워크 왕복 뒤 발화하는 auto-load 시점엔 이 값이 갱신돼 있다.
+  int? _lastSettlementYear;
+  int? _lastSettlementMonth;
+
   PaymentMethodBloc({required this.paymentMethodRepository})
       : super(const PaymentMethodInitial()) {
     on<LoadPaymentMethods>(_onLoadPaymentMethods);
@@ -60,10 +69,15 @@ class PaymentMethodBloc
             cardPendings: currentLoaded?.cardPendings,
             cardSettlementSummary: currentLoaded?.cardSettlementSummary,
           ));
-          // Auto-load card settlement summary if credit cards exist
+          // Auto-load card settlement summary if credit cards exist.
+          // 선택한 달(마지막 조회 달) 기준으로 — now() 하드코딩 시 새로고침에서
+          // 선택 달 대신 현재 달 정산이 로드되는 drift 발생 (위 필드 주석 참고).
           if (methods.any((pm) => pm.isCredit)) {
             final now = DateTime.now();
-            add(LoadCardSettlementSummary(year: now.year, month: now.month));
+            add(LoadCardSettlementSummary(
+              year: _lastSettlementYear ?? now.year,
+              month: _lastSettlementMonth ?? now.month,
+            ));
           }
         },
       );
@@ -252,6 +266,13 @@ class PaymentMethodBloc
     LoadCardSettlementSummary event,
     Emitter<PaymentMethodState> emit,
   ) async {
+    // 명시적으로 달을 지정해 조회하면 기억 → 이후 auto-load 가 재사용.
+    // await 이전(핸들러 진입)에 세팅해야 동시 처리되는 LoadPaymentMethods 의
+    // auto-load 가 올바른 달을 읽는다.
+    if (event.year != null && event.month != null) {
+      _lastSettlementYear = event.year;
+      _lastSettlementMonth = event.month;
+    }
     try {
       final currentMethods = state is PaymentMethodLoaded
           ? (state as PaymentMethodLoaded).paymentMethods

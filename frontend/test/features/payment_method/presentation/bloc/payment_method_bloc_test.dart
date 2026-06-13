@@ -230,6 +230,38 @@ void main() {
         ],
       );
 
+      // 회귀 (2026-06-12) — auto-load 가 now() 가 아닌 마지막으로 명시 조회한
+      // 달을 재사용해야 새로고침/동기화 시 선택 달 정산이 현재 달로 덮이지 않음.
+      blocTest<PaymentMethodBloc, PaymentMethodState>(
+        'auto-load reuses last explicitly-requested settlement month '
+        '(not now)',
+        build: () {
+          when(mockRepository.getPaymentMethods())
+              .thenAnswer((_) async => Right(tMethods));
+          when(mockRepository.getCardSettlementSummary(
+                  year: anyNamed('year'), month: anyNamed('month')))
+              .thenAnswer(
+            (_) async => const Right(CardSettlementSummary(
+              previousMonth: CardSettlementMonth(
+                  year: 2026, month: 4, totalAmount: 0, cards: []),
+              currentMonth: CardSettlementMonth(
+                  year: 2026, month: 5, totalAmount: 0, cards: []),
+            )),
+          );
+          return bloc;
+        },
+        // 먼저 5월 정산을 명시 조회 → 이후 LoadPaymentMethods 의 auto-load.
+        act: (bloc) => bloc
+          ..add(const LoadCardSettlementSummary(year: 2026, month: 5))
+          ..add(const LoadPaymentMethods()),
+        verify: (_) {
+          // auto-load 는 now() 가 아닌 기억된 5월로 호출되어야 한다.
+          verify(mockRepository.getCardSettlementSummary(
+                  year: 2026, month: 5))
+              .called(greaterThanOrEqualTo(2));
+        },
+      );
+
       blocTest<PaymentMethodBloc, PaymentMethodState>(
         'emits [PaymentMethodLoading, PaymentMethodError] on failure',
         build: () {

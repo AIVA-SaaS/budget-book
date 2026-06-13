@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/widgets/main_shell_page.dart';
 import 'package:budget_book/core/websocket/websocket_bloc.dart';
@@ -395,11 +396,21 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     visibility: f.visibility,
                   ));
                   transferBloc.add(LoadTransfers(year: year, month: month));
+                  // 이중 소스 동기화: 목록(TransactionBloc)을 URL year/month 로
+                  // 로드할 때 상단 월 네비게이터(MonthCubit)도 같은 달로 맞춘다.
+                  // 누락 시 "달력 6월 / 내역 5월" drift (새로고침·북마크·뒤로가기).
+                  // 같은 달이면 changeMonth 는 no-op (불필요한 reload 없음).
+                  getIt<MonthCubit>().changeMonth(year, month);
                 }
-                // Also load transfers if TransferBloc hasn't loaded yet
+                // Also load transfers if TransferBloc hasn't loaded yet.
+                // URL 에 year/month 가 있으면 그 달을 사용 (없을 때만 now).
+                // 누락 시 새로고침에서 transfers 만 now(현재 달) 로 빠져
+                // "내역 5월 / 이체 6월" drift 발생 (network trace 확인).
                 if (transferBloc.state is TransferInitial) {
                   final now = DateTime.now();
-                  transferBloc.add(LoadTransfers(year: now.year, month: now.month));
+                  final ty = int.tryParse(yearParam ?? '') ?? now.year;
+                  final tm = int.tryParse(monthParam ?? '') ?? now.month;
+                  transferBloc.add(LoadTransfers(year: ty, month: tm));
                 }
                 return MultiBlocProvider(
                   providers: [
