@@ -120,6 +120,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool _isSubmitting = false;
   bool _continueMode = false;
   bool _keepSameItems = false;
+  /// 이 폼 세션에서 마지막으로 저장 성공한 거래의 달.
+  /// continue 모드로 등록 후 뒤로가기로 폼을 나갈 때, stale URL 로 복귀해
+  /// 목록이 이전 달로 돌아가는 drift 를 막기 위해 등록한 달로 이동한다.
+  int? _savedYear;
+  int? _savedMonth;
   /// V61 (2026-05-06) — 사용자가 "확인/입력 필요" 로 마킹한 거래 여부.
   bool _needsReview = false;
   String? _categoryError;
@@ -565,6 +570,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               getIt<MonthCubit>().changeMonth(state.year, state.month);
               getIt<DashboardBloc>().add(LoadDashboard(year: state.year, month: state.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+              // 등록/수정한 거래의 달을 기록 → continue 모드 뒤로가기 시 이 달로 복귀.
+              _savedYear = state.year;
+              _savedMonth = state.month;
               if (_continueMode) {
                 _resetFormForContinue();
               } else if (isEditing) {
@@ -572,7 +580,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 // to avoid stale edit page in browser history
                 context.go('/transactions?year=${state.year}&month=${state.month}');
               } else {
-                context.pop();
+                // 등록 월을 URL 에 실어 복귀 → 라우터가 목록/달력을 모두 그 달로
+                // 동기화 (pop 으로 stale URL 복귀 시 발생하던 drift 방지).
+                context.go('/transactions?year=${state.year}&month=${state.month}');
               }
             } else if (state is TransactionError) {
               _submitTimeoutTimer?.cancel();
@@ -623,9 +633,18 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           },
         ),
       ],
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? '거래 수정' : '거래 추가'),
+      // continue 모드로 거래를 등록한 뒤 뒤로가기로 폼을 나가면, 진입 전의
+      // stale URL (이전 달) 로 복귀해 목록이 이전 달로 돌아가는 drift 가 발생.
+      // 저장 이력이 있으면 pop 을 가로채 등록한 달의 목록 URL 로 이동한다.
+      child: PopScope(
+        canPop: _savedYear == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop || _savedYear == null) return;
+          context.go('/transactions?year=$_savedYear&month=$_savedMonth');
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(isEditing ? '거래 수정' : '거래 추가'),
           actions: [
             if (isEditing)
               IconButton(
@@ -688,6 +707,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _buildTransferFormBody(context),
                 ],
               ),
+      ),
       ),
     );
   }
