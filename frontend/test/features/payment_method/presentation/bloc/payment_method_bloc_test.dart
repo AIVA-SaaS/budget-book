@@ -325,6 +325,46 @@ void main() {
         ],
       );
 
+      // 회귀 (2026-06-17) — 결제수단 생성 시 기존 cardSettlementSummary 가
+      // 유지돼야 함. 과거 emit 누락 → 자산 탭 전월/미결제/이번달 금액 사라짐.
+      blocTest<PaymentMethodBloc, PaymentMethodState>(
+        'preserves cardSettlementSummary when creating a payment method',
+        build: () {
+          when(mockRepository.createPaymentMethod(
+            name: '국민체크',
+            type: 'DEBIT',
+            settlementDay: null,
+            closingDay: null,
+            linkedBankId: null,
+          )).thenAnswer((_) async => Right(tNewDebitMethod));
+          return bloc;
+        },
+        seed: () => PaymentMethodLoaded(
+          tMethods,
+          cardSettlementSummary: const CardSettlementSummary(
+            previousMonth: CardSettlementMonth(
+                year: 2026, month: 5, totalAmount: 1000, cards: []),
+            currentMonth: CardSettlementMonth(
+                year: 2026, month: 6, totalAmount: 2000, cards: []),
+          ),
+        ),
+        act: (bloc) => bloc.add(const CreatePaymentMethod(
+          name: '국민체크',
+          type: 'DEBIT',
+        )),
+        expect: () => [
+          PaymentMethodLoaded(
+            [...tMethods, tNewDebitMethod],
+            cardSettlementSummary: const CardSettlementSummary(
+              previousMonth: CardSettlementMonth(
+                  year: 2026, month: 5, totalAmount: 1000, cards: []),
+              currentMonth: CardSettlementMonth(
+                  year: 2026, month: 6, totalAmount: 2000, cards: []),
+            ),
+          ),
+        ],
+      );
+
       blocTest<PaymentMethodBloc, PaymentMethodState>(
         'creates credit card with settlement and closing days',
         build: () {

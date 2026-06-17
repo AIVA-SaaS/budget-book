@@ -97,6 +97,9 @@ class PaymentMethodBloc
       final currentPendings = state is PaymentMethodLoaded
           ? (state as PaymentMethodLoaded).cardPendings
           : null;
+      final currentSummary = state is PaymentMethodLoaded
+          ? (state as PaymentMethodLoaded).cardSettlementSummary
+          : null;
 
       final result = await paymentMethodRepository.createPaymentMethod(
         name: event.name,
@@ -109,11 +112,13 @@ class PaymentMethodBloc
         (failure) => emit(PaymentMethodLoaded(
           currentMethods,
           cardPendings: currentPendings,
+          cardSettlementSummary: currentSummary,
           operationError: failure.message,
         )),
         (method) => emit(PaymentMethodLoaded(
           [...currentMethods, method],
           cardPendings: currentPendings,
+          cardSettlementSummary: currentSummary,
         )),
       );
     } catch (_) {
@@ -122,6 +127,7 @@ class PaymentMethodBloc
         emit(PaymentMethodLoaded(
           loaded.paymentMethods,
           cardPendings: loaded.cardPendings,
+          cardSettlementSummary: loaded.cardSettlementSummary,
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
@@ -141,6 +147,9 @@ class PaymentMethodBloc
       final currentPendings = state is PaymentMethodLoaded
           ? (state as PaymentMethodLoaded).cardPendings
           : null;
+      final currentSummary = state is PaymentMethodLoaded
+          ? (state as PaymentMethodLoaded).cardSettlementSummary
+          : null;
 
       final result = await paymentMethodRepository.updatePaymentMethod(
         id: event.id,
@@ -156,6 +165,7 @@ class PaymentMethodBloc
         (failure) => emit(PaymentMethodLoaded(
           currentMethods,
           cardPendings: currentPendings,
+          cardSettlementSummary: currentSummary,
           operationError: failure.message,
         )),
         (updated) {
@@ -165,6 +175,7 @@ class PaymentMethodBloc
           emit(PaymentMethodLoaded(
             updatedList,
             cardPendings: currentPendings,
+            cardSettlementSummary: currentSummary,
           ));
         },
       );
@@ -174,6 +185,7 @@ class PaymentMethodBloc
         emit(PaymentMethodLoaded(
           loaded.paymentMethods,
           cardPendings: loaded.cardPendings,
+          cardSettlementSummary: loaded.cardSettlementSummary,
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {
@@ -193,6 +205,9 @@ class PaymentMethodBloc
       final currentPendings = state is PaymentMethodLoaded
           ? (state as PaymentMethodLoaded).cardPendings
           : null;
+      final currentSummary = state is PaymentMethodLoaded
+          ? (state as PaymentMethodLoaded).cardSettlementSummary
+          : null;
 
       final result =
           await paymentMethodRepository.deletePaymentMethod(event.id);
@@ -200,6 +215,7 @@ class PaymentMethodBloc
         (failure) => emit(PaymentMethodLoaded(
           currentMethods,
           cardPendings: currentPendings,
+          cardSettlementSummary: currentSummary,
           operationError: failure.message,
         )),
         (_) {
@@ -208,6 +224,7 @@ class PaymentMethodBloc
           emit(PaymentMethodLoaded(
             updatedList,
             cardPendings: currentPendings,
+            cardSettlementSummary: currentSummary,
           ));
         },
       );
@@ -217,6 +234,7 @@ class PaymentMethodBloc
         emit(PaymentMethodLoaded(
           loaded.paymentMethods,
           cardPendings: loaded.cardPendings,
+          cardSettlementSummary: loaded.cardSettlementSummary,
           operationError: '예기치 않은 오류가 발생했습니다',
         ));
       } else {

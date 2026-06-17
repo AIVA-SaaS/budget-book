@@ -19,6 +19,8 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
+import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 
 class CardSettlementPage extends StatefulWidget {
   final String? initialCardId;
@@ -192,12 +194,20 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
             year: _selectedYear,
             month: _selectedMonth,
           ));
-          // 거래내역 갱신 — 결제 대상 거래들의 paid_at 이 업데이트되어
-          // 미결제 목록에서 제외되어야 하므로 셀프 경로에서도 즉시 갱신.
+          // 거래내역 갱신 — 결제 대상 거래들의 paid_at 업데이트 + 신규 정산
+          // 이체(Transfer, 결제일 _selectedDate 기준 생성) 가 거래 목록(거래+이체
+          // 병합 뷰)에 즉시 보이도록 셀프 경로에서 직접 갱신.
           // (WebSocket 경로는 authorId 체크로 본인 이벤트 스킵)
+          // 정산 이체가 사는 결제일의 달로 거래/이체 BLoC 을 함께 로드해 두
+          // BLoC 의 월을 일치시킨다 (과거: TransferBloc 미갱신 → 탭 재진입 전까지
+          // 정산 이체 미노출).
           getIt<TransactionBloc>().add(LoadTransactions(
-            year: _selectedYear,
-            month: _selectedMonth,
+            year: _selectedDate.year,
+            month: _selectedDate.month,
+          ));
+          getIt<TransferBloc>().add(LoadTransfers(
+            year: _selectedDate.year,
+            month: _selectedDate.month,
           ));
           final dashState = getIt<DashboardBloc>().state;
           final year = dashState is DashboardLoaded

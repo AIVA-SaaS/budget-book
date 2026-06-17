@@ -823,7 +823,11 @@ class _CategoryTabState extends State<_CategoryTab> {
                 Navigator.of(dialogContext).pop();
                 getIt<CategoryBloc>().add(CreateCategory(
                   name: name,
-                  type: 'EXPENSE',
+                  // 그룹의 실제 타입(INCOME/EXPENSE)으로 생성.
+                  // 과거 'EXPENSE' 하드코딩 → 수입 그룹에 하위 카테고리 추가 시
+                  // EXPENSE 로 생성되어 수입 거래 폼 필터(c.type=='INCOME')에서
+                  // 탈락 → 노출 안 됨.
+                  type: group.categoryType,
                   groupId: group.id,
                   visibility: group.visibility,
                 ));
@@ -896,10 +900,26 @@ class _PaymentMethodTab extends StatefulWidget {
 class _PaymentMethodTabState extends State<_PaymentMethodTab> {
   List<PaymentMethod>? _localMethods;
 
-  /// bloc state 의 paymentMethods 를 displayOrder ASC 로 정렬하여 반환.
+  /// 타입 그룹 표시 우선순위 (현금→은행→체크→신용).
+  /// paymentMethodGroupLabels 키 순서와 일치.
+  static const List<String> _typeOrder = ['CASH', 'BANK', 'DEBIT', 'CREDIT'];
+
+  /// bloc state 의 paymentMethods 를 **타입 그룹 → displayOrder** 순으로 정렬.
+  /// displayOrder 만으로 정렬하면 같은 타입이 흩어져 헤더가 쪼개지는 버그
+  /// (은행 항목이 은행 그룹에 안 모임) 가 있어, 타입을 1차 키로 둔다.
+  /// reorder 는 동일 타입 내로 제한되므로 충돌 없음.
   List<PaymentMethod> _sortedFromState(PaymentMethodLoaded state) {
+    int typeRank(String t) {
+      final i = _typeOrder.indexOf(t);
+      return i < 0 ? _typeOrder.length : i;
+    }
+
     return List<PaymentMethod>.from(state.paymentMethods)
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      ..sort((a, b) {
+        final byType = typeRank(a.type).compareTo(typeRank(b.type));
+        if (byType != 0) return byType;
+        return a.displayOrder.compareTo(b.displayOrder);
+      });
   }
 
   @override
