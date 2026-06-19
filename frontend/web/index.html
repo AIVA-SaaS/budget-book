@@ -14,11 +14,21 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <meta name="description" content="Budget Book - Shared household budget management">
+
+  <!--
+    PWA installability (Android Chrome WebAPK):
+    표준 mobile-web-app-capable + manifest + icons 가 있어야 갤럭시 Chrome 이
+    "바로가기"가 아닌 "앱 설치(WebAPK)"를 제공. iOS 는 apple-* meta 만으로 충분.
+  -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#4CAF50">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Budget Book">
+  <meta name="apple-mobile-web-app-title" content="가계부">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
-  <title>Budget Book</title>
+  <title>가계부 - Budget Book</title>
 </head>
 <body>
   <!--
