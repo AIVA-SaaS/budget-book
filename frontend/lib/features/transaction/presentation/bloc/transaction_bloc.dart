@@ -86,7 +86,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<DeleteTransaction>(_onDeleteTransaction);
   }
 
-  static const int _pageSize = 30;
+  // 회차 (2026-06-23) — 포커싱-구동 점진 로드 개편.
+  // pageSize 상향으로 라운드트립 최소화: 대부분의 달은 1요청으로 전부 로드되고,
+  // 500건 규모의 달에서 가장 과거 항목으로 포커싱할 때도 2~3요청이면 대상 페이지에
+  // 도달. (이전 30 → 첫 페이지가 최근 3일치만 덮어 포커싱 실패 + 스피너 정지.)
+  static const int _pageSize = 200;
 
   Future<void> _onLoadTransactions(
     LoadTransactions event,
@@ -240,6 +244,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         isLoadingMore: true,
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        // 포커싱 의도 보존: 추가 페이지를 붙이는 동안에도 scrollToDate 가 살아 있어야
+        // UI 가 대상 날짜 등장 시 포커싱하고, 부재 시 다음 페이지를 계속 요청한다.
+        scrollToDate: currentState.scrollToDate,
         dateFrom: currentState.dateFrom,
         dateTo: currentState.dateTo,
       ));
@@ -281,6 +288,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             operationError: failure.message,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            scrollToDate: currentState.scrollToDate,
             dateFrom: currentState.dateFrom,
             dateTo: currentState.dateTo,
           ));
@@ -299,6 +307,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: nextPage,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            scrollToDate: currentState.scrollToDate,
             dateFrom: currentState.dateFrom,
             dateTo: currentState.dateTo,
           ));
@@ -316,6 +325,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         operationError: '예기치 않은 오류가 발생했습니다',
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        scrollToDate: currentState.scrollToDate,
         dateFrom: currentState.dateFrom,
         dateTo: currentState.dateTo,
       ));
