@@ -819,21 +819,42 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
     final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    // Handle scroll-to-date (one-shot: consume and clear immediately)
-    final targetDate = _pendingScrollToDate;
+    // 회차 (2026-06-23) — 포커싱-구동 점진 로드.
+    // 포커싱 대상: MonthNavigator 날짜 선택(_pendingScrollToDate, 명시적)이
+    // BLoC scrollToDate(등록/수정 후, 수동적)보다 우선.
+    //
+    // 대상이 로드된 페이지에 없으면 (예: 500건 중 가장 과거 항목 수정) hasMore 인
+    // 동안 다음 페이지를 자동 요청 → 등장할 때 포커싱. 마지막 페이지까지 부재면
+    // 대상 거래 자체가 없는 것(날짜 이동 등)으로 보고 조용히 종료(무한루프 방지).
+    final targetDate = _pendingScrollToDate ?? state.scrollToDate;
     if (targetDate != null) {
-      _pendingScrollToDate = null; // always consume to prevent infinite loops
       if (sortedDates.contains(targetDate)) {
+        // 대상 로드됨 → 포커싱. 명시적 선택(_pending)은 1회성 소비.
+        // (ensureVisible 는 이미 보이는 항목에 대해선 no-op 이라 rebuild 반복 안전.)
+        _pendingScrollToDate = null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToDate(targetDate, sortedDates);
+          if (mounted) _scrollToDate(targetDate, sortedDates);
         });
+      } else if (state.hasMore && !state.isLoadingMore) {
+        // 대상 미로드 → 등장할 때까지 다음 페이지 자동 요청.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.read<TransactionBloc>().add(const LoadMoreTransactions());
+          }
+        });
+      } else {
+        // 마지막 페이지까지 로드했는데도 부재 → 조용히 종료.
+        _pendingScrollToDate = null;
       }
-      // If target date not loaded, user can scroll manually — no auto-load
-    } else if (state.scrollToDate != null && sortedDates.contains(state.scrollToDate!)) {
-      // One-shot scroll from BLoC (e.g., after create/update)
-      final scrollDate = state.scrollToDate!;
+    } else if (state.hasMore && !state.isLoadingMore) {
+      // 뷰포트 자동 채움(증상 1): 콘텐츠가 화면을 못 채우면 스크롤이 불가능해
+      // 하단 스피너만 떠 멈춘다. 스크롤 여지가 없으면(maxScrollExtent <= 0) 자동으로
+      // 다음 페이지를 요청해 화면을 채우고, 채워지면 기존 70% 무한스크롤로 이어진다.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToDate(scrollDate, sortedDates);
+        if (!mounted || !_scrollController.hasClients) return;
+        if (_scrollController.position.maxScrollExtent <= 0) {
+          context.read<TransactionBloc>().add(const LoadMoreTransactions());
+        }
       });
     }
 
