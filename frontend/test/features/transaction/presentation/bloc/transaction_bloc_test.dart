@@ -213,7 +213,7 @@ void main() {
   final tPageResponse = PageResponse<Transaction>(
     content: tTransactions,
     page: 0,
-    size: 30,
+    size: 200,
     totalElements: 2,
     totalPages: 1,
     first: true,
@@ -242,7 +242,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -269,7 +269,7 @@ void main() {
             keyword: 'lunch',
             amountMin: 5000,
             amountMax: 20000,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -298,7 +298,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async =>
               const Left(ServerFailure('Failed to load transactions')));
           return transactionBloc;
@@ -353,7 +353,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -374,7 +374,7 @@ void main() {
           verify(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            size: 30,
+            size: 200,
           )).called(1);
         },
       );
@@ -396,7 +396,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: anyNamed('year'),
             month: anyNamed('month'),
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -417,7 +417,7 @@ void main() {
           verify(mockRepository.getTransactions(
             year: 2024,
             month: 6,
-            size: 30,
+            size: 200,
           )).called(1);
         },
       );
@@ -441,7 +441,7 @@ void main() {
           when(mockRepository.getTransactions(
             year: anyNamed('year'),
             month: anyNamed('month'),
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
@@ -531,7 +531,7 @@ void main() {
       final tPage1Response = PageResponse<Transaction>(
         content: [tTransaction1],
         page: 0,
-        size: 30,
+        size: 200,
         totalElements: 2,
         totalPages: 2,
         first: true,
@@ -541,7 +541,7 @@ void main() {
       final tPage2Response = PageResponse<Transaction>(
         content: [tTransaction2],
         page: 1,
-        size: 30,
+        size: 200,
         totalElements: 2,
         totalPages: 2,
         first: false,
@@ -555,13 +555,13 @@ void main() {
             year: 2024,
             month: 1,
             page: 0,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPage1Response));
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
             page: 1,
-            size: 30,
+            size: 200,
           )).thenAnswer((_) async => Right(tPage2Response));
           return transactionBloc;
         },
