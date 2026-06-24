@@ -897,6 +897,9 @@ class _CategoryGroupSelectorSheetState
       getIt<CategoryGroupBloc>().add(CreateCategoryGroup(
         name: name,
         visibility: visibility,
+        // 거래 폼의 현재 type(INCOME/EXPENSE) 으로 그룹 생성.
+        // 누락 시 기본값 EXPENSE 로 떨어져 수입 입력 중 만든 그룹이 지출로 생성됨.
+        categoryType: widget.categoryType,
       ));
     }
   }
