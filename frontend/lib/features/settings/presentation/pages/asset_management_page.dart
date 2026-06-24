@@ -243,20 +243,11 @@ class AssetManagementPage extends StatelessWidget {
                   ],
                 ),
               ),
+              // 순서: 공유 그룹 / 하위 카테고리 / 개인 그룹.
+              // '카테고리' 는 그룹 아래에 들어가는 항목이므로 페이지 내 다른
+              // 표현('하위 카테고리 없음' 등)과 통일해 '하위 카테고리' 로 표기.
               Row(
                 children: [
-                  Expanded(
-                    child: _AddOptionCard(
-                      icon: Icons.label_outline,
-                      label: '카테고리',
-                      color: typeColor,
-                      onTap: () {
-                        Navigator.of(sheetCtx).pop();
-                        _showAddCategory(context);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: _AddOptionCard(
                       icon: Icons.create_new_folder_outlined,
@@ -268,6 +259,18 @@ class AssetManagementPage extends StatelessWidget {
                           context,
                           categoryType: _lastSelectedCategoryType,
                         );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AddOptionCard(
+                      icon: Icons.label_outline,
+                      label: '하위 카테고리',
+                      color: typeColor,
+                      onTap: () {
+                        Navigator.of(sheetCtx).pop();
+                        _showAddCategory(context);
                       },
                     ),
                   ),
