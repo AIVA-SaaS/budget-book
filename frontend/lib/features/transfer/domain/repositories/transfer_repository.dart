@@ -30,6 +30,17 @@ abstract class TransferRepository {
     required List<String> transactionIds,
   });
 
+  /// 카드 결제(정산) 수정: 기존 링크 거래 unmark + 새 선택 거래 mark 를 BE 가 처리.
+  Future<Either<Failure, Transfer>> updateCardSettlement({
+    required String transferId,
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    required int amount,
+    required String transferDate,
+    String? description,
+    required List<String> transactionIds,
+  });
+
   Future<Either<Failure, Transfer>> updateTransfer({
     required String id,
     String? sourcePaymentMethodId,

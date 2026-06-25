@@ -422,6 +422,30 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): List<Transaction>
 
+    /**
+     * V63: Edit-aware variant of [findByPaymentMethodAndSettlementDateRange].
+     * Includes unpaid candidates OR transactions already linked to the settlement being
+     * edited, so the edit screen can pre-check them. Pass editingTransferId = null for
+     * create flow (then it behaves like the unpaid-only query).
+     */
+    @Query("""
+        SELECT t FROM Transaction t
+        LEFT JOIN FETCH t.category
+        WHERE t.paymentMethod.id = :paymentMethodId
+        AND t.settlementDate BETWEEN :startDate AND :endDate
+        AND (t.paidAt IS NULL OR t.settlementTransferId = :editingTransferId)
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        ORDER BY t.transactionDate ASC
+    """)
+    fun findByPaymentMethodAndSettlementDateRangeForEdit(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID,
+        @Param("editingTransferId") editingTransferId: UUID?
+    ): List<Transaction>
+
     @Query("""
         SELECT t FROM Transaction t
         LEFT JOIN FETCH t.category
@@ -440,6 +464,30 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("userId") userId: UUID
     ): List<Transaction>
 
+    /**
+     * V63: Edit-aware variant of [findByPaymentMethodAndTransactionDateRangeWithNullSettlement].
+     * Includes null-settlement-date candidates OR transactions already linked to the
+     * settlement being edited. Pass editingTransferId = null for create flow.
+     */
+    @Query("""
+        SELECT t FROM Transaction t
+        LEFT JOIN FETCH t.category
+        WHERE t.paymentMethod.id = :paymentMethodId
+        AND t.settlementDate IS NULL
+        AND (t.paidAt IS NULL OR t.settlementTransferId = :editingTransferId)
+        AND t.transactionDate BETWEEN :startDate AND :endDate
+        AND t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE
+        AND (t.visibility = com.budgetbook.common.entity.Visibility.SHARED OR t.owner.id = :userId)
+        ORDER BY t.transactionDate ASC
+    """)
+    fun findByPaymentMethodAndTransactionDateRangeWithNullSettlementForEdit(
+        @Param("paymentMethodId") paymentMethodId: UUID,
+        @Param("startDate") startDate: LocalDate,
+        @Param("endDate") endDate: LocalDate,
+        @Param("userId") userId: UUID,
+        @Param("editingTransferId") editingTransferId: UUID?
+    ): List<Transaction>
+
     @Modifying
     @Query("""
         UPDATE Transaction t
@@ -450,6 +498,38 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     fun markAsPaid(
         @Param("ids") ids: List<UUID>,
         @Param("paidAt") paidAt: LocalDate
+    ): Int
+
+    /**
+     * V63: Mark transactions as paid AND record which settlement transfer did it.
+     * Only affects currently-unpaid rows (paidAt IS NULL) to avoid hijacking transactions
+     * already settled by another transfer.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+        SET t.paidAt = :paidAt, t.settlementTransferId = :transferId
+        WHERE t.id IN :ids
+        AND t.paidAt IS NULL
+    """)
+    fun markAsPaidForSettlement(
+        @Param("ids") ids: List<UUID>,
+        @Param("paidAt") paidAt: LocalDate,
+        @Param("transferId") transferId: UUID
+    ): Int
+
+    /**
+     * V63: Restore all transactions linked to a settlement transfer back to unpaid.
+     * Used before re-marking (update) and before deleting a settlement transfer.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+        SET t.paidAt = NULL, t.settlementTransferId = NULL
+        WHERE t.settlementTransferId = :transferId
+    """)
+    fun unmarkBySettlementTransfer(
+        @Param("transferId") transferId: UUID
     ): Int
 
     @Modifying

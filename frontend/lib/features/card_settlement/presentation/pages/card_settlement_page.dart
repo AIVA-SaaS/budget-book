@@ -27,12 +27,30 @@ class CardSettlementPage extends StatefulWidget {
   final int? initialYear;
   final int? initialMonth;
 
+  /// 편집 모드: 수정 대상 카드 정산(Transfer)의 ID. null 이면 신규 생성 모드.
+  final String? settlementTransferId;
+
+  /// 편집 모드 프리필: 출금 계좌(source) ID.
+  final String? initialBankId;
+
+  /// 편집 모드 프리필: 결제 금액.
+  final int? initialAmount;
+
+  /// 편집 모드 프리필: 결제일(yyyy-MM-dd).
+  final String? initialDate;
+
   const CardSettlementPage({
     super.key,
     this.initialCardId,
     this.initialYear,
     this.initialMonth,
+    this.settlementTransferId,
+    this.initialBankId,
+    this.initialAmount,
+    this.initialDate,
   });
+
+  bool get isEditing => settlementTransferId != null;
 
   @override
   State<CardSettlementPage> createState() => _CardSettlementPageState();
@@ -47,14 +65,24 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
   late int _selectedMonth;
   bool _useCustomAmount = false;
 
+  bool get _isEditing => widget.settlementTransferId != null;
+
   @override
   void initState() {
     super.initState();
     _amountController = TextEditingController();
-    _selectedDate = DateTime.now();
     final now = DateTime.now();
+    // 편집 모드 프리필 날짜 (yyyy-MM-dd). 파싱 실패 시 오늘.
+    _selectedDate = DateTime.tryParse(widget.initialDate ?? '') ?? now;
     _selectedYear = widget.initialYear ?? now.year;
     _selectedMonth = widget.initialMonth ?? now.month;
+
+    // 편집 모드: 직접 입력 금액으로 프리필.
+    if (_isEditing && widget.initialAmount != null) {
+      _useCustomAmount = true;
+      _amountController.text =
+          CurrencyFormatter.format(widget.initialAmount!);
+    }
 
     // Set initial card from param or pick the first credit card
     final pmState = getIt<PaymentMethodBloc>().state;
@@ -68,8 +96,10 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
         _selectedCardId = creditCards.first.id;
       }
 
-      // Auto-select linked bank as default payment source
-      if (_selectedCardId != null) {
+      // 편집 모드: 프리필된 출금 계좌 우선. 아니면 카드 연결 계좌 자동 선택.
+      if (_isEditing && widget.initialBankId != null) {
+        _selectedBankId = widget.initialBankId;
+      } else if (_selectedCardId != null) {
         _selectLinkedBank(pmState.activePaymentMethods);
       }
     }
@@ -99,6 +129,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
           paymentMethodId: _selectedCardId!,
           year: _selectedYear,
           month: _selectedMonth,
+          settlementTransferId: widget.settlementTransferId,
         ));
   }
 
@@ -140,9 +171,11 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('카드 결제 확인'),
+        title: Text(_isEditing ? '카드 정산 수정 확인' : '카드 결제 확인'),
         content: Text(
-          '${CurrencyFormatter.format(amount)}원을 결제하시겠습니까?',
+          _isEditing
+              ? '${CurrencyFormatter.format(amount)}원으로 정산을 수정하시겠습니까?'
+              : '${CurrencyFormatter.format(amount)}원을 결제하시겠습니까?',
         ),
         actions: [
           TextButton(
@@ -161,16 +194,28 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                       blocState.selectedIds.contains(t.id) && !t.isTransfer)
                   .map((t) => t.id)
                   .toList();
-              context.read<CardSettlementBloc>().add(SubmitSettlement(
-                    sourcePaymentMethodId: _selectedBankId!,
-                    destinationPaymentMethodId: _selectedCardId!,
-                    amount: amount,
-                    date: dateStr,
-                    description: '카드 결제',
-                    transactionIds: selectedTransactionIds,
-                  ));
+              if (_isEditing) {
+                context.read<CardSettlementBloc>().add(UpdateSettlement(
+                      transferId: widget.settlementTransferId!,
+                      sourcePaymentMethodId: _selectedBankId!,
+                      destinationPaymentMethodId: _selectedCardId!,
+                      amount: amount,
+                      date: dateStr,
+                      description: '카드 결제',
+                      transactionIds: selectedTransactionIds,
+                    ));
+              } else {
+                context.read<CardSettlementBloc>().add(SubmitSettlement(
+                      sourcePaymentMethodId: _selectedBankId!,
+                      destinationPaymentMethodId: _selectedCardId!,
+                      amount: amount,
+                      date: dateStr,
+                      description: '카드 결제',
+                      transactionIds: selectedTransactionIds,
+                    ));
+              }
             },
-            child: const Text('결제'),
+            child: Text(_isEditing ? '수정' : '결제'),
           ),
         ],
       ),
@@ -219,7 +264,9 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
           getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('카드 결제가 완료되었습니다')),
+            SnackBar(
+              content: Text(_isEditing ? '카드 정산이 수정되었습니다' : '카드 결제가 완료되었습니다'),
+            ),
           );
           context.pop();
         } else if (state is CardSettlementError) {
@@ -232,7 +279,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('카드 결제')),
+        appBar: AppBar(title: Text(_isEditing ? '카드 정산 수정' : '카드 결제')),
         body: _buildBody(context),
       ),
     );
@@ -460,9 +507,9 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
               // 8. Submit button
               FilledButton.icon(
                 onPressed: state is CardSettlementSubmitting ? null : _submit,
-                icon: const Icon(Icons.payment),
+                icon: Icon(_isEditing ? Icons.save : Icons.payment),
                 label: Text(
-                  '${CurrencyFormatter.format(_useCustomAmount ? (CurrencyFormatter.parse(_amountController.text) ?? 0) : state.selectedAmount)}원 결제',
+                  '${CurrencyFormatter.format(_useCustomAmount ? (CurrencyFormatter.parse(_amountController.text) ?? 0) : state.selectedAmount)}원 ${_isEditing ? '수정' : '결제'}',
                 ),
               ),
             ] else if (state is CardSettlementError)

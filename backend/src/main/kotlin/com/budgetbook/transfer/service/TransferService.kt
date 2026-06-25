@@ -109,6 +109,15 @@ class TransferService(
         val transfer = transferRepository.findByIdAndCoupleId(transferId, couple.id)
             ?: throw NotFoundException("TRANSFER_NOT_FOUND", "Transfer does not exist.")
 
+        // V63: 카드 정산은 paid_at 재조정이 필요하므로 일반 수정 경로로 변경할 수 없다.
+        // 전용 편집 엔드포인트(updateCardSettlement)를 사용해야 한다.
+        if (transfer.kind == TransferKind.CARD_SETTLEMENT) {
+            throw BusinessException(
+                "CARD_SETTLEMENT_EDIT_NOT_ALLOWED",
+                "카드 정산은 정산 편집 화면에서 수정하세요."
+            )
+        }
+
         request.amount?.let { transfer.amount = it }
         request.transferDate?.let { transfer.transferDate = it }
         request.description?.let { patchValue ->
@@ -170,6 +179,12 @@ class TransferService(
         val couple = getActiveCouple(userId)
         val transfer = transferRepository.findByIdAndCoupleId(transferId, couple.id)
             ?: throw NotFoundException("TRANSFER_NOT_FOUND", "Transfer does not exist.")
+
+        // V63: 카드 정산 삭제 시 연결된 거래의 paid_at 을 복원 (미결제 목록에 다시 포함).
+        // FK 의 ON DELETE SET NULL 만으로는 paid_at 이 복원되지 않으므로 먼저 unmark 한다.
+        if (transfer.kind == TransferKind.CARD_SETTLEMENT) {
+            transactionRepository.unmarkBySettlementTransfer(transferId)
+        }
 
         transferRepository.delete(transfer)
         syncEventPublisher.publish(SyncEvent(
@@ -273,14 +288,89 @@ class TransferService(
         )
         val saved = transferRepository.save(transfer)
 
-        // 2. 선택된 거래들의 paid_at 업데이트 (미결제 목록에서 제외)
-        //    markAsPaid 는 kind=CARD_SETTLEMENT 일 때만 동작해야 함 (Phase 22).
+        // 2. 선택된 거래들의 paid_at 업데이트 + 정산 이체 링크 저장 (미결제 목록에서 제외).
+        //    V63: 링크를 저장해야 정산 수정/삭제 시 paid_at 을 양방향 재조정할 수 있다.
         if (transactionIds.isNotEmpty()) {
-            transactionRepository.markAsPaid(transactionIds, transferDate)
+            transactionRepository.markAsPaidForSettlement(transactionIds, transferDate, saved.id)
         }
 
         syncEventPublisher.publish(SyncEvent(
             type = "CARD_SETTLEMENT_CREATED",
+            entityType = "TRANSFER",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return saved.toResponse()
+    }
+
+    /**
+     * 카드 정산 편집 (V63):
+     * 1. 정산 이체 조회 + 소유권 검증 + kind==CARD_SETTLEMENT 확인.
+     * 2. 기존 링크 거래들의 paid_at 복원 (unmark).
+     * 3. source/destination 검증 + 이체 필드 갱신.
+     * 4. 새로 선택된 거래들을 paid 로 마킹 + 링크 저장.
+     *
+     * 한 트랜잭션 내에서 처리되어 원자성 보장. 미결제 합계가 새 선택 기준으로 재계산된다.
+     */
+    @Transactional
+    fun updateCardSettlement(
+        userId: UUID,
+        transferId: UUID,
+        sourcePaymentMethodId: UUID,
+        destinationPaymentMethodId: UUID,
+        amount: Long,
+        transferDate: LocalDate,
+        description: String?,
+        transactionIds: List<UUID>
+    ): TransferResponse {
+        if (sourcePaymentMethodId == destinationPaymentMethodId) {
+            throw BusinessException("VALIDATION_ERROR", "Source and destination payment methods must be different.")
+        }
+
+        val couple = getActiveCouple(userId)
+        val transfer = transferRepository.findByIdAndCoupleId(transferId, couple.id)
+            ?: throw NotFoundException("TRANSFER_NOT_FOUND", "Transfer does not exist.")
+
+        if (transfer.kind != TransferKind.CARD_SETTLEMENT) {
+            throw BusinessException(
+                "NOT_A_CARD_SETTLEMENT",
+                "이 이체는 카드 정산이 아닙니다."
+            )
+        }
+
+        val source = paymentMethodRepository.findById(sourcePaymentMethodId)
+            .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Source payment method does not exist.") }
+        OwnershipValidator.validateOwnership(source.couple.id, couple, "Payment method")
+
+        val destination = paymentMethodRepository.findById(destinationPaymentMethodId)
+            .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Destination payment method does not exist.") }
+        OwnershipValidator.validateOwnership(destination.couple.id, couple, "Payment method")
+
+        // 카드 결제는 반드시 destination이 CREDIT 카드여야 함 (생성과 동일).
+        if (destination.type != PaymentMethodType.CREDIT) {
+            throw BusinessException("VALIDATION_ERROR", "카드 결제는 destination이 CREDIT 타입이어야 합니다.")
+        }
+        validateNotCreditToCredit(source.type, destination.type)
+
+        // 1. 기존 링크 거래 미결제 복원.
+        transactionRepository.unmarkBySettlementTransfer(transferId)
+
+        // 2. 이체 필드 갱신.
+        transfer.sourcePaymentMethod = source
+        transfer.destinationPaymentMethod = destination
+        transfer.amount = amount
+        transfer.transferDate = transferDate
+        transfer.description = description ?: "카드 결제"
+        val saved = transferRepository.save(transfer)
+
+        // 3. 새로 선택된 거래 마킹 + 링크 저장.
+        if (transactionIds.isNotEmpty()) {
+            transactionRepository.markAsPaidForSettlement(transactionIds, transferDate, saved.id)
+        }
+
+        syncEventPublisher.publish(SyncEvent(
+            type = "CARD_SETTLEMENT_UPDATED",
             entityType = "TRANSFER",
             entityId = saved.id,
             coupleId = couple.id,

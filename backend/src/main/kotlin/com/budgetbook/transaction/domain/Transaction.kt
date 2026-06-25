@@ -66,6 +66,14 @@ class Transaction(
     @Column(name = "paid_at")
     var paidAt: LocalDate? = null,
 
+    /**
+     * 이 거래를 결제 완료(paid_at)로 마킹한 카드 정산 이체의 ID.
+     * V63 (2026-06-24) — 정산 이체와 거래의 연결을 저장해 정산 수정/삭제 시 paid_at 을
+     * 양방향으로 재조정한다. null 이면 어떤 정산에도 연결되지 않은 상태.
+     */
+    @Column(name = "settlement_transfer_id")
+    var settlementTransferId: UUID? = null,
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pocket_id")
     var pocket: MoneyPocket? = null,

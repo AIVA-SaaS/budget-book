@@ -1105,6 +1105,12 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
         final cardId = state.uri.queryParameters['cardId'];
         final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
         final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+        // 편집 모드 파라미터 (이체 목록/상세에서 정산 수정 진입 시 전달).
+        final settlementTransferId =
+            state.uri.queryParameters['settlementTransferId'];
+        final bankId = state.uri.queryParameters['bankId'];
+        final amount = int.tryParse(state.uri.queryParameters['amount'] ?? '');
+        final date = state.uri.queryParameters['date'];
         getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
         return MultiBlocProvider(
           providers: [
@@ -1119,6 +1125,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
             initialCardId: cardId,
             initialYear: year,
             initialMonth: month,
+            settlementTransferId: settlementTransferId,
+            initialBankId: bankId,
+            initialAmount: amount,
+            initialDate: date,
           ),
         );
       },

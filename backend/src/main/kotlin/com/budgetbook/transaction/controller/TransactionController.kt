@@ -117,9 +117,12 @@ class TransactionController(
         @AuthUser userId: UUID,
         @RequestParam paymentMethodId: UUID,
         @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam month: Int,
+        @RequestParam(required = false) settlementTransferId: UUID? = null
     ): ApiResponse<SettlementTransactionsResponse> {
-        return ApiResponse.ok(transactionService.getSettlementTransactions(userId, paymentMethodId, year, month))
+        return ApiResponse.ok(
+            transactionService.getSettlementTransactions(userId, paymentMethodId, year, month, settlementTransferId)
+        )
     }
 
     @GetMapping("/suggestions")
