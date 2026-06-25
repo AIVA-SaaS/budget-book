@@ -18,6 +18,7 @@ class CardSettlementBloc
     on<ToggleAllTransactions>(_onToggleAllTransactions);
     on<UpdateCustomAmount>(_onUpdateCustomAmount);
     on<SubmitSettlement>(_onSubmitSettlement);
+    on<UpdateSettlement>(_onUpdateSettlement);
   }
 
   Future<void> _onLoadSettlement(
@@ -33,6 +34,7 @@ class CardSettlementBloc
       paymentMethodId: event.paymentMethodId,
       year: event.year,
       month: event.month,
+      settlementTransferId: event.settlementTransferId,
     );
 
     result.fold(
@@ -41,11 +43,22 @@ class CardSettlementBloc
           emit(CardSettlementError(failure.message));
         }
       },
-      (response) => emit(CardSettlementLoaded(
-        transactions: response.transactions,
-        selectedIds: response.transactions.map((t) => t.id).toSet(),
-        totalAmount: response.totalAmount,
-      )),
+      (response) {
+        // 편집 모드: 이 정산에 이미 묶인 거래만 pre-select.
+        // 생성 모드: 후보 거래 전부 select (기존 동작 유지).
+        final editingId = event.settlementTransferId;
+        final selectedIds = editingId != null
+            ? response.transactions
+                .where((t) => t.settlementTransferId == editingId)
+                .map((t) => t.id)
+                .toSet()
+            : response.transactions.map((t) => t.id).toSet();
+        emit(CardSettlementLoaded(
+          transactions: response.transactions,
+          selectedIds: selectedIds,
+          totalAmount: response.totalAmount,
+        ));
+      },
     );
   }
 
@@ -113,6 +126,29 @@ class CardSettlementBloc
 
     // 신규 카드 결제 API: Transfer(is_card_settlement=true) + 거래 paid_at 일괄 업데이트
     final result = await transferRepository.createCardSettlement(
+      sourcePaymentMethodId: event.sourcePaymentMethodId,
+      destinationPaymentMethodId: event.destinationPaymentMethodId,
+      amount: event.amount,
+      description: event.description,
+      transferDate: event.date,
+      transactionIds: event.transactionIds,
+    );
+
+    result.fold(
+      (failure) => emit(CardSettlementError(failure.message)),
+      (_) => emit(const CardSettlementSuccess()),
+    );
+  }
+
+  Future<void> _onUpdateSettlement(
+    UpdateSettlement event,
+    Emitter<CardSettlementState> emit,
+  ) async {
+    emit(const CardSettlementSubmitting());
+
+    // 카드 정산 수정 API: 기존 링크 거래 unmark + 새 선택 거래 mark 를 BE 가 처리.
+    final result = await transferRepository.updateCardSettlement(
+      transferId: event.transferId,
       sourcePaymentMethodId: event.sourcePaymentMethodId,
       destinationPaymentMethodId: event.destinationPaymentMethodId,
       amount: event.amount,

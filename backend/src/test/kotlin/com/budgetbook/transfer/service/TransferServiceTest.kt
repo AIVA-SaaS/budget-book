@@ -553,4 +553,207 @@ class TransferServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- V63: card settlement link persistence ---
+
+    Given("createCardSettlement with selected transactions") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+        val txnIds = listOf(UUID.randomUUID(), UUID.randomUUID())
+
+        When("creating a card settlement linking those transactions") {
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
+            val savedTransfer = Transfer(
+                couple = couple, author = user1,
+                sourcePaymentMethod = bankPm, destinationPaymentMethod = creditPm,
+                amount = 500000, transferDate = LocalDate.of(2026, 4, 15),
+                kind = TransferKind.CARD_SETTLEMENT, isCardSettlement = true
+            )
+            every { transferRepository.save(any()) } returns savedTransfer
+            every {
+                transactionRepository.markAsPaidForSettlement(txnIds, LocalDate.of(2026, 4, 15), savedTransfer.id)
+            } returns txnIds.size
+
+            service.createCardSettlement(
+                userId = user1.id,
+                sourcePaymentMethodId = bankPm.id,
+                destinationPaymentMethodId = creditPm.id,
+                amount = 500000,
+                transferDate = LocalDate.of(2026, 4, 15),
+                description = "카드 결제",
+                transactionIds = txnIds
+            )
+
+            Then("marks transactions as paid with the settlement transfer link") {
+                verify {
+                    transactionRepository.markAsPaidForSettlement(txnIds, LocalDate.of(2026, 4, 15), savedTransfer.id)
+                }
+            }
+        }
+    }
+
+    Given("updateCardSettlement re-adjusts paid_at for old and new selections") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+        val settlement = Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = bankPm, destinationPaymentMethod = creditPm,
+            amount = 300000, transferDate = LocalDate.of(2026, 4, 15),
+            kind = TransferKind.CARD_SETTLEMENT, isCardSettlement = true
+        )
+        val newTxnIds = listOf(UUID.randomUUID())
+
+        When("updating with a new transaction selection") {
+            every { transferRepository.findByIdAndCoupleId(settlement.id, couple.id) } returns settlement
+            every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
+            every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
+            every { transferRepository.save(any()) } answers { firstArg() }
+            every { transactionRepository.unmarkBySettlementTransfer(settlement.id) } returns 2
+            every {
+                transactionRepository.markAsPaidForSettlement(newTxnIds, LocalDate.of(2026, 4, 20), settlement.id)
+            } returns newTxnIds.size
+
+            val result = service.updateCardSettlement(
+                userId = user1.id,
+                transferId = settlement.id,
+                sourcePaymentMethodId = bankPm.id,
+                destinationPaymentMethodId = creditPm.id,
+                amount = 450000,
+                transferDate = LocalDate.of(2026, 4, 20),
+                description = "수정된 카드 결제",
+                transactionIds = newTxnIds
+            )
+
+            Then("unmarks old links then marks the new selection, and updates fields") {
+                verify { transactionRepository.unmarkBySettlementTransfer(settlement.id) }
+                verify {
+                    transactionRepository.markAsPaidForSettlement(newTxnIds, LocalDate.of(2026, 4, 20), settlement.id)
+                }
+                result.amount shouldBe 450000
+                result.transferDate shouldBe LocalDate.of(2026, 4, 20)
+                verify { syncEventPublisher.publish(match { it.type == "CARD_SETTLEMENT_UPDATED" }) }
+            }
+        }
+
+        When("updating a transfer that is not a card settlement") {
+            val generic = Transfer(
+                couple = couple, author = user1,
+                sourcePaymentMethod = bankPm, destinationPaymentMethod = creditPm,
+                amount = 100000, transferDate = LocalDate.of(2026, 4, 1),
+                kind = TransferKind.GENERIC
+            )
+            every { transferRepository.findByIdAndCoupleId(generic.id, couple.id) } returns generic
+
+            Then("throws NOT_A_CARD_SETTLEMENT") {
+                val ex = shouldThrow<BusinessException> {
+                    service.updateCardSettlement(
+                        userId = user1.id,
+                        transferId = generic.id,
+                        sourcePaymentMethodId = bankPm.id,
+                        destinationPaymentMethodId = creditPm.id,
+                        amount = 100000,
+                        transferDate = LocalDate.of(2026, 4, 1),
+                        description = null,
+                        transactionIds = emptyList()
+                    )
+                }
+                ex.code shouldBe "NOT_A_CARD_SETTLEMENT"
+            }
+        }
+    }
+
+    Given("deleting a card settlement restores linked transactions") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+        val settlement = Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = bankPm, destinationPaymentMethod = creditPm,
+            amount = 300000, transferDate = LocalDate.of(2026, 4, 15),
+            kind = TransferKind.CARD_SETTLEMENT, isCardSettlement = true
+        )
+
+        When("deleting the card settlement") {
+            every { transferRepository.findByIdAndCoupleId(settlement.id, couple.id) } returns settlement
+            every { transactionRepository.unmarkBySettlementTransfer(settlement.id) } returns 2
+            every { transferRepository.delete(settlement) } returns Unit
+
+            service.deleteTransfer(user1.id, settlement.id)
+
+            Then("unmarks linked transactions before deleting") {
+                verify { transactionRepository.unmarkBySettlementTransfer(settlement.id) }
+                verify { transferRepository.delete(settlement) }
+            }
+        }
+    }
+
+    Given("a generic transfer delete does not touch settlement links") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val generic = Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = sourcePm, destinationPaymentMethod = destPm,
+            amount = 30000, transferDate = LocalDate.of(2026, 3, 5),
+            kind = TransferKind.GENERIC
+        )
+
+        When("deleting the generic transfer") {
+            every { transferRepository.findByIdAndCoupleId(generic.id, couple.id) } returns generic
+            every { transferRepository.delete(generic) } returns Unit
+
+            service.deleteTransfer(user1.id, generic.id)
+
+            Then("does not call unmarkBySettlementTransfer") {
+                verify(exactly = 0) { transactionRepository.unmarkBySettlementTransfer(any()) }
+                verify { transferRepository.delete(generic) }
+            }
+        }
+    }
+
+    Given("updateTransfer rejects card settlements") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bankPm = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK)
+        val creditPm = PaymentMethod(
+            couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT,
+            settlementDay = 15, closingDay = 10
+        )
+        val settlement = Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = bankPm, destinationPaymentMethod = creditPm,
+            amount = 300000, transferDate = LocalDate.of(2026, 4, 15),
+            kind = TransferKind.CARD_SETTLEMENT, isCardSettlement = true
+        )
+
+        When("attempting to update a CARD_SETTLEMENT via the generic update path") {
+            every { transferRepository.findByIdAndCoupleId(settlement.id, couple.id) } returns settlement
+
+            Then("throws CARD_SETTLEMENT_EDIT_NOT_ALLOWED") {
+                val ex = shouldThrow<BusinessException> {
+                    service.updateTransfer(
+                        user1.id,
+                        settlement.id,
+                        com.budgetbook.transfer.dto.UpdateTransferRequest(amount = 999999)
+                    )
+                }
+                ex.code shouldBe "CARD_SETTLEMENT_EDIT_NOT_ALLOWED"
+            }
+        }
+    }
 })

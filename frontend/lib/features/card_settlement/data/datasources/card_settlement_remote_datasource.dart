@@ -7,6 +7,7 @@ abstract class CardSettlementRemoteDataSource {
     required String paymentMethodId,
     required int year,
     required int month,
+    String? settlementTransferId,
   });
 }
 
@@ -21,6 +22,7 @@ class CardSettlementRemoteDataSourceImpl
     required String paymentMethodId,
     required int year,
     required int month,
+    String? settlementTransferId,
   }) async {
     final response = await apiClient.dio.get(
       '${ApiEndpoints.transactions}/settlement',
@@ -28,6 +30,9 @@ class CardSettlementRemoteDataSourceImpl
         'paymentMethodId': paymentMethodId,
         'year': year,
         'month': month,
+        // 편집 모드: 미결제 거래 + 이 정산에 이미 묶인(paid) 거래를 함께 받기 위함.
+        if (settlementTransferId != null)
+          'settlementTransferId': settlementTransferId,
       },
     );
 

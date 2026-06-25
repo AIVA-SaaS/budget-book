@@ -23,6 +23,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_s
 import 'package:budget_book/features/transaction/presentation/widgets/month_summary_bar.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
+import 'package:budget_book/features/card_settlement/presentation/card_settlement_route.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
@@ -947,7 +948,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 if (item.isTransfer) {
                   return TransferListTile(
                     transfer: item.transfer!,
-                    onTap: () => context.push('/transfers/edit/${item.transfer!.id}'),
+                    onTap: () =>
+                        context.push(transferEditRoute(item.transfer!)),
                   );
                 }
                 final t = item.transaction!;

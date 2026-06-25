@@ -10,6 +10,8 @@ abstract class TransferRemoteDataSource {
   Future<TransferModel> getTransfer(String id);
   Future<TransferModel> createTransfer(Map<String, dynamic> data);
   Future<TransferModel> createCardSettlement(Map<String, dynamic> data);
+  Future<TransferModel> updateCardSettlement(
+      String id, Map<String, dynamic> data);
   Future<TransferModel> updateTransfer(String id, Map<String, dynamic> data);
   Future<void> deleteTransfer(String id);
 }
@@ -60,6 +62,18 @@ class TransferRemoteDataSourceImpl implements TransferRemoteDataSource {
   Future<TransferModel> createCardSettlement(Map<String, dynamic> data) async {
     final response = await apiClient.dio.post(
       '${ApiEndpoints.transfers}/card-settlement',
+      data: data,
+    );
+    return TransferModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<TransferModel> updateCardSettlement(
+      String id, Map<String, dynamic> data) async {
+    final response = await apiClient.dio.put(
+      '${ApiEndpoints.transfers}/card-settlement/$id',
       data: data,
     );
     return TransferModel.fromJson(

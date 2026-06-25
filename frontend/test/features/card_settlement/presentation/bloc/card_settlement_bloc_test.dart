@@ -20,12 +20,14 @@ class MockCardSettlementRepository extends Mock
     required String paymentMethodId,
     required int year,
     required int month,
+    String? settlementTransferId,
   }) =>
           super.noSuchMethod(
             Invocation.method(#getSettlementTransactions, [], {
               #paymentMethodId: paymentMethodId,
               #year: year,
               #month: month,
+              #settlementTransferId: settlementTransferId,
             }),
             returnValue: Future.value(
               const Right<Failure, SettlementTransactionsResponse>(
@@ -109,6 +111,42 @@ class MockTransferRepository extends Mock implements TransferRepository {
           )),
         ),
       ) as Future<Either<Failure, Transfer>>;
+
+  @override
+  Future<Either<Failure, Transfer>> updateCardSettlement({
+    required String transferId,
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    required int amount,
+    required String transferDate,
+    String? description,
+    required List<String> transactionIds,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(#updateCardSettlement, [], {
+          #transferId: transferId,
+          #sourcePaymentMethodId: sourcePaymentMethodId,
+          #destinationPaymentMethodId: destinationPaymentMethodId,
+          #amount: amount,
+          #transferDate: transferDate,
+          #description: description,
+          #transactionIds: transactionIds,
+        }),
+        returnValue: Future.value(
+          Right<Failure, Transfer>(Transfer(
+            id: 'st-1',
+            coupleId: 'c1',
+            author: const TransactionAuthor(id: 'u1', nickname: 'User'),
+            sourcePaymentMethod:
+                const PaymentMethodRef(id: 's1', name: 'Bank', type: 'BANK'),
+            destinationPaymentMethod:
+                const PaymentMethodRef(id: 'd1', name: 'Card', type: 'CREDIT'),
+            amount: 100000,
+            transferDate: '2026-04-14',
+            createdAt: DateTime(2026, 4, 14),
+          )),
+        ),
+      ) as Future<Either<Failure, Transfer>>;
 }
 
 void main() {
@@ -136,6 +174,23 @@ void main() {
     totalAmount: 85000,
     transactionCount: 2,
     transactions: [tTx1, tTx2],
+  );
+
+  // 편집 모드 픽스처: tx-1 은 편집 중 정산(st-1)에 이미 묶여 있고,
+  // tx-2 는 미결제(settlementTransferId == null).
+  const tLinkedTx = SettlementTransaction(
+    id: 'tx-1',
+    transactionDate: '2026-03-15',
+    description: '편의점',
+    amount: 5000,
+    categoryName: '식비',
+    settlementTransferId: 'st-1',
+  );
+
+  const tEditResponse = SettlementTransactionsResponse(
+    totalAmount: 85000,
+    transactionCount: 2,
+    transactions: [tLinkedTx, tTx2],
   );
 
   setUp(() {
@@ -201,6 +256,33 @@ void main() {
         expect: () => [
           const CardSettlementLoading(),
           const CardSettlementError('결제 대상 거래를 불러오지 못했습니다'),
+        ],
+      );
+
+      blocTest<CardSettlementBloc, CardSettlementState>(
+        'edit mode: pre-selects only transactions linked to settlementTransferId',
+        build: () {
+          when(mockSettlementRepo.getSettlementTransactions(
+            paymentMethodId: 'card-1',
+            year: 2026,
+            month: 3,
+            settlementTransferId: 'st-1',
+          )).thenAnswer((_) async => const Right(tEditResponse));
+          return bloc;
+        },
+        act: (bloc) => bloc.add(const LoadSettlement(
+          paymentMethodId: 'card-1',
+          year: 2026,
+          month: 3,
+          settlementTransferId: 'st-1',
+        )),
+        expect: () => [
+          const CardSettlementLoading(),
+          const CardSettlementLoaded(
+            transactions: [tLinkedTx, tTx2],
+            selectedIds: {'tx-1'},
+            totalAmount: 85000,
+          ),
         ],
       );
     });
@@ -393,6 +475,88 @@ void main() {
         expect: () => [
           const CardSettlementSubmitting(),
           const CardSettlementError('카드 결제를 처리하지 못했습니다'),
+        ],
+      );
+    });
+
+    group('UpdateSettlement', () {
+      blocTest<CardSettlementBloc, CardSettlementState>(
+        'emits [Submitting, Success] on success',
+        build: () {
+          when(mockTransferRepo.updateCardSettlement(
+            transferId: 'st-1',
+            sourcePaymentMethodId: 'bank-1',
+            destinationPaymentMethodId: 'card-1',
+            amount: 85000,
+            description: '카드 결제',
+            transferDate: '2026-04-14',
+            transactionIds: ['tx-1'],
+          )).thenAnswer((_) async => Right(Transfer(
+                id: 'st-1',
+                coupleId: 'c1',
+                author: const TransactionAuthor(id: 'u1', nickname: 'User'),
+                sourcePaymentMethod: const PaymentMethodRef(
+                    id: 'bank-1', name: 'Bank', type: 'BANK'),
+                destinationPaymentMethod: const PaymentMethodRef(
+                    id: 'card-1', name: 'Card', type: 'CREDIT'),
+                amount: 85000,
+                transferDate: '2026-04-14',
+                createdAt: DateTime(2026, 4, 14),
+              )));
+          return bloc;
+        },
+        seed: () => const CardSettlementLoaded(
+          transactions: [tLinkedTx, tTx2],
+          selectedIds: {'tx-1'},
+          totalAmount: 85000,
+        ),
+        act: (bloc) => bloc.add(const UpdateSettlement(
+          transferId: 'st-1',
+          sourcePaymentMethodId: 'bank-1',
+          destinationPaymentMethodId: 'card-1',
+          amount: 85000,
+          date: '2026-04-14',
+          description: '카드 결제',
+          transactionIds: ['tx-1'],
+        )),
+        expect: () => [
+          const CardSettlementSubmitting(),
+          const CardSettlementSuccess(),
+        ],
+      );
+
+      blocTest<CardSettlementBloc, CardSettlementState>(
+        'emits [Submitting, Error] on failure',
+        build: () {
+          when(mockTransferRepo.updateCardSettlement(
+            transferId: 'st-1',
+            sourcePaymentMethodId: 'bank-1',
+            destinationPaymentMethodId: 'card-1',
+            amount: 85000,
+            description: '카드 결제',
+            transferDate: '2026-04-14',
+            transactionIds: ['tx-1'],
+          )).thenAnswer((_) async =>
+              const Left(ServerFailure('카드 결제 수정을 처리하지 못했습니다')));
+          return bloc;
+        },
+        seed: () => const CardSettlementLoaded(
+          transactions: [tLinkedTx, tTx2],
+          selectedIds: {'tx-1'},
+          totalAmount: 85000,
+        ),
+        act: (bloc) => bloc.add(const UpdateSettlement(
+          transferId: 'st-1',
+          sourcePaymentMethodId: 'bank-1',
+          destinationPaymentMethodId: 'card-1',
+          amount: 85000,
+          date: '2026-04-14',
+          description: '카드 결제',
+          transactionIds: ['tx-1'],
+        )),
+        expect: () => [
+          const CardSettlementSubmitting(),
+          const CardSettlementError('카드 결제 수정을 처리하지 못했습니다'),
         ],
       );
     });

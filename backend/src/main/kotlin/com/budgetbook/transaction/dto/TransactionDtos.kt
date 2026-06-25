@@ -164,5 +164,11 @@ data class SettlementTransactionItem(
     val amount: Long,
     val categoryName: String?,
     val categoryIcon: String?,
-    val type: String = "TRANSACTION" // TRANSACTION or TRANSFER
+    val type: String = "TRANSACTION", // TRANSACTION or TRANSFER
+    /**
+     * V63: ID of the card-settlement transfer this transaction is currently linked to,
+     * or null if unpaid/unlinked. Lets the edit screen pre-check transactions that belong
+     * to the settlement being edited.
+     */
+    val settlementTransferId: UUID? = null
 )

@@ -8,5 +8,6 @@ abstract class CardSettlementRepository {
     required String paymentMethodId,
     required int year,
     required int month,
+    String? settlementTransferId,
   });
 }
