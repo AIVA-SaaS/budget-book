@@ -6,6 +6,7 @@ import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
+import 'package:budget_book/features/card_settlement/presentation/card_settlement_route.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
@@ -123,7 +124,7 @@ class TransferListPage extends StatelessWidget {
             _DateHeader(dateStr: date),
             ...transfers.map((t) => _TransferListTile(
                   transfer: t,
-                  onTap: () => context.push('/transfers/edit/${t.id}'),
+                  onTap: () => context.push(transferEditRoute(t)),
                   onDelete: () => _confirmDelete(context, t),
                 )),
           ],

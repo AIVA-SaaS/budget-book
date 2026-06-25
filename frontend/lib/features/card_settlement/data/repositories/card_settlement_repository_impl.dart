@@ -17,12 +17,14 @@ class CardSettlementRepositoryImpl implements CardSettlementRepository {
     required String paymentMethodId,
     required int year,
     required int month,
+    String? settlementTransferId,
   }) async {
     try {
       final result = await remoteDataSource.getSettlementTransactions(
         paymentMethodId: paymentMethodId,
         year: year,
         month: month,
+        settlementTransferId: settlementTransferId,
       );
       return Right(result);
     } on DioException catch (e) {

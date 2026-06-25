@@ -456,7 +456,13 @@ class TransactionService(
     }
 
     @Transactional(readOnly = true)
-    fun getSettlementTransactions(userId: UUID, paymentMethodId: UUID, year: Int, month: Int): com.budgetbook.transaction.dto.SettlementTransactionsResponse {
+    fun getSettlementTransactions(
+        userId: UUID,
+        paymentMethodId: UUID,
+        year: Int,
+        month: Int,
+        editingTransferId: UUID? = null
+    ): com.budgetbook.transaction.dto.SettlementTransactionsResponse {
         val couple = getActiveCouple(userId)
         val pm = paymentMethodRepository.findById(paymentMethodId)
             .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
@@ -465,16 +471,18 @@ class TransactionService(
         val yearMonth = YearMonth.of(year, month)
         val prevMonth = yearMonth.minusMonths(1)
 
-        // 1. Transactions with settlementDate in the requested month
-        val bySettlement = transactionRepository.findByPaymentMethodAndSettlementDateRange(
-            paymentMethodId, yearMonth.atDay(1), yearMonth.atEndOfMonth(), userId
+        // 1. Transactions with settlementDate in the requested month.
+        //    Edit-aware: also include transactions already linked to the settlement being
+        //    edited (paid_at set but settlement_transfer_id == editingTransferId).
+        val bySettlement = transactionRepository.findByPaymentMethodAndSettlementDateRangeForEdit(
+            paymentMethodId, yearMonth.atDay(1), yearMonth.atEndOfMonth(), userId, editingTransferId
         )
         // Fallback: transactions from previous month with null settlementDate
         val transactions = if (bySettlement.isNotEmpty()) {
             bySettlement
         } else {
-            transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlement(
-                paymentMethodId, prevMonth.atDay(1), prevMonth.atEndOfMonth(), userId
+            transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlementForEdit(
+                paymentMethodId, prevMonth.atDay(1), prevMonth.atEndOfMonth(), userId, editingTransferId
             )
         }
 
@@ -494,7 +502,8 @@ class TransactionService(
                 amount = t.amount,
                 categoryName = t.category?.name,
                 categoryIcon = t.category?.icon,
-                type = "TRANSACTION"
+                type = "TRANSACTION",
+                settlementTransferId = t.settlementTransferId
             )
         }
         val transferItems = transfers.map { tr ->

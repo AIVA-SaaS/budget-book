@@ -6,6 +6,7 @@ import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transfer.dto.CreateCardSettlementRequest
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.TransferResponse
+import com.budgetbook.transfer.dto.UpdateCardSettlementRequest
 import com.budgetbook.transfer.dto.UpdateTransferRequest
 import com.budgetbook.transfer.service.TransferService
 import jakarta.validation.Valid
@@ -59,6 +60,31 @@ class TransferController(
             transactionIds = request.transactionIds
         )
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result))
+    }
+
+    /**
+     * 카드 정산 편집 전용 엔드포인트 (V63).
+     * - 기존 연결 거래의 paid_at 복원 → 이체 필드 갱신 → 새 선택 거래 마킹·링크 저장.
+     * - 미결제 합계가 새 선택 기준으로 재계산된다.
+     */
+    @RateLimit(maxRequests = 20, windowSeconds = 60)
+    @PutMapping("/card-settlement/{transferId}")
+    fun updateCardSettlement(
+        @AuthUser userId: UUID,
+        @PathVariable transferId: UUID,
+        @Valid @RequestBody request: UpdateCardSettlementRequest
+    ): ApiResponse<TransferResponse> {
+        val result = transferService.updateCardSettlement(
+            userId = userId,
+            transferId = transferId,
+            sourcePaymentMethodId = request.sourcePaymentMethodId,
+            destinationPaymentMethodId = request.destinationPaymentMethodId,
+            amount = request.amount,
+            transferDate = request.transferDate,
+            description = request.description,
+            transactionIds = request.transactionIds
+        )
+        return ApiResponse.ok(result)
     }
 
     @GetMapping

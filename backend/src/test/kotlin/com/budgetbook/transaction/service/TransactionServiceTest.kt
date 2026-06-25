@@ -655,8 +655,8 @@ class TransactionServiceTest : BehaviorSpec({
                 amount = 20000, description = "저녁", transactionDate = LocalDate.of(2024, 1, 10),
                 paymentMethod = pm, settlementDate = LocalDate.of(2024, 2, 15)
             )
-            every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
-                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id
+            every { transactionRepository.findByPaymentMethodAndSettlementDateRangeForEdit(
+                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id, null
             ) } returns listOf(tx1, tx2)
             // Transfer from previous month (source = this card)
             every { transferRepository.findBySourcePaymentMethodAndDateRange(
@@ -678,12 +678,12 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("no transactions exist for the settlement period") {
-            every { transactionRepository.findByPaymentMethodAndSettlementDateRange(
-                pm.id, LocalDate.of(2024, 3, 1), LocalDate.of(2024, 3, 31), user1.id
+            every { transactionRepository.findByPaymentMethodAndSettlementDateRangeForEdit(
+                pm.id, LocalDate.of(2024, 3, 1), LocalDate.of(2024, 3, 31), user1.id, null
             ) } returns emptyList()
             // Fallback query for null-settlementDate transactions from previous month
-            every { transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlement(
-                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id
+            every { transactionRepository.findByPaymentMethodAndTransactionDateRangeWithNullSettlementForEdit(
+                pm.id, LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 29), user1.id, null
             ) } returns emptyList()
             // Transfer from previous month (source = this card)
             every { transferRepository.findBySourcePaymentMethodAndDateRange(

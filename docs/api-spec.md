@@ -86,6 +86,7 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Update Transaction](#4-update-transaction)
   - [Delete Transaction](#5-delete-transaction)
   - [Export CSV](#6-export-csv)
+  - [List Settlement Candidates](#7-list-settlement-candidates)
 - [Budgets](#budgets)
   - [Create Budget](#1-create-budget)
   - [List Budgets](#2-list-budgets)
@@ -139,6 +140,7 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Get Transfer](#3-get-transfer)
   - [Update Transfer](#4-update-transfer)
   - [Delete Transfer](#5-delete-transfer)
+  - [Edit Card Settlement Transfer](#6-edit-card-settlement-transfer)
 - [Insurances](#insurances)
   - [List Insurances](#1-list-insurances)
   - [Create Insurance](#2-create-insurance)
@@ -1243,6 +1245,107 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 |:-------|:-----------|:------------|
 | `403`  | `FORBIDDEN` | Transaction belongs to a different couple |
 | `404`  | `TRANSACTION_NOT_FOUND` | Transaction does not exist |
+
+---
+
+### 7. List Settlement Candidates
+
+Returns unpaid (unsettled) EXPENSE transactions that are eligible to be included in a card settlement, optionally together with transactions already bound to a specific existing settlement transfer (for the edit-mode use case).
+
+| Item        | Value                                      |
+|:------------|:-------------------------------------------|
+| **Method**  | `GET`                                      |
+| **Path**    | `/api/v1/transactions/settlement`          |
+| **Auth**    | Required                                   |
+
+**Query Parameters**
+
+| Parameter               | Type      | Required | Description                                                                                                                    |
+|:------------------------|:----------|:--------:|:-------------------------------------------------------------------------------------------------------------------------------|
+| `paymentMethodId`       | `UUID`    | Yes      | CREDIT payment method whose unsettled transactions are fetched                                                                 |
+| `settlementTransferId`  | `UUID`    | No       | When supplied, the response includes **both** unpaid transactions and transactions already bound to this settlement transfer. Used to pre-populate the candidate list when editing an existing card settlement. |
+
+**Response `200 OK`**: `ApiResponse<List<SettlementTransactionResponse>>`
+
+Each item in the list represents one transaction. Items that already belong to the referenced `settlementTransferId` carry a non-null `settlementTransferId` field so the client can distinguish pre-selected vs. newly selectable candidates.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440030",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "author": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "홍길동",
+        "profileImageUrl": "https://lh3.googleusercontent.com/..."
+      },
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440010",
+        "name": "식비",
+        "type": "EXPENSE",
+        "icon": "restaurant",
+        "color": "#FF5733"
+      },
+      "type": "EXPENSE",
+      "amount": 15000,
+      "description": "점심 식사",
+      "transactionDate": "2026-05-15",
+      "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+      "paymentMethodName": "신한카드",
+      "paymentMethodType": "CREDIT",
+      "settlementDate": "2026-06-15",
+      "settlementTransferId": null,
+      "visibility": "SHARED",
+      "createdAt": "2026-05-15T12:30:00Z",
+      "updatedAt": "2026-05-15T12:30:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440031",
+      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+      "author": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "홍길동",
+        "profileImageUrl": "https://lh3.googleusercontent.com/..."
+      },
+      "category": {
+        "id": "550e8400-e29b-41d4-a716-446655440011",
+        "name": "교통",
+        "type": "EXPENSE",
+        "icon": "directions_bus",
+        "color": "#3399FF"
+      },
+      "type": "EXPENSE",
+      "amount": 8000,
+      "description": "지하철 충전",
+      "transactionDate": "2026-05-10",
+      "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+      "paymentMethodName": "신한카드",
+      "paymentMethodType": "CREDIT",
+      "settlementDate": "2026-06-15",
+      "settlementTransferId": "550e8400-e29b-41d4-a716-446655440200",
+      "visibility": "SHARED",
+      "createdAt": "2026-05-10T09:00:00Z",
+      "updatedAt": "2026-05-10T09:00:00Z"
+    }
+  ],
+  "timestamp": "2026-06-24T10:00:00Z"
+}
+```
+
+**Response field notes**
+
+- `settlementTransferId` — `UUID` or `null`. Non-null only when the transaction is already marked as paid via a card settlement transfer. When the `settlementTransferId` query parameter is supplied, already-bound transactions for that transfer are included and carry the matching UUID here.
+- All other fields follow the standard `TransactionResponse` schema.
+
+**Error Responses**
+
+| Status | Error Code                   | Description                                              |
+|:------:|:-----------------------------|:---------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`           | `paymentMethodId` is missing or not a valid UUID         |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`   | Payment method does not exist or belongs to another couple |
+| `400`  | `VALIDATION_ERROR`           | Referenced payment method is not of type `CREDIT`        |
 
 ---
 
@@ -3169,6 +3272,8 @@ Returns transfers for the couple filtered by month.
 
 All fields are optional (partial update). Omitted fields retain their current values.
 
+> **Constraint**: Transfers with `kind = CARD_SETTLEMENT` cannot be edited via this endpoint. Attempting to modify the source, destination, or amount of a card settlement transfer here will be rejected with `400 VALIDATION_ERROR`. Use `PUT /api/v1/transfers/card-settlement/{id}` instead.
+
 | Item        | Value                       |
 |:------------|:----------------------------|
 | **Method**  | `PUT`                       |
@@ -3199,7 +3304,7 @@ All fields are optional (partial update). Omitted fields retain their current va
 
 | Status | Error Code                 | Description                                              |
 |:------:|:---------------------------|:---------------------------------------------------------|
-| `400`  | `VALIDATION_ERROR`         | Invalid field values or source == destination            |
+| `400`  | `VALIDATION_ERROR`         | Invalid field values, source == destination, or transfer is `CARD_SETTLEMENT` kind (use the dedicated edit endpoint) |
 | `404`  | `TRANSFER_NOT_FOUND`       | Transfer does not exist or belongs to another couple     |
 | `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified payment method does not exist                  |
 | `403`  | `FORBIDDEN`                | Payment method belongs to another couple                 |
@@ -3226,6 +3331,105 @@ All fields are optional (partial update). Omitted fields retain their current va
 | Status | Error Code           | Description                                  |
 |:------:|:---------------------|:---------------------------------------------|
 | `404`  | `TRANSFER_NOT_FOUND` | Transfer does not exist or belongs to another couple |
+
+---
+
+### 6. Edit Card Settlement Transfer
+
+Replaces an existing card settlement transfer in full. The previous settlement is unwound — all transactions previously marked as paid via this transfer have their `paid_at` restored to `null` — and then the new set of selected transactions is marked as paid and bound to this transfer.
+
+This endpoint is the **only** supported way to modify source, destination, amount, or linked transactions of a `CARD_SETTLEMENT` transfer. The generic `PUT /api/v1/transfers/{id}` rejects edits to `CARD_SETTLEMENT` transfers.
+
+| Item        | Value                                                      |
+|:------------|:-----------------------------------------------------------|
+| **Method**  | `PUT`                                                      |
+| **Path**    | `/api/v1/transfers/card-settlement/{transferId}`           |
+| **Auth**    | Required                                                   |
+| **Returns** | `200 OK`                                                   |
+
+**Path Parameters**
+
+| Parameter    | Type   | Description                      |
+|:-------------|:-------|:---------------------------------|
+| `transferId` | `UUID` | ID of the card settlement transfer to edit |
+
+**Request Body** (`UpdateCardSettlementRequest` — all fields required)
+
+| Field                        | Type       | Required | Constraints                                                                 | Description                                            |
+|:-----------------------------|:-----------|:--------:|:----------------------------------------------------------------------------|:-------------------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`     | Yes      | Must differ from destination; must not be `CREDIT` type                     | Bank/debit account that pays the credit card bill      |
+| `destinationPaymentMethodId` | `UUID`     | Yes      | Must be `CREDIT` type; must differ from source; must not be `CREDIT`→`CREDIT` | Credit card receiving the settlement payment           |
+| `amount`                     | `long`     | Yes      | min=1, max=999999999                                                        | Settlement amount in KRW                               |
+| `transferDate`               | `string`   | Yes      | `YYYY-MM-DD`                                                                | Date of the settlement transfer                        |
+| `description`                | `string`   | No       | max=255                                                                     | Optional label for the transfer                        |
+| `transactionIds`             | `UUID[]`   | Yes      | May be empty (`[]`) to clear all linked transactions                        | IDs of EXPENSE transactions to mark as paid via this settlement |
+
+**Request Example**
+
+```json
+{
+  "sourcePaymentMethodId": "550e8400-e29b-41d4-a716-446655440010",
+  "destinationPaymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+  "amount": 350000,
+  "transferDate": "2026-06-15",
+  "description": "신한카드 6월 결제",
+  "transactionIds": [
+    "550e8400-e29b-41d4-a716-446655440030",
+    "550e8400-e29b-41d4-a716-446655440031"
+  ]
+}
+```
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "coupleId": "550e8400-e29b-41d4-a716-446655440001",
+    "author": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nickname": "홍길동"
+    },
+    "sourcePaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "name": "신한은행",
+      "type": "BANK"
+    },
+    "destinationPaymentMethod": {
+      "id": "550e8400-e29b-41d4-a716-446655440031",
+      "name": "신한카드",
+      "type": "CREDIT"
+    },
+    "amount": 350000,
+    "description": "신한카드 6월 결제",
+    "memo": null,
+    "transferDate": "2026-06-15",
+    "kind": "CARD_SETTLEMENT",
+    "autoSettlementKey": null,
+    "createdAt": "2026-06-01T10:00:00"
+  },
+  "timestamp": "2026-06-24T10:00:00Z"
+}
+```
+
+**Behavior**
+
+1. Unmark step — all EXPENSE transactions previously linked to this transfer (via `settlement_transfer_id`) have `paid_at` set back to `null` and `settlement_transfer_id` cleared.
+2. Re-mark step — each transaction in `transactionIds` has `paid_at` set to `transferDate` and `settlement_transfer_id` set to this transfer's ID.
+3. The transfer itself is updated atomically with the above mark/unmark operations.
+
+**Error Responses**
+
+| Status | Error Code                   | Description                                                                      |
+|:------:|:-----------------------------|:---------------------------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`           | Missing required fields, amount out of range, or `transactionIds` contains a non-EXPENSE or non-CREDIT-card transaction |
+| `400`  | `VALIDATION_ERROR`           | `source == destination`, both payment methods are `CREDIT` type, or destination is not `CREDIT` |
+| `404`  | `TRANSFER_NOT_FOUND`         | Transfer does not exist, does not belong to this couple, or is not `CARD_SETTLEMENT` kind |
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`   | Source or destination payment method does not exist or belongs to another couple  |
+| `404`  | `TRANSACTION_NOT_FOUND`      | One or more transaction IDs in `transactionIds` do not exist or belong to another couple |
+| `403`  | `FORBIDDEN`                  | Payment method belongs to another couple                                          |
 
 ---
 

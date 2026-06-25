@@ -12,14 +12,19 @@ class LoadSettlement extends CardSettlementEvent {
   final int year;
   final int month;
 
+  /// 편집 모드: 이 정산에 이미 묶인 거래도 함께 조회하고 pre-select 한다.
+  final String? settlementTransferId;
+
   const LoadSettlement({
     required this.paymentMethodId,
     required this.year,
     required this.month,
+    this.settlementTransferId,
   });
 
   @override
-  List<Object?> get props => [paymentMethodId, year, month];
+  List<Object?> get props =>
+      [paymentMethodId, year, month, settlementTransferId];
 }
 
 class ToggleTransaction extends CardSettlementEvent {
@@ -68,6 +73,37 @@ class SubmitSettlement extends CardSettlementEvent {
 
   @override
   List<Object?> get props => [
+        sourcePaymentMethodId,
+        destinationPaymentMethodId,
+        amount,
+        date,
+        description,
+        transactionIds,
+      ];
+}
+
+class UpdateSettlement extends CardSettlementEvent {
+  final String transferId;
+  final String sourcePaymentMethodId;
+  final String destinationPaymentMethodId;
+  final int amount;
+  final String date;
+  final String? description;
+  final List<String> transactionIds; // 새로 정산에 묶을 거래 ID 목록
+
+  const UpdateSettlement({
+    required this.transferId,
+    required this.sourcePaymentMethodId,
+    required this.destinationPaymentMethodId,
+    required this.amount,
+    required this.date,
+    this.description,
+    this.transactionIds = const [],
+  });
+
+  @override
+  List<Object?> get props => [
+        transferId,
         sourcePaymentMethodId,
         destinationPaymentMethodId,
         amount,
