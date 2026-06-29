@@ -440,7 +440,7 @@ class TransactionServiceTest : BehaviorSpec({
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("matching descriptions exist") {
-            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심", any()) } returns listOf(
                 arrayOf<Any?>("점심 식사", null, null, null, null, null, null, null, 3L),
                 arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, null, 1L)
             )
@@ -455,7 +455,7 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("no matching descriptions exist") {
-            every { transactionRepository.findSuggestionPatterns(couple.id, "없는것") } returns emptyList()
+            every { transactionRepository.findSuggestionPatterns(couple.id, "없는것", any()) } returns emptyList()
 
             val result = service.getSuggestions(user1.id, "없는것", 10)
 
@@ -465,7 +465,7 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("limit exceeds max") {
-            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심", any()) } returns listOf(
                 arrayOf<Any?>("점심", null, null, null, null, null, null, null, 1L)
             )
 
@@ -478,7 +478,7 @@ class TransactionServiceTest : BehaviorSpec({
         }
 
         When("limit is zero or negative") {
-            every { transactionRepository.findSuggestionPatterns(couple.id, "점심") } returns listOf(
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심", any()) } returns listOf(
                 arrayOf<Any?>("점심 식사", null, null, null, null, null, null, null, 5L),
                 arrayOf<Any?>("점심 도시락", null, null, null, null, null, null, null, 2L)
             )
@@ -496,6 +496,23 @@ class TransactionServiceTest : BehaviorSpec({
 
             Then("returns empty list without querying") {
                 result shouldBe emptyList()
+            }
+        }
+
+        When("one description has more than 3 patterns") {
+            every { transactionRepository.findSuggestionPatterns(couple.id, "점심", any()) } returns listOf(
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 5L),
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 4L),
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 3L),
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 2L),
+                arrayOf<Any?>("점심", null, null, null, null, null, null, null, 1L)
+            )
+
+            val result = service.getSuggestions(user1.id, "점심", 10)
+
+            Then("caps patterns at 3 per description") {
+                result.size shouldBe 1
+                result[0].patterns.size shouldBe 3
             }
         }
     }

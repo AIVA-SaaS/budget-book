@@ -87,6 +87,7 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Delete Transaction](#5-delete-transaction)
   - [Export CSV](#6-export-csv)
   - [List Settlement Candidates](#7-list-settlement-candidates)
+  - [Description Suggestions](#8-description-suggestions)
 - [Budgets](#budgets)
   - [Create Budget](#1-create-budget)
   - [List Budgets](#2-list-budgets)
@@ -1346,6 +1347,57 @@ Each item in the list represents one transaction. Items that already belong to t
 | `400`  | `VALIDATION_ERROR`           | `paymentMethodId` is missing or not a valid UUID         |
 | `404`  | `PAYMENT_METHOD_NOT_FOUND`   | Payment method does not exist or belongs to another couple |
 | `400`  | `VALIDATION_ERROR`           | Referenced payment method is not of type `CREDIT`        |
+
+---
+
+### 8. Description Suggestions
+
+Returns autocomplete suggestions for the transaction description field, grouped by description. Each group carries the category/payment-method patterns most frequently paired with that description, with a usage `count` for each pattern.
+
+| Attribute   | Value                                |
+|:------------|:-------------------------------------|
+| **Method**  | `GET`                                |
+| **Path**    | `/api/v1/transactions/suggestions`   |
+| **Auth**    | Required                             |
+
+**Query Parameters**
+
+| Parameter | Type     | Required | Description                                                              |
+|:----------|:---------|:---------|:-------------------------------------------------------------------------|
+| `q`       | `string` | Yes      | Description prefix. Queries shorter than 2 characters return an empty list. |
+| `limit`   | `int`    | No       | Max number of description groups (default `5`, clamped to `1`–`20`).      |
+
+**Behavior**
+
+- Counting window: only transactions from the **last 3 months** (`transactionDate >= today − 3 months`) are aggregated. Descriptions not used within this window are excluded.
+- Groups are sorted by total usage count (descending) within the window.
+- Each group returns at most **3 patterns** (category + payment-method combinations), ordered by `count` descending.
+
+**Response** (`200 OK`)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "description": "스타벅스",
+      "patterns": [
+        {
+          "categoryId": "…",
+          "categoryName": "카페",
+          "categoryGroupName": "식비",
+          "categoryIcon": "coffee",
+          "categoryColor": "#6F4E37",
+          "paymentMethodId": "…",
+          "paymentMethodName": "신한카드",
+          "count": 12
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+```
 
 ---
 
