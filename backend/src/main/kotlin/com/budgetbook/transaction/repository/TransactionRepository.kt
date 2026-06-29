@@ -256,6 +256,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     ): List<Array<Any>>
 
     // 회차 12 follow-up (2026-05-04) — categoryGroupName 추가 (FE 카테고리 표시 통일).
+    // 2026-06-29 — :since (최근 3개월) 필터 추가. COUNT/정렬을 최근 사용 빈도 기준으로 한정.
     @Query("""
         SELECT t.description,
                t.category.id, t.category.name, t.category.icon, t.category.color,
@@ -264,6 +265,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
                COUNT(t)
         FROM Transaction t
         WHERE t.couple.id = :coupleId
+        AND t.transactionDate >= :since
         AND LOWER(t.description) LIKE LOWER(CONCAT(:query, '%'))
         GROUP BY t.description,
                  t.category.id, t.category.name, t.category.icon, t.category.color,
@@ -273,7 +275,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     """)
     fun findSuggestionPatterns(
         @Param("coupleId") coupleId: UUID,
-        @Param("query") query: String
+        @Param("query") query: String,
+        @Param("since") since: LocalDate
     ): List<Array<Any?>>
 
     @Query("""

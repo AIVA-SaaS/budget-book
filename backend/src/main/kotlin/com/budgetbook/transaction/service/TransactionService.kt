@@ -423,8 +423,10 @@ class TransactionService(
         if (query.length < 2) return emptyList()
         val couple = getActiveCouple(userId)
         val safeLimit = limit.coerceIn(1, 20)
+        // 최근 3개월 내 사용 빈도만 집계 (그 이전 거래는 제안에서 제외).
+        val since = LocalDate.now().minusMonths(3)
 
-        val rows = transactionRepository.findSuggestionPatterns(couple.id, query)
+        val rows = transactionRepository.findSuggestionPatterns(couple.id, query, since)
 
         // Group by description, then collect patterns per description
         val grouped = linkedMapOf<String, MutableList<com.budgetbook.transaction.dto.SuggestionPattern>>()
@@ -450,7 +452,7 @@ class TransactionService(
             .map { (desc, patterns) ->
                 com.budgetbook.transaction.dto.SuggestionResponse(
                     description = desc,
-                    patterns = patterns.take(5)
+                    patterns = patterns.take(3)
                 )
             }
     }
