@@ -79,7 +79,7 @@ class WeeklyBudgetService(
         // Pre-compute per-budget pro-rata amounts for each week,
         // with the last week receiving the remainder to eliminate rounding errors.
         val proRataByBudgetAndWeek: Map<UUID, List<Long>> = weeklyBudgets.associate { budget ->
-            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7L / ym.lengthOfMonth())
+            val perWeekAmount = budget.weeklyAmount ?: monthlyToWeekly(budget.amount, ym)
             val monthlyTotal = perWeekAmount * ym.lengthOfMonth().toLong() / 7
             val amounts = weekRanges.mapIndexed { index, (weekStart, weekEnd) ->
                 if (index == weekRanges.size - 1) {
@@ -255,7 +255,7 @@ class WeeklyBudgetService(
         val isLastWeek = currentWeekIndex == weekRanges.size - 1
 
         val items = weeklyBudgets.map { budget ->
-            val perWeekAmount = budget.weeklyAmount ?: (budget.amount * 7L / ym.lengthOfMonth())
+            val perWeekAmount = budget.weeklyAmount ?: monthlyToWeekly(budget.amount, ym)
             val proRataBudget = if (isLastWeek) {
                 // Last week gets the remainder to eliminate rounding errors
                 val monthlyTotal = perWeekAmount * ym.lengthOfMonth().toLong() / 7
@@ -385,10 +385,9 @@ class WeeklyBudgetService(
         // Sum weekly contributions: use weeklyAmount if set, otherwise derive from monthly
         val parts = yearMonth.split("-")
         val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
-        val daysInMonth = ym.lengthOfMonth()
 
         return weeklyBudgets.sumOf { budget ->
-            budget.weeklyAmount ?: ((budget.amount * 7) / daysInMonth)
+            budget.weeklyAmount ?: monthlyToWeekly(budget.amount, ym)
         }
     }
 
@@ -430,5 +429,24 @@ class WeeklyBudgetService(
             val days = ChronoUnit.DAYS.between(start, end) + 1
             return (weeklyAmount * days) / 7
         }
+
+        /**
+         * Canonical weekly↔monthly conversion for WEEKLY budgets.
+         *
+         * `weeklyAmount` (the per-week budget the user enters) is the source of truth.
+         * The monthly-equivalent is the per-week amount scaled by the month's actual
+         * day count (`daysInMonth / 7`) — the SAME formula every display path uses
+         * (budget summary, weekly overview, FE `effectiveMonthlyAmount`). Storing the
+         * derived monthly `amount` with this formula keeps the usage % consistent.
+         *
+         * [weeklyToMonthly] and [monthlyToWeekly] are inverse pairs (up to integer
+         * rounding); they replace the old `amount / numberOfWeeks` (4 or 5) divisor,
+         * which was NOT the inverse of `* daysInMonth / 7` and caused the % drift.
+         */
+        fun weeklyToMonthly(weeklyAmount: Long, yearMonth: YearMonth): Long =
+            weeklyAmount * yearMonth.lengthOfMonth().toLong() / 7
+
+        fun monthlyToWeekly(monthlyAmount: Long, yearMonth: YearMonth): Long =
+            Math.round(monthlyAmount.toDouble() * 7.0 / yearMonth.lengthOfMonth())
     }
 }

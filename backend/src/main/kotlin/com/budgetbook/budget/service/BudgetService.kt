@@ -118,13 +118,10 @@ class BudgetService(
             }
         }
 
-        val weeklyAmount = if (budgetPeriod == BudgetPeriod.WEEKLY) {
-            // Use client-provided weeklyAmount (the per-week budget the user intended),
-            // falling back to amount / numberOfWeeks for backward compat
-            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(request.yearMonth))
-        } else {
-            null
-        }
+        // weeklyAmount = source of truth for WEEKLY; monthly `amount` derived consistently.
+        val (resolvedAmount, weeklyAmount) = resolveBudgetAmounts(
+            budgetPeriod, request.amount, request.weeklyAmount, request.yearMonth
+        )
 
         val (startDate, endDate) = resolveStartEndDates(periodType, request.yearMonth, request.startDate, request.endDate)
 
@@ -162,7 +159,7 @@ class BudgetService(
             yearMonth = request.yearMonth,
             endYearMonth = effectiveEndYearMonth,
             rowKind = rowKind,
-            amount = request.amount,
+            amount = resolvedAmount,
             budgetPeriod = budgetPeriod,
             weeklyAmount = weeklyAmount,
             periodType = periodType,
@@ -195,7 +192,9 @@ class BudgetService(
         val couple = getActiveCouple(userId)
         val yearMonth = formatYearMonth(year, month)
         val rows = budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, yearMonth, userId)
-        return MonthlyBudgetResolver.resolveForMonth(rows).map { it.toResponse() }
+        // Project TEMPLATE rows onto the viewing month so the edit form opens on the
+        // correct month (not the template's stale creation month).
+        return MonthlyBudgetResolver.resolveForMonth(rows).map { projectToMonth(it, yearMonth) }
     }
 
     @Transactional
@@ -250,28 +249,22 @@ class BudgetService(
             budget.category = null  // Mutual exclusivity
         }
 
-        budget.amount = request.amount
-
-        request.budgetPeriod?.let { periodStr ->
-            val newPeriod = try {
+        val effectivePeriod = request.budgetPeriod?.let { periodStr ->
+            try {
                 BudgetPeriod.valueOf(periodStr)
             } catch (e: IllegalArgumentException) {
                 throw com.budgetbook.common.exception.BusinessException(
                     "VALIDATION_ERROR", "Invalid budget period: $periodStr"
                 )
             }
-            budget.budgetPeriod = newPeriod
-            budget.weeklyAmount = if (newPeriod == BudgetPeriod.WEEKLY) {
-                request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
-            } else {
-                null
-            }
-        } ?: run {
-            if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
-                budget.weeklyAmount = request.weeklyAmount
-                    ?: (request.amount / calculateNumberOfWeeks(budget.yearMonth))
-            }
-        }
+        } ?: budget.budgetPeriod
+        budget.budgetPeriod = effectivePeriod
+        // weeklyAmount = source of truth for WEEKLY; monthly `amount` derived consistently.
+        val (resolvedAmount, weeklyAmount) = resolveBudgetAmounts(
+            effectivePeriod, request.amount, request.weeklyAmount, budget.yearMonth
+        )
+        budget.amount = resolvedAmount
+        budget.weeklyAmount = weeklyAmount
 
         // Update periodType and date range if provided
         request.periodType?.let { ptStr ->
@@ -435,9 +428,10 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
-        val weeklyAmount = if (resolvedBudgetPeriod == BudgetPeriod.WEEKLY) {
-            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(viewingMonth))
-        } else null
+        // weeklyAmount = source of truth for WEEKLY; monthly `amount` derived consistently.
+        val (resolvedAmount, weeklyAmount) = resolveBudgetAmounts(
+            resolvedBudgetPeriod, request.amount, request.weeklyAmount, viewingMonth
+        )
 
         // V57 OVERRIDE partial unique 충돌 체크 (E-3 fix: rowKind=OVERRIDE 만 검사 —
         // 기존 existsByCoupleIdAndCategoryGroupAndYearMonth 는 TEMPLATE 행도 포함하여
@@ -462,7 +456,7 @@ class BudgetService(
             yearMonth = viewingMonth,
             endYearMonth = viewingMonth,
             rowKind = BudgetRowKind.OVERRIDE,
-            amount = request.amount,
+            amount = resolvedAmount,
             budgetPeriod = resolvedBudgetPeriod,
             weeklyAmount = weeklyAmount,
             periodType = resolvedPeriodType,
@@ -538,9 +532,10 @@ class BudgetService(
                 .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
         } else null
 
-        val weeklyAmount = if (resolvedBudgetPeriod == BudgetPeriod.WEEKLY) {
-            request.weeklyAmount ?: (request.amount / calculateNumberOfWeeks(viewingMonth))
-        } else null
+        // weeklyAmount = source of truth for WEEKLY; monthly `amount` derived consistently.
+        val (resolvedAmount, weeklyAmount) = resolveBudgetAmounts(
+            resolvedBudgetPeriod, request.amount, request.weeklyAmount, viewingMonth
+        )
 
         // 1) 원본 TEMPLATE 종료
         val prev = previousYearMonth(viewingMonth)
@@ -555,7 +550,7 @@ class BudgetService(
             yearMonth = viewingMonth,
             endYearMonth = null,
             rowKind = BudgetRowKind.TEMPLATE,
-            amount = request.amount,
+            amount = resolvedAmount,
             budgetPeriod = resolvedBudgetPeriod,
             weeklyAmount = weeklyAmount,
             periodType = resolvedPeriodType,
@@ -677,8 +672,8 @@ class BudgetService(
             }
 
             val effectiveBudgetAmount = if (budget.budgetPeriod == BudgetPeriod.WEEKLY) {
-                val weeklyAmt = budget.weeklyAmount ?: (budget.amount * 7 / ym.lengthOfMonth())
-                weeklyAmt * ym.lengthOfMonth().toLong() / 7
+                val weeklyAmt = budget.weeklyAmount ?: WeeklyBudgetService.monthlyToWeekly(budget.amount, ym)
+                WeeklyBudgetService.weeklyToMonthly(weeklyAmt, ym)
             } else {
                 budget.amount
             }
@@ -775,23 +770,21 @@ class BudgetService(
         )
         val existingKeys = existingTargetBudgets.map { Pair(it.category?.id, it.group?.id) }.toSet()
 
-        val numberOfWeeks = calculateNumberOfWeeks(targetYearMonth)
-
         val newBudgets = sourceBudgets
             .filter { Pair(it.category?.id, it.group?.id) !in existingKeys }
             .map { source ->
-                val weeklyAmount = if (source.budgetPeriod == BudgetPeriod.WEEKLY) {
-                    source.amount / numberOfWeeks
-                } else {
-                    null
-                }
+                // Preserve the source per-week amount; re-derive monthly `amount` for the
+                // target month's day count (weeklyAmount = source of truth).
+                val (resolvedAmount, weeklyAmount) = resolveBudgetAmounts(
+                    source.budgetPeriod, source.amount, source.weeklyAmount, targetYearMonth
+                )
                 val (sd, ed) = resolveStartEndDates(source.periodType, targetYearMonth, null, null)
                 MonthlyBudget(
                     couple = couple,
                     category = source.category,
                     group = source.group,
                     yearMonth = targetYearMonth,
-                    amount = source.amount,
+                    amount = resolvedAmount,
                     budgetPeriod = source.budgetPeriod,
                     weeklyAmount = weeklyAmount,
                     periodType = source.periodType,
@@ -829,6 +822,53 @@ class BudgetService(
     private fun formatYearMonth(year: Int, month: Int): String =
         "%04d-%02d".format(year, month)
 
+    /**
+     * Resolve the stored (amount, weeklyAmount) pair for a budget.
+     *
+     * For WEEKLY budgets, `weeklyAmount` is the source of truth and the monthly
+     * `amount` is DERIVED via [WeeklyBudgetService.weeklyToMonthly] so it equals the
+     * effective budget every display path computes (summary / weekly overview / FE),
+     * making the usage % consistent. Legacy callers that send only `amount` get a
+     * back-derived weeklyAmount. Non-WEEKLY budgets keep `amount` as-is, weeklyAmount null.
+     */
+    private fun resolveBudgetAmounts(
+        period: BudgetPeriod,
+        requestAmount: Long,
+        requestWeeklyAmount: Long?,
+        yearMonth: String
+    ): Pair<Long, Long?> {
+        if (period != BudgetPeriod.WEEKLY) return Pair(requestAmount, null)
+        val ym = YearMonth.parse(yearMonth)
+        val weekly = requestWeeklyAmount
+            ?: WeeklyBudgetService.monthlyToWeekly(requestAmount, ym)
+        return Pair(WeeklyBudgetService.weeklyToMonthly(weekly, ym), weekly)
+    }
+
+    /**
+     * Project a resolved budget row onto the month being viewed.
+     *
+     * A TEMPLATE row keeps its original creation month in `yearMonth`/`startDate`/
+     * `endDate`; returned as-is, the client (edit form) derives the period month from
+     * the stale `startDate` and jumps to the wrong month. This rewrites those fields to
+     * the viewing month (WEEKLY/MONTHLY only — DAILY/NONE keep their custom range), and
+     * recomputes the WEEKLY monthly `amount` for the viewing month's day count.
+     */
+    private fun projectToMonth(budget: MonthlyBudget, viewingYearMonth: String): BudgetResponse {
+        val base = budget.toResponse()
+        if (budget.yearMonth == viewingYearMonth) return base
+        val ym = YearMonth.parse(viewingYearMonth)
+        val (sd, ed) = when (budget.periodType) {
+            PeriodType.WEEKLY, PeriodType.MONTHLY ->
+                Pair(ym.atDay(1).toString(), ym.atEndOfMonth().toString())
+            else -> Pair(base.startDate, base.endDate)
+        }
+        val amount = budget.weeklyAmount
+            ?.takeIf { budget.budgetPeriod == BudgetPeriod.WEEKLY }
+            ?.let { WeeklyBudgetService.weeklyToMonthly(it, ym) }
+            ?: base.amount
+        return base.copy(yearMonth = viewingYearMonth, amount = amount, startDate = sd, endDate = ed)
+    }
+
     private fun resolveStartEndDates(
         periodType: PeriodType,
         yearMonth: String,
@@ -848,12 +888,5 @@ class BudgetService(
                 }
             }
         }
-    }
-
-    private fun calculateNumberOfWeeks(yearMonth: String): Int {
-        val parts = yearMonth.split("-")
-        val ym = YearMonth.of(parts[0].toInt(), parts[1].toInt())
-        val lastDay = ym.lengthOfMonth()
-        return if (lastDay > 28) 5 else 4
     }
 }

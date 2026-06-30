@@ -1438,9 +1438,14 @@ Creates a monthly budget for the couple. At most one of `categoryId` or `groupId
 | `categoryId`   | `UUID`   | No       | Category ID. Mutually exclusive with `groupId`. Both `null` = total budget for the month.            |
 | `groupId`      | `UUID`   | No       | Category group ID. Mutually exclusive with `categoryId`. Both `null` = total budget for the month.   |
 | `yearMonth`    | `string` | Yes      | Target month in `YYYY-MM` format (e.g., `2026-03`)                                                  |
-| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0)                                                                   |
+| `amount`       | `long`   | Yes      | Budget amount in KRW (must be > 0). For `WEEKLY` budgets this is ignored when `weeklyAmount` is sent — see note below. |
 | `budgetPeriod` | `string` | No       | Budget period type: `MONTHLY` (default) or `WEEKLY`                                                  |
+| `weeklyAmount` | `long`   | No       | Per-week amount in KRW. Source of truth for `WEEKLY` budgets. If omitted for a `WEEKLY` budget, it is back-derived from `amount`. |
 | `visibility`   | `string` | No       | `SHARED` (default) or `PRIVATE`. Private budgets are only visible to the creator. Shared and private budgets can coexist for the same category/month (unique constraint applies per visibility scope). |
+
+> **WEEKLY budget conversion.** For `WEEKLY` budgets `weeklyAmount` (per-week) is the source of truth; the stored/returned monthly `amount` is **derived** as `round(weeklyAmount × daysInMonth ÷ 7)` — the same formula every view uses to compute the effective monthly budget, so the usage % is consistent. (Earlier versions stored `amount ≈ weeklyAmount × 4`, which drifted from the displayed value.)
+>
+> **TEMPLATE projection.** When a multi-month budget (TEMPLATE) is listed for a month later than its creation month, the response's `yearMonth`/`startDate`/`endDate` are projected onto the **viewing month**, and a `WEEKLY` budget's `amount` is re-derived for that month's day count.
 
 **Response `201 Created`**: `ApiResponse<BudgetResponse>`
 
