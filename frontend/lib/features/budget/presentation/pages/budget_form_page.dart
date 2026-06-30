@@ -641,10 +641,12 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       if (_budgetPeriod == 'WEEKLY') {
         final weekly = CurrencyFormatter.parse(_weeklyAmountController.text.trim())!;
         weeklyAmount = weekly;
-        // Monthly amount = weekly * 4 (approximate)
+        // Monthly amount = weekly * daysInMonth / 7 — the canonical inverse the BE/display
+        // use (NOT weekly * 4). Keeps the optimistic local value in sync with the server.
+        final daysInMonth = DateTime(_selectedYear, _selectedMonth + 1, 0).day;
         amount = _amountController.text.trim().isNotEmpty
             ? CurrencyFormatter.parse(_amountController.text.trim())!
-            : weekly * 4;
+            : (weekly * daysInMonth / 7).round();
       } else {
         amount = CurrencyFormatter.parse(_amountController.text.trim())!;
         weeklyAmount = null;

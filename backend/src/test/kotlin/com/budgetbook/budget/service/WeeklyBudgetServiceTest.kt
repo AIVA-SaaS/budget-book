@@ -149,6 +149,62 @@ class WeeklyBudgetServiceTest : BehaviorSpec({
         }
     }
 
+    // --- weeklyToMonthly / monthlyToWeekly (canonical conversion) ---
+
+    Given("canonical weekly↔monthly conversion") {
+        When("converting a per-week amount to monthly for a 30-day month (June 2026)") {
+            val monthly = WeeklyBudgetService.weeklyToMonthly(100_000, YearMonth.of(2026, 6))
+            Then("scales by daysInMonth/7, NOT by a flat 4 or 5 weeks") {
+                // 100000 * 30 / 7 = 428571 (≈4.28 weeks), not 400000 (×4) or 500000 (×5)
+                monthly shouldBe 428_571
+            }
+        }
+
+        When("converting a 31-day month (March 2026)") {
+            val monthly = WeeklyBudgetService.weeklyToMonthly(70_000, YearMonth.of(2026, 3))
+            Then("uses 31 days") {
+                monthly shouldBe (70_000L * 31 / 7) // 310000
+            }
+        }
+
+        When("deriving a per-week amount from a monthly total (June 2026)") {
+            val weekly = WeeklyBudgetService.monthlyToWeekly(428_571, YearMonth.of(2026, 6))
+            Then("inverts weeklyToMonthly within rounding") {
+                weekly shouldBe 100_000
+            }
+        }
+
+        When("round-tripping weekly → monthly → weekly across months") {
+            Then("returns the original per-week value for representative inputs") {
+                listOf(YearMonth.of(2026, 2), YearMonth.of(2026, 6), YearMonth.of(2026, 3)).forEach { ym ->
+                    listOf(50_000L, 100_000L, 123_456L).forEach { weekly ->
+                        val monthly = WeeklyBudgetService.weeklyToMonthly(weekly, ym)
+                        WeeklyBudgetService.monthlyToWeekly(monthly, ym) shouldBe weekly
+                    }
+                }
+            }
+        }
+
+        When("weeklyToMonthly equals the sum of per-week pro-rata (with last-week remainder)") {
+            Then("the stored monthly amount matches the weekly overview's total exactly") {
+                val ym = YearMonth.of(2026, 6)
+                val weekly = 100_000L
+                val monthly = WeeklyBudgetService.weeklyToMonthly(weekly, ym)
+                val ranges = WeeklyBudgetService.calculateWeekRanges(ym)
+                val summed = ranges.mapIndexed { index, (s, e) ->
+                    if (index == ranges.size - 1) {
+                        val prev = ranges.take(index)
+                            .sumOf { (ps, pe) -> WeeklyBudgetService.calculateProRataBudget(weekly, ps, pe) }
+                        monthly - prev
+                    } else {
+                        WeeklyBudgetService.calculateProRataBudget(weekly, s, e)
+                    }
+                }.sum()
+                summed shouldBe monthly
+            }
+        }
+    }
+
     // --- getWeeklyOverview ---
 
     Given("only MONTHLY budgets exist (no WEEKLY)") {

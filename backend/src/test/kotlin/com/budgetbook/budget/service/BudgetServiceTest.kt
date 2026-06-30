@@ -36,6 +36,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import java.time.LocalDate
+import java.time.YearMonth
 import java.util.Optional
 import java.util.UUID
 
@@ -141,6 +142,71 @@ class BudgetServiceTest : BehaviorSpec({
                     service.createBudget(user1.id, request)
                 }
                 ex.code shouldBe "CATEGORY_NOT_FOUND"
+            }
+        }
+    }
+
+    // --- WEEKLY budget conversion (bug 1: usage-% drift) ---
+
+    Given("a WEEKLY budget created with a per-week amount (June 2026, 30 days)") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { categoryRepository.findById(category.id) } returns Optional.of(category)
+        every { budgetRepository.existsByCoupleIdAndCategoryGroupAndYearMonth(couple.id, category.id, null, "2026-06") } returns false
+        val slotB = slot<MonthlyBudget>()
+        every { budgetRepository.save(capture(slotB)) } answers { slotB.captured }
+
+        When("creating with weeklyAmount=100000 and an approximate amount") {
+            // FE may send amount = weekly*4 (400000); BE must ignore it and derive from weekly.
+            val request = BudgetRequest(
+                categoryId = category.id, yearMonth = "2026-06", amount = 400000,
+                budgetPeriod = "WEEKLY", weeklyAmount = 100000, periodType = "WEEKLY"
+            )
+            val result = service.createBudget(user1.id, request)
+
+            Then("weeklyAmount is preserved and monthly amount = weekly * daysInMonth / 7") {
+                result.weeklyAmount shouldBe 100000
+                result.amount shouldBe 428571 // 100000 * 30 / 7, NOT 400000
+            }
+        }
+
+        When("creating with only a monthly amount (legacy, no weeklyAmount)") {
+            val request = BudgetRequest(
+                categoryId = category.id, yearMonth = "2026-06", amount = 428571,
+                budgetPeriod = "WEEKLY", weeklyAmount = null, periodType = "WEEKLY"
+            )
+            val result = service.createBudget(user1.id, request)
+
+            Then("weeklyAmount is back-derived and amount stays consistent") {
+                result.weeklyAmount shouldBe 100000 // round(428571 * 7 / 30)
+                result.amount shouldBe 428571
+            }
+        }
+    }
+
+    // --- getBudgetsByMonth: TEMPLATE projection (bug 2: edit jumps to wrong month) ---
+
+    Given("a WEEKLY TEMPLATE created in May, viewed in June") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val template = MonthlyBudget(
+            couple = couple, category = category, yearMonth = "2026-05",
+            endYearMonth = null, rowKind = com.budgetbook.budget.domain.BudgetRowKind.TEMPLATE,
+            amount = 442580, budgetPeriod = BudgetPeriod.WEEKLY, weeklyAmount = 100000,
+            periodType = com.budgetbook.budget.domain.PeriodType.WEEKLY,
+            startDate = LocalDate.of(2026, 5, 1), endDate = LocalDate.of(2026, 5, 31)
+        )
+        every { budgetRepository.findByCoupleIdAndYearMonthAndUserId(couple.id, "2026-06", user1.id) } returns listOf(template)
+
+        When("getBudgetsByMonth(2026, 6) is called") {
+            val result = service.getBudgetsByMonth(user1.id, 2026, 6)
+
+            Then("the response is projected onto June, not the template's May") {
+                result.size shouldBe 1
+                result[0].yearMonth shouldBe "2026-06"
+                result[0].startDate shouldBe "2026-06-01"
+                result[0].endDate shouldBe "2026-06-30"
+                // weeklyAmount preserved; monthly amount re-derived for June's 30 days
+                result[0].weeklyAmount shouldBe 100000
+                result[0].amount shouldBe 428571
             }
         }
     }
@@ -270,11 +336,11 @@ class BudgetServiceTest : BehaviorSpec({
             val request = BudgetUpdateRequest(amount = 200000, budgetPeriod = "WEEKLY")
             val result = service.updateBudget(user1.id, budget.id, request)
 
-            Then("updates amount, budgetPeriod, and calculates weeklyAmount") {
-                result.amount shouldBe 200000
+            Then("derives weeklyAmount via daysInMonth/7 and a consistent monthly amount") {
                 result.budgetPeriod shouldBe "WEEKLY"
-                // 2026-03 has 31 days -> 5 weeks, so 200000 / 5 = 40000
-                result.weeklyAmount shouldBe 40000
+                // Canonical inverse, NOT the old flat 200000/5 = 40000.
+                result.weeklyAmount shouldBe WeeklyBudgetService.monthlyToWeekly(200000, YearMonth.of(2026, 3))
+                result.amount shouldBe WeeklyBudgetService.weeklyToMonthly(result.weeklyAmount!!, YearMonth.of(2026, 3))
             }
         }
     }
@@ -292,11 +358,10 @@ class BudgetServiceTest : BehaviorSpec({
             val request = BudgetUpdateRequest(amount = 250000)
             val result = service.updateBudget(user1.id, budget.id, request)
 
-            Then("recalculates weeklyAmount from new amount") {
-                result.amount shouldBe 250000
+            Then("recalculates weeklyAmount from the new amount, amount stays consistent") {
                 result.budgetPeriod shouldBe "WEEKLY"
-                // 250000 / 5 = 50000
-                result.weeklyAmount shouldBe 50000
+                result.weeklyAmount shouldBe WeeklyBudgetService.monthlyToWeekly(250000, YearMonth.of(2026, 3))
+                result.amount shouldBe WeeklyBudgetService.weeklyToMonthly(result.weeklyAmount!!, YearMonth.of(2026, 3))
             }
         }
     }
@@ -314,9 +379,10 @@ class BudgetServiceTest : BehaviorSpec({
             val request = BudgetUpdateRequest(amount = 200000, weeklyAmount = 45000)
             val result = service.updateBudget(user1.id, budget.id, request)
 
-            Then("uses the explicit weeklyAmount") {
-                result.amount shouldBe 200000
+            Then("uses the explicit weeklyAmount and derives the monthly amount from it") {
                 result.weeklyAmount shouldBe 45000
+                // amount is derived from weeklyAmount (source of truth), not the sent 200000.
+                result.amount shouldBe WeeklyBudgetService.weeklyToMonthly(45000, YearMonth.of(2026, 3))
             }
         }
     }
