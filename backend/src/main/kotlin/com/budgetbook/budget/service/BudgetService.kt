@@ -679,8 +679,12 @@ class BudgetService(
             }
 
             val remainingAmount = effectiveBudgetAmount - spentAmount - plannedAmount
+            // usageRate reflects ACTUAL spending only (spent / budget), matching the
+            // budget list / alert display which shows "spent / budget" (회차 12 P4 removed
+            // the planned segment from this view) and BudgetAlertService's percentage.
+            // plannedAmount stays in remainingAmount as a separate reservation concept.
             val usageRate = if (effectiveBudgetAmount > 0) {
-                Math.round((spentAmount + plannedAmount).toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
+                Math.round(spentAmount.toDouble() / effectiveBudgetAmount * 1000.0) / 10.0
             } else {
                 0.0
             }
