@@ -852,6 +852,16 @@ class BudgetServiceTest : BehaviorSpec({
                 catItem.remainingAmount shouldBe 70000 // 150000 - 50000 - 30000
             }
 
+            // Regression (2026-07-01): usageRate reflects ACTUAL spending only, NOT planned.
+            // Previously (spent + planned) / budget inflated the % beyond the displayed
+            // "spent / budget" numbers (e.g. June weekly budget showed 100.4% for 740,504 / 857,142).
+            Then("usageRate excludes planned amount") {
+                val catItem = result.items.first { it.category != null }
+                catItem.usageRate shouldBe 33.3 // 50000 / 150000, NOT (50000 + 30000) / 150000
+                val totalItem = result.items.first { it.category == null }
+                totalItem.usageRate shouldBe 2.7 // 80000 / 3000000, NOT (80000 + 50000) / 3000000
+            }
+
             Then("includes planned amount in total budget item") {
                 val totalItem = result.items.first { it.category == null }
                 totalItem.plannedAmount shouldBe 50000
