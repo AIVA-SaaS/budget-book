@@ -1,5 +1,9 @@
 # Frontend - Flutter (Web + Mobile Unified)
 
+## Efficiency Rules
+- **grep → Read 순서**: `grep -n "ClassName\|methodName" file.dart` 먼저 → 해당 범위만 `Read(offset, limit)`. 2100줄 파일 전체 Read 절대 금지.
+- **명령 예산**: 하나의 가설 검증 최대 5개 명령. 초과 전 파악 내용 먼저 보고.
+
 ## Stack
 - Flutter 3.x, Dart 3.x
 - flutter_bloc for state management
