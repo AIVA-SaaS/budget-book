@@ -4,6 +4,7 @@ import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
+import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.CsvImportResponse
 import com.budgetbook.transaction.dto.PageResponse
@@ -129,9 +130,10 @@ class TransactionController(
     fun getSuggestions(
         @AuthUser userId: UUID,
         @RequestParam q: String,
-        @RequestParam(defaultValue = "5") limit: Int
+        @RequestParam(defaultValue = "5") limit: Int,
+        @RequestParam(required = false) type: TransactionType? = null
     ): ApiResponse<List<com.budgetbook.transaction.dto.SuggestionResponse>> {
-        return ApiResponse.ok(transactionService.getSuggestions(userId, q, limit))
+        return ApiResponse.ok(transactionService.getSuggestions(userId, q, limit, type))
     }
 
     @RateLimit(maxRequests = 5, windowSeconds = 60)

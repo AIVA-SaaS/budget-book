@@ -251,7 +251,7 @@ class TransactionControllerTest : FunSpec({
             SuggestionResponse("점심 식사", emptyList()),
             SuggestionResponse("점심 도시락", emptyList())
         )
-        every { transactionService.getSuggestions(testUserId, "점", 10) } returns suggestions
+        every { transactionService.getSuggestions(testUserId, "점", 10, null) } returns suggestions
 
         val result = controller.getSuggestions(testUserId, "점", 10)
 
@@ -263,7 +263,7 @@ class TransactionControllerTest : FunSpec({
     test("getSuggestions with custom limit") {
 
         val suggestions = listOf(SuggestionResponse("커피", emptyList()))
-        every { transactionService.getSuggestions(testUserId, "커", 5) } returns suggestions
+        every { transactionService.getSuggestions(testUserId, "커", 5, null) } returns suggestions
 
         val result = controller.getSuggestions(testUserId, "커", 5)
 
@@ -273,7 +273,7 @@ class TransactionControllerTest : FunSpec({
 
     test("getSuggestions returns empty list when no matches") {
 
-        every { transactionService.getSuggestions(testUserId, "없는내용", 10) } returns emptyList()
+        every { transactionService.getSuggestions(testUserId, "없는내용", 10, null) } returns emptyList()
 
         val result = controller.getSuggestions(testUserId, "없는내용", 10)
 

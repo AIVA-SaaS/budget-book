@@ -11,6 +11,7 @@ import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.couple.domain.Couple
 import com.budgetbook.couple.domain.CoupleStatus
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.SuggestionPattern
 import com.budgetbook.transaction.dto.SuggestionResponse
 import com.budgetbook.transaction.service.TransactionService
@@ -65,7 +66,7 @@ class AiClassificationServiceTest : BehaviorSpec({
                 result.categoryId shouldBe cachedResponse.categoryId
                 result.categoryName shouldBe "식비"
                 result.source shouldBe "CACHE"
-                verify(exactly = 0) { transactionService.getSuggestions(any(), any(), any()) }
+                verify(exactly = 0) { transactionService.getSuggestions(any(), any(), any(), any()) }
                 verify(exactly = 0) { claudeApiClient.sendMessage(any(), any(), any(), any()) }
             }
         }
@@ -91,7 +92,7 @@ class AiClassificationServiceTest : BehaviorSpec({
                 )
             )
         )
-        every { transactionService.getSuggestions(user1.id, "스타벅스 커피", 1) } returns suggestions
+        every { transactionService.getSuggestions(user1.id, "스타벅스 커피", 1, TransactionType.EXPENSE) } returns suggestions
 
         When("classify is called") {
             val result = service.classify(user1.id, "스타벅스 커피", "EXPENSE")
@@ -108,7 +109,7 @@ class AiClassificationServiceTest : BehaviorSpec({
 
     Given("no cache, no pattern match, AI is enabled") {
         every { redisCacheService.get(any()) } returns null
-        every { transactionService.getSuggestions(user1.id, "새로운 가게", 1) } returns emptyList()
+        every { transactionService.getSuggestions(user1.id, "새로운 가게", 1, TransactionType.EXPENSE) } returns emptyList()
 
         val catId = UUID.randomUUID()
         val categories = listOf(
@@ -143,7 +144,7 @@ class AiClassificationServiceTest : BehaviorSpec({
         )
 
         every { redisCacheService.get(any()) } returns null
-        every { transactionService.getSuggestions(user1.id, "새로운 가게", 1) } returns emptyList()
+        every { transactionService.getSuggestions(user1.id, "새로운 가게", 1, TransactionType.EXPENSE) } returns emptyList()
 
         When("classify is called with no pattern match") {
             val result = disabledService.classify(user1.id, "새로운 가게", "EXPENSE")
@@ -158,7 +159,7 @@ class AiClassificationServiceTest : BehaviorSpec({
 
     Given("AI call fails") {
         every { redisCacheService.get(any()) } returns null
-        every { transactionService.getSuggestions(user1.id, "실패 테스트", 1) } returns emptyList()
+        every { transactionService.getSuggestions(user1.id, "실패 테스트", 1, TransactionType.EXPENSE) } returns emptyList()
 
         val categories = listOf(
             CategoryResponse(

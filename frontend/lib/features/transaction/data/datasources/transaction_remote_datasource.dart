@@ -33,7 +33,7 @@ abstract class TransactionRemoteDataSource {
   Future<TransactionModel> updateTransaction(
       String id, Map<String, dynamic> data);
   Future<void> deleteTransaction(String id);
-  Future<List<SuggestionGroup>> getSuggestions(String query);
+  Future<List<SuggestionGroup>> getSuggestions(String query, {String? type});
 }
 
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
@@ -154,10 +154,14 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   }
 
   @override
-  Future<List<SuggestionGroup>> getSuggestions(String query) async {
+  Future<List<SuggestionGroup>> getSuggestions(String query, {String? type}) async {
     final response = await apiClient.dio.get(
       '${ApiEndpoints.transactions}/suggestions',
-      queryParameters: {'q': query, 'limit': 5},
+      queryParameters: {
+        'q': query,
+        'limit': 5,
+        if (type != null) 'type': type,
+      },
     );
     final list = response.data['data'] as List<dynamic>;
     return list.map((item) {

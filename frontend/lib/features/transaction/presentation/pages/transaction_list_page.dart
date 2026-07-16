@@ -636,6 +636,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     scrollToDate: _pendingScrollToDate,
                     transactionTypes: _filterState.transactionTypes,
                     visibility: _filterState.visibility,
+                    needsReviewOnly:
+                        _filterState.needsReviewOnly ? true : null,
                   ),
                 );
           },

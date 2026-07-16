@@ -266,6 +266,7 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         FROM Transaction t
         WHERE t.couple.id = :coupleId
         AND t.transactionDate >= :since
+        AND (:type IS NULL OR t.type = :type)
         AND LOWER(t.description) LIKE LOWER(CONCAT(:query, '%'))
         GROUP BY t.description,
                  t.category.id, t.category.name, t.category.icon, t.category.color,
@@ -276,7 +277,8 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     fun findSuggestionPatterns(
         @Param("coupleId") coupleId: UUID,
         @Param("query") query: String,
-        @Param("since") since: LocalDate
+        @Param("since") since: LocalDate,
+        @Param("type") type: TransactionType?
     ): List<Array<Any?>>
 
     @Query("""

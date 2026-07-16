@@ -1,5 +1,9 @@
 # Backend - Kotlin Spring Boot API
 
+## Efficiency Rules
+- **grep → Read 순서**: 200줄+ 파일은 `grep -n "symbol"` 위치 확인 후 `Read(offset, limit)` 해당 범위만. 전체 Read 금지.
+- **명령 예산**: 하나의 가설 검증 최대 5개 명령. 초과 전 파악 내용 먼저 보고.
+
 ## Stack
 - Kotlin 1.9+, Spring Boot 3.2+, Java 21
 - Spring Data JPA (PostgreSQL via Supabase)

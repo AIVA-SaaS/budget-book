@@ -419,14 +419,20 @@ class TransactionService(
     }
 
     @Transactional(readOnly = true)
-    fun getSuggestions(userId: UUID, query: String, limit: Int = 5): List<com.budgetbook.transaction.dto.SuggestionResponse> {
+    fun getSuggestions(
+        userId: UUID,
+        query: String,
+        limit: Int = 5,
+        type: TransactionType? = null
+    ): List<com.budgetbook.transaction.dto.SuggestionResponse> {
         if (query.length < 2) return emptyList()
         val couple = getActiveCouple(userId)
         val safeLimit = limit.coerceIn(1, 20)
         // 최근 3개월 내 사용 빈도만 집계 (그 이전 거래는 제안에서 제외).
         val since = LocalDate.now().minusMonths(3)
 
-        val rows = transactionRepository.findSuggestionPatterns(couple.id, query, since)
+        // 수입/지출 타입별 제안 분리 (type=null 이면 전체 — 구버전 클라이언트 호환).
+        val rows = transactionRepository.findSuggestionPatterns(couple.id, query, since, type)
 
         // Group by description, then collect patterns per description
         val grouped = linkedMapOf<String, MutableList<com.budgetbook.transaction.dto.SuggestionPattern>>()
