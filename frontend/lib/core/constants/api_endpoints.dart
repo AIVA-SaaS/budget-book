@@ -47,6 +47,10 @@ class ApiEndpoints {
       '/api/v1/payment-methods/card-pending';
   static const String paymentMethodsCardSettlementSummary =
       '/api/v1/payment-methods/card-settlement-summary';
+  /// Balance-as-of-date for a single payment method (asOf = exclusive upper
+  /// bound, YYYY-MM-DD). See api-spec §7 "Balance As Of Date".
+  static String paymentMethodBalance(String id) =>
+      '/api/v1/payment-methods/$id/balance';
 
   // Weekly Budget
   static const String weeklyBudgets = '/api/v1/budgets/weekly';

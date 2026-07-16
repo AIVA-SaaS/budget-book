@@ -1,5 +1,6 @@
 package com.budgetbook.paymentmethod.controller
 
+import com.budgetbook.paymentmethod.dto.AssetBalanceResponse
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.PaymentMethodResponse
@@ -91,6 +92,34 @@ class PaymentMethodControllerTest : FunSpec({
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify(exactly = 1) { paymentMethodService.deletePaymentMethod(testUserId, methodId) }
+    }
+
+    test("getAssetBalance returns date-bounded balance") {
+
+        val pmId = UUID.randomUUID()
+        val asOf = LocalDate.of(2024, 5, 1)
+        val response = AssetBalanceResponse(paymentMethodId = pmId, asOf = asOf, balance = 480000L)
+        every { paymentMethodService.getAssetBalance(testUserId, pmId, asOf) } returns response
+
+        val result = controller.getAssetBalance(testUserId, pmId, asOf)
+
+        result.success shouldBe true
+        result.data!!.paymentMethodId shouldBe pmId
+        result.data!!.asOf shouldBe asOf
+        result.data!!.balance shouldBe 480000L
+    }
+
+    test("getAssetBalance returns null balance for CREDIT payment method") {
+
+        val pmId = UUID.randomUUID()
+        val asOf = LocalDate.of(2024, 5, 1)
+        val response = AssetBalanceResponse(paymentMethodId = pmId, asOf = asOf, balance = null)
+        every { paymentMethodService.getAssetBalance(testUserId, pmId, asOf) } returns response
+
+        val result = controller.getAssetBalance(testUserId, pmId, asOf)
+
+        result.success shouldBe true
+        result.data!!.balance shouldBe null
     }
 
     test("getCardPendingSummary returns card pending data") {

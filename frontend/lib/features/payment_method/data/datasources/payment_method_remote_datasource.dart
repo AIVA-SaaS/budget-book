@@ -13,6 +13,11 @@ abstract class PaymentMethodRemoteDataSource {
   Future<List<CardPendingModel>> getCardPending(int year, int month);
   Future<CardSettlementSummaryModel> getCardSettlementSummary({int? year, int? month});
   Future<void> reorderPaymentMethods(List<String> orderedIds);
+
+  /// Fetch a single payment method's balance considering all transactions and
+  /// transfers strictly before [asOf] (YYYY-MM-DD). Returns null for CREDIT
+  /// cards (balance is not tracked). See api-spec §7.
+  Future<int?> getBalanceAsOf(String paymentMethodId, String asOf);
 }
 
 class PaymentMethodRemoteDataSourceImpl
@@ -91,5 +96,15 @@ class PaymentMethodRemoteDataSourceImpl
       ApiEndpoints.paymentMethodsReorder,
       data: {'orderedIds': orderedIds},
     );
+  }
+
+  @override
+  Future<int?> getBalanceAsOf(String paymentMethodId, String asOf) async {
+    final response = await apiClient.dio.get(
+      ApiEndpoints.paymentMethodBalance(paymentMethodId),
+      queryParameters: {'asOf': asOf},
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    return (data['balance'] as num?)?.toInt();
   }
 }

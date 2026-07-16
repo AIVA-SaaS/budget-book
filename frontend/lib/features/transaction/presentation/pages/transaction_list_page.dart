@@ -37,9 +37,11 @@ import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
+import 'package:budget_book/features/transaction/presentation/utils/running_balance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
+import 'package:budget_book/features/payment_method/domain/repositories/payment_method_repository.dart';
 
 class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodId;
@@ -76,6 +78,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
   bool _isSearching = false;
   String? _pendingScrollToDate;
   _TxViewMode _viewMode = _TxViewMode.list;
+
+  // MODE B (single non-credit asset filter) — memoized end-of-month balance.
+  // Keyed by "$pmId|$year|$month" so it is fetched once per rebuild cycle and
+  // not re-requested on every build.
+  Future<int?>? _monthEndBalanceFuture;
+  String? _monthEndBalanceKey;
 
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
@@ -524,6 +532,32 @@ class _TransactionListPageState extends State<TransactionListPage> {
     return false;
   }
 
+  /// CHANGE 3 — the single asset (BANK/CASH/DEBIT) currently filtered, if any.
+  /// Returns null when zero/multiple payment methods are selected OR the single
+  /// selection is a CREDIT card (credit balance is null → MODE A applies).
+  String? get _singleAssetPmId {
+    if (_filterState.paymentMethodIds.length != 1) return null;
+    if (_isFilteredByCreditCard) return null;
+    return _filterState.paymentMethodIds.first;
+  }
+
+  /// CHANGE 4 — memoized end-of-month balance for MODE B. `asOf` = first day of
+  /// the month AFTER [year]/[month] (exclusive upper bound), so the result is
+  /// the asset's balance at the end of the viewed month.
+  Future<int?> _monthEndBalanceFor(String pmId, int year, int month) {
+    final nextMonthFirst =
+        month == 12 ? DateTime(year + 1, 1, 1) : DateTime(year, month + 1, 1);
+    final asOf = DateFormat('yyyy-MM-dd').format(nextMonthFirst);
+    final key = '$pmId|$year|$month';
+    if (_monthEndBalanceKey != key || _monthEndBalanceFuture == null) {
+      _monthEndBalanceKey = key;
+      _monthEndBalanceFuture = getIt<PaymentMethodRepository>()
+          .getBalanceAsOf(pmId, asOf)
+          .then((either) => either.fold((_) => null, (b) => b));
+    }
+    return _monthEndBalanceFuture!;
+  }
+
   /// 회차 1 (2026-05-10) — 이슈 Z1: 거래 탭에서 잔액 수정 진입점 추가.
   /// 단일 BANK 결제수단 필터 활성 시에만 노출.
   Widget _buildBalanceAdjustAction(BuildContext context) {
@@ -737,34 +771,66 @@ class _TransactionListPageState extends State<TransactionListPage> {
                           dst.contains(keyword);
                     }).toList();
 
+              // CHANGE 2 — SINGLE gating step shared by calendar + list +
+              // running-balance so all three consume the SAME lists.
+              //
+              // visibleTransactions: client-side type gating. TRANSFER is not a
+              // transaction type, so a TRANSFER-only selection yields zero
+              // transactions (fixes "이체 필터 무효"). Empty set keeps all. BE
+              // already narrows for EXPENSE/INCOME; this is correct + robust.
+              final types = _filterState.transactionTypes;
+              final visibleTransactions = types.isEmpty
+                  ? state.filteredTransactions
+                  : state.filteredTransactions
+                      .where((t) => types.contains(t.type))
+                      .toList();
+
+              // visibleTransfers: hide unless the filter includes transfers
+              // (preserves prior showTransfers), AND hide under the PRIVATE
+              // (개인) visibility filter — transfers are treated as SHARED for
+              // now (all current assets are shared).
+              final includeTransfers =
+                  types.isEmpty || types.contains('TRANSFER');
+              final showTransfers =
+                  includeTransfers && _filterState.visibility != 'PRIVATE';
+              final visibleTransfers =
+                  showTransfers ? searchedTransfers : const <Transfer>[];
+
               // S2: single aggregation entry point via LedgerSummary.from
               // kind/type branching lives inside the factory, including
               // CARD_SETTLEMENT exclusion (supersedes PR-A heuristic).
+              // Fed the SAME gated lists so the summary matches the rows.
               final summary = LedgerSummary.from(
-                txs: state.filteredTransactions,
-                tfs: searchedTransfers,
+                txs: visibleTransactions,
+                tfs: visibleTransfers,
                 pmFilter: filterPmId,
               );
 
               // 회차 8 — BE getSummary 가 모든 필터 지원하도록 확장됨.
-              // FE client-side fold (page 단위 부정확) 제거.
               // 모든 케이스에서 BE 가 계산한 정확한 합계(state.totalIncome/Expense) 사용.
-              // server total 미수신 시 (statisticsRepository 미주입) 만 client summary fallback.
+              // server total 미수신 시 (statisticsRepository 미주입) 만 client fallback.
+              //
+              // Gate income/expense display by type: for a TRANSFER-only
+              // selection the BE strips TRANSFER → no type filter is sent → the
+              // server totals still contain all income/expense. Zero them so
+              // the summary matches the (empty) transaction rows.
               final hasServerTotals = state.serverTotalIncome != null;
-              final displayIncome = hasServerTotals
-                  ? state.totalIncome
-                  : summary.totalIncome;
-              final displayExpense = hasServerTotals
-                  ? state.totalExpense
-                  : summary.totalExpense;
+              final gateIncome = types.isEmpty || types.contains('INCOME');
+              final gateExpense = types.isEmpty || types.contains('EXPENSE');
+              final displayIncome = !gateIncome
+                  ? 0
+                  : (hasServerTotals ? state.totalIncome : summary.totalIncome);
+              final displayExpense = !gateExpense
+                  ? 0
+                  : (hasServerTotals
+                      ? state.totalExpense
+                      : summary.totalExpense);
               final displayTransfer = summary.totalTransfer;
 
-              // Gate transfer display by filter: if user picked EXPENSE/INCOME
-              // without TRANSFER, hide transfers from the merged list.
-              final types = _filterState.transactionTypes;
-              final showTransfers =
-                  types.isEmpty || types.contains('TRANSFER');
-              final listTransfers = showTransfers ? searchedTransfers : const <Transfer>[];
+              // CHANGE 3/4 — MODE B when exactly one non-credit asset is
+              // filtered. singleAssetPmId is null otherwise (→ MODE A).
+              final singleAssetPmId = _singleAssetPmId;
+              final isModeB = singleAssetPmId != null;
 
               return Column(
                 children: [
@@ -774,23 +840,45 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     balance: displayIncome - displayExpense,
                     totalTransfer: displayTransfer > 0 ? displayTransfer : null,
                   ),
+                  if (isModeB)
+                    _buildMonthEndBalanceHeader(
+                        context, singleAssetPmId, state.year, state.month),
                   if (_viewMode == _TxViewMode.calendar)
                     Expanded(
                       child: TransactionCalendarView(
                         year: state.year,
                         month: state.month,
-                        transactions: state.filteredTransactions,
-                        transfers: searchedTransfers,
+                        transactions: visibleTransactions,
+                        transfers: visibleTransfers,
                         onTransactionTap: (tx) =>
-                            context.push('/transactions/${tx.id}'),
+                            context.push('/transactions/detail/${tx.id}'),
                         onTransferTap: (tr) =>
                             context.push('/transfers/${tr.id}'),
                       ),
                     )
-                  else if (state.filteredTransactions.isEmpty && listTransfers.isEmpty)
+                  else if (visibleTransactions.isEmpty &&
+                      visibleTransfers.isEmpty)
                     Expanded(child: _buildEmpty(context))
+                  else if (isModeB)
+                    Expanded(
+                      child: FutureBuilder<int?>(
+                        future: _monthEndBalanceFor(
+                            singleAssetPmId, state.year, state.month),
+                        builder: (context, snap) => _buildGroupedList(
+                          context,
+                          state,
+                          visibleTransactions,
+                          visibleTransfers,
+                          assetPmId: singleAssetPmId,
+                          assetAnchor: snap.data,
+                        ),
+                      ),
+                    )
                   else
-                    Expanded(child: _buildGroupedList(context, state, listTransfers)),
+                    Expanded(
+                      child: _buildGroupedList(
+                          context, state, visibleTransactions, visibleTransfers),
+                    ),
                 ],
               );
             },
@@ -800,18 +888,57 @@ class _TransactionListPageState extends State<TransactionListPage> {
     );
   }
 
-  Widget _buildGroupedList(BuildContext context, TransactionLoaded state, List<Transfer> transfers) {
-    // Merge transactions and transfers into LedgerItems, grouped by date
-    // Use filteredGroupedByDate when date filter is active
+  /// CHANGE 4 — "○월 말 잔액" header, MODE B only. Hidden while the balance is
+  /// loading or null (e.g. credit — but credit never reaches MODE B).
+  Widget _buildMonthEndBalanceHeader(
+      BuildContext context, String pmId, int year, int month) {
+    return FutureBuilder<int?>(
+      future: _monthEndBalanceFor(pmId, year, month),
+      builder: (context, snap) {
+        final bal = snap.data;
+        if (bal == null) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: Theme.of(context)
+              .colorScheme
+              .primaryContainer
+              .withValues(alpha: 0.3),
+          child: Text(
+            '$month월 말 잔액: ${CurrencyFormatter.format(bal)}원',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.75),
+                ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// [transactions] / [transfers] are the already-gated (CHANGE 2) lists.
+  /// MODE B (asset running balance) is active when [assetPmId] != null;
+  /// [assetAnchor] is the asset's end-of-month balance (null while the async
+  /// fetch is in flight → show no running number). MODE A otherwise.
+  Widget _buildGroupedList(
+    BuildContext context,
+    TransactionLoaded state,
+    List<Transaction> transactions,
+    List<Transfer> transfers, {
+    String? assetPmId,
+    int? assetAnchor,
+  }) {
+    // Merge transactions and transfers into LedgerItems, grouped by date.
+    // (Server already filters transactions by dateFrom/dateTo.)
     final groupedItems = <String, List<LedgerItem>>{};
 
-    // Add transactions (filtered by date if applicable)
-    final txnGrouped = state.filteredGroupedByDate;
-    for (final entry in txnGrouped.entries) {
-      groupedItems.putIfAbsent(entry.key, () => []);
-      for (final t in entry.value) {
-        groupedItems[entry.key]!.add(LedgerItem.fromTransaction(t));
-      }
+    // Add transactions
+    for (final t in transactions) {
+      groupedItems.putIfAbsent(t.transactionDate, () => []);
+      groupedItems[t.transactionDate]!.add(LedgerItem.fromTransaction(t));
     }
 
     // Add transfers
@@ -820,6 +947,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
       groupedItems[transfer.transferDate]!.add(LedgerItem.fromTransfer(transfer));
     }
 
+    // NEWEST-FIRST: dates sorted descending. Within a day, transactions are
+    // inserted before transfers (matches iteration order below). The running
+    // balance / total is accumulated in this exact newest-first order.
     final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
 
     // 회차 (2026-06-23) — 포커싱-구동 점진 로드.
@@ -861,31 +991,29 @@ class _TransactionListPageState extends State<TransactionListPage> {
       });
     }
 
-    // Calculate running totals for transactions only (transfers are not income/expense)
-    final flatTransactions = <Transaction>[];
+    // CHANGE 3 — running totals. Flatten to display order (newest-first).
+    final orderedItems = <LedgerItem>[];
     for (final date in sortedDates) {
-      for (final item in groupedItems[date]!) {
-        if (item.isTransaction) {
-          flatTransactions.add(item.transaction!);
-        }
-      }
+      orderedItems.addAll(groupedItems[date]!);
     }
-    final runningTotals = <String, int>{};
-    int cumulative = 0;
-    for (int i = flatTransactions.length - 1; i >= 0; i--) {
-      final t = flatTransactions[i];
-      cumulative += t.isExpense ? -t.amount : t.amount;
-      runningTotals[t.id] = cumulative;
-    }
-    // Offset running totals to account for unloaded older transactions
-    if (state.serverTotalIncome != null && state.serverTotalExpense != null) {
-      final serverBalance = state.serverTotalIncome! - state.serverTotalExpense!;
-      final offset = serverBalance - cumulative;
-      if (offset != 0) {
-        for (final key in runningTotals.keys.toList()) {
-          runningTotals[key] = runningTotals[key]! + offset;
-        }
-      }
+
+    // runningTotals keyed by ledgerRowKey (tx:<id> / tf:<id>).
+    Map<String, int> runningTotals;
+    if (assetPmId != null) {
+      // MODE B — asset balance backward-accumulated from end-of-month anchor.
+      // While the anchor is still loading (null), emit nothing so we never
+      // show a wrong number.
+      runningTotals = assetAnchor == null
+          ? const <String, int>{}
+          : computeAssetBalance(orderedItems, assetAnchor, assetPmId);
+    } else {
+      // MODE A — cumulative EXPENSE only (negative), anchored on the month's
+      // total expense (pagination-safe). Local fallback when no server total.
+      final localExpense = transactions
+          .where((t) => t.isExpense)
+          .fold(0, (s, t) => s + t.amount);
+      final anchorExpense = state.serverTotalExpense ?? localExpense;
+      runningTotals = computeExpenseCumulative(orderedItems, anchorExpense);
     }
 
     // Add 1 extra item for the loading indicator when loading more
@@ -950,6 +1078,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 if (item.isTransfer) {
                   return TransferListTile(
                     transfer: item.transfer!,
+                    runningTotal: runningTotals[ledgerRowKey(item)],
                     onTap: () =>
                         context.push(transferEditRoute(item.transfer!)),
                   );
@@ -957,7 +1086,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                 final t = item.transaction!;
                 return TransactionListTile(
                   transaction: t,
-                  runningTotal: runningTotals[t.id],
+                  runningTotal: runningTotals[ledgerRowKey(item)],
                   onTap: () => context.push('/transactions/detail/${t.id}'),
                   onLongPress: () => _showTransactionActions(context, t),
                   onDelete: () {
