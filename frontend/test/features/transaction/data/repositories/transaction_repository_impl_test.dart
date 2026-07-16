@@ -101,9 +101,9 @@ class MockTransactionRemoteDataSource extends Mock
       ) as Future<void>;
 
   @override
-  Future<List<SuggestionGroup>> getSuggestions(String query) =>
+  Future<List<SuggestionGroup>> getSuggestions(String query, {String? type}) =>
       super.noSuchMethod(
-        Invocation.method(#getSuggestions, [query]),
+        Invocation.method(#getSuggestions, [query], {#type: type}),
         returnValue: Future.value(<SuggestionGroup>[]),
       ) as Future<List<SuggestionGroup>>;
 

@@ -414,7 +414,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   Future<void> _fetchSuggestions(String query) async {
     final repo = context.read<TransactionBloc>().transactionRepository;
-    final result = await repo.getSuggestions(query);
+    // 수입/지출 타입별 제안 분리 — ADJUSTMENT 는 EXPENSE 로 취급(카테고리 필터와 동일 규칙).
+    final suggestionType = _selectedType == 'INCOME' ? 'INCOME' : 'EXPENSE';
+    final result = await repo.getSuggestions(query, type: suggestionType);
     if (!mounted) return;
     result.fold(
       (_) => setState(() {

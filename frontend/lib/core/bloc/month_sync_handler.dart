@@ -69,29 +69,17 @@ class MonthSyncHandler extends StatelessWidget {
     } catch (_) {}
 
     // Transaction list — 전체 필터(currentFilter) 유지.
-    // 과거 인시던트(2026-04-15 월 이동 시 dateFrom/To/keyword/pocket/amount/type drop)
-    // 재발 방지를 위해 currentCategoryId/currentPaymentMethodId 만 꺼내던 것을
-    // TransactionFilter value object 전체로 교체.
+    // 과거 인시던트(2026-04-15 월 이동 시 필터 drop) 재발 방지: 개별 필드를 수동
+    // 나열하면 새 필터(transactionTypes·needsReviewOnly)를 빠뜨려 재발하므로,
+    // LoadTransactions.fromFilter 팩토리로 TransactionFilter 전체를 드롭 없이 전달한다.
+    // 월 이동 시 특정 월 종속 기간 필터는 해제(clearDateRange).
     try {
       final txnBloc = getIt<TransactionBloc>();
-      final f = txnBloc.currentFilter;
-      txnBloc.add(LoadTransactions(
-        year: year,
-        month: month,
-        keyword: f.keyword,
-        categoryId: f.categoryId,
-        categoryIds: f.categoryIds,
-        categoryGroupIds: f.categoryGroupIds,
-        paymentMethodId: f.paymentMethodId,
-        paymentMethodIds: f.paymentMethodIds,
-        pocketId: f.pocketId,
-        pocketIds: f.pocketIds,
-        amountMin: f.amountMin,
-        amountMax: f.amountMax,
-        dateFrom: f.dateFrom,
-        dateTo: f.dateTo,
-        type: f.type,
-        visibility: f.visibility,
+      txnBloc.add(LoadTransactions.fromFilter(
+        year,
+        month,
+        txnBloc.currentFilter,
+        clearDateRange: true,
       ));
     } catch (_) {}
 

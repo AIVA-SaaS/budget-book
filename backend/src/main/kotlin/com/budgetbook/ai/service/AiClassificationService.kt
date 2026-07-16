@@ -7,6 +7,7 @@ import com.budgetbook.category.service.CategoryService
 import com.budgetbook.common.cache.RedisCacheService
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.couple.service.CoupleResolver
+import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.service.TransactionService
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
@@ -60,8 +61,9 @@ class AiClassificationService(
         type: String,
         cacheKey: String
     ): ClassifyResponse {
-        // 2. Try pattern matching from existing transactions
-        val suggestions = transactionService.getSuggestions(userId, description, 1)
+        // 2. Try pattern matching from existing transactions (수입/지출 타입 일치 패턴만).
+        val txType = if (type.uppercase() == "INCOME") TransactionType.INCOME else TransactionType.EXPENSE
+        val suggestions = transactionService.getSuggestions(userId, description, 1, txType)
         if (suggestions.isNotEmpty()) {
             val topPattern = suggestions.first().patterns.first()
             if (topPattern.categoryId != null) {

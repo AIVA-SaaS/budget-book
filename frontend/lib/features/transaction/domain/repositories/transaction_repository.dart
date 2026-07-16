@@ -56,7 +56,10 @@ abstract class TransactionRepository {
 
   Future<Either<Failure, void>> deleteTransaction(String id);
 
-  Future<Either<Failure, List<SuggestionGroup>>> getSuggestions(String query);
+  Future<Either<Failure, List<SuggestionGroup>>> getSuggestions(
+    String query, {
+    String? type,
+  });
 }
 
 /// Suggestion group from /transactions/suggestions endpoint.
