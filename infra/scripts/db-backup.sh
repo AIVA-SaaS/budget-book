@@ -79,4 +79,20 @@ ls -1t "${BACKUP_DIR}"/budgetbook_*.sql.gz 2>/dev/null | tail -n +$((RETENTION +
   rm -f "$old" && log "보관초과 삭제: $(basename "$old")"
 done
 
+# ── 5) 오프사이트 업로드 (rclone gcrypt remote 설정 시에만) ──
+# gcrypt = crypt remote (gdrive:bb-backups 를 클라이언트측 암호화 래핑). 업로드 전에
+# 파일명·내용이 암호화되어 PII 가 클라우드에 평문으로 올라가지 않는다. 미설정이면 스킵.
+# sync --include 로 로컬(최근 RETENTION 개)을 그대로 미러 → 원격에도 동일 보관정책 적용.
+RCLONE="/usr/local/bin/rclone"
+RCLONE_CONF="/root/.config/rclone/rclone.conf"   # cron(root) HOME 모호성 회피 위해 명시
+if [ -x "$RCLONE" ] && "$RCLONE" --config "$RCLONE_CONF" listremotes 2>/dev/null | grep -q '^gcrypt:'; then
+  if "$RCLONE" --config "$RCLONE_CONF" sync "${BACKUP_DIR}/" "gcrypt:" --include 'budgetbook_*.sql.gz' 2>>"$LOG"; then
+    log "오프사이트 동기화 → gcrypt (암호화, 최근 ${RETENTION}개 미러)"
+  else
+    log "WARN: 오프사이트 업로드 실패 — 로컬 백업은 정상"
+  fi
+else
+  log "오프사이트(gcrypt) 미설정 — 업로드 스킵"
+fi
+
 exit 0
