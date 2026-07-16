@@ -131,4 +131,16 @@ class PaymentMethodRepositoryImpl implements PaymentMethodRepository {
       return const Left(ServerFailure('Failed to reorder payment methods'));
     }
   }
+
+  @override
+  Future<Either<Failure, int?>> getBalanceAsOf(String id, String asOf) async {
+    try {
+      final result = await remoteDataSource.getBalanceAsOf(id, asOf);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to load asset balance'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load asset balance'));
+    }
+  }
 }

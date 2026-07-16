@@ -2,6 +2,7 @@ package com.budgetbook.paymentmethod.controller
 
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.security.AuthUser
+import com.budgetbook.paymentmethod.dto.AssetBalanceResponse
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
 import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
 import com.budgetbook.paymentmethod.dto.CreatePaymentMethodRequest
@@ -10,6 +11,7 @@ import com.budgetbook.paymentmethod.dto.ReorderPaymentMethodRequest
 import com.budgetbook.paymentmethod.dto.UpdatePaymentMethodRequest
 import com.budgetbook.paymentmethod.service.PaymentMethodService
 import jakarta.validation.Valid
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 @RestController
@@ -68,6 +71,15 @@ class PaymentMethodController(
     ): ResponseEntity<Void> {
         paymentMethodService.deletePaymentMethod(userId, id)
         return ResponseEntity.noContent().build()
+    }
+
+    @GetMapping("/{id}/balance")
+    fun getAssetBalance(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) asOf: LocalDate
+    ): ApiResponse<AssetBalanceResponse> {
+        return ApiResponse.ok(paymentMethodService.getAssetBalance(userId, id, asOf))
     }
 
     @GetMapping("/card-settlement-summary")

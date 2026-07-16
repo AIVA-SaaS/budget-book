@@ -410,6 +410,26 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
     """)
     fun netAmountByPaymentMethodForCouple(@Param("coupleId") coupleId: UUID): List<Array<Any>>
 
+    /**
+     * 결제수단 별 순잔액 (asOf 미만 시점 기준):
+     * netAmountByPaymentMethodForCouple 와 동일하되 transactionDate < :asOf 조건 추가.
+     * asOf 는 상한 배타(exclusive) — asOf 당일 거래는 제외된다.
+     */
+    @Query("""
+        SELECT t.paymentMethod.id,
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.INCOME THEN t.amount ELSE 0L END), 0L) -
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.EXPENSE THEN t.amount ELSE 0L END), 0L) +
+            COALESCE(SUM(CASE WHEN t.type = com.budgetbook.transaction.domain.TransactionType.ADJUSTMENT THEN t.amount ELSE 0L END), 0L)
+        FROM Transaction t
+        WHERE t.couple.id = :coupleId AND t.paymentMethod IS NOT NULL
+        AND t.transactionDate < :asOf
+        GROUP BY t.paymentMethod.id
+    """)
+    fun netAmountByPaymentMethodForCoupleUpTo(
+        @Param("coupleId") coupleId: UUID,
+        @Param("asOf") asOf: LocalDate
+    ): List<Array<Any>>
+
     @Query("""
         SELECT t FROM Transaction t
         LEFT JOIN FETCH t.category

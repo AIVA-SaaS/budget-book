@@ -323,6 +323,107 @@ class PaymentMethodServiceTest : BehaviorSpec({
         }
     }
 
+    // --- calculateBalanceAsOf (date-bounded balance) ---
+
+    Given("a bank payment method for asOf balance calculation") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val bank = PaymentMethod(couple = couple, name = "신한은행", type = PaymentMethodType.BANK, displayOrder = 0)
+        every { paymentMethodRepository.findByIdAndCoupleId(bank.id, couple.id) } returns bank
+
+        val asOf = java.time.LocalDate.of(2024, 5, 1)
+
+        When("getAssetBalance is called and net includes INCOME/EXPENSE/ADJUSTMENT before asOf") {
+            // net = INCOME - EXPENSE + ADJUSTMENT already collapsed by query;
+            // e.g. income 500000 - expense 100000 + adjustment (-20000 signed) = 380000
+            every { transactionRepository.netAmountByPaymentMethodForCoupleUpTo(couple.id, asOf) } returns listOf(
+                arrayOf<Any>(bank.id, 380000L)
+            )
+            every { transferRepository.sumAmountByDestinationForCoupleUpTo(couple.id, asOf) } returns listOf(
+                arrayOf<Any>(bank.id, 100000L)
+            )
+            every { transferRepository.sumAmountBySourceForCoupleUpTo(couple.id, asOf) } returns listOf(
+                arrayOf<Any>(bank.id, 200000L)
+            )
+
+            val result = service.getAssetBalance(user1.id, bank.id, asOf)
+
+            Then("balance = txNet + transferIn - transferOut, and ADJUSTMENT delta is included via net") {
+                result.paymentMethodId shouldBe bank.id
+                result.asOf shouldBe asOf
+                // 380000 + 100000 - 200000 = 280000
+                result.balance shouldBe 280000L
+            }
+        }
+
+        When("PM has transfer inflow as destination and outflow as source") {
+            every { transactionRepository.netAmountByPaymentMethodForCoupleUpTo(couple.id, asOf) } returns emptyList()
+            every { transferRepository.sumAmountByDestinationForCoupleUpTo(couple.id, asOf) } returns listOf(
+                arrayOf<Any>(bank.id, 70000L)
+            )
+            every { transferRepository.sumAmountBySourceForCoupleUpTo(couple.id, asOf) } returns listOf(
+                arrayOf<Any>(bank.id, 30000L)
+            )
+
+            val result = service.getAssetBalance(user1.id, bank.id, asOf)
+
+            Then("dest adds and source subtracts") {
+                // 0 + 70000 - 30000 = 40000
+                result.balance shouldBe 40000L
+            }
+        }
+
+        When("no rows returned (all transactions dated on/after asOf are excluded by query)") {
+            every { transactionRepository.netAmountByPaymentMethodForCoupleUpTo(couple.id, asOf) } returns emptyList()
+            every { transferRepository.sumAmountByDestinationForCoupleUpTo(couple.id, asOf) } returns emptyList()
+            every { transferRepository.sumAmountBySourceForCoupleUpTo(couple.id, asOf) } returns emptyList()
+
+            val result = service.getAssetBalance(user1.id, bank.id, asOf)
+
+            Then("balance is zero — the < asOf bound excludes same-day and later entries") {
+                result.balance shouldBe 0L
+            }
+        }
+    }
+
+    Given("a CREDIT payment method for asOf balance calculation") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        val credit = PaymentMethod(couple = couple, name = "신한카드", type = PaymentMethodType.CREDIT, settlementDay = 15, closingDay = 10)
+        every { paymentMethodRepository.findByIdAndCoupleId(credit.id, couple.id) } returns credit
+
+        val asOf = java.time.LocalDate.of(2024, 5, 1)
+
+        When("getAssetBalance is called for a CREDIT card") {
+            val result = service.getAssetBalance(user1.id, credit.id, asOf)
+
+            Then("balance is null and no balance queries are executed") {
+                result.paymentMethodId shouldBe credit.id
+                result.asOf shouldBe asOf
+                result.balance shouldBe null
+                verify(exactly = 0) { transactionRepository.netAmountByPaymentMethodForCoupleUpTo(any(), any()) }
+                verify(exactly = 0) { transferRepository.sumAmountByDestinationForCoupleUpTo(any(), any()) }
+                verify(exactly = 0) { transferRepository.sumAmountBySourceForCoupleUpTo(any(), any()) }
+            }
+        }
+    }
+
+    Given("a payment method belonging to another couple") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        val otherPmId = UUID.randomUUID()
+        val asOf = java.time.LocalDate.of(2024, 5, 1)
+        every { paymentMethodRepository.findByIdAndCoupleId(otherPmId, couple.id) } returns null
+
+        When("getAssetBalance is called") {
+            Then("throws NotFoundException (404)") {
+                val ex = shouldThrow<NotFoundException> {
+                    service.getAssetBalance(user1.id, otherPmId, asOf)
+                }
+                ex.code shouldBe "PAYMENT_METHOD_NOT_FOUND"
+            }
+        }
+    }
+
     // --- linkedBank validation ---
 
     Given("a user creating a CREDIT card with linkedBank") {
