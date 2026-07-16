@@ -56,6 +56,12 @@ data class ReorderPaymentMethodRequest(
     val orderedIds: List<UUID>
 )
 
+data class AssetBalanceResponse(
+    val paymentMethodId: UUID,
+    val asOf: LocalDate,
+    val balance: Long?
+)
+
 data class CardPendingResponse(
     val paymentMethod: PaymentMethodResponse,
     val pendingAmount: Long,
