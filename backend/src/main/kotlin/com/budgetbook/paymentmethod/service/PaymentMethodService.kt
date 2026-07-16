@@ -8,6 +8,7 @@ import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.paymentmethod.domain.PaymentMethod
 import com.budgetbook.paymentmethod.domain.PaymentMethodType
+import com.budgetbook.paymentmethod.dto.AssetBalanceResponse
 import com.budgetbook.paymentmethod.dto.CardPendingResponse
 import com.budgetbook.paymentmethod.dto.CardSettlementMonth
 import com.budgetbook.paymentmethod.dto.CardSettlementSummaryResponse
@@ -62,6 +63,44 @@ class PaymentMethodService(
         return allIds.associateWith { id ->
             (txNet[id] ?: 0L) + (transferIn[id] ?: 0L) - (transferOut[id] ?: 0L)
         }
+    }
+
+    /**
+     * asOf(배타 상한) 시점의 단일 결제수단 잔액 조회.
+     * userId 로 활성 커플을 해석한 뒤 calculateBalanceAsOf 에 위임한다.
+     */
+    @Transactional(readOnly = true)
+    fun getAssetBalance(userId: UUID, paymentMethodId: UUID, asOf: LocalDate): AssetBalanceResponse {
+        val couple = getActiveCouple(userId)
+        return calculateBalanceAsOf(couple.id, paymentMethodId, asOf)
+    }
+
+    /**
+     * 단일 결제수단의 asOf 미만 시점 잔액을 계산한다.
+     * - PM 이 커플 소유가 아니면 NotFoundException(404).
+     * - CREDIT 타입은 balance = null.
+     * - 그 외: txNet(asOf) + transferIn(asOf) - transferOut(asOf).
+     */
+    @Transactional(readOnly = true)
+    fun calculateBalanceAsOf(coupleId: UUID, paymentMethodId: UUID, asOf: LocalDate): AssetBalanceResponse {
+        val pm = paymentMethodRepository.findByIdAndCoupleId(paymentMethodId, coupleId)
+            ?: throw NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Payment method does not exist.")
+
+        if (pm.type == PaymentMethodType.CREDIT) {
+            return AssetBalanceResponse(paymentMethodId = pm.id, asOf = asOf, balance = null)
+        }
+
+        val txNet = transactionRepository.netAmountByPaymentMethodForCoupleUpTo(coupleId, asOf)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val transferIn = transferRepository.sumAmountByDestinationForCoupleUpTo(coupleId, asOf)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val transferOut = transferRepository.sumAmountBySourceForCoupleUpTo(coupleId, asOf)
+            .associate { row -> row[0] as UUID to (row[1] as Number).toLong() }
+
+        val balance = (txNet[pm.id] ?: 0L) + (transferIn[pm.id] ?: 0L) - (transferOut[pm.id] ?: 0L)
+        return AssetBalanceResponse(paymentMethodId = pm.id, asOf = asOf, balance = balance)
     }
 
     @Transactional

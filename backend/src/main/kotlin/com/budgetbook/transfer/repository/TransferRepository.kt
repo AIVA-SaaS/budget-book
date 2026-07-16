@@ -32,6 +32,36 @@ interface TransferRepository : JpaRepository<Transfer, UUID> {
     """)
     fun sumAmountBySourceForCouple(@Param("coupleId") coupleId: UUID): List<Array<Any>>
 
+    /**
+     * destination PM 별 이체 유입 합계 (asOf 미만 시점 기준).
+     * asOf 는 상한 배타(exclusive) — asOf 당일 이체는 제외된다.
+     */
+    @Query("""
+        SELECT tr.destinationPaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr WHERE tr.couple.id = :coupleId
+        AND tr.transferDate < :asOf
+        GROUP BY tr.destinationPaymentMethod.id
+    """)
+    fun sumAmountByDestinationForCoupleUpTo(
+        @Param("coupleId") coupleId: UUID,
+        @Param("asOf") asOf: LocalDate
+    ): List<Array<Any>>
+
+    /**
+     * source PM 별 이체 유출 합계 (asOf 미만 시점 기준).
+     * asOf 는 상한 배타(exclusive) — asOf 당일 이체는 제외된다.
+     */
+    @Query("""
+        SELECT tr.sourcePaymentMethod.id, COALESCE(SUM(tr.amount), 0)
+        FROM Transfer tr WHERE tr.couple.id = :coupleId
+        AND tr.transferDate < :asOf
+        GROUP BY tr.sourcePaymentMethod.id
+    """)
+    fun sumAmountBySourceForCoupleUpTo(
+        @Param("coupleId") coupleId: UUID,
+        @Param("asOf") asOf: LocalDate
+    ): List<Array<Any>>
+
     @Query("""
         SELECT tr.sourcePaymentMethod.id, COALESCE(SUM(tr.amount), 0)
         FROM Transfer tr

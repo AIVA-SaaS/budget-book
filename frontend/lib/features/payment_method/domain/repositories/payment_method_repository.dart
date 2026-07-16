@@ -28,4 +28,8 @@ abstract class PaymentMethodRepository {
       int year, int month);
   Future<Either<Failure, CardSettlementSummary>> getCardSettlementSummary({int? year, int? month});
   Future<Either<Failure, void>> reorderPaymentMethods(List<String> orderedIds);
+
+  /// Balance of [id] considering everything strictly before [asOf]
+  /// (YYYY-MM-DD). Right(null) for CREDIT cards. See api-spec §7.
+  Future<Either<Failure, int?>> getBalanceAsOf(String id, String asOf);
 }

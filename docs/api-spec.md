@@ -112,6 +112,7 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Delete Payment Method](#4-delete-payment-method)
   - [Card Pending Summary](#5-card-pending-summary)
   - [Card Settlement Summary](#6-card-settlement-summary)
+  - [Balance As Of Date](#7-balance-as-of-date)
 - [Weekly Budgets](#weekly-budgets)
   - [Weekly Overview](#1-weekly-overview)
   - [Current Week Summary](#2-current-week-summary)
@@ -2239,6 +2240,56 @@ Returns credit card spending grouped by settlement month for the previous and cu
 
 ---
 
+### 7. Balance As Of Date
+
+Returns a payment method's balance considering all transactions and transfers **strictly before** the given `asOf` date. Used by the transaction list to show an asset's running balance and an "as-of-month" balance header. To get the end-of-month balance, callers pass the first day of the *next* month as `asOf`.
+
+**Balance formula**: `balance = txNet + transferIn − transferOut`, where:
+- `txNet` = Σ(`INCOME`) − Σ(`EXPENSE`) + Σ(`ADJUSTMENT` signed delta), for transactions of this payment method with `transactionDate < asOf`
+- `transferIn` = Σ transfers where this payment method is the destination and `transferDate < asOf`
+- `transferOut` = Σ transfers where this payment method is the source and `transferDate < asOf`
+
+| Item        | Value                                          |
+|:------------|:------------------------------------------------|
+| **Method**  | `GET`                                            |
+| **Path**    | `/api/v1/payment-methods/{id}/balance`           |
+| **Auth**    | Required                                         |
+
+**Path Parameters**
+
+| Parameter | Type   | Required | Description        |
+|:----------|:-------|:--------:|:--------------------|
+| `id`      | `UUID` | Yes      | Payment method ID   |
+
+**Query Parameters**
+
+| Parameter | Type        | Required | Description                                                                              |
+|:----------|:------------|:--------:|:------------------------------------------------------------------------------------------|
+| `asOf`    | `LocalDate` | Yes      | Exclusive upper bound, `YYYY-MM-DD`. Balance includes only entries dated strictly before this date. |
+
+**Response `200 OK`**: `ApiResponse<AssetBalanceResponse>`
+
+```json
+{
+  "success": true,
+  "data": {
+    "paymentMethodId": "550e8400-e29b-41d4-a716-446655440030",
+    "asOf": "2026-04-01",
+    "balance": 150000
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Error Code                 | Description                                                    |
+|:-------|:----------------------------|:----------------------------------------------------------------|
+| `404`  | `PAYMENT_METHOD_NOT_FOUND`  | Payment method does not exist or belongs to another couple      |
+
+> **Note**: `balance` is `null` for `CREDIT`-type payment methods (mirrors `PaymentMethodResponse.balance`).
+
+---
+
 ## Weekly Budgets
 
 Extends the existing Budget endpoints with weekly tracking capabilities.
@@ -2581,6 +2632,14 @@ Semantic classification of a transfer. See Phase 22 Changes › TransferKind for
 | `linkedBankId`   | `UUID`    | Yes      | ID of the linked BANK-type payment method (only for `CREDIT` type)                       |
 | `linkedBankName` | `string`  | Yes      | Display name of the linked bank (only for `CREDIT` type)                                 |
 | `createdAt`      | `string`  | No       | ISO 8601 timestamp                                                                        |
+
+### AssetBalanceResponse
+
+| Field             | Type        | Nullable | Description                                                        |
+|:------------------|:------------|:--------:|:---------------------------------------------------------------------|
+| `paymentMethodId` | `UUID`      | No       | Payment method unique identifier                                    |
+| `asOf`            | `string`    | No       | Echo of the requested `asOf` date (`YYYY-MM-DD`)                     |
+| `balance`         | `long`      | Yes      | Balance as of the exclusive `asOf` date (null for `CREDIT` type)     |
 
 ### CardPendingResponse
 

@@ -7,11 +7,15 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 class TransferListTile extends StatelessWidget {
   final Transfer transfer;
   final VoidCallback? onTap;
+  /// Asset running balance (MODE B, single-asset filter). When non-null it
+  /// replaces the author nickname in the trailing column.
+  final int? runningTotal;
 
   const TransferListTile({
     super.key,
     required this.transfer,
     this.onTap,
+    this.runningTotal,
   });
 
   @override
@@ -82,15 +86,27 @@ class TransferListTile extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          Text(
-            transfer.author.nickname,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.4),
-                ),
-          ),
+          if (runningTotal != null)
+            Text(
+              '${CurrencyFormatter.format(runningTotal!)}원',
+              style: TextStyle(
+                fontSize: 10,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.35),
+              ),
+            )
+          else
+            Text(
+              transfer.author.nickname,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4),
+                  ),
+            ),
         ],
       ),
     );
