@@ -286,7 +286,11 @@ class TransferService(
             kind = TransferKind.CARD_SETTLEMENT,
             isCardSettlement = true
         )
-        val saved = transferRepository.save(transfer)
+        // saveAndFlush: 아래 markAsPaidForSettlement 는 transactions 테이블 대상 @Modifying 벌크
+        // UPDATE 로, Hibernate auto-flush 가 다른 테이블(transfers) 의 pending INSERT 를 함께
+        // 내보내지 않는다. flush 하지 않으면 settlement_transfer_id FK 가 아직 존재하지 않는
+        // transfer 를 가리켜 transactions_settlement_transfer_id_fkey 위반이 발생한다.
+        val saved = transferRepository.saveAndFlush(transfer)
 
         // 2. 선택된 거래들의 paid_at 업데이트 + 정산 이체 링크 저장 (미결제 목록에서 제외).
         //    V63: 링크를 저장해야 정산 수정/삭제 시 paid_at 을 양방향 재조정할 수 있다.
@@ -362,7 +366,10 @@ class TransferService(
         transfer.amount = amount
         transfer.transferDate = transferDate
         transfer.description = description ?: "카드 결제"
-        val saved = transferRepository.save(transfer)
+        // saveAndFlush: create 경로와 동일 이유로 flush 를 강제한다(defense-in-depth). 편집 대상
+        // transfer 는 이미 DB 에 존재하지만, unmark→save→mark 순서에서 pending 변경을 확정해
+        // 벌크 UPDATE 와의 순서 의존성을 제거한다.
+        val saved = transferRepository.saveAndFlush(transfer)
 
         // 3. 새로 선택된 거래 마킹 + 링크 저장.
         if (transactionIds.isNotEmpty()) {
