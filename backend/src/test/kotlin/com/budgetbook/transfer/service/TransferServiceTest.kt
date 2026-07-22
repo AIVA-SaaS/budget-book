@@ -510,7 +510,7 @@ class TransferServiceTest : BehaviorSpec({
             every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
             every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
             val transferSlot = slot<Transfer>()
-            every { transferRepository.save(capture(transferSlot)) } answers { transferSlot.captured }
+            every { transferRepository.saveAndFlush(capture(transferSlot)) } answers { transferSlot.captured }
 
             val result = service.createCardSettlement(
                 userId = user1.id,
@@ -576,7 +576,7 @@ class TransferServiceTest : BehaviorSpec({
                 amount = 500000, transferDate = LocalDate.of(2026, 4, 15),
                 kind = TransferKind.CARD_SETTLEMENT, isCardSettlement = true
             )
-            every { transferRepository.save(any()) } returns savedTransfer
+            every { transferRepository.saveAndFlush(any()) } returns savedTransfer
             every {
                 transactionRepository.markAsPaidForSettlement(txnIds, LocalDate.of(2026, 4, 15), savedTransfer.id)
             } returns txnIds.size
@@ -619,7 +619,7 @@ class TransferServiceTest : BehaviorSpec({
             every { transferRepository.findByIdAndCoupleId(settlement.id, couple.id) } returns settlement
             every { paymentMethodRepository.findById(bankPm.id) } returns Optional.of(bankPm)
             every { paymentMethodRepository.findById(creditPm.id) } returns Optional.of(creditPm)
-            every { transferRepository.save(any()) } answers { firstArg() }
+            every { transferRepository.saveAndFlush(any()) } answers { firstArg() }
             every { transactionRepository.unmarkBySettlementTransfer(settlement.id) } returns 2
             every {
                 transactionRepository.markAsPaidForSettlement(newTxnIds, LocalDate.of(2026, 4, 20), settlement.id)
