@@ -55,8 +55,21 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
       final key = _parseDateKey(tr.transferDate);
       final entry = map.putIfAbsent(key, () => _DaySummary());
       entry.transfers.add(tr);
+      entry.transferTotal += tr.amount;
     }
     return map;
+  }
+
+  /// 부모(list page)가 새 year/month 를 전달하면 달력 본문을 해당 월로 재동기화.
+  /// State 는 위젯 재빌드 시 재사용되므로 didUpdateWidget 없이는 _focusedDay 가
+  /// 최초 월에 고정되어, 월 이동(MonthNavigator/MonthCubit) 후에도 달력이 옛 월을
+  /// 계속 렌더하는 drift 가 발생한다.
+  @override
+  void didUpdateWidget(covariant TransactionCalendarView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.year != widget.year || oldWidget.month != widget.month) {
+      _focusedDay = DateTime(widget.year, widget.month, 1);
+    }
   }
 
   static DateTime _parseDateKey(String yyyymmdd) {
@@ -84,6 +97,10 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
             focusedDay: _focusedDay,
             currentDay: DateTime.now(),
             availableCalendarFormats: const {CalendarFormat.month: 'Month'},
+            // 월 이동은 MonthNavigator(MonthCubit) 단일 소스로 일원화. 달력 자체 가로
+            // 스와이프를 허용하면 페이지 월과 MonthCubit/데이터 월이 어긋나 drift 가
+            // 재발하므로 스와이프 제스처를 비활성화한다.
+            availableGestures: AvailableGestures.none,
             headerVisible: false,
             startingDayOfWeek: StartingDayOfWeek.sunday,
             daysOfWeekHeight: 24,
@@ -141,6 +158,17 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                           style: TextStyle(
                             fontSize: 9,
                             color: Colors.red.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (summary.transfers.isNotEmpty)
+                        Text(
+                          '⇄${CurrencyFormatter.format(summary.transferTotal)}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey.shade600,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
@@ -284,6 +312,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
 class _DaySummary {
   int income = 0;
   int expense = 0;
+  int transferTotal = 0;
   final List<Transaction> transactions = [];
   final List<Transfer> transfers = [];
 }
