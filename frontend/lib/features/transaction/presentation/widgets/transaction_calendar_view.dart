@@ -81,6 +81,93 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
     );
   }
 
+  /// 셀 1칸: 날짜 숫자(상단) + 수입/지출/이체 금액(하단)을 한 Column 에 세로로 쌓는다.
+  /// 기존 markerBuilder 오버레이 방식은 중앙 정렬된 날짜 숫자와 금액이 겹쳐(날짜 침범)
+  /// 3줄(수입/지출/이체) 표시 시 레이아웃이 깨졌다. 셀 전체를 직접 그려 겹침을 제거.
+  Widget _dayCell(
+    DateTime day,
+    _DaySummary? summary,
+    ThemeData theme, {
+    bool isToday = false,
+    bool isOutside = false,
+  }) {
+    final isWeekend =
+        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+    final Color numberColor = isOutside
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.3)
+        : isToday
+            ? theme.colorScheme.primary
+            : isWeekend
+                ? Colors.red.shade600
+                : theme.colorScheme.onSurface;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 20,
+            height: 18,
+            alignment: Alignment.center,
+            decoration: isToday
+                ? BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  )
+                : null,
+            child: Text(
+              '${day.day}',
+              style: TextStyle(
+                fontSize: 12,
+                color: numberColor,
+                fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+          // 인접월 날짜(isOutside)에는 금액을 그리지 않는다(해당 월 데이터만 매핑됨).
+          if (!isOutside && summary != null) ...[
+            const SizedBox(height: 1),
+            if (summary.income > 0)
+              _amountLine('+', summary.income, Colors.blue.shade700),
+            if (summary.expense > 0)
+              _amountLine('-', summary.expense, Colors.red.shade700),
+            if (summary.transfers.isNotEmpty)
+              _amountLine('⇄', summary.transferTotal, Colors.grey.shade600),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _amountLine(String prefix, int amount, Color color) {
+    return Text(
+      '$prefix${_compactAmount(amount)}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 9,
+        height: 1.2,
+        color: color,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  /// 좁은 셀 폭에 맞춘 축약 포맷(만/억). 정확한 금액은 일자 탭 시 바텀시트에서 확인.
+  static String _compactAmount(int amount) {
+    final abs = amount.abs();
+    if (abs >= 100000000) {
+      final eok = abs / 100000000;
+      return '${eok.toStringAsFixed(eok >= 10 ? 0 : 1)}억';
+    }
+    if (abs >= 10000) {
+      return '${abs ~/ 10000}만';
+    }
+    return CurrencyFormatter.format(abs);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -104,80 +191,30 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
             headerVisible: false,
             startingDayOfWeek: StartingDayOfWeek.sunday,
             daysOfWeekHeight: 24,
-            rowHeight: 64,
-            calendarStyle: CalendarStyle(
+            // 날짜(18) + 수입/지출/이체 3줄(각 ~11) + 여백을 겹침 없이 담기 위한 높이.
+            rowHeight: 74,
+            calendarStyle: const CalendarStyle(
               outsideDaysVisible: true,
-              cellMargin: const EdgeInsets.all(2),
-              todayDecoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              todayTextStyle: TextStyle(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-              defaultTextStyle: const TextStyle(fontSize: 13),
-              weekendTextStyle: TextStyle(
-                fontSize: 13,
-                color: Colors.red.shade600,
-              ),
-              outsideTextStyle: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
+              cellMargin: EdgeInsets.all(1),
             ),
-            eventLoader: (day) {
-              final key = DateTime(day.year, day.month, day.day);
-              final summary = byDay[key];
-              return summary == null ? const [] : [summary];
-            },
             calendarBuilders: CalendarBuilders<_DaySummary>(
-              markerBuilder: (context, day, events) {
-                if (events.isEmpty) return const SizedBox.shrink();
-                final summary = events.first;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 28),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (summary.income > 0)
-                        Text(
-                          '+${CurrencyFormatter.format(summary.income)}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.blue.shade700,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      if (summary.expense > 0)
-                        Text(
-                          '-${CurrencyFormatter.format(summary.expense)}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.red.shade700,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      if (summary.transfers.isNotEmpty)
-                        Text(
-                          '⇄${CurrencyFormatter.format(summary.transferTotal)}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                );
-              },
+              defaultBuilder: (context, day, _) => _dayCell(
+                day,
+                byDay[DateTime(day.year, day.month, day.day)],
+                theme,
+              ),
+              todayBuilder: (context, day, _) => _dayCell(
+                day,
+                byDay[DateTime(day.year, day.month, day.day)],
+                theme,
+                isToday: true,
+              ),
+              outsideBuilder: (context, day, _) => _dayCell(
+                day,
+                byDay[DateTime(day.year, day.month, day.day)],
+                theme,
+                isOutside: true,
+              ),
             ),
             onDaySelected: (selected, focused) {
               setState(() => _focusedDay = focused);
