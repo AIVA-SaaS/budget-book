@@ -142,30 +142,26 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
   }
 
   Widget _amountLine(String prefix, int amount, Color color) {
-    return Text(
-      '$prefix${_compactAmount(amount)}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: 9,
-        height: 1.2,
-        color: color,
-        fontWeight: FontWeight.w600,
+    // 전체 금액(쉼표 포맷)을 그대로 노출하되, 좁은 셀 폭을 넘으면 잘림(ellipsis) 대신
+    // FittedBox 로 글자를 축소해 정확한 숫자를 항상 읽을 수 있게 한다.
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Text(
+          '$prefix${CurrencyFormatter.format(amount)}',
+          maxLines: 1,
+          softWrap: false,
+          style: TextStyle(
+            fontSize: 9,
+            height: 1.2,
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
-  }
-
-  /// 좁은 셀 폭에 맞춘 축약 포맷(만/억). 정확한 금액은 일자 탭 시 바텀시트에서 확인.
-  static String _compactAmount(int amount) {
-    final abs = amount.abs();
-    if (abs >= 100000000) {
-      final eok = abs / 100000000;
-      return '${eok.toStringAsFixed(eok >= 10 ? 0 : 1)}억';
-    }
-    if (abs >= 10000) {
-      return '${abs ~/ 10000}만';
-    }
-    return CurrencyFormatter.format(abs);
   }
 
   @override
