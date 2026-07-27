@@ -313,6 +313,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     try {
       final result = await transactionRepository.updateTransaction(
         id: event.id,
+        type: event.type,
         amount: event.amount,
         description: event.description,
         categoryId: event.categoryId,

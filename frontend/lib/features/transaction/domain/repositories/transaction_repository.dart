@@ -3,6 +3,7 @@ import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 abstract class TransactionRepository {
   /// 거래 목록 조회.
@@ -35,6 +36,9 @@ abstract class TransactionRepository {
 
   Future<Either<Failure, Transaction>> updateTransaction({
     required String id,
+    /// 수입↔지출 유형 변경 (2026-07-27). null = 미변경.
+    /// 이체로의 변경은 테이블이 달라 [convertToTransfer] 를 쓴다.
+    String? type,
     int? amount,
     String? description,
     String? categoryId,
@@ -47,6 +51,19 @@ abstract class TransactionRepository {
   });
 
   Future<Either<Failure, void>> deleteTransaction(String id);
+
+  /// 거래 → 이체 변환. 서버가 원본 거래 삭제 + 이체 생성을 한 트랜잭션으로 처리하고
+  /// **생성된 이체**를 돌려준다. 생략한 값(금액·날짜·설명·메모)은 원본을 승계한다.
+  Future<Either<Failure, Transfer>> convertToTransfer({
+    required String id,
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    String? kind,
+    int? amount,
+    String? transferDate,
+    String? description,
+    String? memo,
+  });
 
   Future<Either<Failure, List<SuggestionGroup>>> getSuggestions(
     String query, {

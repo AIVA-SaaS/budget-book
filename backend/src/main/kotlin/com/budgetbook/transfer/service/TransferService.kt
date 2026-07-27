@@ -35,7 +35,9 @@ class TransferService(
     private val syncEventPublisher: SyncEventPublisher,
     private val transactionRepository: TransactionRepository,
     // V65 — 목록 응답의 정산 배지/필터용 벌크 조회.
-    private val reconciliationLookup: com.budgetbook.reconciliation.service.ReconciliationLookup
+    private val reconciliationLookup: com.budgetbook.reconciliation.service.ReconciliationLookup,
+    // 이체 종류 판정·조합 검증의 단일 소스 (거래→이체 변환 경로와 공유).
+    private val kindResolver: TransferKindResolver
 ) : CoupleAwareService {
 
     @Transactional
@@ -408,11 +410,8 @@ class TransferService(
         return saved.toResponse()
     }
 
-    private fun validateNotCreditToCredit(sourceType: PaymentMethodType, destType: PaymentMethodType) {
-        if (sourceType == PaymentMethodType.CREDIT && destType == PaymentMethodType.CREDIT) {
-            throw BusinessException("TRANSFER_CREDIT_TO_CREDIT_NOT_ALLOWED", "카드 간 이체는 불가합니다")
-        }
-    }
+    private fun validateNotCreditToCredit(sourceType: PaymentMethodType, destType: PaymentMethodType) =
+        kindResolver.validateCombination(sourceType, destType)
 
     /**
      * Phase 22 §2.1 — TransferKind 자동 판정.
@@ -425,10 +424,8 @@ class TransferService(
      * EXPENSE_TRANSFER / INCOME_TRANSFER 는 의미상 자동 판정 불가능 — 사용자가 명시적으로
      * 지정해야 함(요청 본문의 `kind` 필드). 즉 이 함수는 EXPENSE/INCOME_TRANSFER 를 리턴하지 않는다.
      */
-    internal fun resolveDefaultKind(sourceType: PaymentMethodType, destType: PaymentMethodType): TransferKind = when {
-        sourceType == PaymentMethodType.BANK && destType == PaymentMethodType.CREDIT -> TransferKind.CARD_SETTLEMENT
-        else -> TransferKind.GENERIC
-    }
+    internal fun resolveDefaultKind(sourceType: PaymentMethodType, destType: PaymentMethodType): TransferKind =
+        kindResolver.resolveDefaultKind(sourceType, destType)
 
     private fun Transfer.toResponse(
         reconciliationRef: com.budgetbook.reconciliation.dto.ReconciliationRef? = null

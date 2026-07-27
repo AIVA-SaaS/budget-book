@@ -19,6 +19,8 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import com.budgetbook.transaction.dto.ConvertToTransferRequest
+import com.budgetbook.transfer.dto.TransferResponse
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
@@ -103,6 +105,20 @@ class TransactionController(
         @Valid @RequestBody request: UpdateTransactionRequest
     ): ApiResponse<TransactionResponse> {
         return ApiResponse.ok(transactionService.updateTransaction(userId, id, request))
+    }
+
+    /**
+     * 거래 → 이체 변환. 거래와 이체는 테이블이 달라 `PUT /{id}` 로는 바꿀 수 없다.
+     * 원본 거래 삭제 + 이체 생성이 한 트랜잭션에서 일어나고, 응답은 **생성된 이체**다.
+     */
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
+    @PostMapping("/{id}/convert-to-transfer")
+    fun convertToTransfer(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: ConvertToTransferRequest
+    ): ApiResponse<TransferResponse> {
+        return ApiResponse.ok(transactionService.convertToTransfer(userId, id, request))
     }
 
     @RateLimit(maxRequests = 30, windowSeconds = 60)

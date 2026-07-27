@@ -42,6 +42,7 @@ class _MockTransactionRepository extends Mock implements TransactionRepository {
   @override
   Future<Either<Failure, Transaction>> updateTransaction({
     required String id,
+    String? type,
     int? amount,
     String? description,
     String? categoryId,

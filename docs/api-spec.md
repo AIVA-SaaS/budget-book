@@ -84,6 +84,7 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Create Transaction](#2-create-transaction)
   - [Get Transaction](#3-get-transaction)
   - [Update Transaction](#4-update-transaction)
+  - [Convert Transaction to Transfer](#4-1-convert-transaction-to-transfer)
   - [Delete Transaction](#5-delete-transaction)
   - [Export CSV](#6-export-csv)
   - [List Settlement Candidates](#7-list-settlement-candidates)
@@ -1210,6 +1211,7 @@ Updates an existing transaction. Only the author or the partner can update it.
 
 | Field             | Type     | Required | Description                                                    |
 |:------------------|:---------|:--------:|:---------------------------------------------------------------|
+| `type`            | `string` | No       | 유형 변경. `EXPENSE` ↔ `INCOME` 만 가능 (2026-07-27)             |
 | `amount`          | `long`   | No       | Updated amount (must be > 0)                                   |
 | `description`     | `string` | No       | Updated description (max 255 chars)                            |
 | `categoryId`      | `UUID`   | No       | Updated category (null to unset)                               |
@@ -1224,9 +1226,71 @@ Updates an existing transaction. Only the author or the partner can update it.
 
 | Status | Error Code | Description |
 |:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | `type` 변경 시: `ADJUSTMENT` 와의 상호 전환 / 정산에 기록된 거래 / 남아 있는 카테고리가 새 유형과 불일치 |
 | `403`  | `FORBIDDEN` | Transaction belongs to a different couple |
 | `403`  | `PRIVATE_ACCESS_DENIED` | Transaction is PRIVATE and caller is not the owner |
 | `404`  | `TRANSACTION_NOT_FOUND` | Transaction does not exist |
+
+**유형 변경 규칙** (2026-07-27)
+
+- `EXPENSE` ↔ `INCOME` 만 가능하다. 카테고리는 유형별로 갈리므로(`CategoryType`), 기존
+  카테고리가 새 유형과 맞지 않으면 `categoryId` 를 **같은 요청에** 담아야 한다.
+- `ADJUSTMENT`(잔액 수정)는 부호 있는 증감값이라 일반 거래와 상호 전환하지 않는다.
+- 정산 스냅샷에 기록된 거래는 변경 불가 — 스냅샷의 `snapshot_kind` 가 정산 당시 분류라
+  원본 유형이 바뀌면 그 달 소계 이력이 흔들린다. 정산에서 제외한 뒤 시도한다.
+- **이체로의 변경은 이 엔드포인트가 아니다** → `POST /transactions/{id}/convert-to-transfer`.
+
+---
+
+### 4-1. Convert Transaction to Transfer
+
+거래를 이체로 바꾼다. 거래(`transactions`)와 이체(`transfers`)는 테이블이 달라 `PUT` 으로는
+유형을 바꿀 수 없다. 이 엔드포인트는 **원본 거래 삭제 + 이체 생성**을 한 트랜잭션으로 처리하고
+생성된 이체를 돌려준다.
+
+| Item        | Value                                             |
+|:------------|:--------------------------------------------------|
+| **Method**  | `POST`                                            |
+| **Path**    | `/api/v1/transactions/{id}/convert-to-transfer`   |
+| **Auth**    | Required                                          |
+
+**Request Body**
+
+```json
+{
+  "sourcePaymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
+  "destinationPaymentMethodId": "550e8400-e29b-41d4-a716-446655440032",
+  "kind": "GENERIC",
+  "amount": 50000,
+  "transferDate": "2026-07-15",
+  "description": "계좌 이동",
+  "memo": null
+}
+```
+
+| Field                        | Type     | Required | Description                                        |
+|:-----------------------------|:---------|:--------:|:----------------------------------------------------|
+| `sourcePaymentMethodId`      | `UUID`   | Yes      | 출금 결제수단                                        |
+| `destinationPaymentMethodId` | `UUID`   | Yes      | 입금 결제수단 (출금과 달라야 함)                      |
+| `kind`                       | `string` | No       | 생략 시 결제수단 조합으로 자동 판정 (BANK→CREDIT = 카드 결제) |
+| `amount`                     | `long`   | No       | 생략 시 원본 거래 금액 승계                           |
+| `transferDate`               | `string` | No       | 생략 시 원본 거래 날짜 승계                           |
+| `description`                | `string` | No       | 생략 시 원본 설명 승계                                |
+| `memo`                       | `string` | No       | 생략 시 원본 메모 승계                                |
+
+**Response `200 OK`**: `ApiResponse<TransferResponse>` (생성된 이체)
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | 잔액 수정(`ADJUSTMENT`) 거래 / 정산에 기록됨 / 카드 결제에 연결됨 / 지출 계획에 연결됨 / 출금·입금 결제수단 동일 |
+| `400`  | `TRANSFER_CREDIT_TO_CREDIT_NOT_ALLOWED` | 카드 → 카드 이체 |
+| `403`  | `FORBIDDEN` | 다른 커플의 거래 |
+| `404`  | `TRANSACTION_NOT_FOUND` / `PAYMENT_METHOD_NOT_FOUND` | 거래 또는 결제수단 없음 |
+
+**동기화**: `TRANSACTION_DELETED` + `TRANSFER_CREATED` **두 이벤트**를 모두 발행한다.
+장부 목록은 거래+이체 병합이라 한쪽만 쏘면 파트너 화면에 원본 거래가 남는다.
 
 ---
 

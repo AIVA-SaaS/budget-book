@@ -87,6 +87,7 @@ class MockTransactionRepository extends Mock
   @override
   Future<Either<Failure, Transaction>> updateTransaction({
     required String id,
+    String? type,
     int? amount,
     String? description,
     String? categoryId,
@@ -100,6 +101,7 @@ class MockTransactionRepository extends Mock
       super.noSuchMethod(
         Invocation.method(#updateTransaction, [], {
           #id: id,
+          #type: type,
           #amount: amount,
           #description: description,
           #categoryId: categoryId,
