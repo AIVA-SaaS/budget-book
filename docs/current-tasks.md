@@ -1,6 +1,7 @@
 # Current Tasks - Budget Book
 
-> 최종 갱신: 2026-07-27. 이 파일은 **지금 진행 중인 작업**만 담는다.
+> 최종 갱신: 2026-07-27 (정산 기능 PR #273·#274·#275 배포, 라이브 검증 대기).
+> 이 파일은 **지금 진행 중인 작업**만 담는다.
 > 완료된 Phase 목록은 `docs/project-audit.md §1.1`, 미해결 이슈는 `docs/known-issues.md`,
 > 세션별 기획/결과는 `docs/sessions/` 를 본다.
 
@@ -32,8 +33,9 @@
 | PR1-BE2 | 거래 목록 페이지 상한 100 → 200 (FE `_pageSize` 와 일치) | backend | DONE | TransactionService |
 | PR1-INFRA | Testcontainers Docker 소켓 후보 탐색 (colima/Desktop) | devops | DONE | build.gradle.kts, 통합테스트 전략 |
 | PR1-DOC | api-spec settlement 응답 정정 / erd.md V13~V64 / KI-007·audit 상태 | contract | DONE | docs/ |
-| PR2-BE | 정산 스냅샷 BE (V65 + 6 엔드포인트 + `reconciled` 필터 + 집계) | backend | TODO | reconciliation feature |
-| PR3-FE | 정산 뷰(상단 미기록 / 하단 스냅샷별) + 배지 5곳 + sync | frontend | TODO | reconciliation feature |
+| PR2-BE | 정산 스냅샷 BE (V65 + 6 엔드포인트 + `reconciled` 필터 + 집계) | backend | DONE | reconciliation feature |
+| PR3-FE | 정산 뷰(상단 미기록 / 하단 스냅샷별) + 배지 5곳 + sync | frontend | DONE | reconciliation feature |
+| RECON-VERIFY | **라이브 검증 A1~A10 / B1~B7 / C1~C5** — 사용자 확인 대기 | 사용자 | IN_PROGRESS | `docs/sessions/2026-07-27_1_result.md §4.1` |
 
 ## Backlog
 
