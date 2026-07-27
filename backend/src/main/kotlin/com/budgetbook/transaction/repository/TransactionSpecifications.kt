@@ -2,6 +2,7 @@ package com.budgetbook.transaction.repository
 
 import com.budgetbook.common.entity.Visibility
 import com.budgetbook.reconciliation.domain.ReconciliationItem
+import com.budgetbook.reconciliation.service.ReconciliationScope
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import jakarta.persistence.criteria.CriteriaBuilder
@@ -111,6 +112,17 @@ object TransactionSpecifications {
                 predicates.add(
                     if (wantReconciled) cb.exists(subquery) else cb.not(cb.exists(subquery))
                 )
+
+                // 미기록 목록에서 **정산 대상이 아닌 종류**(잔액 수정)를 뺀다.
+                // 정의는 ReconciliationScope 단일 소스 — 여기서 직접 `!= ADJUSTMENT` 를 쓰면
+                // 요약(ReconciliationService.getSummary)과 정의가 갈라져 "요약 건수는 맞는데
+                // 행이 다른" 상태가 된다. reconciled=true(과거 기록 조회)는 건드리지 않는다.
+                if (!wantReconciled) {
+                    val excluded = ReconciliationScope.EXCLUDED_TRANSACTION_TYPES
+                    if (excluded.isNotEmpty()) {
+                        predicates.add(cb.not(root.get<TransactionType>("type").`in`(excluded)))
+                    }
+                }
             }
 
             // Visibility 필터:

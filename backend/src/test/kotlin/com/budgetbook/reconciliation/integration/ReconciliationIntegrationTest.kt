@@ -40,6 +40,7 @@ import java.util.UUID
 @ContextConfiguration(initializers = [ReconciliationIntegrationTest.DataSourceInitializer::class])
 class ReconciliationIntegrationTest(
     private val reconciliationService: ReconciliationService,
+    private val transactionService: com.budgetbook.transaction.service.TransactionService,
     @PersistenceContext private val em: EntityManager,
     private val txManager: PlatformTransactionManager,
 ) : FunSpec() {
@@ -287,8 +288,10 @@ class ReconciliationIntegrationTest(
             val f = inTx { fixture("recon-summary") }
 
             val before = inTx { reconciliationService.getSummary(f.userId, 2026, 6) }
-            // 지출 10000 + 수입 30000 + 이체 5000 + ADJUSTMENT(집계 제외) + 카드결제 이체(제외)
-            before.unrecordedCount shouldBe 5
+            // 지출 10000 + 수입 30000 + 이체 5000 + 카드결제 이체(소계만 제외, 대조 대상)
+            // 잔액 수정(ADJUSTMENT) 은 **건수에서도** 빠진다 (2026-07-27) — 목록에 남으면
+            // 미기록이 0 이 되지 않아 "이 달 정산 완료" 에 도달할 수 없다.
+            before.unrecordedCount shouldBe 4
             before.unrecordedExpense shouldBe 10000
             before.unrecordedIncome shouldBe 30000
             before.unrecordedTransfer shouldBe 5000
@@ -303,10 +306,62 @@ class ReconciliationIntegrationTest(
             val after = inTx { reconciliationService.getSummary(f.userId, 2026, 6) }
             after.snapshotCount shouldBe 1
             after.recordedCount shouldBe 1
-            after.unrecordedCount shouldBe 4
+            after.unrecordedCount shouldBe 3
             // 기록된 지출이 미기록에서 빠진다 → 합은 보존.
             after.unrecordedExpense shouldBe 0
             (after.unrecordedExpense + 10000) shouldBe before.unrecordedExpense
+        }
+
+        // ── 교차 엔드포인트 불변식 (하네스 filter_propagation 구조적 강제) ──
+        // 요약(getSummary)과 미기록 목록(GET /transactions?reconciled=false)은 **정산 대상 정의**를
+        // 공유해야 한다. 한쪽에만 규칙을 넣으면 "요약 건수는 맞는데 행이 다른" 상태가 되는데,
+        // 이건 화면만 봐서는 알아채기 어렵다. 그래서 두 경로를 한 테스트에서 맞대어 고정한다.
+        test("불변식 — 요약의 미기록 거래 건수 == reconciled=false 목록 건수") {
+            val f = inTx { fixture("recon-invariant") }
+
+            val summary = inTx { reconciliationService.getSummary(f.userId, 2026, 6) }
+            val unrecordedList = inTx {
+                transactionService.listTransactions(
+                    userId = f.userId,
+                    year = 2026,
+                    month = 6,
+                    type = null,
+                    categoryId = null,
+                    page = 0,
+                    size = 200,
+                    reconciled = false
+                )
+            }
+
+            // 픽스처: 지출·수입·잔액수정 3건 중 잔액수정은 양쪽에서 빠져 2건.
+            unrecordedList.content.size shouldBe 2
+            unrecordedList.content.none { it.type == "ADJUSTMENT" } shouldBe true
+
+            val unrecordedTransfersInSummary = summary.unrecordedCount - unrecordedList.content.size
+            unrecordedTransfersInSummary shouldBe 2 // 일반 이체 + 카드결제 이체
+
+            // 1건 정산한 뒤에도 두 경로가 함께 줄어야 한다.
+            inTx {
+                reconciliationService.createReconciliation(
+                    f.userId,
+                    CreateReconciliationRequest("2026-06", "1차", listOf(f.expenseTxnId))
+                )
+            }
+            val afterSummary = inTx { reconciliationService.getSummary(f.userId, 2026, 6) }
+            val afterList = inTx {
+                transactionService.listTransactions(
+                    userId = f.userId,
+                    year = 2026,
+                    month = 6,
+                    type = null,
+                    categoryId = null,
+                    page = 0,
+                    size = 200,
+                    reconciled = false
+                )
+            }
+            afterList.content.size shouldBe 1
+            (afterSummary.unrecordedCount - afterList.content.size) shouldBe 2
         }
 
         test("다른 달 항목을 섞으면 400") {
