@@ -22,7 +22,11 @@
 ## NAS File Locations
 - **App repo**: `/volume1/docker/budget-book` (main branch)
 - **Frontend build**: `/var/services/web_bb` (static files served by nginx)
-- **nginx config**: `/etc/nginx/sites-enabled/` (custom budget-book vhost)
+- **nginx config**: `/usr/local/etc/nginx/sites-available/aiva-bb.conf` (sites-enabled 에 symlink).
+  **단일 소스는 repo 의 `ops/nas-nginx/aiva-bb.conf`** — `deploy-nas.yml`(sync-nginx job)이 배포하고,
+  `verify-live` job 이 배포마다 NAS 파일과 diff 해 drift 를 잡는다. NAS 에서 직접 고치지 말 것.
+  캐시 정책은 `infra/scripts/verify-cache-headers.sh` 가 실제 응답 헤더로 검증한다
+  (해시 없는 Flutter 산출물에 `immutable` 금지 — 2026-06-05 / 2026-07-27 아이콘 미노출 사고).
 - **SSL certs**: `/usr/syno/etc/certificate/_archive/AIVABB/`
 
 ## CI/CD (GitHub Actions)

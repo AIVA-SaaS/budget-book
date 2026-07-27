@@ -67,7 +67,7 @@ if [ "$fail" -ne 0 ]; then
 
 배포 검증 실패 — 해시 없는 산출물에 장기 캐시가 걸려 있습니다.
 증상은 "새 기능/아이콘만 안 보인다" 형태로 나타나며, 사용자는 하드 리프레시 전까지
-계속 구버전을 봅니다. infra/nginx/aiva-bb.conf 의 해당 location 을
+계속 구버전을 봅니다. ops/nas-nginx/aiva-bb.conf 의 해당 location 을
 `Cache-Control "no-cache, must-revalidate"` 로 고치고 nginx 를 리로드하세요.
 EOF
   exit 1
