@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
 
@@ -69,9 +70,11 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
     final result = await repo.getTransactions(
       year: year,
       month: month,
-      type: 'EXPENSE',
-      categoryId: keyword == null ? widget.plan.categoryId : null,
-      keyword: keyword,
+      filter: TransactionFilter(
+        type: 'EXPENSE',
+        categoryId: keyword == null ? widget.plan.categoryId : null,
+        keyword: keyword,
+      ),
       size: 50,
     );
 

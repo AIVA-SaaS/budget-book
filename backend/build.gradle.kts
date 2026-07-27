@@ -100,8 +100,29 @@ tasks.withType<Test> {
     // Docker Desktop 4.x proxy rejects /v1.32/info (docker-java default) with empty 400.
     // Testcontainers uses its own shaded docker-java which reads API version from "api.version"
     // environment variable (not DOCKER_API_VERSION). Setting this to "1.44" bypasses the v1.32 issue.
+    //
+    // 2026-07-27 — 소켓 경로를 /var/run/docker.sock 로 고정하면, 활성 런타임이 colima/
+    // Rancher 인 머신에서 그 심볼릭 링크가 끊겨 있어(Docker Desktop 미실행) 전체 test
+    // task 가 Kotest initializationError("Could not find a valid Docker environment") 로
+    // 죽는다. `docker info` 는 정상인데 로컬 CI 게이트를 통과할 수 없는 상태가 된다.
+    // → 실제로 **존재하는** 소켓을 후보 목록에서 골라 주입한다. (끊긴 심볼릭 링크는
+    //   File.exists() == false 로 자동 탈락.)
     val varRunSock = "/var/run/docker.sock"
-    val dockerHost = System.getenv("DOCKER_HOST") ?: "unix://$varRunSock"
+    val home = System.getProperty("user.home")
+    val socketCandidates = listOfNotNull(
+        System.getenv("DOCKER_HOST")
+            ?.takeIf { it.startsWith("unix://") }
+            ?.removePrefix("unix://"),
+        varRunSock,
+        "$home/.colima/default/docker.sock",
+        "$home/.docker/run/docker.sock",
+        "$home/.rd/docker.sock",
+    )
+    // `java.io.File` 은 Kotlin DSL 에서 `java` 확장과 충돌 → 기본 import 된 File 사용.
+    val resolvedSocket = socketCandidates.firstOrNull { File(it).exists() }
+    val dockerHost = System.getenv("DOCKER_HOST")
+        ?: resolvedSocket?.let { "unix://$it" }
+        ?: "unix://$varRunSock"
     environment("DOCKER_HOST", dockerHost)
     environment("api.version", "1.44")          // Testcontainers shaded docker-java reads this key
     environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", varRunSock)

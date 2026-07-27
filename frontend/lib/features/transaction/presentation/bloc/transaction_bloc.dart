@@ -12,51 +12,25 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   int _currentYear = DateTime.now().year;
   int _currentMonth = DateTime.now().month;
-  String? _currentKeyword;
-  String? _currentCategoryId;
-  String? get currentCategoryId => _currentCategoryId;
-  Set<String> _currentCategoryIds = const {};
-  Set<String> get currentCategoryIds => _currentCategoryIds;
-  Set<String> _currentCategoryGroupIds = const {};
-  Set<String> get currentCategoryGroupIds => _currentCategoryGroupIds;
-  String? _currentPaymentMethodId;
-  String? get currentPaymentMethodId => _currentPaymentMethodId;
-  Set<String> _currentPaymentMethodIds = const {};
-  Set<String> get currentPaymentMethodIds => _currentPaymentMethodIds;
-  String? _currentPocketId;
-  Set<String> _currentPocketIds = const {};
-  Set<String> get currentPocketIds => _currentPocketIds;
-  int? _currentAmountMin;
-  int? _currentAmountMax;
-  String? _currentDateFrom;
-  String? _currentDateTo;
-  String? _currentType;
-  Set<String> _currentTransactionTypes = const {};
-  String? _currentVisibility;
-  bool? _currentNeedsReviewOnly;
 
-  /// 전체 필터 상태의 단일 스냅샷.
-  /// MonthSyncHandler 등 외부 consumer 가 필드 drop 없이 전체 필터를 전파하도록
-  /// 반드시 이 getter 를 사용한다. 새 필터 추가 시 TransactionFilter 와
-  /// LoadTransactions 시그니처, 이 getter 세 군데를 함께 수정해야 컴파일 통과.
-  TransactionFilter get currentFilter => TransactionFilter(
-        keyword: _currentKeyword,
-        categoryId: _currentCategoryId,
-        categoryIds: _currentCategoryIds,
-        categoryGroupIds: _currentCategoryGroupIds,
-        paymentMethodId: _currentPaymentMethodId,
-        paymentMethodIds: _currentPaymentMethodIds,
-        pocketId: _currentPocketId,
-        pocketIds: _currentPocketIds,
-        amountMin: _currentAmountMin,
-        amountMax: _currentAmountMax,
-        dateFrom: _currentDateFrom,
-        dateTo: _currentDateTo,
-        type: _currentType,
-        transactionTypes: _currentTransactionTypes,
-        visibility: _currentVisibility,
-        needsReviewOnly: _currentNeedsReviewOnly,
-      );
+  /// 전체 필터 상태의 단일 스냅샷 — **필터는 이 VO 하나로만 보관한다.**
+  ///
+  /// 이전에는 `_currentKeyword` … `_currentNeedsReviewOnly` 16개 스칼라를 두고
+  /// getter 에서 VO 를 재조립했다. 그 구조는 (a) LoadTransactions 수신 시 16줄 대입,
+  /// (b) getter 조립, (c) reload 시 16줄 나열 — 총 3곳에서 필드를 손으로 나열해야 해서
+  /// 필터가 추가될 때마다 어딘가 빠졌다(2026-04-15 인시던트 3회 재발).
+  /// VO 하나만 들고 있으면 필드 나열 자체가 불가능하다.
+  TransactionFilter _currentFilter = TransactionFilter.empty;
+
+  TransactionFilter get currentFilter => _currentFilter;
+
+  // 기존 소비자용 편의 getter (VO 위임).
+  String? get currentCategoryId => _currentFilter.categoryId;
+  Set<String> get currentCategoryIds => _currentFilter.categoryIds;
+  Set<String> get currentCategoryGroupIds => _currentFilter.categoryGroupIds;
+  String? get currentPaymentMethodId => _currentFilter.paymentMethodId;
+  Set<String> get currentPaymentMethodIds => _currentFilter.paymentMethodIds;
+  Set<String> get currentPocketIds => _currentFilter.pocketIds;
 
   int get currentYear => _currentYear;
   int get currentMonth => _currentMonth;
@@ -100,22 +74,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final previousState = state;
       _currentYear = event.year;
       _currentMonth = event.month;
-      _currentKeyword = event.keyword;
-      _currentCategoryId = event.categoryId;
-      _currentCategoryIds = event.categoryIds;
-      _currentCategoryGroupIds = event.categoryGroupIds;
-      _currentPaymentMethodId = event.paymentMethodId;
-      _currentPaymentMethodIds = event.paymentMethodIds;
-      _currentPocketId = event.pocketId;
-      _currentPocketIds = event.pocketIds;
-      _currentAmountMin = event.amountMin;
-      _currentAmountMax = event.amountMax;
-      _currentDateFrom = event.dateFrom;
-      _currentDateTo = event.dateTo;
-      _currentType = event.type;
-      _currentTransactionTypes = event.transactionTypes;
-      _currentVisibility = event.visibility;
-      _currentNeedsReviewOnly = event.needsReviewOnly;
+      // 필터 VO 통째로 보관 — 필드 대입 없음(누락 불가).
+      _currentFilter = event.filter;
       // Only show full loading skeleton on initial load, not during search/filter
       if (previousState is! TransactionLoaded) {
         emit(const TransactionLoading());
@@ -128,22 +88,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final txnFuture = transactionRepository.getTransactions(
         year: event.year,
         month: event.month,
-        keyword: event.keyword,
-        categoryId: event.categoryId,
-        categoryIds: event.categoryIds,
-        categoryGroupIds: event.categoryGroupIds,
-        paymentMethodId: event.paymentMethodId,
-        paymentMethodIds: event.paymentMethodIds,
-        pocketId: event.pocketId,
-        pocketIds: event.pocketIds,
-        amountMin: event.amountMin,
-        amountMax: event.amountMax,
-        dateFrom: event.dateFrom,
-        dateTo: event.dateTo,
-        type: event.type,
-        transactionTypes: event.transactionTypes,
-        visibility: event.visibility,
-        needsReviewOnly: event.needsReviewOnly,
+        filter: event.filter,
         page: 0,
         size: _pageSize,
       );
@@ -154,23 +99,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       if (statisticsRepository != null) {
         final results = await Future.wait([
           txnFuture,
+          // 목록과 **동일한 필터 VO** 로 합계를 요청 → "합계 ≠ 행" 불일치 차단.
+          // (이전: 필드 수동 나열로 needsReviewOnly 가 summary 에만 빠져 있었다.)
           statisticsRepository!.getSummary(
             year: event.year,
             month: event.month,
-            visibility: event.visibility ?? 'ALL',
-            dateFrom: event.dateFrom,
-            dateTo: event.dateTo,
-            categoryId: event.categoryId,
-            paymentMethodId: event.paymentMethodId,
-            pocketId: event.pocketId,
-            categoryIds: event.categoryIds,
-            categoryGroupIds: event.categoryGroupIds,
-            paymentMethodIds: event.paymentMethodIds,
-            pocketIds: event.pocketIds,
-            amountMin: event.amountMin,
-            amountMax: event.amountMax,
-            keyword: event.keyword,
-            transactionTypes: event.transactionTypes,
+            filter: event.filter,
           ),
         ]);
         final txnResult = results[0] as Either;
@@ -254,22 +188,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final result = await transactionRepository.getTransactions(
         year: _currentYear,
         month: _currentMonth,
-        keyword: _currentKeyword,
-        categoryId: _currentCategoryId,
-        categoryIds: _currentCategoryIds,
-        categoryGroupIds: _currentCategoryGroupIds,
-        paymentMethodId: _currentPaymentMethodId,
-        paymentMethodIds: _currentPaymentMethodIds,
-        pocketId: _currentPocketId,
-        pocketIds: _currentPocketIds,
-        amountMin: _currentAmountMin,
-        amountMax: _currentAmountMax,
-        dateFrom: _currentDateFrom,
-        dateTo: _currentDateTo,
-        type: _currentType,
-        transactionTypes: _currentTransactionTypes,
-        visibility: _currentVisibility,
-        needsReviewOnly: _currentNeedsReviewOnly,
+        filter: _currentFilter,
         page: nextPage,
         size: _pageSize,
       );
@@ -357,26 +276,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final focus = _focusMonthFor(event.transactionDate);
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
-        (_) => add(LoadTransactions(
-              year: focus.year,
-              month: focus.month,
-              keyword: _currentKeyword,
-              categoryId: _currentCategoryId,
-              categoryIds: _currentCategoryIds,
-              categoryGroupIds: _currentCategoryGroupIds,
-              paymentMethodId: _currentPaymentMethodId,
-              paymentMethodIds: _currentPaymentMethodIds,
-              pocketId: _currentPocketId,
-              pocketIds: _currentPocketIds,
-              amountMin: _currentAmountMin,
-              amountMax: _currentAmountMax,
+        (_) => add(LoadTransactions.fromFilter(
+              focus.year,
+              focus.month,
+              _currentFilter,
               scrollToDate: event.transactionDate,
-              dateFrom: _currentDateFrom,
-              dateTo: _currentDateTo,
-              type: _currentType,
-              transactionTypes: _currentTransactionTypes,
-              visibility: _currentVisibility,
-              needsReviewOnly: _currentNeedsReviewOnly,
             )),
       );
     } catch (e) {
@@ -425,26 +329,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final focus = _focusMonthFor(event.transactionDate);
       result.fold(
         (failure) => emit(TransactionError(failure.message)),
-        (_) => add(LoadTransactions(
-              year: focus.year,
-              month: focus.month,
-              keyword: _currentKeyword,
-              categoryId: _currentCategoryId,
-              categoryIds: _currentCategoryIds,
-              categoryGroupIds: _currentCategoryGroupIds,
-              paymentMethodId: _currentPaymentMethodId,
-              paymentMethodIds: _currentPaymentMethodIds,
-              pocketId: _currentPocketId,
-              pocketIds: _currentPocketIds,
-              amountMin: _currentAmountMin,
-              amountMax: _currentAmountMax,
+        (_) => add(LoadTransactions.fromFilter(
+              focus.year,
+              focus.month,
+              _currentFilter,
               scrollToDate: event.transactionDate,
-              dateFrom: _currentDateFrom,
-              dateTo: _currentDateTo,
-              type: _currentType,
-              transactionTypes: _currentTransactionTypes,
-              visibility: _currentVisibility,
-              needsReviewOnly: _currentNeedsReviewOnly,
             )),
       );
     } catch (e) {

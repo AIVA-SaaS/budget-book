@@ -5,16 +5,21 @@
 
 ---
 
-## 🔴 KI-007: 카카오 OAuth 빈 email → 가입 실패 + 식별 불가 (2026-06-04)
-- **발견**: 카카오는 이메일이 선택 동의 → 미동의 시 `CustomOAuth2UserService.kt:64` `?: ""` 로 빈 문자열 저장 (예: 곽소영 `8358d6c8-...`, KAKAO, email='')
-- **버그**: `email`은 `NOT NULL UNIQUE`라 빈 문자열도 1명만 가능. 게다가 중복가입 체크 `findByEmail("")`(`:80`)가 기존 빈-email 유저를 반환 → **2번째 email-미동의 카카오 가입이 "이미 등록된 이메일"로 차단됨**
-- **사실 정정**: 파트너 연결은 email이 아니라 8자리 초대코드 방식(`CoupleService`). email 용도는 ① cross-provider 중복가입 방지 ② 어드민 식별뿐
-- **카카오 제약**: email 필수 동의는 비즈니스 앱 전환 + 검수 필요(즉시 불가). 통과해도 기존 가입자 소급 안 됨 + email 없는 카카오 계정은 여전히 불가
-- **조치 (결정 2026-06-04)**:
-  - Phase 1 (BE, 우선): email 없으면 `{provider}_{providerId}@no-email.local` placeholder 생성 + 중복체크 가드(placeholder skip) + V62 백필(곽소영 등 기존 '' row)
-  - Phase 3 (FE): placeholder/빈 email 유저에게 이메일 등록 유도 + BE email 업데이트 API
-  - Phase 2 (추후): 카카오 비즈니스 앱 전환 → 이메일 필수 동의 검수 신청 (안전 강화, placeholder가 본질 해결)
-- **상태**: Phase 1 착수 예정 (삭제 API 통합테스트 완료 직후, gradle 충돌 방지 순차)
+## 🟢 KI-007: 카카오 OAuth 빈 email → 가입 실패 + 식별 불가 (2026-06-04 발견 / 2026-07-27 코드 확인)
+- **발견**: 카카오는 이메일이 선택 동의 → 미동의 시 `CustomOAuth2UserService` 가 `?: ""` 로 빈 문자열 저장
+- **버그**: `email` 이 `NOT NULL UNIQUE` 라 빈 문자열도 1명만 가능 + 중복가입 체크 `findByEmail("")` 가 기존
+  빈-email 유저를 반환 → **2번째 email-미동의 카카오 가입이 "이미 등록된 이메일"로 차단**
+- **사실 정정**: 파트너 연결은 email 이 아니라 8자리 초대코드(`CoupleService`). email 용도는
+  ① cross-provider 중복가입 방지 ② 어드민 식별뿐
+- **조치 결과 (2026-07-27 코드 확인)**
+  - Phase 1 **완료** — `auth/domain/EmailPolicy.kt` 가 `{provider}_{providerId}@no-email.local`
+    placeholder 를 생성하고 중복체크에서 placeholder 를 skip. `V62__backfill_placeholder_emails.sql`
+    로 기존 빈-email row 백필 (라이브 적용 완료)
+  - Phase 3 **완료** — `settings/.../profile_edit_page.dart` 가 `hasRegisteredEmail` 기준으로
+    이메일 등록을 유도하고 `UpdateProfile(email:)` 로 저장
+  - Phase 2 **미착수(선택)** — 카카오 비즈니스 앱 전환 + 이메일 필수 동의 검수. placeholder 가
+    본질 문제를 해결했으므로 필수 아님
+- **남은 확인**: 이메일 미동의 카카오 계정 2개 동시 가입 라이브 재현 (사용자 검증 미수행)
 
 ## 🟡 KI-006: 완료 처리 시 거래 자동 등록 + 상태 변경
 - **요청**: 지출 계획 완료 처리 시 거래 자동 등록 + COMPLETED 상태 전환

@@ -97,24 +97,12 @@ class SyncEventHandler {
       // 회차 9 — WebSocket sync 시 currentFilter 보존. server-side 변경 시
       // list 가 필터 reset 되지 않도록.
       final bloc = _getIt<TransactionBloc>();
-      final f = bloc.currentFilter;
-      bloc.add(LoadTransactions(
-        year: monthState.year, month: monthState.month,
-        keyword: f.keyword,
-        categoryId: f.categoryId,
-        categoryIds: f.categoryIds,
-        categoryGroupIds: f.categoryGroupIds,
-        paymentMethodId: f.paymentMethodId,
-        paymentMethodIds: f.paymentMethodIds,
-        pocketId: f.pocketId,
-        pocketIds: f.pocketIds,
-        amountMin: f.amountMin,
-        amountMax: f.amountMax,
-        dateFrom: f.dateFrom,
-        dateTo: f.dateTo,
-        type: f.type,
-        transactionTypes: f.transactionTypes,
-        visibility: f.visibility,
+      // 2026-07-27 — 필드 수동 나열로 needsReviewOnly 가 빠져 파트너 변경 sync 시
+      // "확인/입력 필요만 보기" 필터가 풀리던 버그 fix. fromFilter 로 VO 전체 전달.
+      bloc.add(LoadTransactions.fromFilter(
+        monthState.year,
+        monthState.month,
+        bloc.currentFilter,
       ));
       _logger.d('Dispatched LoadTransactions refresh');
     } catch (e) {

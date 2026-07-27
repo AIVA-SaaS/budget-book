@@ -5,26 +5,17 @@ import 'package:budget_book/features/statistics/data/models/category_statistics_
 import 'package:budget_book/features/statistics/data/models/monthly_trend_model.dart';
 import 'package:budget_book/features/statistics/data/models/payment_method_statistics_model.dart';
 import 'package:budget_book/features/statistics/data/models/period_summary_model.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 abstract class StatisticsRemoteDataSource {
-  /// 회차 8 — 모든 필터 지원 확장
+  /// 회차 8 — 모든 필터 지원 확장.
+  /// 2026-07-27 — 필터를 [TransactionFilter] VO 로 통일. 거래 목록과 **같은 필터**로
+  /// 합계를 계산해야 "합계 ≠ 보이는 행" 불일치가 생기지 않는다
+  /// (needsReviewOnly 가 목록엔 적용되고 summary 엔 누락돼 있던 버그 fix).
   Future<StatisticsSummaryModel> getSummary({
     required int year,
     required int month,
-    String visibility = 'ALL',
-    String? dateFrom,
-    String? dateTo,
-    String? categoryId,
-    String? paymentMethodId,
-    String? pocketId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    Set<String> paymentMethodIds = const {},
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? keyword,
-    Set<String> transactionTypes = const {},
+    TransactionFilter filter = TransactionFilter.empty,
   });
 
   Future<List<CategoryStatisticsModel>> getCategoryBreakdown({
@@ -71,39 +62,14 @@ class StatisticsRemoteDataSourceImpl implements StatisticsRemoteDataSource {
   Future<StatisticsSummaryModel> getSummary({
     required int year,
     required int month,
-    String visibility = 'ALL',
-    String? dateFrom,
-    String? dateTo,
-    String? categoryId,
-    String? paymentMethodId,
-    String? pocketId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    Set<String> paymentMethodIds = const {},
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? keyword,
-    Set<String> transactionTypes = const {},
+    TransactionFilter filter = TransactionFilter.empty,
   }) async {
+    // 필터 직렬화는 TransactionFilter.toQueryParams() 단일 경로.
+    // 'ALL' visibility 는 BE 기본 동작이라 toQueryParams 가 생략한다(동등).
     final params = <String, dynamic>{
       'year': year,
       'month': month,
-      'visibility': visibility,
-      if (dateFrom != null) 'dateFrom': dateFrom,
-      if (dateTo != null) 'dateTo': dateTo,
-      if (categoryId != null) 'categoryId': categoryId,
-      if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
-      if (pocketId != null) 'pocketId': pocketId,
-      if (categoryIds.isNotEmpty) 'categoryIds': categoryIds.toList(),
-      if (categoryGroupIds.isNotEmpty) 'categoryGroupIds': categoryGroupIds.toList(),
-      if (paymentMethodIds.isNotEmpty) 'paymentMethodIds': paymentMethodIds.toList(),
-      if (pocketIds.isNotEmpty) 'pocketIds': pocketIds.toList(),
-      if (amountMin != null) 'amountMin': amountMin,
-      if (amountMax != null) 'amountMax': amountMax,
-      if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
-      if (transactionTypes.isNotEmpty)
-        'transactionTypes': transactionTypes.toList(),
+      ...filter.toQueryParams(),
     };
     final response = await apiClient.dio.get(
       ApiEndpoints.statisticsSummary,

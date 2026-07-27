@@ -375,25 +375,20 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   final navPocketIds = shouldCarryNavFilter
                       ? f.pocketIds
                       : const <String>{};
-                  bloc.add(LoadTransactions(
-                    year: year,
-                    month: month,
-                    categoryId: navCategoryId,
-                    paymentMethodId: navPaymentMethodId,
-                    categoryGroupIds: navCategoryGroupIds,
-                    categoryIds: navCategoryIds,
-                    paymentMethodIds: navPaymentMethodIds,
-                    pocketIds: navPocketIds,
-                    // Content 필터 — BLoC 보존 (URL 에 안 박힘).
-                    keyword: f.keyword,
-                    pocketId: f.pocketId,
-                    amountMin: f.amountMin,
-                    amountMax: f.amountMax,
-                    dateFrom: f.dateFrom,
-                    dateTo: f.dateTo,
-                    type: f.type,
-                    transactionTypes: f.transactionTypes,
-                    visibility: f.visibility,
+                  // nav 소유 필터만 덮어쓰고 content 필터는 VO 가 그대로 보존한다.
+                  // (2026-07-27 — 필드 수동 나열로 needsReviewOnly 가 URL 진입 시
+                  //  드롭되던 버그 fix. 새 content 필터도 자동 전파.)
+                  bloc.add(LoadTransactions.fromFilter(
+                    year,
+                    month,
+                    f.withNavigationFilters(
+                      categoryId: navCategoryId,
+                      paymentMethodId: navPaymentMethodId,
+                      categoryGroupIds: navCategoryGroupIds,
+                      categoryIds: navCategoryIds,
+                      paymentMethodIds: navPaymentMethodIds,
+                      pocketIds: navPocketIds,
+                    ),
                   ));
                   transferBloc.add(LoadTransfers(year: year, month: month));
                   // 이중 소스 동기화: 목록(TransactionBloc)을 URL year/month 로

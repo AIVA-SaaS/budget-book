@@ -1252,7 +1252,9 @@ Permanently deletes a transaction. Only the author or the partner can delete it.
 
 ### 7. List Settlement Candidates
 
-Returns unpaid (unsettled) EXPENSE transactions that are eligible to be included in a card settlement, optionally together with transactions already bound to a specific existing settlement transfer (for the edit-mode use case).
+Returns the items that make up a card settlement (카드 결제) for a given month: unpaid EXPENSE
+transactions charged to the card **plus** transfers whose source is that card. Optionally also
+returns items already bound to a specific settlement transfer (edit-mode use case).
 
 | Item        | Value                                      |
 |:------------|:-------------------------------------------|
@@ -1264,82 +1266,78 @@ Returns unpaid (unsettled) EXPENSE transactions that are eligible to be included
 
 | Parameter               | Type      | Required | Description                                                                                                                    |
 |:------------------------|:----------|:--------:|:-------------------------------------------------------------------------------------------------------------------------------|
-| `paymentMethodId`       | `UUID`    | Yes      | CREDIT payment method whose unsettled transactions are fetched                                                                 |
-| `settlementTransferId`  | `UUID`    | No       | When supplied, the response includes **both** unpaid transactions and transactions already bound to this settlement transfer. Used to pre-populate the candidate list when editing an existing card settlement. |
+| `paymentMethodId`       | `UUID`    | Yes      | CREDIT payment method whose unsettled items are fetched                                                                        |
+| `year`                  | `integer` | Yes      | Settlement month (year part). Items are matched by `settlementDate` within this month; when none match, the previous month's unsettled transactions are returned as a fallback. |
+| `month`                 | `integer` | Yes      | Settlement month (1-12)                                                                                                        |
+| `settlementTransferId`  | `UUID`    | No       | When supplied, the response includes **both** unpaid items and items already bound to this settlement transfer. Used to pre-populate the candidate list when editing an existing card settlement. |
 
-**Response `200 OK`**: `ApiResponse<List<SettlementTransactionResponse>>`
+**Response `200 OK`**: `ApiResponse<SettlementTransactionsResponse>`
 
-Each item in the list represents one transaction. Items that already belong to the referenced `settlementTransferId` carry a non-null `settlementTransferId` field so the client can distinguish pre-selected vs. newly selectable candidates.
+> The payload is an **object with a running total**, not a bare array — the client shows
+> `totalAmount` as the settlement amount without re-summing rows.
+
+| Field              | Type                            | Description                                        |
+|:-------------------|:--------------------------------|:---------------------------------------------------|
+| `totalAmount`      | `integer`                       | Sum of every item's `amount` (transactions + transfers) |
+| `transactionCount` | `integer`                       | Number of items                                    |
+| `transactions`     | `SettlementTransactionItem[]`   | Items, ascending by date                           |
+
+`SettlementTransactionItem` is a **narrow projection** — not the full `TransactionResponse`:
+
+| Field                  | Type            | Description                                                              |
+|:-----------------------|:----------------|:-------------------------------------------------------------------------|
+| `id`                   | `UUID`          | Transaction id (`type=TRANSACTION`) or transfer id (`type=TRANSFER`)     |
+| `transactionDate`      | `date`          | Transaction date, or the transfer date for transfers                     |
+| `settlementDate`       | `date` / `null` | Card settlement date. Always `null` for transfers                        |
+| `description`          | `string`        | Description (transfers without one fall back to `"이체"`)                 |
+| `amount`               | `integer`       | Amount                                                                   |
+| `categoryName`         | `string` / `null` | Category name. `null` for transfers                                    |
+| `categoryIcon`         | `string` / `null` | Category icon. `null` for transfers                                    |
+| `type`                 | `string`        | `TRANSACTION` or `TRANSFER`                                              |
+| `settlementTransferId` | `UUID` / `null` | Non-null when the item is already bound to a card-settlement transfer     |
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440030",
-      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
-      "author": {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "nickname": "홍길동",
-        "profileImageUrl": "https://lh3.googleusercontent.com/..."
+  "data": {
+    "totalAmount": 23000,
+    "transactionCount": 2,
+    "transactions": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440031",
+        "transactionDate": "2026-05-10",
+        "settlementDate": "2026-06-15",
+        "description": "지하철 충전",
+        "amount": 8000,
+        "categoryName": "교통",
+        "categoryIcon": "directions_bus",
+        "type": "TRANSACTION",
+        "settlementTransferId": "550e8400-e29b-41d4-a716-446655440200"
       },
-      "category": {
-        "id": "550e8400-e29b-41d4-a716-446655440010",
-        "name": "식비",
-        "type": "EXPENSE",
-        "icon": "restaurant",
-        "color": "#FF5733"
-      },
-      "type": "EXPENSE",
-      "amount": 15000,
-      "description": "점심 식사",
-      "transactionDate": "2026-05-15",
-      "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
-      "paymentMethodName": "신한카드",
-      "paymentMethodType": "CREDIT",
-      "settlementDate": "2026-06-15",
-      "settlementTransferId": null,
-      "visibility": "SHARED",
-      "createdAt": "2026-05-15T12:30:00Z",
-      "updatedAt": "2026-05-15T12:30:00Z"
-    },
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440031",
-      "coupleId": "550e8400-e29b-41d4-a716-446655440001",
-      "author": {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "nickname": "홍길동",
-        "profileImageUrl": "https://lh3.googleusercontent.com/..."
-      },
-      "category": {
-        "id": "550e8400-e29b-41d4-a716-446655440011",
-        "name": "교통",
-        "type": "EXPENSE",
-        "icon": "directions_bus",
-        "color": "#3399FF"
-      },
-      "type": "EXPENSE",
-      "amount": 8000,
-      "description": "지하철 충전",
-      "transactionDate": "2026-05-10",
-      "paymentMethodId": "550e8400-e29b-41d4-a716-446655440031",
-      "paymentMethodName": "신한카드",
-      "paymentMethodType": "CREDIT",
-      "settlementDate": "2026-06-15",
-      "settlementTransferId": "550e8400-e29b-41d4-a716-446655440200",
-      "visibility": "SHARED",
-      "createdAt": "2026-05-10T09:00:00Z",
-      "updatedAt": "2026-05-10T09:00:00Z"
-    }
-  ],
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440030",
+        "transactionDate": "2026-05-15",
+        "settlementDate": "2026-06-15",
+        "description": "점심 식사",
+        "amount": 15000,
+        "categoryName": "식비",
+        "categoryIcon": "restaurant",
+        "type": "TRANSACTION",
+        "settlementTransferId": null
+      }
+    ]
+  },
   "timestamp": "2026-06-24T10:00:00Z"
 }
 ```
 
 **Response field notes**
 
-- `settlementTransferId` — `UUID` or `null`. Non-null only when the transaction is already marked as paid via a card settlement transfer. When the `settlementTransferId` query parameter is supplied, already-bound transactions for that transfer are included and carry the matching UUID here.
-- All other fields follow the standard `TransactionResponse` schema.
+- `settlementTransferId` — non-null only when the transaction is already marked paid via a card
+  settlement transfer. When the `settlementTransferId` query parameter is supplied, already-bound
+  transactions for that transfer are included and carry the matching UUID here.
+- Transfers are included because a card settlement must cover card-sourced transfers as well;
+  omitting them under-reports the settlement amount (2026-04-15 인시던트).
 
 **Error Responses**
 

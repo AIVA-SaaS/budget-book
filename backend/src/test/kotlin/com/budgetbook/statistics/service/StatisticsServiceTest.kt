@@ -719,6 +719,38 @@ class StatisticsServiceTest : BehaviorSpec({
         }
     }
 
+    // --- getMonthlySummary: needsReviewOnly (2026-07-27 회귀 가드) ---
+
+    Given("a user filtering the ledger by needs_review") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+
+        When("needsReviewOnly=true is passed") {
+            // needsReviewOnly 는 content 필터 → sumByTypeForCouple(전체 합계) 대신
+            // Specification 경로로 가야 한다. sumByTypeForCouple 을 mock 하지 않았으므로
+            // 그 경로를 타면 mockk 가 예외를 던져 테스트가 실패한다 (= 가드).
+            every {
+                transactionRepository.findAll(
+                    any<org.springframework.data.jpa.domain.Specification<com.budgetbook.transaction.domain.Transaction>>()
+                )
+            } returns emptyList()
+
+            val result = service.getMonthlySummary(
+                userId = user1.id, year = 2026, month = 3, needsReviewOnly = true
+            )
+
+            Then("uses the filtered Specification path so totals match the visible rows") {
+                result.totalIncome shouldBe 0L
+                result.totalExpense shouldBe 0L
+                result.transactionCount shouldBe 0
+                verify(exactly = 2) {
+                    transactionRepository.findAll(
+                        any<org.springframework.data.jpa.domain.Specification<com.budgetbook.transaction.domain.Transaction>>()
+                    )
+                }
+            }
+        }
+    }
+
     // --- getPeriodSummary: filters applied ---
 
     Given("a user for period summary with filters") {
