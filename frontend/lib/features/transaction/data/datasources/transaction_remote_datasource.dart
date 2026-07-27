@@ -6,25 +6,11 @@ import 'package:budget_book/features/transaction/domain/entities/transaction_fil
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
 abstract class TransactionRemoteDataSource {
+  /// 필터는 [TransactionFilter] VO 로만 받는다 (필드 나열 금지 — 전파 누락 방지).
   Future<PageResponse<TransactionModel>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes,
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   });
@@ -45,46 +31,12 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   Future<PageResponse<TransactionModel>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes = const {},
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   }) async {
     // S2 구조적 수정: 개별 필드 인라인 조립 제거, TransactionFilter.toQueryParams() 로 중앙화.
-    // 신규 필터는 TransactionFilter VO + toQueryParams() 한 곳만 수정하면 FE→BE 전달 자동 반영.
-    // PR-C3: 복수 필드(categoryIds 등) 도 여기서 VO 로 묶여 toQueryParams() 로 직렬화됨.
-    final filter = TransactionFilter(
-      keyword: keyword,
-      categoryId: categoryId,
-      categoryIds: categoryIds,
-      categoryGroupIds: categoryGroupIds,
-      paymentMethodId: paymentMethodId,
-      paymentMethodIds: paymentMethodIds,
-      pocketId: pocketId,
-      pocketIds: pocketIds,
-      amountMin: amountMin,
-      amountMax: amountMax,
-      dateFrom: dateFrom,
-      dateTo: dateTo,
-      type: type,
-      transactionTypes: transactionTypes,
-      visibility: visibility,
-      needsReviewOnly: needsReviewOnly,
-    );
+    // 2026-07-27: VO 를 파라미터로 직접 받아 재조립 단계까지 제거 (재조립 = 누락 기회).
     final queryParams = <String, dynamic>{
       'page': page,
       'size': size,

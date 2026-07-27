@@ -10,6 +10,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction.dar
 import 'package:budget_book/features/transaction/domain/entities/transaction_author.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/core/error/failure.dart';
 
 class MockTransactionRepository extends Mock
@@ -18,22 +19,7 @@ class MockTransactionRepository extends Mock
   Future<Either<Failure, PageResponse<Transaction>>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes = const {},
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   }) =>
@@ -41,22 +27,7 @@ class MockTransactionRepository extends Mock
         Invocation.method(#getTransactions, [], {
           #year: year,
           #month: month,
-          #type: type,
-          #transactionTypes: transactionTypes,
-          #categoryId: categoryId,
-          #categoryIds: categoryIds,
-          #categoryGroupIds: categoryGroupIds,
-          #keyword: keyword,
-          #paymentMethodId: paymentMethodId,
-          #paymentMethodIds: paymentMethodIds,
-          #pocketId: pocketId,
-          #pocketIds: pocketIds,
-          #amountMin: amountMin,
-          #amountMax: amountMax,
-          #dateFrom: dateFrom,
-          #dateTo: dateTo,
-          #visibility: visibility,
-          #needsReviewOnly: needsReviewOnly,
+          #filter: filter,
           #page: page,
           #size: size,
         }),
@@ -247,7 +218,7 @@ void main() {
           return transactionBloc;
         },
         act: (bloc) =>
-            bloc.add(const LoadTransactions(year: 2024, month: 1)),
+            bloc.add(LoadTransactions.monthOnly(2024, 1)),
         expect: () => [
           const TransactionLoading(),
           TransactionLoaded(
@@ -266,19 +237,23 @@ void main() {
           when(mockRepository.getTransactions(
             year: 2024,
             month: 1,
-            keyword: 'lunch',
-            amountMin: 5000,
-            amountMax: 20000,
+            filter: const TransactionFilter(
+              keyword: 'lunch',
+              amountMin: 5000,
+              amountMax: 20000,
+            ),
             size: 200,
           )).thenAnswer((_) async => Right(tPageResponse));
           return transactionBloc;
         },
-        act: (bloc) => bloc.add(const LoadTransactions(
-          year: 2024,
-          month: 1,
-          keyword: 'lunch',
-          amountMin: 5000,
-          amountMax: 20000,
+        act: (bloc) => bloc.add(LoadTransactions.fromFilter(
+          2024,
+          1,
+          const TransactionFilter(
+            keyword: 'lunch',
+            amountMin: 5000,
+            amountMax: 20000,
+          ),
         )),
         expect: () => [
           const TransactionLoading(),
@@ -304,7 +279,7 @@ void main() {
           return transactionBloc;
         },
         act: (bloc) =>
-            bloc.add(const LoadTransactions(year: 2024, month: 1)),
+            bloc.add(LoadTransactions.monthOnly(2024, 1)),
         expect: () => [
           const TransactionLoading(),
           const TransactionError('Failed to load transactions'),
@@ -366,7 +341,7 @@ void main() {
         ),
         act: (bloc) {
           // First load to set currentYear/currentMonth
-          bloc.add(const LoadTransactions(year: 2024, month: 1));
+          bloc.add(LoadTransactions.monthOnly(2024, 1));
         },
         skip: 2, // skip Loading and Loaded from LoadTransactions
         verify: (_) {
@@ -402,7 +377,7 @@ void main() {
         },
         act: (bloc) {
           // 5월을 보던 중 (currentYear/Month = 2024/5)
-          bloc.add(const LoadTransactions(year: 2024, month: 5));
+          bloc.add(LoadTransactions.monthOnly(2024, 5));
           // 6월 거래 등록
           bloc.add(const CreateTransaction(
             type: 'EXPENSE',
@@ -566,7 +541,7 @@ void main() {
           return transactionBloc;
         },
         act: (bloc) async {
-          bloc.add(const LoadTransactions(year: 2024, month: 1));
+          bloc.add(LoadTransactions.monthOnly(2024, 1));
           await Future.delayed(const Duration(milliseconds: 100));
           bloc.add(const LoadMoreTransactions());
         },

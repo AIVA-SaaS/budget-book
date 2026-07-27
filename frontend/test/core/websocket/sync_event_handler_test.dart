@@ -25,6 +25,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction.dar
     as tx;
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 class MockTransactionRepository extends Mock
     implements TransactionRepository {}
@@ -40,6 +41,11 @@ class MockCategoryGroupRepository extends Mock
     implements CategoryGroupRepository {}
 
 void main() {
+  // mocktail: any(named: 'filter') 사용을 위한 fallback 등록.
+  setUpAll(() {
+    registerFallbackValue(TransactionFilter.empty);
+  });
+
   late GetIt testGetIt;
   late SyncEventHandler handler;
   late MockTransactionRepository mockTransactionRepo;
@@ -66,9 +72,7 @@ void main() {
     when(() => mockTransactionRepo.getTransactions(
           year: any(named: 'year'),
           month: any(named: 'month'),
-          type: any(named: 'type'),
-          transactionTypes: any(named: 'transactionTypes'),
-          categoryId: any(named: 'categoryId'),
+          filter: any(named: 'filter'),
           page: any(named: 'page'),
           size: any(named: 'size'),
         )).thenAnswer((_) async => const Right(
@@ -177,9 +181,7 @@ void main() {
       verify(() => mockTransactionRepo.getTransactions(
             year: any(named: 'year'),
             month: any(named: 'month'),
-            type: any(named: 'type'),
-            transactionTypes: any(named: 'transactionTypes'),
-            categoryId: any(named: 'categoryId'),
+            filter: any(named: 'filter'),
             page: any(named: 'page'),
             size: any(named: 'size'),
           )).called(1);

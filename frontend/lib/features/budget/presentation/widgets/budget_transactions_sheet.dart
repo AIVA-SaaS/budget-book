@@ -6,6 +6,7 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
@@ -42,14 +43,16 @@ void showBudgetTransactionsSheet({
           // Create a separate TransactionBloc instance for this sheet
           final bloc = TransactionBloc(
             transactionRepository: getIt<TransactionRepository>(),
-          )..add(LoadTransactions(
-              year: year,
-              month: month,
-              categoryId: categoryId,
-              categoryGroupIds:
-                  categoryGroupId != null ? {categoryGroupId} : const {},
-              dateFrom: dateFrom,
-              dateTo: dateTo,
+          )..add(LoadTransactions.fromFilter(
+              year,
+              month,
+              TransactionFilter(
+                categoryId: categoryId,
+                categoryGroupIds:
+                    categoryGroupId != null ? {categoryGroupId} : const {},
+                dateFrom: dateFrom,
+                dateTo: dateTo,
+              ),
             ));
 
           return BlocProvider<TransactionBloc>.value(

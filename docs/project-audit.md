@@ -1,7 +1,7 @@
 # Budget Book - Project Audit Report
 
 > 작성일: 2026-03-12
-> 최종 검증일: 2026-04-01
+> 최종 검증일: 2026-07-27 (라이브 health/마이그레이션/CI 재측정)
 > 목적: 프로젝트 전후 비교 분석 → 개선/추가/리팩토링 필요사항 정리
 > 활용: 추후 개발 요청 시 참고 문서
 
@@ -55,7 +55,7 @@
 | Redis | NAS Redis 7 (redis_bb) | 내부 6380 | Live |
 | CI/CD | GitHub Actions (deploy-nas.yml) | SSH + tar/docker | 동작 중 |
 
-- Flyway 마이그레이션: V1~V41 전체 적용 완료
+- Flyway 마이그레이션: V1~V64 전체 적용 완료 (2026-07-27 라이브 `flyway_schema_history` 확인, V55 결번)
 - 자동 배포: `main` 머지 시 SSH → NAS docker build + run (BE) / SCP 전송 (FE)
 - 배포 URL: https://aiva-bb.duckdns.org
 

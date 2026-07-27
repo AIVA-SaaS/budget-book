@@ -52,7 +52,9 @@ class StatisticsController(
             amountMin = filter.amountMin,
             amountMax = filter.amountMax,
             keyword = filter.keyword,
-            transactionTypes = filter.transactionTypes ?: emptyList()
+            transactionTypes = filter.transactionTypes ?: emptyList(),
+            // 2026-07-27 — 목록과 동일 필터로 합계 계산 (합계 ≠ 행 불일치 fix).
+            needsReviewOnly = filter.needsReviewOnly
         ))
     }
 

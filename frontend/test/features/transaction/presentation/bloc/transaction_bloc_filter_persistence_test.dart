@@ -7,6 +7,7 @@ import 'package:budget_book/features/transaction/domain/repositories/transaction
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_author.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/core/error/failure.dart';
 
 /// 회차 1 (2026-05-26) — Bug 1 회귀 방지:
@@ -22,22 +23,7 @@ class _MockTransactionRepository extends Mock implements TransactionRepository {
   Future<Either<Failure, PageResponse<Transaction>>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes = const {},
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   }) async =>
@@ -97,10 +83,10 @@ void main() {
   group('UpdateTransaction → nav 필터 보존', () {
     test('paymentMethodIds 단일 필터 적용 후 update → currentPaymentMethodIds 보존',
         () async {
-      bloc.add(const LoadTransactions(
-        year: 2026,
-        month: 5,
-        paymentMethodIds: {'pm-7'},
+      bloc.add(LoadTransactions.fromFilter(
+        2026,
+        5,
+        const TransactionFilter(paymentMethodIds: {'pm-7'}),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(bloc.currentPaymentMethodIds, equals({'pm-7'}),
@@ -113,10 +99,10 @@ void main() {
     });
 
     test('categoryId 필터 적용 후 update → currentCategoryId 보존', () async {
-      bloc.add(const LoadTransactions(
-        year: 2026,
-        month: 5,
-        categoryId: 'cat-9',
+      bloc.add(LoadTransactions.fromFilter(
+        2026,
+        5,
+        const TransactionFilter(categoryId: 'cat-9'),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(bloc.currentCategoryId, equals('cat-9'));
@@ -128,10 +114,10 @@ void main() {
     });
 
     test('categoryGroupIds 적용 후 update → currentCategoryGroupIds 보존', () async {
-      bloc.add(const LoadTransactions(
-        year: 2026,
-        month: 5,
-        categoryGroupIds: {'grp-2', 'grp-3'},
+      bloc.add(LoadTransactions.fromFilter(
+        2026,
+        5,
+        const TransactionFilter(categoryGroupIds: {'grp-2', 'grp-3'}),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(bloc.currentCategoryGroupIds, equals({'grp-2', 'grp-3'}));
@@ -143,12 +129,14 @@ void main() {
     });
 
     test('keyword + visibility (content 필터) 동시 보존', () async {
-      bloc.add(const LoadTransactions(
-        year: 2026,
-        month: 5,
-        paymentMethodIds: {'pm-1'},
-        keyword: '점심',
-        visibility: 'INCLUDE_ONLY',
+      bloc.add(LoadTransactions.fromFilter(
+        2026,
+        5,
+        const TransactionFilter(
+          paymentMethodIds: {'pm-1'},
+          keyword: '점심',
+          visibility: 'INCLUDE_ONLY',
+        ),
       ));
       await Future<void>.delayed(const Duration(milliseconds: 30));
 

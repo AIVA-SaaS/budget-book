@@ -67,7 +67,10 @@ class StatisticsService(
         amountMin: Long? = null,
         amountMax: Long? = null,
         keyword: String? = null,
-        transactionTypes: List<String> = emptyList()
+        transactionTypes: List<String> = emptyList(),
+        // 2026-07-27 — 거래 목록에만 적용되고 summary 에는 누락돼 있던 필터.
+        // 목록은 needs_review 만 보여주는데 합계는 전체였다 → "합계 ≠ 보이는 행".
+        needsReviewOnly: Boolean? = null
     ): StatisticsSummaryResponse {
         val couple = getActiveCouple(userId)
         val visFilter = validateVisibility(visibility)
@@ -98,7 +101,8 @@ class StatisticsService(
             amountMin != null ||
             amountMax != null ||
             !keyword.isNullOrBlank() ||
-            effectiveTypes.isNotEmpty()
+            effectiveTypes.isNotEmpty() ||
+            needsReviewOnly == true
 
         val totalIncome: Long
         val totalExpense: Long
@@ -115,7 +119,8 @@ class StatisticsService(
                 visibility = visFilter,
                 categoryIds = effectiveCategoryIds,
                 paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds
+                pocketIds = effectivePocketIds,
+                needsReviewOnly = needsReviewOnly
             )
             val expenseSpec = TransactionSpecifications.withFilters(
                 coupleId = couple.id, startDate = startDate, endDate = endDate,
@@ -125,7 +130,8 @@ class StatisticsService(
                 visibility = visFilter,
                 categoryIds = effectiveCategoryIds,
                 paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds
+                pocketIds = effectivePocketIds,
+                needsReviewOnly = needsReviewOnly
             )
 
             val incomeTransactions = transactionRepository.findAll(incomeSpec)

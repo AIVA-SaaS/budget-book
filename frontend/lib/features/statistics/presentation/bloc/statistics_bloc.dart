@@ -6,6 +6,7 @@ import 'package:budget_book/features/statistics/domain/entities/statistics_filte
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'statistics_event.dart';
 import 'statistics_state.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
   final StatisticsRepository statisticsRepository;
@@ -74,9 +75,11 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
         statisticsRepository.getSummary(
           year: event.year,
           month: event.month,
-          visibility: vis,
-          dateFrom: df,
-          dateTo: dt,
+          filter: TransactionFilter(
+            visibility: vis,
+            dateFrom: df,
+            dateTo: dt,
+          ),
         ),
         statisticsRepository.getCategoryBreakdown(
           year: event.year,
@@ -151,9 +154,11 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       final result = await statisticsRepository.getSummary(
         year: event.year,
         month: event.month,
-        visibility: state.visibilityFilter,
-        dateFrom: state.dateFrom,
-        dateTo: state.dateTo,
+        filter: TransactionFilter(
+          visibility: state.visibilityFilter,
+          dateFrom: state.dateFrom,
+          dateTo: state.dateTo,
+        ),
       );
       result.fold(
         (failure) => emit(state.copyWith(
@@ -257,9 +262,13 @@ class StatisticsBloc extends Bloc<StatisticsEvent, StatisticsState> {
       final vis = state.visibilityFilter;
       final results = await Future.wait([
         statisticsRepository.getSummary(
-            year: event.year, month: event.month, visibility: vis),
+            year: event.year,
+            month: event.month,
+            filter: TransactionFilter(visibility: vis)),
         statisticsRepository.getSummary(
-            year: event.year - 1, month: event.month, visibility: vis),
+            year: event.year - 1,
+            month: event.month,
+            filter: TransactionFilter(visibility: vis)),
       ]);
 
       StatisticsSummary? currentSummary;

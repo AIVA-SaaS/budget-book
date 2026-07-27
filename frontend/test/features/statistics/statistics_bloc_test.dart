@@ -12,6 +12,7 @@ import 'package:budget_book/features/statistics/presentation/bloc/statistics_blo
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_state.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_category.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 class MockStatisticsRepository extends Mock implements StatisticsRepository {}
 
@@ -90,7 +91,10 @@ void main() {
     blocTest<StatisticsBloc, StatisticsState>(
       'emits loading then loaded states when LoadAllStatistics succeeds',
       build: () {
-        when(() => mockRepository.getSummary(year: 2026, month: 3))
+        when(() => mockRepository.getSummary(
+              year: 2026,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
             .thenAnswer((_) async => const Right(testSummary));
         when(() => mockRepository.getCategoryBreakdown(
               year: 2026,
@@ -116,7 +120,10 @@ void main() {
     blocTest<StatisticsBloc, StatisticsState>(
       'emits error state when LoadSummary fails',
       build: () {
-        when(() => mockRepository.getSummary(year: 2026, month: 3))
+        when(() => mockRepository.getSummary(
+              year: 2026,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
             .thenAnswer((_) async =>
                 const Left(ServerFailure('통계 요약을 불러오지 못했습니다')));
         return StatisticsBloc(statisticsRepository: mockRepository);
@@ -200,9 +207,15 @@ void main() {
       blocTest<StatisticsBloc, StatisticsState>(
         'emits comparison data when both years succeed',
         build: () {
-          when(() => mockRepository.getSummary(year: 2026, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2026,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async => const Right(testSummary));
-          when(() => mockRepository.getSummary(year: 2025, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2025,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async => const Right(testPrevYearSummary));
           return StatisticsBloc(statisticsRepository: mockRepository);
         },
@@ -219,9 +232,15 @@ void main() {
       blocTest<StatisticsBloc, StatisticsState>(
         'handles previous year failure gracefully',
         build: () {
-          when(() => mockRepository.getSummary(year: 2026, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2026,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async => const Right(testSummary));
-          when(() => mockRepository.getSummary(year: 2025, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2025,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async =>
                   const Left(ServerFailure('No data')));
           return StatisticsBloc(statisticsRepository: mockRepository);
@@ -239,10 +258,16 @@ void main() {
       blocTest<StatisticsBloc, StatisticsState>(
         'emits error when current year fails',
         build: () {
-          when(() => mockRepository.getSummary(year: 2026, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2026,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async =>
                   const Left(ServerFailure('통계 요약을 불러오지 못했습니다')));
-          when(() => mockRepository.getSummary(year: 2025, month: 3))
+          when(() => mockRepository.getSummary(
+              year: 2025,
+              month: 3,
+              filter: const TransactionFilter(visibility: 'ALL')))
               .thenAnswer((_) async => const Right(testPrevYearSummary));
           return StatisticsBloc(statisticsRepository: mockRepository);
         },

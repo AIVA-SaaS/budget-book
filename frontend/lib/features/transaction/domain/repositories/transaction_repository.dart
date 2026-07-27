@@ -2,27 +2,19 @@ import 'package:dartz/dartz.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 abstract class TransactionRepository {
+  /// 거래 목록 조회.
+  ///
+  /// 필터는 개별 파라미터가 아니라 [TransactionFilter] VO 하나로 받는다.
+  /// bloc → repository → datasource 3-hop 마다 필드를 나열하면 hop 당 누락 기회가
+  /// 생기고, 실제로 "필터 drop" 인시던트가 4회 재발했다. 새 필터 추가 시
+  /// [TransactionFilter] 와 `toQueryParams()` 두 곳만 고치면 전 구간에 반영된다.
   Future<Either<Failure, PageResponse<Transaction>>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes,
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   });

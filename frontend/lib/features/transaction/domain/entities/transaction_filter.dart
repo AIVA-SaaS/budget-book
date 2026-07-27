@@ -1,4 +1,7 @@
 import 'package:equatable/equatable.dart';
+import 'package:intl/intl.dart';
+
+import 'package:budget_book/core/models/unified_filter_state.dart';
 
 /// 거래 목록 필터 상태의 단일 값 객체 (value object).
 ///
@@ -97,7 +100,30 @@ class TransactionFilter extends Equatable {
     Set<String>? transactionTypes,
     String? visibility,
     bool? needsReviewOnly,
+    /// 명시적 기간 필터 해제용. `??` 기반 copyWith 로는 null 을 넣어 지울 수 없으므로
+    /// UnifiedFilterState.copyWith 와 같은 clear 플래그 관례를 따른다.
+    bool clearDateRange = false,
   }) {
+    if (clearDateRange) {
+      return TransactionFilter(
+        keyword: keyword ?? this.keyword,
+        categoryId: categoryId ?? this.categoryId,
+        categoryIds: categoryIds ?? this.categoryIds,
+        categoryGroupIds: categoryGroupIds ?? this.categoryGroupIds,
+        paymentMethodId: paymentMethodId ?? this.paymentMethodId,
+        paymentMethodIds: paymentMethodIds ?? this.paymentMethodIds,
+        pocketId: pocketId ?? this.pocketId,
+        pocketIds: pocketIds ?? this.pocketIds,
+        amountMin: amountMin ?? this.amountMin,
+        amountMax: amountMax ?? this.amountMax,
+        dateFrom: null,
+        dateTo: null,
+        type: type ?? this.type,
+        transactionTypes: transactionTypes ?? this.transactionTypes,
+        visibility: visibility ?? this.visibility,
+        needsReviewOnly: needsReviewOnly ?? this.needsReviewOnly,
+      );
+    }
     return TransactionFilter(
       keyword: keyword ?? this.keyword,
       categoryId: categoryId ?? this.categoryId,
@@ -115,6 +141,42 @@ class TransactionFilter extends Equatable {
       transactionTypes: transactionTypes ?? this.transactionTypes,
       visibility: visibility ?? this.visibility,
       needsReviewOnly: needsReviewOnly ?? this.needsReviewOnly,
+    );
+  }
+
+  /// URL 내비게이션이 **소유하는** 필터(카테고리/그룹/결제수단/포켓 선택)만 통째로
+  /// 덮어쓴다. 인자를 생략하면 해제(wipe) — `copyWith` 의 `??` carry 와 의미가 다르다.
+  ///
+  /// content 필터(keyword·금액·기간·type·visibility·needsReviewOnly)는 항상 보존되므로,
+  /// 새 content 필터를 추가해도 라우터는 수정할 필요가 없다
+  /// (라우터가 필드를 나열하다 needsReviewOnly 를 빠뜨렸던 사고 재발 방지).
+  TransactionFilter withNavigationFilters({
+    String? categoryId,
+    String? paymentMethodId,
+    Set<String> categoryIds = const {},
+    Set<String> categoryGroupIds = const {},
+    Set<String> paymentMethodIds = const {},
+    Set<String> pocketIds = const {},
+  }) {
+    return TransactionFilter(
+      // nav 소유 필드 — 인자 그대로 (null/빈 값 = 해제)
+      categoryId: categoryId,
+      paymentMethodId: paymentMethodId,
+      categoryIds: categoryIds,
+      categoryGroupIds: categoryGroupIds,
+      paymentMethodIds: paymentMethodIds,
+      pocketIds: pocketIds,
+      // content 필드 — 보존
+      keyword: keyword,
+      pocketId: pocketId,
+      amountMin: amountMin,
+      amountMax: amountMax,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      type: type,
+      transactionTypes: transactionTypes,
+      visibility: visibility,
+      needsReviewOnly: needsReviewOnly,
     );
   }
 
@@ -137,6 +199,33 @@ class TransactionFilter extends Equatable {
         visibility,
         needsReviewOnly,
       ];
+}
+
+/// UI 필터 상태(UnifiedFilterState) → 도메인 필터 VO 변환의 **단일** 접근점.
+///
+/// 거래 목록 페이지가 `_filterState` 의 필드를 직접 나열해 LoadTransactions 를 만들면
+/// 새 필터가 추가될 때 화면마다 누락이 생긴다(2026-04-15 인시던트 계열).
+/// 페이지는 이 변환기만 호출하고, 새 필터는 여기 한 곳에 매핑을 추가한다.
+extension UnifiedFilterStateToTransactionFilter on UnifiedFilterState {
+  /// [keywordOverride] — 검색창 텍스트처럼 UI 상태 밖에 있는 키워드를 주입할 때 사용.
+  TransactionFilter toTransactionFilter({String? keywordOverride}) {
+    final fmt = DateFormat('yyyy-MM-dd');
+    return TransactionFilter(
+      keyword: keywordOverride ?? keyword,
+      categoryIds: categoryIds,
+      categoryGroupIds: categoryGroupIds,
+      paymentMethodIds: paymentMethodIds,
+      pocketIds: pocketIds,
+      amountMin: amountMin,
+      amountMax: amountMax,
+      dateFrom: dateFrom != null ? fmt.format(dateFrom!) : null,
+      dateTo: dateTo != null ? fmt.format(dateTo!) : null,
+      transactionTypes: transactionTypes,
+      visibility: visibility,
+      // BE 는 true 일 때만 의미가 있다 (false/null 모두 미적용).
+      needsReviewOnly: needsReviewOnly ? true : null,
+    );
+  }
 }
 
 /// 필터 VO → 네트워크 queryParams 변환의 단일 접근점.

@@ -9,58 +9,92 @@ import java.net.UnixDomainSocketAddress
 import java.nio.channels.SocketChannel
 
 /**
- * Custom Testcontainers Docker strategy for Docker Desktop on macOS.
+ * Custom Testcontainers Docker strategy for Unix-socket Docker runtimes on macOS.
  *
  * Docker Desktop 4.x proxy rejects API version-prefixed requests like /v1.32/info
  * with empty 400 responses. docker-java defaults to v1.32, causing all built-in
  * Testcontainers strategies to fail.
  *
  * This strategy:
- * 1. Verifies the Docker socket exists.
- * 2. Sends a raw /_ping HTTP request (no version prefix) directly over the Unix socket.
- *    Docker Desktop accepts /[no version]/_ping and responds 200, confirming connectivity.
+ * 1. Resolves the first *reachable* Docker socket among several candidates.
+ * 2. Sends a raw /_ping HTTP request (no version prefix) directly over the Unix socket
+ *    to confirm connectivity (the daemon answers /_ping without a version prefix).
  * 3. Returns a TransportConfig that Testcontainers uses to build its Docker client.
- *    The client itself may still use v1.32 for subsequent calls, but those are
- *    executed with a valid, connected socket and Docker Desktop handles them.
+ *
+ * 2026-07-27 — socket path was hardcoded to `/var/run/docker.sock` (Docker Desktop).
+ * On machines whose active runtime is colima/Rancher/podman that symlink is dangling,
+ * so the whole test task failed at Kotest initialization with
+ * "Could not find a valid Docker environment" even though `docker info` worked.
+ * Candidates are now probed in order, with DOCKER_HOST winning when set.
  */
 class HighApiVersionDockerStrategy : DockerClientProviderStrategy() {
 
-    private val socketPath = "/var/run/docker.sock"
+    /**
+     * Socket candidates, highest priority first:
+     * 1. `DOCKER_HOST` when it points at a unix socket (explicit developer intent / CI)
+     * 2. `/var/run/docker.sock` — Docker Desktop, Linux CI, colima with default symlink
+     * 3. colima default socket
+     * 4. Docker Desktop per-user socket
+     * 5. Rancher Desktop per-user socket
+     */
+    private val candidateSocketPaths: List<String> = buildList {
+        System.getenv("DOCKER_HOST")
+            ?.takeIf { it.startsWith("unix://") }
+            ?.removePrefix("unix://")
+            ?.let { add(it) }
+        add("/var/run/docker.sock")
+        val home = System.getProperty("user.home")
+        add("$home/.colima/default/docker.sock")
+        add("$home/.docker/run/docker.sock")
+        add("$home/.rd/docker.sock")
+    }
+
+    /** First candidate that answers /_ping, or null when Docker is unavailable. */
+    private val resolvedSocketPath: String? by lazy {
+        candidateSocketPaths.firstOrNull { ping(it) }
+    }
 
     override fun getTransportConfig(): TransportConfig {
-        if (!java.io.File(socketPath).exists()) {
-            throw InvalidConfigurationException("Docker socket not found at $socketPath")
-        }
+        val socketPath = resolvedSocketPath
+            ?: throw InvalidConfigurationException(
+                "No reachable Docker socket. Tried: ${candidateSocketPaths.joinToString()}"
+            )
         return TransportConfig.builder()
             .dockerHost(URI.create("unix://$socketPath"))
             .build()
     }
 
-    override fun isApplicable(): Boolean = java.io.File(socketPath).exists()
+    override fun isApplicable(): Boolean = resolvedSocketPath != null
 
-    override fun getDescription(): String = "HighApiVersionDockerStrategy (macOS Docker Desktop workaround)"
+    override fun getDescription(): String =
+        "HighApiVersionDockerStrategy (unix socket ${resolvedSocketPath ?: "unresolved"})"
 
     override fun getPriority(): Int = 100
 
     /**
      * Overrides the default test() which calls docker-java's infoCmd (uses /v1.32/info).
      * Instead, sends a raw HTTP GET /_ping to the Unix socket.
-     * Docker Desktop responds 200 to /ping without a version prefix.
      */
-    override fun test(): Boolean {
-        if (!java.io.File(socketPath).exists()) return false
+    override fun test(): Boolean = resolvedSocketPath != null
+
+    private fun ping(socketPath: String): Boolean {
+        val file = java.io.File(socketPath)
+        // Dangling symlink (e.g. Docker Desktop socket while colima is the active
+        // runtime) reports exists() == false, which is exactly what we want to skip.
+        if (!file.exists()) return false
         return try {
             val addr = UnixDomainSocketAddress.of(socketPath)
             SocketChannel.open(addr).use { channel ->
                 val request = "GET /_ping HTTP/1.0\r\nHost: localhost\r\n\r\n"
-                val buf = java.nio.ByteBuffer.wrap(request.toByteArray())
-                channel.write(buf)
+                channel.write(java.nio.ByteBuffer.wrap(request.toByteArray()))
                 val response = java.nio.ByteBuffer.allocate(256)
                 channel.read(response)
-                val responseStr = String(response.array(), 0, response.position())
-                responseStr.contains("200 OK")
+                String(response.array(), 0, response.position()).contains("200 OK")
             }
         } catch (_: IOException) {
+            false
+        } catch (_: UnsupportedOperationException) {
+            // Platform without unix-domain socket support.
             false
         }
     }

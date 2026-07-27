@@ -355,10 +355,9 @@ class SpendingPlanBloc extends Bloc<SpendingPlanEvent, SpendingPlanState> {
             final txDate = DateTime.tryParse(event.transactionDate);
             final year = txDate?.year ?? DateTime.now().year;
             final month = txDate?.month ?? DateTime.now().month;
-            getIt<TransactionBloc>().add(LoadTransactions(
-              year: year,
-              month: month,
-            ));
+            getIt<TransactionBloc>().add(
+              LoadTransactions.monthOnly(year, month),
+            );
           } catch (_) {
             // TransactionBloc might not be registered yet
           }

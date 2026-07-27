@@ -246,9 +246,9 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
           // 정산 이체가 사는 결제일의 달로 거래/이체 BLoC 을 함께 로드해 두
           // BLoC 의 월을 일치시킨다 (과거: TransferBloc 미갱신 → 탭 재진입 전까지
           // 정산 이체 미노출).
-          getIt<TransactionBloc>().add(LoadTransactions(
-            year: _selectedDate.year,
-            month: _selectedDate.month,
+          getIt<TransactionBloc>().add(LoadTransactions.monthOnly(
+            _selectedDate.year,
+            _selectedDate.month,
           ));
           getIt<TransferBloc>().add(LoadTransfers(
             year: _selectedDate.year,
