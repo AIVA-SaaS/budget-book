@@ -10,6 +10,12 @@ import java.util.UUID
 
 interface SpendingPlanRepository : JpaRepository<SpendingPlan, UUID> {
 
+    /**
+     * 이 거래에 연결된 계획이 있는지. 거래→이체 변환 가드용
+     * (`linked_transaction_id` FK 에 ON DELETE 가 없어 그냥 지우면 무결성 오류).
+     */
+    fun existsByLinkedTransactionId(transactionId: UUID): Boolean
+
     @Query("""
         SELECT sp FROM SpendingPlan sp
         LEFT JOIN FETCH sp.category c

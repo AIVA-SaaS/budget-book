@@ -19,6 +19,7 @@ import com.budgetbook.paymentmethod.repository.PaymentMethodRepository
 import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.smart.service.PatternLearningService
 import com.budgetbook.transaction.domain.Transaction
+import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CreateTransactionRequest
@@ -55,7 +56,10 @@ class TransactionServiceTest : BehaviorSpec({
     // V65 — 목록 응답의 정산 배지 벌크 조회. 기본은 "정산 기록 없음".
     val reconciliationLookup =
         mockk<com.budgetbook.reconciliation.service.ReconciliationLookup>(relaxed = true)
-    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService, transferRepository, reconciliationLookup)
+    val transferService = mockk<com.budgetbook.transfer.service.TransferService>()
+    val spendingPlanRepository =
+        mockk<com.budgetbook.spendingplan.repository.SpendingPlanRepository>(relaxed = true)
+    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService, transferRepository, reconciliationLookup, transferService, spendingPlanRepository)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
@@ -1166,6 +1170,196 @@ class TransactionServiceTest : BehaviorSpec({
                 }
                 ex.code shouldBe "VALIDATION_ERROR"
                 verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+    }
+
+    // --- 유형 변경 / 이체 변환 (2026-07-27) ---
+
+    Given("수입↔지출 유형 변경") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { reconciliationLookup.refsForTransactions(any()) } returns emptyMap()
+
+        When("지출 거래를 수입으로 바꾸면 (카테고리 없음)") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 15000, description = "환불", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            every { transactionRepository.save(tx) } returns tx
+
+            val result = service.updateTransaction(
+                user1.id, tx.id, UpdateTransactionRequest(type = "INCOME")
+            )
+
+            Then("유형이 바뀐다") {
+                result.type shouldBe "INCOME"
+            }
+        }
+
+        When("지출 카테고리를 그대로 두고 수입으로 바꾸면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 15000, description = "점심", category = category,
+                transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            every { transactionRepository.save(tx) } returns tx
+
+            Then("VALIDATION_ERROR — 카테고리를 함께 바꿔야 한다") {
+                // 유형만 바꾸고 지출 카테고리를 남기면 분류가 어긋난 채 저장된다.
+                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateTransaction(user1.id, tx.id, UpdateTransactionRequest(type = "INCOME"))
+                }
+                ex.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+
+        When("잔액 수정(ADJUSTMENT) 을 지출로 바꾸려 하면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.ADJUSTMENT,
+                amount = -3000, description = "잔액 조정", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+
+            Then("VALIDATION_ERROR") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateTransaction(user1.id, tx.id, UpdateTransactionRequest(type = "EXPENSE"))
+                }.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("정산에 기록된 거래의 유형을 바꾸려 하면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 15000, description = "점심", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            every { reconciliationLookup.refsForTransactions(listOf(tx.id)) } returns mapOf(
+                tx.id to com.budgetbook.reconciliation.dto.ReconciliationRef(
+                    reconciliationId = UUID.randomUUID(),
+                    reconciliationSeq = 1,
+                    reconciledAt = java.time.Instant.now()
+                )
+            )
+
+            Then("VALIDATION_ERROR — 스냅샷 분류 이력이 흔들린다") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.updateTransaction(user1.id, tx.id, UpdateTransactionRequest(type = "INCOME"))
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.save(any()) }
+            }
+        }
+    }
+
+    Given("거래 → 이체 변환") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { reconciliationLookup.refsForTransactions(any()) } returns emptyMap()
+        every { spendingPlanRepository.existsByLinkedTransactionId(any()) } returns false
+
+        val srcId = UUID.randomUUID()
+        val dstId = UUID.randomUUID()
+
+        fun convertRequest() = com.budgetbook.transaction.dto.ConvertToTransferRequest(
+            sourcePaymentMethodId = srcId,
+            destinationPaymentMethodId = dstId
+        )
+
+        When("일반 지출 거래를 이체로 바꾸면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 50000, description = "계좌 이동", memo = "메모",
+                transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            every { transactionRepository.delete(tx) } returns Unit
+            val created = slot<com.budgetbook.transfer.dto.CreateTransferRequest>()
+            every { transferService.createTransfer(user1.id, capture(created)) } returns
+                mockk(relaxed = true)
+
+            service.convertToTransfer(user1.id, tx.id, convertRequest())
+
+            Then("원본 값을 승계한 이체가 만들어지고 거래는 삭제된다") {
+                created.captured.amount shouldBe 50000
+                created.captured.description shouldBe "계좌 이동"
+                created.captured.memo shouldBe "메모"
+                created.captured.transferDate shouldBe LocalDate.of(2026, 7, 15)
+                verify { transactionRepository.delete(tx) }
+            }
+
+            Then("거래 삭제 이벤트도 발행된다 (장부는 두 스트림 병합)") {
+                val events = mutableListOf<SyncEvent>()
+                verify { syncEventPublisher.publish(capture(events)) }
+                events.any { it.type == "TRANSACTION_DELETED" } shouldBe true
+            }
+        }
+
+        When("잔액 수정을 이체로 바꾸려 하면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.ADJUSTMENT,
+                amount = -3000, description = "잔액 조정", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+
+            Then("VALIDATION_ERROR") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertToTransfer(user1.id, tx.id, convertRequest())
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.delete(any<Transaction>()) }
+            }
+        }
+
+        When("카드 결제에 연결된 거래를 이체로 바꾸려 하면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 50000, description = "카드 지출", transactionDate = LocalDate.of(2026, 7, 15),
+                settlementTransferId = UUID.randomUUID()
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+
+            Then("VALIDATION_ERROR") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertToTransfer(user1.id, tx.id, convertRequest())
+                }.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("지출 계획에 연결된 거래를 이체로 바꾸려 하면") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 50000, description = "계획 지출", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            every { spendingPlanRepository.existsByLinkedTransactionId(tx.id) } returns true
+
+            Then("VALIDATION_ERROR — FK 위반으로 터지기 전에 막는다") {
+                // spending_plans.linked_transaction_id 에 ON DELETE 가 없어서
+                // 가드가 없으면 500(무결성 오류)이 난다.
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertToTransfer(user1.id, tx.id, convertRequest())
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.delete(any<Transaction>()) }
+            }
+        }
+
+        When("이체 생성이 실패하면 (예: 카드 간 이체, 같은 결제수단)") {
+            val tx = Transaction(
+                couple = couple, author = user1, type = TransactionType.EXPENSE,
+                amount = 50000, description = "지출", transactionDate = LocalDate.of(2026, 7, 15)
+            )
+            every { transactionRepository.findById(tx.id) } returns Optional.of(tx)
+            // 결제수단 조합 검증은 이체 생성 경로가 단일 소스다 (여기서 또 검사하지 않는다).
+            every { transferService.createTransfer(user1.id, any()) } throws
+                com.budgetbook.common.exception.BusinessException(
+                    "VALIDATION_ERROR", "Source and destination payment methods must be different."
+                )
+
+            Then("원본 거래는 지워지지 않는다 (원자성)") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertToTransfer(user1.id, tx.id, convertRequest())
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.delete(any<Transaction>()) }
             }
         }
     }

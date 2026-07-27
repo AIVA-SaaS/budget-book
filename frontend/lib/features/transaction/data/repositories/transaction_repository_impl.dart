@@ -7,6 +7,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction.dar
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final TransactionRemoteDataSource remoteDataSource;
@@ -86,6 +87,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Either<Failure, Transaction>> updateTransaction({
     required String id,
+    String? type,
     int? amount,
     String? description,
     String? categoryId,
@@ -98,6 +100,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }) async {
     try {
       final data = <String, dynamic>{
+        // 유형 변경 (수입↔지출). 서버가 카테고리 정합성·정산 기록 여부를 검증한다.
+        if (type != null) 'type': type,
         if (amount != null) 'amount': amount,
         if (description != null) 'description': description,
         if (categoryId != null) 'categoryId': categoryId,
@@ -114,6 +118,37 @@ class TransactionRepositoryImpl implements TransactionRepository {
       return Left(mapDioError(e, 'Failed to update transaction'));
     } catch (e) {
       return const Left(ServerFailure('Failed to update transaction'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Transfer>> convertToTransfer({
+    required String id,
+    required String sourcePaymentMethodId,
+    required String destinationPaymentMethodId,
+    String? kind,
+    int? amount,
+    String? transferDate,
+    String? description,
+    String? memo,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'sourcePaymentMethodId': sourcePaymentMethodId,
+        'destinationPaymentMethodId': destinationPaymentMethodId,
+        // 생략한 값은 서버가 원본 거래에서 승계한다 — 여기서 채우지 않는다.
+        if (kind != null) 'kind': kind,
+        if (amount != null) 'amount': amount,
+        if (transferDate != null) 'transferDate': transferDate,
+        if (description != null) 'description': description,
+        if (memo != null) 'memo': memo,
+      };
+      final result = await remoteDataSource.convertToTransfer(id, data);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, 'Failed to convert transaction to transfer'));
+    } catch (e) {
+      return const Left(ServerFailure('Failed to convert transaction to transfer'));
     }
   }
 

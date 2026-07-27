@@ -88,6 +88,15 @@ data class CreateTransactionRequest(
 )
 
 data class UpdateTransactionRequest(
+    /**
+     * 거래 유형 변경 (2026-07-27). null = 미변경.
+     *
+     * `EXPENSE` ↔ `INCOME` 만 가능하다. `ADJUSTMENT` 는 잔액 보정 전용이라 일반 거래와
+     * 상호 전환하지 않고, **이체로의 변경은 테이블이 달라** 별도 엔드포인트를 쓴다
+     * (`POST /transactions/{id}/convert-to-transfer`).
+     */
+    val type: String? = null,
+
     // Phase 22 T11: @Min(0) 제거. ADJUSTMENT 는 잔액 하향 조정 시 음수 필요.
     // 부호 검증은 TransactionService 에서 type 별로 수행한다.
     @field:Min(-999_999_999)
@@ -177,4 +186,34 @@ data class SettlementTransactionItem(
      * to the settlement being edited.
      */
     val settlementTransferId: UUID? = null
+)
+
+/**
+ * 거래 → 이체 변환 요청 (2026-07-27).
+ *
+ * 거래와 이체는 테이블이 달라 `PATCH /transactions/{id}` 로는 유형을 바꿀 수 없다.
+ * 이 요청은 **원본 거래를 지우고 같은 내용의 이체를 만드는** 한 번의 원자적 작업이다.
+ * 금액·날짜·설명·메모를 생략하면 원본 값을 승계한다.
+ */
+data class ConvertToTransferRequest(
+    @field:NotNull
+    val sourcePaymentMethodId: UUID,
+
+    @field:NotNull
+    val destinationPaymentMethodId: UUID,
+
+    /** 생략 시 결제수단 조합으로 자동 판정 (TransferKindResolver). */
+    val kind: String? = null,
+
+    @field:Min(1)
+    @field:Max(999_999_999)
+    val amount: Long? = null,
+
+    val transferDate: LocalDate? = null,
+
+    @field:Size(max = 255)
+    val description: String? = null,
+
+    @field:Size(max = 1000)
+    val memo: String? = null
 )

@@ -37,9 +37,13 @@ class Transaction(
     @JoinColumn(name = "category_id")
     var category: Category? = null,
 
+    /**
+     * 2026-07-27 — `val` → `var`. 수정 화면에서 수입↔지출 전환을 지원한다
+     * (`ADJUSTMENT` 와의 상호 전환과 정산 기록된 거래는 서비스에서 막는다).
+     */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    val type: TransactionType,
+    var type: TransactionType,
 
     @Column(nullable = false)
     var amount: Long,

@@ -129,6 +129,9 @@ class CreateTransaction extends TransactionEvent {
 
 class UpdateTransaction extends TransactionEvent {
   final String id;
+  /// 수입↔지출 유형 변경 (2026-07-27). null = 미변경.
+  /// 이체로 바꾸는 건 테이블이 달라 [ConvertTransactionToTransfer] 를 쓴다.
+  final String? type;
   final int? amount;
   final String? description;
   final String? categoryId;
@@ -142,6 +145,7 @@ class UpdateTransaction extends TransactionEvent {
 
   const UpdateTransaction({
     required this.id,
+    this.type,
     this.amount,
     this.description,
     this.categoryId,
@@ -155,7 +159,7 @@ class UpdateTransaction extends TransactionEvent {
 
   @override
   List<Object?> get props =>
-      [id, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId, needsReview];
+      [id, type, amount, description, categoryId, transactionDate, memo, clearMemo, paymentMethodId, pocketId, needsReview];
 }
 
 class LoadMoreTransactions extends TransactionEvent {
