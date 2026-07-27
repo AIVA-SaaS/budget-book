@@ -143,6 +143,13 @@ The current backend accepts only the singular `type` query parameter (see §Tran
   - [Update Transfer](#4-update-transfer)
   - [Delete Transfer](#5-delete-transfer)
   - [Edit Card Settlement Transfer](#6-edit-card-settlement-transfer)
+- [Reconciliations (정산 스냅샷)](#reconciliations-정산-스냅샷)
+  - [List Reconciliations](#1-list-reconciliations)
+  - [Get Reconciliation](#2-get-reconciliation)
+  - [Create Reconciliation](#3-create-reconciliation)
+  - [Update Reconciliation](#4-update-reconciliation)
+  - [Delete Reconciliation](#5-delete-reconciliation)
+  - [Reconciliation Summary](#6-reconciliation-summary)
 - [Insurances](#insurances)
   - [List Insurances](#1-list-insurances)
   - [Create Insurance](#2-create-insurance)
@@ -3547,6 +3554,308 @@ This endpoint is the **only** supported way to modify source, destination, amoun
 
 ---
 
+## Reconciliations (정산 스냅샷)
+
+Base path: `/api/v1/reconciliations`
+
+All endpoints require the `Authorization: Bearer {accessToken}` header.
+
+장부를 대조(정산)한 시점의 **스냅샷**을 기록한다. 사용자가 확인을 마친 장부 항목(거래 + 이체)을
+선택해 "정산 완료" 하면 그 순간의 금액·날짜·설명이 스냅샷 항목으로 보존되고, 어떤 스냅샷에도
+담기지 않은 항목은 **미기록(unrecorded)** 으로 남아 월말에 누락 점검에 쓰인다.
+
+**이름이 비슷한 세 개념 구분**
+
+| 개념 | 저장소 | 의미 |
+|:---|:---|:---|
+| 정산 스냅샷 (이 섹션) | `reconciliations` / `reconciliation_items` | 장부 대조 이력 |
+| 카드 결제 | `transfers.kind = CARD_SETTLEMENT` | 카드 대금 결제 이체 |
+| 주간 예산 정산 | `weekly_budget_settlements` | 주간 예산 마감 |
+
+**불변식**
+
+- 한 장부 항목은 **최대 1개** 스냅샷에만 속한다 (DB partial unique index 로 강제).
+  따라서 `미기록`과 `기록됨`은 상호배타이며 그 합은 해당 월 전체 항목이다.
+- 스냅샷을 삭제하면 그 항목들은 다시 미기록이 된다.
+- 스냅샷은 **불변 기록**이다. 원본 거래/이체가 나중에 수정·삭제돼도 스냅샷의 금액·날짜는
+  그대로 남고, 응답의 `changedAfterReconcile` / `originDeleted` 플래그로 차이를 알린다.
+- 조회자가 볼 수 없는 항목(파트너의 `PRIVATE`)은 목록에서 제외되며, **소계도 게이팅 후 재계산**
+  되어 표시된 행과 합계가 항상 일치한다.
+
+**집계 규칙** (거래 목록/통계와 동일)
+
+- `Transaction(INCOME)` → `totalIncome`, `Transaction(EXPENSE)` → `totalExpense`
+- `Transaction(ADJUSTMENT)` → 수입/지출 모두 제외
+- `Transfer(EXPENSE_TRANSFER)` → `totalExpense`, `Transfer(INCOME_TRANSFER)` → `totalIncome`
+- `Transfer(GENERIC)` → `totalTransfer`
+- `Transfer(CARD_SETTLEMENT)` → 전 버킷 제외 (원본 지출이 이미 집계됨)
+
+---
+
+### 1. List Reconciliations
+
+해당 월의 스냅샷 헤더 목록. 최신 회차(`seq`) 먼저.
+
+| Item        | Value                          |
+|:------------|:-------------------------------|
+| **Method**  | `GET`                          |
+| **Path**    | `/api/v1/reconciliations`      |
+| **Auth**    | Required                       |
+
+**Query Parameters**
+
+| Parameter | Type      | Required | Description               |
+|:----------|:----------|:--------:|:--------------------------|
+| `year`    | `integer` | Yes      | 정산 대상 연도 (2000-2100) |
+| `month`   | `integer` | Yes      | 정산 대상 월 (1-12)        |
+
+**Response `200 OK`**: `ApiResponse<List<ReconciliationResponse>>`
+
+| Field            | Type          | Description                                              |
+|:-----------------|:--------------|:---------------------------------------------------------|
+| `id`             | `UUID`        |                                                          |
+| `yearMonth`      | `string`      | `YYYY-MM`                                                |
+| `seq`            | `integer`     | 월 내 회차 (1부터)                                        |
+| `label`          | `string`/null | 사용자 메모 (예: `"1차"`)                                 |
+| `itemCount`      | `integer`     | 조회자가 볼 수 있는 항목 수                                |
+| `totalIncome`    | `integer`     | 게이팅 후 재계산된 수입 소계                               |
+| `totalExpense`   | `integer`     | 게이팅 후 재계산된 지출 소계                               |
+| `totalTransfer`  | `integer`     | 게이팅 후 재계산된 이체 소계                               |
+| `reconciledAt`   | `datetime`    | 정산 시각                                                 |
+| `reconciledBy`   | `UserSummary` | 정산한 사용자                                             |
+| `hasChangedItems`| `boolean`     | 정산 후 원본이 수정된 항목이 하나라도 있으면 `true`         |
+| `hasDeletedItems`| `boolean`     | 원본이 삭제된 항목이 하나라도 있으면 `true`                |
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440300",
+      "yearMonth": "2026-07",
+      "seq": 2,
+      "label": "2차",
+      "itemCount": 8,
+      "totalIncome": 0,
+      "totalExpense": 120000,
+      "totalTransfer": 0,
+      "reconciledAt": "2026-07-20T14:03:00Z",
+      "reconciledBy": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "nickname": "홍길동",
+        "profileImageUrl": null
+      },
+      "hasChangedItems": false,
+      "hasDeletedItems": false
+    }
+  ],
+  "timestamp": "2026-07-27T10:00:00Z"
+}
+```
+
+---
+
+### 2. Get Reconciliation
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `GET`                            |
+| **Path**    | `/api/v1/reconciliations/{id}`   |
+| **Auth**    | Required                         |
+
+**Response `200 OK`**: `ApiResponse<ReconciliationDetailResponse>`
+
+헤더 필드(위와 동일) + `items`:
+
+| Field                   | Type            | Description                                                     |
+|:------------------------|:----------------|:----------------------------------------------------------------|
+| `itemId`                | `UUID`          | 스냅샷 항목 id (제외 시 `removeItemIds` 에 사용)                  |
+| `itemKind`              | `enum`          | `TRANSACTION` / `TRANSFER`                                      |
+| `refId`                 | `UUID`/null     | 원본 거래/이체 id. 원본 삭제 시 `null`                            |
+| `snapshotAmount`        | `integer`       | 정산 시점 금액                                                   |
+| `snapshotDate`          | `date`          | 정산 시점 거래일                                                 |
+| `snapshotDescription`   | `string`/null   | 정산 시점 설명                                                   |
+| `snapshotKind`          | `string`        | `INCOME`/`EXPENSE`/`ADJUSTMENT` 또는 `TransferKind`              |
+| `currentAmount`         | `integer`/null  | 현재 원본 금액. 삭제됐으면 `null`                                 |
+| `currentDate`           | `date`/null     | 현재 원본 거래일                                                 |
+| `changedAfterReconcile` | `boolean`       | 금액 또는 날짜가 스냅샷과 다르면 `true`                           |
+| `originDeleted`         | `boolean`       | 원본이 삭제됐으면 `true`                                          |
+
+**Error Responses**
+
+| Status | Error Code                  | Description                                  |
+|:------:|:----------------------------|:---------------------------------------------|
+| `404`  | `RECONCILIATION_NOT_FOUND`  | 존재하지 않거나 다른 커플의 스냅샷            |
+
+---
+
+### 3. Create Reconciliation
+
+선택한 항목들로 새 스냅샷을 만든다. 회차(`seq`)는 서버가 해당 월의 `max(seq) + 1` 로 부여한다.
+
+| Item        | Value                       |
+|:------------|:----------------------------|
+| **Method**  | `POST`                      |
+| **Path**    | `/api/v1/reconciliations`   |
+| **Auth**    | Required                    |
+| **Returns** | `201 Created`               |
+| **Rate**    | 30 requests / 60s           |
+
+**Request Body**
+
+| Field            | Type       | Required | Constraints          | Description                          |
+|:-----------------|:-----------|:--------:|:---------------------|:-------------------------------------|
+| `yearMonth`      | `string`   | Yes      | `YYYY-MM`            | 정산 대상 월                          |
+| `label`          | `string`   | No       | max=100              | 사용자 메모                           |
+| `transactionIds` | `UUID[]`   | No       | —                    | 정산에 담을 거래 id                    |
+| `transferIds`    | `UUID[]`   | No       | —                    | 정산에 담을 이체 id                    |
+
+`transactionIds` 와 `transferIds` 를 합쳐 **1건 이상, 1000건 이하**여야 한다.
+
+**Request Example**
+
+```json
+{
+  "yearMonth": "2026-07",
+  "label": "1차",
+  "transactionIds": [
+    "550e8400-e29b-41d4-a716-446655440030",
+    "550e8400-e29b-41d4-a716-446655440031"
+  ],
+  "transferIds": ["550e8400-e29b-41d4-a716-446655440200"]
+}
+```
+
+**Response `201 Created`**: `ApiResponse<ReconciliationDetailResponse>`
+
+**Error Responses**
+
+| Status | Error Code             | Description                                                     |
+|:------:|:-----------------------|:----------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR`     | 빈 선택 / 1000건 초과 / `yearMonth` 형식 오류                     |
+| `400`  | `VALIDATION_ERROR`     | 항목의 날짜가 `yearMonth` 와 다른 달                              |
+| `403`  | `FORBIDDEN`            | 다른 커플의 항목, 또는 파트너의 `PRIVATE` 항목                    |
+| `404`  | `TRANSACTION_NOT_FOUND` / `TRANSFER_NOT_FOUND` | 존재하지 않는 항목                |
+| `409`  | `ALREADY_RECONCILED`   | 이미 다른 스냅샷에 기록된 항목이 포함됨 (부부 동시 정산 경합 포함) |
+
+---
+
+### 4. Update Reconciliation
+
+라벨 수정 + 항목 추가/제외.
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `PATCH`                          |
+| **Path**    | `/api/v1/reconciliations/{id}`   |
+| **Auth**    | Required                         |
+| **Rate**    | 30 requests / 60s                |
+
+**Request Body** (모든 필드 선택 — 생략 시 미변경)
+
+| Field               | Type      | Description                                  |
+|:--------------------|:----------|:---------------------------------------------|
+| `label`             | `string`  | 라벨 변경 (`""` 은 빈 라벨)                   |
+| `addTransactionIds` | `UUID[]`  | 추가할 거래 id                                |
+| `addTransferIds`    | `UUID[]`  | 추가할 이체 id                                |
+| `removeItemIds`     | `UUID[]`  | 제외할 **스냅샷 항목 id**(`items[].itemId`)    |
+
+제외된 항목은 미기록으로 복귀한다. 항목 변경 시 헤더 소계(`itemCount`/`total*`)가 재계산된다.
+모든 항목을 제외하면 스냅샷 자체가 삭제된다(빈 스냅샷은 남기지 않는다).
+
+**Response `200 OK`**: `ApiResponse<ReconciliationDetailResponse>`
+
+**Error Responses**: Create 와 동일 + `404 RECONCILIATION_NOT_FOUND`
+
+---
+
+### 5. Delete Reconciliation
+
+| Item        | Value                            |
+|:------------|:---------------------------------|
+| **Method**  | `DELETE`                         |
+| **Path**    | `/api/v1/reconciliations/{id}`   |
+| **Auth**    | Required                         |
+| **Returns** | `204 No Content`                 |
+| **Rate**    | 30 requests / 60s                |
+
+스냅샷과 그 항목이 삭제되고, 담겨 있던 거래/이체는 미기록으로 복귀한다. 원본 거래/이체 자체는
+삭제되지 않는다.
+
+**Error Responses**
+
+| Status | Error Code                  | Description                       |
+|:------:|:----------------------------|:----------------------------------|
+| `404`  | `RECONCILIATION_NOT_FOUND`  | 존재하지 않거나 다른 커플의 스냅샷 |
+
+---
+
+### 6. Reconciliation Summary
+
+월말 누락 점검용 요약. 홈/거래 화면의 "미기록 N건" 배지가 사용한다.
+
+| Item        | Value                                  |
+|:------------|:---------------------------------------|
+| **Method**  | `GET`                                  |
+| **Path**    | `/api/v1/reconciliations/summary`      |
+| **Auth**    | Required                               |
+
+**Query Parameters**: `year` (required), `month` (required)
+
+**Response `200 OK`**: `ApiResponse<ReconciliationSummaryResponse>`
+
+| Field                | Type      | Description                                        |
+|:---------------------|:----------|:---------------------------------------------------|
+| `yearMonth`          | `string`  | `YYYY-MM`                                          |
+| `snapshotCount`      | `integer` | 그 달의 스냅샷 개수                                 |
+| `recordedCount`      | `integer` | 스냅샷에 기록된 항목 수                              |
+| `unrecordedCount`    | `integer` | 미기록 항목 수 (0 이면 그 달 정산 완료)              |
+| `unrecordedIncome`   | `integer` | 미기록 수입 소계                                    |
+| `unrecordedExpense`  | `integer` | 미기록 지출 소계                                    |
+| `unrecordedTransfer` | `integer` | 미기록 이체 소계                                    |
+| `needsReviewCount`   | `integer` | 미기록 항목 중 `needsReview=true` 인 거래 수         |
+
+```json
+{
+  "success": true,
+  "data": {
+    "yearMonth": "2026-07",
+    "snapshotCount": 2,
+    "recordedCount": 23,
+    "unrecordedCount": 12,
+    "unrecordedIncome": 0,
+    "unrecordedExpense": 340000,
+    "unrecordedTransfer": 50000,
+    "needsReviewCount": 3
+  },
+  "timestamp": "2026-07-27T10:00:00Z"
+}
+```
+
+---
+
+### 7. Reconciliation filter on ledger endpoints
+
+정산 상태는 거래/이체 목록에서도 필터·표시할 수 있다. **두 스트림 모두** 동일 파라미터를 지원한다
+(거래 목록은 페이지네이션되므로, 미기록 판정을 클라이언트에서 하면 미로드 페이지의 항목이 누락된다
+→ 반드시 서버 필터를 사용할 것).
+
+**추가 쿼리 파라미터** (`GET /api/v1/transactions`, `GET /api/v1/transfers`)
+
+| Parameter    | Type      | Description                                                     |
+|:-------------|:----------|:----------------------------------------------------------------|
+| `reconciled` | `boolean` | `false` = 미기록만, `true` = 기록된 것만. 생략 = 전체            |
+
+**추가 응답 필드** (`TransactionResponse`, `TransferResponse`)
+
+| Field               | Type          | Description                                        |
+|:--------------------|:--------------|:---------------------------------------------------|
+| `reconciliationId`  | `UUID`/null   | 이 항목이 속한 스냅샷 id. 미기록이면 `null`         |
+| `reconciliationSeq` | `integer`/null| 스냅샷 회차 (배지에 "N차" 표시용)                   |
+| `reconciledAt`      | `datetime`/null | 정산 시각                                         |
+
+---
+
 ## Insurances
 
 Insurance policy management for the couple. Each insurance record tracks a recurring premium payment. The `visibility` field follows the same `SHARED`/`PRIVATE` semantics used across other entities.
@@ -5294,3 +5603,5 @@ Permanently removes a user and all data they own from the database. This operati
 | `EMAIL_REQUIRED_FOR_COUPLE`       | `400`       | Email registration is required before linking a partner              |
 | `EMAIL_ALREADY_IN_USE`            | `400`       | Email is already used by another account                             |
 | `INVALID_EMAIL`                   | `400`       | Invalid email (placeholder domain not allowed)                       |
+| `RECONCILIATION_NOT_FOUND`        | `404`       | Requested reconciliation snapshot does not exist or belongs to another couple |
+| `ALREADY_RECONCILED`              | `409`       | One or more selected ledger items already belong to another reconciliation snapshot |

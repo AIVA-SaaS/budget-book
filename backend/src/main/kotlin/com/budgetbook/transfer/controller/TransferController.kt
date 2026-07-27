@@ -91,9 +91,11 @@ class TransferController(
     fun listTransfers(
         @AuthUser userId: UUID,
         @RequestParam year: Int,
-        @RequestParam month: Int
+        @RequestParam month: Int,
+        // V65 — 정산 필터. 거래 목록(`GET /transactions?reconciled=`) 과 동일 의미.
+        @RequestParam(required = false) reconciled: Boolean? = null
     ): ApiResponse<List<TransferResponse>> {
-        return ApiResponse.ok(transferService.listTransfers(userId, year, month))
+        return ApiResponse.ok(transferService.listTransfers(userId, year, month, reconciled))
     }
 
     @GetMapping("/{id}")

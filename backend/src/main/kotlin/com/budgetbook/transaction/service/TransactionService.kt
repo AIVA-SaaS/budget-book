@@ -26,6 +26,7 @@ import com.budgetbook.sync.SyncEvent
 import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.repository.TransactionSpecifications
+import com.budgetbook.reconciliation.service.ReconciliationLookup
 import com.budgetbook.transfer.repository.TransferRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
@@ -46,7 +47,9 @@ class TransactionService(
     private val moneyPocketRepository: MoneyPocketRepository,
     private val syncEventPublisher: SyncEventPublisher,
     private val patternLearningService: PatternLearningService,
-    private val transferRepository: TransferRepository
+    private val transferRepository: TransferRepository,
+    // V65 — 목록 응답의 정산 배지용 벌크 조회 (조회 전용 좁은 컴포넌트).
+    private val reconciliationLookup: ReconciliationLookup
 ) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -78,7 +81,11 @@ class TransactionService(
         // 단수 `type` 과 병존 시 `transactionTypes` 우선 (FE toQueryParams 와 일치).
         transactionTypes: List<String>? = null,
         // V61 (2026-05-06) — true 면 needs_review=true 거래만.
-        needsReviewOnly: Boolean? = null
+        needsReviewOnly: Boolean? = null,
+        // V65 (2026-07-27) — 정산 스냅샷 필터. false=미기록만 / true=기록된 것만 / null=전체.
+        // 페이지네이션 하에서 미기록 판정을 FE 가 하면 미로드 페이지 항목이 누락되므로
+        // 반드시 서버에서 건다.
+        reconciled: Boolean? = null
     ): PageResponse<TransactionResponse> {
         val couple = getActiveCouple(userId)
 
@@ -157,7 +164,9 @@ class TransactionService(
         val hasExtendedFilters = keyword != null || paymentMethodId != null ||
             pocketId != null || amountMin != null || amountMax != null ||
             visibilityFilter != null || hasMultiFilters ||
-            needsReviewOnly == true
+            needsReviewOnly == true ||
+            // legacy JPQL 경로는 정산 서브쿼리를 모른다 → Spec 경로로 강제.
+            reconciled != null
 
         val result = if (hasExtendedFilters) {
             // 단수 categoryId 는 Set 에 이미 합쳐졌으므로 Spec 에는 Set 만 전달 (중복 조건 방지).
@@ -184,7 +193,8 @@ class TransactionService(
                 paymentMethodIds = effectivePaymentMethodIds,
                 pocketIds = effectivePocketIds,
                 types = effectiveTransactionTypes,
-                needsReviewOnly = needsReviewOnly
+                needsReviewOnly = needsReviewOnly,
+                reconciled = reconciled
             )
             transactionRepository.findAll(spec, pageable)
         } else {
@@ -199,8 +209,12 @@ class TransactionService(
             )
         }
 
+        // 정산 배지용 ref 를 **한 번의 쿼리로** 벌크 주입 (항목당 조회 = N+1 금지).
+        val reconciliationRefs =
+            reconciliationLookup.refsForTransactions(result.content.map { it.id })
+
         return PageResponse(
-            content = result.content.map { it.toResponse() },
+            content = result.content.map { it.toResponse(reconciliationRefs[it.id]) },
             page = result.number,
             size = result.size,
             totalElements = result.totalElements,
@@ -589,7 +603,9 @@ class TransactionService(
         return LocalDate.of(yearMonth.year, yearMonth.month, day)
     }
 
-    private fun Transaction.toResponse() = TransactionResponse(
+    private fun Transaction.toResponse(
+        reconciliationRef: com.budgetbook.reconciliation.dto.ReconciliationRef? = null
+    ) = TransactionResponse(
         id = id,
         coupleId = couple.id,
         author = UserSummary(
@@ -622,6 +638,9 @@ class TransactionService(
         visibility = visibility.name,
         ownerId = owner?.id,
         needsReview = needsReview,
+        reconciliationId = reconciliationRef?.reconciliationId,
+        reconciliationSeq = reconciliationRef?.reconciliationSeq,
+        reconciledAt = reconciliationRef?.reconciledAt,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

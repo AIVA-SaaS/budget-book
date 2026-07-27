@@ -34,6 +34,12 @@ data class TransactionResponse(
     val ownerId: UUID? = null,
     // V61 (2026-05-06) — 확인/입력 필요 플래그
     val needsReview: Boolean = false,
+    // V65 (2026-07-27) — 정산 스냅샷 소속. 미기록이면 전부 null.
+    // TransferResponse 에도 **같은 3필드**가 있다 (장부 목록이 두 스트림 병합이라 한쪽만
+    // 채우면 이체 배지가 영구 미표시되는 drift 가 난다).
+    val reconciliationId: UUID? = null,
+    val reconciliationSeq: Int? = null,
+    val reconciledAt: Instant? = null,
     val createdAt: Instant,
     val updatedAt: Instant
 )

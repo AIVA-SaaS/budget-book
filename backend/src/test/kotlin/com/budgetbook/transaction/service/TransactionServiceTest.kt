@@ -52,7 +52,10 @@ class TransactionServiceTest : BehaviorSpec({
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val patternLearningService = mockk<PatternLearningService>(relaxed = true)
     val transferRepository = mockk<TransferRepository>()
-    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService, transferRepository)
+    // V65 — 목록 응답의 정산 배지 벌크 조회. 기본은 "정산 기록 없음".
+    val reconciliationLookup =
+        mockk<com.budgetbook.reconciliation.service.ReconciliationLookup>(relaxed = true)
+    val service = TransactionService(transactionRepository, coupleResolver, userRepository, categoryRepository, paymentMethodRepository, moneyPocketRepository, syncEventPublisher, patternLearningService, transferRepository, reconciliationLookup)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
