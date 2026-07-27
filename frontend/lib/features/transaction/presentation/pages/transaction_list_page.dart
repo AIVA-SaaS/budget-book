@@ -38,6 +38,8 @@ import 'package:budget_book/features/transaction/domain/entities/transaction_fil
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
+import 'package:budget_book/features/reconciliation/presentation/widgets/reconciliation_view.dart';
 import 'package:budget_book/features/transaction/presentation/utils/running_balance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
@@ -65,8 +67,12 @@ class TransactionListPage extends StatefulWidget {
   State<TransactionListPage> createState() => _TransactionListPageState();
 }
 
-/// Phase 25 Step 7 — 거래 탭 view mode (리스트 / 달력).
-enum _TxViewMode { list, calendar }
+/// Phase 25 Step 7 — 거래 탭 view mode (리스트 / 달력 / 정산).
+///
+/// V65 (2026-07-27) `reconciliation` 추가. 정산은 별도 모드로 두었다 — 리스트 모드의
+/// 러닝 밸런스는 날짜 역순 누적에 의존하므로, 미기록/기록 섹션으로 재정렬하면 잔액 숫자가
+/// 틀어진다 (기획서 §2.5).
+enum _TxViewMode { list, calendar, reconciliation }
 
 const String _kTxViewModePrefKey = 'tx_view_mode';
 
@@ -174,15 +180,20 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_kTxViewModePrefKey);
     if (!mounted) return;
-    if (saved == 'calendar') {
-      setState(() => _viewMode = _TxViewMode.calendar);
+    final restored = switch (saved) {
+      'calendar' => _TxViewMode.calendar,
+      'reconciliation' => _TxViewMode.reconciliation,
+      _ => _TxViewMode.list,
+    };
+    if (restored != _viewMode) {
+      setState(() => _viewMode = restored);
     }
   }
 
   Future<void> _saveViewMode(_TxViewMode mode) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kTxViewModePrefKey,
-        mode == _TxViewMode.calendar ? 'calendar' : 'list');
+    // enum name 을 그대로 저장 — 모드 추가 시 매핑을 손볼 필요가 없다.
+    await prefs.setString(_kTxViewModePrefKey, mode.name);
   }
 
   @override
@@ -819,7 +830,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   if (isModeB)
                     _buildMonthEndBalanceHeader(
                         context, singleAssetPmId, state.year, state.month),
-                  if (_viewMode == _TxViewMode.calendar)
+                  if (_viewMode == _TxViewMode.reconciliation)
+                    // V65 — 정산 뷰. 리스트/달력의 러닝밸런스·집계 로직은 건드리지 않는다.
+                    // 미기록 판정은 서버가 채운 reconciliationId 기준 (§2.5).
+                    Expanded(
+                      child: BlocProvider.value(
+                        value: getIt<ReconciliationBloc>(),
+                        // 미기록 목록은 정산 뷰가 서버 필터(reconciled=false)로 직접
+                        // 로드한다 — 화면에 로드된 페이지를 재사용하면 미로드 페이지의
+                        // 미기록 항목이 빠진다.
+                        child: ReconciliationView(
+                          year: state.year,
+                          month: state.month,
+                        ),
+                      ),
+                    )
+                  else if (_viewMode == _TxViewMode.calendar)
                     Expanded(
                       child: TransactionCalendarView(
                         year: state.year,
@@ -1359,7 +1385,7 @@ class _DateHeader extends StatelessWidget {
 }
 
 
-/// Phase 25 Step 7 — 리스트/달력 toggle.
+/// Phase 25 Step 7 — 리스트/달력 toggle. V65 에서 정산 세그먼트 추가.
 class _ViewModeToggle extends StatelessWidget {
   final _TxViewMode mode;
   final ValueChanged<_TxViewMode> onChanged;
@@ -1386,6 +1412,11 @@ class _ViewModeToggle extends StatelessWidget {
           value: _TxViewMode.calendar,
           icon: Icon(Icons.calendar_month, size: 16),
           tooltip: '달력',
+        ),
+        ButtonSegment(
+          value: _TxViewMode.reconciliation,
+          icon: Icon(Icons.fact_check, size: 16),
+          tooltip: '정산',
         ),
       ],
       selected: {mode},

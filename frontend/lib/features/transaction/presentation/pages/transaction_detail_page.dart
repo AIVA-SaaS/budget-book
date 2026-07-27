@@ -227,6 +227,20 @@ class TransactionDetailPage extends StatelessWidget {
                     value: txn.memo!,
                   ),
                 ],
+                // V65 — 정산 상태. 미기록이면 행 자체를 표시하지 않는다.
+                if (txn.isReconciled) ...[
+                  const Divider(height: 24),
+                  _DetailRow(
+                    icon: Icons.check_circle,
+                    iconColor: const Color(0xFF2E7D32),
+                    label: '정산',
+                    value: [
+                      '${txn.reconciliationSeq ?? '-'}차',
+                      if (txn.reconciledAt != null)
+                        DateFormat('M월 d일 HH:mm').format(txn.reconciledAt!),
+                    ].join(' · '),
+                  ),
+                ],
                 const Divider(height: 24),
                 _DetailRow(
                   icon: Icons.person,

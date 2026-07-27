@@ -6,6 +6,7 @@ abstract class TransferRemoteDataSource {
   Future<List<TransferModel>> getTransfers({
     required int year,
     required int month,
+    bool? reconciled,
   });
   Future<TransferModel> getTransfer(String id);
   Future<TransferModel> createTransfer(Map<String, dynamic> data);
@@ -25,10 +26,16 @@ class TransferRemoteDataSourceImpl implements TransferRemoteDataSource {
   Future<List<TransferModel>> getTransfers({
     required int year,
     required int month,
+    bool? reconciled,
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.transfers,
-      queryParameters: {'year': year, 'month': month},
+      queryParameters: {
+        'year': year,
+        'month': month,
+        // V65 — false 도 의미가 있다("미기록만"). null 일 때만 생략.
+        if (reconciled != null) 'reconciled': reconciled,
+      },
     );
 
     final data = response.data['data'] as List<dynamic>;

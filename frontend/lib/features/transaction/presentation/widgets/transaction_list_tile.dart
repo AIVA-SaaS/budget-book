@@ -1,4 +1,5 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter/material.dart';
@@ -133,6 +134,11 @@ class TransactionListTile extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 6),
+            ],
+            // V65 — 정산 완료 배지 (공통 위젯 ReconciledBadge 단일 소스).
+            if (transaction.isReconciled) ...[
+              ReconciledBadge(seq: transaction.reconciliationSeq),
               const SizedBox(width: 6),
             ],
             if (isAdjustment) ...[

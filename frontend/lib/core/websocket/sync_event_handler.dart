@@ -24,6 +24,8 @@ import 'package:budget_book/features/statistics/presentation/bloc/statistics_blo
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 
 import 'sync_event.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_event.dart';
 
 /// Routes incoming [SyncEvent]s to the appropriate feature BLoC
 /// to trigger data refresh.
@@ -76,6 +78,12 @@ class SyncEventHandler {
         _refreshPockets();
         _refreshPocketTransfers();
         _refreshDashboard();
+      case 'RECONCILIATION':
+        // V65 — 파트너가 정산을 만들거나 취소하면 배지·미기록 목록이 모두 달라진다.
+        // 거래/이체 목록(배지)과 정산 뷰(스냅샷·요약)를 함께 갱신한다.
+        _refreshTransactions();
+        _refreshTransfers();
+        _refreshReconciliations();
       case 'TRANSFER':
         // CARD_SETTLEMENT_CREATED 이벤트는 Transaction.paid_at 도 업데이트하므로
         // Transaction BLoC 도 함께 갱신 (거래내역 페이지의 미결제 표시 반영)
@@ -107,6 +115,20 @@ class SyncEventHandler {
       _logger.d('Dispatched LoadTransactions refresh');
     } catch (e) {
       _logger.e('Failed to refresh transactions: $e');
+    }
+  }
+
+  /// 정산 스냅샷 + 미기록 요약 갱신. MonthCubit 의 달을 그대로 사용한다
+  /// (보고 있던 달이 리셋되지 않도록 — 2026-05-03 회귀와 같은 부류).
+  void _refreshReconciliations() {
+    try {
+      final monthState = _getIt<MonthCubit>().state;
+      _getIt<ReconciliationBloc>().add(
+        LoadReconciliations(year: monthState.year, month: monthState.month),
+      );
+      _logger.d('Dispatched LoadReconciliations refresh');
+    } catch (e) {
+      _logger.e('Failed to refresh reconciliations: $e');
     }
   }
 

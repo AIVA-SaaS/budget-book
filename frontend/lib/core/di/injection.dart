@@ -94,6 +94,10 @@ import 'package:budget_book/features/card_settlement/data/datasources/card_settl
 import 'package:budget_book/features/card_settlement/data/repositories/card_settlement_repository_impl.dart';
 import 'package:budget_book/features/card_settlement/domain/repositories/card_settlement_repository.dart';
 import 'package:budget_book/features/card_settlement/presentation/bloc/card_settlement_bloc.dart';
+import 'package:budget_book/features/reconciliation/data/datasources/reconciliation_remote_datasource.dart';
+import 'package:budget_book/features/reconciliation/data/repositories/reconciliation_repository_impl.dart';
+import 'package:budget_book/features/reconciliation/domain/repositories/reconciliation_repository.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -344,6 +348,25 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<TransferBloc>(
     () => TransferBloc(
         transferRepository: getIt<TransferRepository>()),
+    dispose: (bloc) => bloc.close(),
+  );
+
+  // Reconciliation feature (정산 스냅샷) — V65
+  // SyncEventHandler 가 참조하는 BLoC 이므로 registerLazySingleton (프로젝트 규칙).
+  getIt.registerLazySingleton<ReconciliationRemoteDataSource>(
+    () => ReconciliationRemoteDataSourceImpl(apiClient: getIt<ApiClient>()),
+  );
+  getIt.registerLazySingleton<ReconciliationRepository>(
+    () => ReconciliationRepositoryImpl(
+        remoteDataSource: getIt<ReconciliationRemoteDataSource>()),
+  );
+  getIt.registerLazySingleton<ReconciliationBloc>(
+    () => ReconciliationBloc(
+      repository: getIt<ReconciliationRepository>(),
+      // 미기록 목록을 서버 필터(reconciled=false)로 직접 조회한다.
+      transactionRepository: getIt<TransactionRepository>(),
+      transferRepository: getIt<TransferRepository>(),
+    ),
     dispose: (bloc) => bloc.close(),
   );
 

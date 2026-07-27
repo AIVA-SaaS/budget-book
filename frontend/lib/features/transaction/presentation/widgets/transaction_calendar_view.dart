@@ -6,6 +6,7 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
+import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 /// Phase 25 Step 7 — 거래 탭 달력 뷰.
@@ -107,6 +108,11 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // V65 — 그 날 항목이 모두 정산됐으면 날짜 옆에 점 하나.
+          // 금액 3줄 레이아웃(PR #271/#272) 을 침범하지 않도록 날짜 Row 안에만 그린다.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           Container(
             width: 20,
             height: 18,
@@ -125,6 +131,13 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                 fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
+          ),
+              if (!isOutside && summary != null && summary.isFullyReconciled)
+                const Padding(
+                  padding: EdgeInsets.only(left: 2),
+                  child: ReconciledBadge(compact: true),
+                ),
+            ],
           ),
           // 인접월 날짜(isOutside)에는 금액을 그리지 않는다(해당 월 데이터만 매핑됨).
           if (!isOutside && summary != null) ...[
@@ -348,4 +361,12 @@ class _DaySummary {
   int transferTotal = 0;
   final List<Transaction> transactions = [];
   final List<Transfer> transfers = [];
+
+  /// 그 날의 모든 항목(거래+이체)이 정산됐는지. 달력 셀의 정산 점 표시 조건.
+  /// 두 스트림을 함께 보는 게 중요하다 — 거래만 검사하면 미정산 이체가 있는 날도
+  /// "정산 완료" 로 보인다.
+  bool get isFullyReconciled =>
+      (transactions.isNotEmpty || transfers.isNotEmpty) &&
+      transactions.every((t) => t.isReconciled) &&
+      transfers.every((t) => t.isReconciled);
 }

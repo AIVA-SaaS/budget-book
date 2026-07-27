@@ -34,6 +34,7 @@ void main() {
     transactionTypes: {'EXPENSE', 'TRANSFER'},
     visibility: 'SHARED',
     needsReviewOnly: true,
+    reconciled: false,
   );
 
   group('필터 필드 개수 가드', () {
@@ -42,7 +43,7 @@ void main() {
       //   1) 이 숫자를 갱신
       //   2) fullFilter 에 값 추가
       //   3) toQueryParams / toTransactionFilter / withNavigationFilters 매핑 확인
-      expect(fullFilter.props.length, 16,
+      expect(fullFilter.props.length, 17,
           reason: '필터 필드 수 변경 감지 — 전파 경로 3곳의 매핑을 함께 갱신하세요');
     });
 
@@ -192,6 +193,16 @@ void main() {
   group('toQueryParams (FE→BE 전달)', () {
     test('needsReviewOnly=true 는 BE 로 전달된다', () {
       expect(fullFilter.toQueryParams()['needsReviewOnly'], isTrue);
+    });
+
+    test('reconciled=false 는 "미기록만" 을 뜻하므로 반드시 전달된다', () {
+      // false 를 생략하면 전체 목록이 내려와 정산 뷰 상단이 오염된다.
+      expect(fullFilter.toQueryParams()['reconciled'], isFalse);
+      expect(
+        const TransactionFilter().toQueryParams().containsKey('reconciled'),
+        isFalse,
+        reason: 'null 일 때만 생략',
+      );
     });
 
     test('TRANSFER 의사-타입은 BE 로 보내지 않는다', () {
