@@ -15,11 +15,13 @@ class TransferRepositoryImpl implements TransferRepository {
   Future<Either<Failure, List<Transfer>>> getTransfers({
     required int year,
     required int month,
+    bool? reconciled,
   }) async {
     try {
       final result = await remoteDataSource.getTransfers(
         year: year,
         month: month,
+        reconciled: reconciled,
       );
       return Right(result);
     } on DioException catch (e) {

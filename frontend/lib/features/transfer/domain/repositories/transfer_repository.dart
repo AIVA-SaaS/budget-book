@@ -3,9 +3,13 @@ import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 abstract class TransferRepository {
+  /// [reconciled] — V65 정산 필터. 거래 목록(`reconciled` 쿼리)과 **동일한 의미**:
+  /// false=미기록만, true=기록만, null=전체. 장부는 거래+이체 병합 뷰이므로 한쪽 스트림만
+  /// 필터를 지원하면 "이체만 계속 남아 보이는" drift 가 난다 → 항상 함께 확장한다.
   Future<Either<Failure, List<Transfer>>> getTransfers({
     required int year,
     required int month,
+    bool? reconciled,
   });
 
   Future<Either<Failure, Transfer>> getTransfer(String id);

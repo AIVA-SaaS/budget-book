@@ -22,6 +22,9 @@ class TransactionModel extends Transaction {
     super.visibility,
     super.ownerId,
     super.needsReview,
+    super.reconciliationId,
+    super.reconciliationSeq,
+    super.reconciledAt,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -50,6 +53,12 @@ class TransactionModel extends Transaction {
       visibility: json['visibility'] as String? ?? 'SHARED',
       ownerId: json['ownerId'] as String?,
       needsReview: json['needsReview'] as bool? ?? false,
+      // V65 — 정산 스냅샷 (미기록이면 서버가 null 로 보낸다).
+      reconciliationId: json['reconciliationId'] as String?,
+      reconciliationSeq: json['reconciliationSeq'] as int?,
+      reconciledAt: json['reconciledAt'] != null
+          ? DateTime.parse(json['reconciledAt'] as String)
+          : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

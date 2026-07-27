@@ -30,6 +30,9 @@ class TransferModel extends Transfer {
     required super.transferDate,
     required super.createdAt,
     super.kind,
+    super.reconciliationId,
+    super.reconciliationSeq,
+    super.reconciledAt,
   });
 
   factory TransferModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +61,12 @@ class TransferModel extends Transfer {
       transferDate: json['transferDate'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       kind: kind,
+      // V65 — 정산 스냅샷 (미기록이면 서버가 null 로 보낸다).
+      reconciliationId: json['reconciliationId'] as String?,
+      reconciliationSeq: json['reconciliationSeq'] as int?,
+      reconciledAt: json['reconciledAt'] != null
+          ? DateTime.parse(json['reconciledAt'] as String)
+          : null,
     );
   }
 }

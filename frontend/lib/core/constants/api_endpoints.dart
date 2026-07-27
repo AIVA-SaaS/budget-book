@@ -100,6 +100,10 @@ class ApiEndpoints {
   // Transfers (payment method to payment method)
   static const String transfers = '/api/v1/transfers';
 
+  // Reconciliations (정산 스냅샷) — V65
+  static const String reconciliations = '/api/v1/reconciliations';
+  static const String reconciliationSummary = '/api/v1/reconciliations/summary';
+
   // Preferences (Favorites)
   static const String preferencesFavorites = '/api/v1/preferences/favorites';
   static const String preferencesFavoritesToggle =

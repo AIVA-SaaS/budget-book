@@ -59,6 +59,12 @@ class Transfer extends Equatable {
   final DateTime createdAt;
   final TransferKind kind;
 
+  /// V65 (2026-07-27) — 이 이체가 담긴 정산 스냅샷. 미기록이면 전부 null.
+  /// Transaction 과 **같은 3필드** (두 스트림 병합 뷰에서 배지 동작을 일치시킨다).
+  final String? reconciliationId;
+  final int? reconciliationSeq;
+  final DateTime? reconciledAt;
+
   const Transfer({
     required this.id,
     required this.coupleId,
@@ -71,10 +77,16 @@ class Transfer extends Equatable {
     required this.transferDate,
     required this.createdAt,
     this.kind = TransferKind.generic,
+    this.reconciliationId,
+    this.reconciliationSeq,
+    this.reconciledAt,
   });
 
   /// Legacy boolean — derived from [kind]. Keep until BE drops the column.
   bool get isCardSettlement => kind == TransferKind.cardSettlement;
+
+  /// 정산 스냅샷에 기록된 이체인지 (배지 표시 조건).
+  bool get isReconciled => reconciliationId != null;
 
   @override
   List<Object?> get props => [
@@ -89,5 +101,8 @@ class Transfer extends Equatable {
         transferDate,
         createdAt,
         kind,
+        reconciliationId,
+        reconciliationSeq,
+        reconciledAt,
       ];
 }
