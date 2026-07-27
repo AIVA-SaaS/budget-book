@@ -159,5 +159,9 @@ data class TransferResponse(
     val memo: String?,
     val transferDate: LocalDate,
     val kind: TransferKind,
+    // V65 (2026-07-27) — 정산 스냅샷 소속. TransactionResponse 와 동일 3필드.
+    val reconciliationId: UUID? = null,
+    val reconciliationSeq: Int? = null,
+    val reconciledAt: Instant? = null,
     val createdAt: Instant
 )

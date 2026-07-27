@@ -33,7 +33,10 @@ data class CommonFilterParams(
     val transactionTypes: List<String>? = null,
     val status: String? = null,
     // V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
-    val needsReviewOnly: Boolean? = null
+    val needsReviewOnly: Boolean? = null,
+    // V65 (2026-07-27) — 정산 스냅샷 필터. false=미기록만, true=기록된 것만, null=전체.
+    // 거래 목록과 이체 목록 **양쪽** 이 지원한다.
+    val reconciled: Boolean? = null
 ) {
     /**
      * Resolves effective date range from dateFrom/dateTo or year/month.

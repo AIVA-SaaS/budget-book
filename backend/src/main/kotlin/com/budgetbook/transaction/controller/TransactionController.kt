@@ -71,7 +71,9 @@ class TransactionController(
             // Phase 22 T10: 다중 타입 필터. `transactionTypes=EXPENSE&transactionTypes=INCOME`.
             transactionTypes = filter.transactionTypes,
             // V61 (2026-05-06) — 확인/입력 필요만 보기.
-            needsReviewOnly = filter.needsReviewOnly
+            needsReviewOnly = filter.needsReviewOnly,
+            // V65 (2026-07-27) — 정산 스냅샷 필터 (미기록만 보기).
+            reconciled = filter.reconciled
         ))
     }
 

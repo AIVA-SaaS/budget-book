@@ -38,7 +38,10 @@ class TransferServiceTest : BehaviorSpec({
     val paymentMethodRepository = mockk<PaymentMethodRepository>()
     val syncEventPublisher = mockk<SyncEventPublisher>(relaxed = true)
     val transactionRepository = mockk<com.budgetbook.transaction.repository.TransactionRepository>(relaxed = true)
-    val service = TransferService(transferRepository, coupleResolver, userRepository, paymentMethodRepository, syncEventPublisher, transactionRepository)
+    // V65 — 정산 배지/필터용 벌크 조회. 기본은 "정산 기록 없음".
+    val reconciliationLookup =
+        mockk<com.budgetbook.reconciliation.service.ReconciliationLookup>(relaxed = true)
+    val service = TransferService(transferRepository, coupleResolver, userRepository, paymentMethodRepository, syncEventPublisher, transactionRepository, reconciliationLookup)
 
     val user1 = User(email = "u1@test.com", nickname = "U1", provider = AuthProvider.GOOGLE, providerId = "g1")
     val user2 = User(email = "u2@test.com", nickname = "U2", provider = AuthProvider.KAKAO, providerId = "k2")
