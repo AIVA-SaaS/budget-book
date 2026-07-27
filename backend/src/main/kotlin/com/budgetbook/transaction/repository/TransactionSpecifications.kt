@@ -1,6 +1,7 @@
 package com.budgetbook.transaction.repository
 
 import com.budgetbook.common.entity.Visibility
+import com.budgetbook.reconciliation.domain.ReconciliationItem
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import jakarta.persistence.criteria.CriteriaBuilder
@@ -37,9 +38,14 @@ object TransactionSpecifications {
         types: Set<TransactionType> = emptySet(),
         // V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
         // null/false 모두 미적용으로 처리 — "false 만 보기" 시나리오는 현재 요구 없음.
-        needsReviewOnly: Boolean? = null
+        needsReviewOnly: Boolean? = null,
+        // V65 (2026-07-27) 정산 스냅샷 필터.
+        //   false = 미기록만 (어떤 스냅샷에도 없는 거래), true = 기록된 것만, null = 전체.
+        // 목록은 페이지네이션되므로 미기록 판정을 클라이언트에서 하면 미로드 페이지 항목이
+        // 누락된다 → 반드시 서버(이 조건)에서 걸러야 한다.
+        reconciled: Boolean? = null
     ): Specification<Transaction> {
-        return Specification { root: Root<Transaction>, _: CriteriaQuery<*>, cb: CriteriaBuilder ->
+        return Specification { root: Root<Transaction>, query: CriteriaQuery<*>, cb: CriteriaBuilder ->
             val predicates = mutableListOf<Predicate>()
 
             predicates.add(cb.equal(root.get<Any>("couple").get<UUID>("id"), coupleId))
@@ -92,6 +98,19 @@ object TransactionSpecifications {
             // V61 — 확인/입력 필요만 보기. true 일 때만 조건 추가.
             if (needsReviewOnly == true) {
                 predicates.add(cb.isTrue(root.get("needsReview")))
+            }
+
+            // V65 — 정산 스냅샷 소속 여부. reconciliation_items 에 이 거래를 참조하는 행이
+            // 있는지로 판정한다. partial unique index `uk_recon_items_transaction` 가
+            // (transaction_id) 를 덮으므로 인덱스 스캔 1회로 끝난다.
+            reconciled?.let { wantReconciled ->
+                val subquery = query.subquery(UUID::class.java)
+                val itemRoot = subquery.from(ReconciliationItem::class.java)
+                subquery.select(itemRoot.get("id"))
+                subquery.where(cb.equal(itemRoot.get<UUID>("transactionId"), root.get<UUID>("id")))
+                predicates.add(
+                    if (wantReconciled) cb.exists(subquery) else cb.not(cb.exists(subquery))
+                )
             }
 
             // Visibility 필터:

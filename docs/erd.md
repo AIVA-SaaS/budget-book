@@ -6,8 +6,8 @@
 > Migrations are managed via Flyway with `V{N}__` naming convention.
 >
 > **문서 범위 주의 (2026-07-27 감사)**: 아래 `## Table Details` 의 상세 표는 V12 까지만
-> 작성되어 있었고 V13~V64 에서 추가된 테이블·컬럼이 빠져 있었다. 그 공백은
-> [§ V13~V64 스키마 증분](#v13v64-스키마-증분) 에 정리했다. 신규 마이그레이션을 작성할 때는
+> 작성되어 있었고 V13 이후 추가된 테이블·컬럼이 빠져 있었다. 그 공백은
+> [§ V13~V65 스키마 증분](#v13v65-스키마-증분) 에 정리했다. 신규 마이그레이션을 작성할 때는
 > **반드시 두 절을 함께** 확인할 것 (누락된 CHECK/UNIQUE 제약을 모른 채 작성하면
 > prod 에서 제약 위반이 난다 — 과거 실제 사고).
 >
@@ -608,7 +608,7 @@ Records transfers of funds between pockets. Affects balance calculation for both
 
 ---
 
-## V13~V64 스키마 증분
+## V13~V65 스키마 증분
 
 > 위 `## Table Details` 는 V12 시점 스냅샷이다. 이 절은 그 이후 추가/변경분을 정리한다.
 > 컬럼 목록은 2026-07-27 라이브 DB(`information_schema.columns`) 기준으로 검증했다.
@@ -724,6 +724,47 @@ Records transfers of funds between pockets. Affects balance calculation for both
 - `feedback_comments`: `id`, `post_id`, `author_id`, `content`, `is_admin_reply`, `created_at`
 - `feedback_votes`: `id`, `post_id`, `user_id`, `created_at`
 
+#### `reconciliations` / `reconciliation_items` (V65)
+
+정산 스냅샷. 장부(거래 + 이체)를 대조한 시점의 기록이며, 어떤 스냅샷에도 없는 항목은
+**미기록**으로 남아 월말 누락 점검에 쓰인다.
+
+`reconciliations` (헤더)
+
+| 컬럼 | 타입 | 비고 |
+|:---|:---|:---|
+| `id` | UUID PK | |
+| `couple_id` | UUID NOT NULL | FK `couples` ON DELETE CASCADE |
+| `year_month` | VARCHAR(7) NOT NULL | CHECK `^[0-9]{4}-(0[1-9]\|1[0-2])$` |
+| `seq` | INTEGER NOT NULL | 월 내 회차. CHECK `>= 1`, UNIQUE `(couple_id, year_month, seq)` |
+| `label` | VARCHAR(100) | 사용자 메모 |
+| `item_count` / `total_income` / `total_expense` / `total_transfer` | INTEGER / BIGINT | 비정규화 소계 (조회 시 재집계 없음) |
+| `reconciled_at` | TIMESTAMPTZ NOT NULL | 정산 시각 |
+| `reconciled_by` | UUID NOT NULL | FK `users` ON DELETE RESTRICT |
+
+`reconciliation_items` (항목 — 정산 당시 값 보존)
+
+| 컬럼 | 타입 | 비고 |
+|:---|:---|:---|
+| `id` | UUID PK | |
+| `reconciliation_id` | UUID NOT NULL | FK `reconciliations` ON DELETE CASCADE |
+| `item_kind` | VARCHAR(20) NOT NULL | CHECK `TRANSACTION`/`TRANSFER` — **FK 유무가 아니라 이 값이 판별자** |
+| `transaction_id` | UUID | FK `transactions` **ON DELETE SET NULL** |
+| `transfer_id` | UUID | FK `transfers` **ON DELETE SET NULL** |
+| `snapshot_amount` / `snapshot_date` / `snapshot_description` / `snapshot_kind` | BIGINT / DATE / VARCHAR(255) / VARCHAR(20) | 정산 시점 값. 원본이 바뀌어도 불변 |
+| `snapshot_visibility` / `snapshot_owner_id` | VARCHAR(10) / UUID | 원본 삭제 후 게이팅 폴백 (원본 존재 시 원본 값 우선) |
+
+제약·인덱스
+
+- `ck_recon_items_ref` — `item_kind='TRANSACTION'` 이면 `transfer_id IS NULL`, 그 반대도 동일
+- `uk_recon_items_transaction` / `uk_recon_items_transfer` — **partial UNIQUE**
+  (`WHERE ... IS NOT NULL`). "한 항목은 최대 1개 스냅샷" 불변식을 DB 가 강제 → 부부 동시 정산 시
+  한쪽은 409. 이 인덱스는 `reconciled` 필터의 `EXISTS` 서브쿼리에도 사용된다
+- `idx_reconciliations_couple_ym (couple_id, year_month)`, `idx_recon_items_reconciliation`
+
+설계 의도: `ON DELETE SET NULL` + `snapshot_*` 조합은 **원본이 삭제돼도 정산 이력을 남기기**
+위한 것이다. CASCADE 로 지우면 "언제 무엇을 대조했는가" 가 사라져 스냅샷의 의미가 무너진다.
+
 #### `release_notes` (V44) / `release_note_feedbacks` (V45)
 
 - `release_notes`: `id`, `version`(UNIQUE), `title`, `content`, `is_published`,
@@ -831,6 +872,8 @@ Records transfers of funds between pockets. Affects balance calculation for both
 | V62     | `V62__backfill_placeholder_emails.sql`           | 이메일 미동의 카카오 계정 placeholder 백필                  |
 | V63     | `V63__add_settlement_transfer_id_to_transactions.sql` | `transactions.settlement_transfer_id`               |
 | V64     | `V64__unify_weekly_budget_conversion.sql`        | 주간 예산 환산 단일화 (`weekly_amount` = source of truth)  |
+
+| V65     | `V65__create_reconciliations.sql`                | **`reconciliations` / `reconciliation_items`** (정산 스냅샷)|
 
 > V55 는 결번(스킵)이다 — 실제 적용 이력에도 존재하지 않는다.
 > 라이브 적용 상태 확인: `select version, success from flyway_schema_history order by installed_rank desc`.

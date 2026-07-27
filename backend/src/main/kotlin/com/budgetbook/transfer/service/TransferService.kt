@@ -33,7 +33,9 @@ class TransferService(
     private val userRepository: UserRepository,
     private val paymentMethodRepository: PaymentMethodRepository,
     private val syncEventPublisher: SyncEventPublisher,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    // V65 — 목록 응답의 정산 배지/필터용 벌크 조회.
+    private val reconciliationLookup: com.budgetbook.reconciliation.service.ReconciliationLookup
 ) : CoupleAwareService {
 
     @Transactional
@@ -84,15 +86,35 @@ class TransferService(
     }
 
     @Transactional(readOnly = true)
-    fun listTransfers(userId: UUID, year: Int, month: Int): List<TransferResponse> {
+    /**
+     * 월 이체 목록.
+     *
+     * [reconciled] 는 거래 목록과 **동일한 의미** 의 정산 필터다 (false=미기록만, true=기록만,
+     * null=전체). 장부 목록은 거래+이체 병합이므로 한쪽 스트림만 필터를 지원하면
+     * "이체만 계속 남아 보이는" drift 가 난다 — 두 엔드포인트를 항상 같이 확장할 것.
+     */
+    fun listTransfers(
+        userId: UUID,
+        year: Int,
+        month: Int,
+        reconciled: Boolean? = null
+    ): List<TransferResponse> {
         val couple = getActiveCouple(userId)
         val yearMonth = YearMonth.of(year, month)
         val startDate = yearMonth.atDay(1)
         val endDate = yearMonth.atEndOfMonth()
 
-        return transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
+        val transfers = transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
             couple.id, startDate, endDate
-        ).map { it.toResponse() }
+        )
+        // 정산 ref 를 한 번에 벌크 조회 (항목당 조회 = N+1 금지).
+        val refs = reconciliationLookup.refsForTransfers(transfers.map { it.id })
+        val filtered = when (reconciled) {
+            null -> transfers
+            true -> transfers.filter { refs.containsKey(it.id) }
+            false -> transfers.filter { !refs.containsKey(it.id) }
+        }
+        return filtered.map { it.toResponse(refs[it.id]) }
     }
 
     @Transactional(readOnly = true)
@@ -408,7 +430,9 @@ class TransferService(
         else -> TransferKind.GENERIC
     }
 
-    private fun Transfer.toResponse() = TransferResponse(
+    private fun Transfer.toResponse(
+        reconciliationRef: com.budgetbook.reconciliation.dto.ReconciliationRef? = null
+    ) = TransferResponse(
         id = id,
         coupleId = couple.id,
         author = UserSummary(
@@ -431,6 +455,9 @@ class TransferService(
         memo = memo,
         transferDate = transferDate,
         kind = kind,
+        reconciliationId = reconciliationRef?.reconciliationId,
+        reconciliationSeq = reconciliationRef?.reconciliationSeq,
+        reconciledAt = reconciliationRef?.reconciledAt,
         createdAt = createdAt
     )
 }
