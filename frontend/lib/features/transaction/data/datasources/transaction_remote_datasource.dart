@@ -4,6 +4,7 @@ import 'package:budget_book/features/transaction/data/models/transaction_model.d
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:budget_book/features/transfer/data/models/transfer_model.dart';
 
 abstract class TransactionRemoteDataSource {
   /// 필터는 [TransactionFilter] VO 로만 받는다 (필드 나열 금지 — 전파 누락 방지).
@@ -18,6 +19,9 @@ abstract class TransactionRemoteDataSource {
   Future<TransactionModel> createTransaction(Map<String, dynamic> data);
   Future<TransactionModel> updateTransaction(
       String id, Map<String, dynamic> data);
+
+  /// 거래 → 이체 변환. 응답은 생성된 이체.
+  Future<TransferModel> convertToTransfer(String id, Map<String, dynamic> data);
   Future<void> deleteTransaction(String id);
   Future<List<SuggestionGroup>> getSuggestions(String query, {String? type});
 }
@@ -96,6 +100,18 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       data: data,
     );
     return TransactionModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<TransferModel> convertToTransfer(
+      String id, Map<String, dynamic> data) async {
+    final response = await apiClient.dio.post(
+      '${ApiEndpoints.transactions}/$id/convert-to-transfer',
+      data: data,
+    );
+    return TransferModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
   }

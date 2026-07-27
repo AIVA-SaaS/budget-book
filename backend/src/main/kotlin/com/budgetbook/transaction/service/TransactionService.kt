@@ -17,7 +17,10 @@ import com.budgetbook.pocket.repository.MoneyPocketRepository
 import com.budgetbook.smart.service.PatternLearningService
 import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
+import com.budgetbook.category.domain.CategoryType
+import com.budgetbook.spendingplan.repository.SpendingPlanRepository
 import com.budgetbook.transaction.dto.CategorySummary
+import com.budgetbook.transaction.dto.ConvertToTransferRequest
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
 import com.budgetbook.transaction.dto.TransactionResponse
@@ -27,7 +30,11 @@ import com.budgetbook.sync.SyncEventPublisher
 import com.budgetbook.transaction.repository.TransactionRepository
 import com.budgetbook.transaction.repository.TransactionSpecifications
 import com.budgetbook.reconciliation.service.ReconciliationLookup
+import com.budgetbook.transfer.domain.TransferKind
+import com.budgetbook.transfer.dto.CreateTransferRequest
+import com.budgetbook.transfer.dto.TransferResponse
 import com.budgetbook.transfer.repository.TransferRepository
+import com.budgetbook.transfer.service.TransferService
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -49,7 +56,13 @@ class TransactionService(
     private val patternLearningService: PatternLearningService,
     private val transferRepository: TransferRepository,
     // V65 — 목록 응답의 정산 배지용 벌크 조회 (조회 전용 좁은 컴포넌트).
-    private val reconciliationLookup: ReconciliationLookup
+    private val reconciliationLookup: ReconciliationLookup,
+    // 2026-07-27 거래→이체 변환 — 이체 생성 규칙을 재사용한다 (TransferService 는
+    // TransactionService 를 참조하지 않으므로 순환 의존이 아니다).
+    private val transferService: TransferService,
+    // 변환 가드용 — spending_plans.linked_transaction_id 는 ON DELETE 가 없어
+    // 연결된 거래를 지우면 FK 위반으로 터진다.
+    private val spendingPlanRepository: SpendingPlanRepository
 ) : CoupleAwareService {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -319,6 +332,10 @@ class TransactionService(
         OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
         validatePrivateOwner(transaction.visibility, transaction.owner?.id, userId)
 
+        // 유형 변경 (2026-07-27) — 카테고리/금액 검증보다 **먼저** 반영해야 그 뒤 검증이
+        // 새 유형 기준으로 돌아간다.
+        request.type?.let { applyTypeChange(transaction, it) }
+
         request.amount?.let {
             validateAmountForType(transaction.type, it)
             transaction.amount = it
@@ -405,6 +422,13 @@ class TransactionService(
             }
         }
 
+        // 유형이 바뀌었으면 카테고리·금액 부호가 새 유형과 맞는지 마지막에 확인한다.
+        // (카테고리 patch 가 이 아래에서 적용되므로 여기서 봐야 최종 상태를 본다.)
+        if (request.type != null) {
+            validateCategoryMatchesType(transaction)
+            validateAmountForType(transaction.type, transaction.amount)
+        }
+
         val saved = transactionRepository.save(transaction)
         syncEventPublisher.publish(SyncEvent(
             type = "TRANSACTION_UPDATED",
@@ -415,6 +439,133 @@ class TransactionService(
         ))
         learnPattern(couple.id, saved.description, saved.category?.id)
         return saved.toResponse()
+    }
+
+    /**
+     * 거래 → 이체 변환 (2026-07-27).
+     *
+     * 거래와 이체는 **테이블이 다르다.** 그래서 "유형을 이체로 바꾼다" 는 실제로는
+     * 원본 거래 삭제 + 이체 생성이고, 한 트랜잭션 안에서 처리해 중간 상태(거래도 이체도
+     * 없거나 둘 다 있는)를 남기지 않는다.
+     *
+     * 되돌릴 수 없는 이동이므로 **다른 기능이 이 거래를 붙잡고 있으면 막는다** —
+     * 정산 스냅샷 / 카드 결제 링크 / 지출 계획 연결. 특히 지출 계획은 FK 에 ON DELETE 가
+     * 없어(`spending_plans.linked_transaction_id`) 그냥 지우면 무결성 오류로 터진다.
+     */
+    @Transactional
+    fun convertToTransfer(
+        userId: UUID,
+        transactionId: UUID,
+        request: ConvertToTransferRequest
+    ): TransferResponse {
+        val couple = getActiveCouple(userId)
+        val transaction = transactionRepository.findById(transactionId)
+            .orElseThrow { NotFoundException("TRANSACTION_NOT_FOUND", "Transaction does not exist.") }
+
+        OwnershipValidator.validateOwnership(transaction.couple.id, couple, "Transaction")
+        validatePrivateOwner(transaction.visibility, transaction.owner?.id, userId)
+
+        if (transaction.type == TransactionType.ADJUSTMENT) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "잔액 수정은 이체로 변경할 수 없습니다. 삭제 후 이체로 등록하세요."
+            )
+        }
+        if (reconciliationLookup.refsForTransactions(listOf(transactionId)).isNotEmpty()) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "정산에 기록된 거래는 유형을 변경할 수 없습니다. 정산에서 제외한 뒤 다시 시도하세요."
+            )
+        }
+        if (transaction.settlementTransferId != null) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "카드 결제에 연결된 거래는 이체로 변경할 수 없습니다. 카드 결제에서 제외한 뒤 다시 시도하세요."
+            )
+        }
+        if (spendingPlanRepository.existsByLinkedTransactionId(transactionId)) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "지출 계획에 연결된 거래는 이체로 변경할 수 없습니다. 계획 연결을 먼저 해제하세요."
+            )
+        }
+
+        // 결제수단 검증·종류 판정·이체 저장·TRANSFER_CREATED 발행은 **이체 등록 경로를 그대로
+        // 재사용**한다 (같은 트랜잭션 안에서 호출). 여기서 Transfer 를 직접 만들면 카드 결제
+        // 판정·카드간 이체 금지 같은 규칙이 두 벌이 된다.
+        val created = transferService.createTransfer(
+            userId,
+            CreateTransferRequest(
+                sourcePaymentMethodId = request.sourcePaymentMethodId,
+                destinationPaymentMethodId = request.destinationPaymentMethodId,
+                // 생략된 값은 원본 거래를 승계한다 (사용자가 다시 입력하지 않게).
+                amount = request.amount ?: transaction.amount,
+                description = request.description ?: transaction.description,
+                transferDate = request.transferDate ?: transaction.transactionDate,
+                memo = request.memo ?: transaction.memo,
+                kind = request.kind?.let { raw ->
+                    runCatching { TransferKind.valueOf(raw.uppercase()) }.getOrElse {
+                        throw BusinessException("VALIDATION_ERROR", "지원하지 않는 이체 종류입니다: $raw")
+                    }
+                }
+            )
+        )
+
+        transactionRepository.delete(transaction)
+        // 거래 스트림도 갱신해야 목록이 정합해진다 — 이체 이벤트만 쏘면 파트너 화면에
+        // 원본 거래가 그대로 남는다 (장부 목록은 두 스트림 병합).
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSACTION_DELETED",
+            entityType = "TRANSACTION",
+            entityId = transactionId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        return created
+    }
+
+    /**
+     * 유형 변경 규칙. `EXPENSE ↔ INCOME` 만 허용한다.
+     *
+     * - `ADJUSTMENT` 는 잔액 보정 전용(부호 있는 증감값)이라 일반 거래와 의미가 달라 전환 금지.
+     * - 정산에 기록된 거래는 금지 — 스냅샷의 `snapshot_kind` 가 정산 당시 분류라, 원본 유형이
+     *   바뀌면 그 달 소계 이력이 흔들린다.
+     */
+    private fun applyTypeChange(transaction: Transaction, rawType: String) {
+        val newType = runCatching { TransactionType.valueOf(rawType.uppercase()) }
+            .getOrElse { throw BusinessException("VALIDATION_ERROR", "지원하지 않는 거래 유형입니다: $rawType") }
+        if (newType == transaction.type) return
+
+        if (newType == TransactionType.ADJUSTMENT || transaction.type == TransactionType.ADJUSTMENT) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "잔액 수정은 수입/지출로 변경할 수 없습니다. 삭제 후 다시 등록하세요."
+            )
+        }
+        if (reconciliationLookup.refsForTransactions(listOf(transaction.id)).isNotEmpty()) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "정산에 기록된 거래는 유형을 변경할 수 없습니다. 정산에서 제외한 뒤 다시 시도하세요."
+            )
+        }
+        transaction.type = newType
+    }
+
+    /** 카테고리는 유형별로 갈린다 (CategoryType). 유형만 바꾸고 카테고리를 두면 분류가 어긋난다. */
+    private fun validateCategoryMatchesType(transaction: Transaction) {
+        val category = transaction.category ?: return
+        val matches = when (transaction.type) {
+            TransactionType.INCOME -> category.type == CategoryType.INCOME
+            TransactionType.EXPENSE -> category.type == CategoryType.EXPENSE
+            TransactionType.ADJUSTMENT -> true
+        }
+        if (!matches) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "선택한 카테고리(${category.name})는 ${transaction.type.name} 거래에 쓸 수 없습니다. " +
+                    "카테고리를 함께 변경하세요."
+            )
+        }
     }
 
     @Transactional

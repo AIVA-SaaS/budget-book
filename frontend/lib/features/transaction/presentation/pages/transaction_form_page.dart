@@ -169,7 +169,22 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool _isTransferSubmitting = false;
   int _swapCounter = 0;
 
+  /// 수정 모드에서 고른 유형: `EXPENSE` / `INCOME` / `TRANSFER` (2026-07-27).
+  ///
+  /// 이전에는 "(유형 수정 불가)" 라벨만 있었다. 수입↔지출은 그 자리에서 저장되고,
+  /// `TRANSFER` 를 고르면 이체 폼으로 바뀌며 저장 시 **변환 API**(거래 삭제 + 이체 생성)를 쓴다
+  /// — 거래와 이체는 테이블이 달라 update 로는 바꿀 수 없다.
+  String _editTargetType = 'EXPENSE';
+
+  /// 수정 진입 시점의 원래 유형. 저장할 때 **바뀐 경우에만** `type` 을 보낸다 —
+  /// 거래 로드가 실패한 상태에서 저장하면 초기값(EXPENSE)이 그대로 나가 수입 거래가
+  /// 지출로 뒤집힐 수 있다.
+  String? _originalType;
+
   bool get isEditing => widget.transactionId != null;
+
+  /// 수정 모드에서 이체로 바꾸는 중인가 (본문/저장 경로가 갈린다).
+  bool get _isConvertingToTransfer => isEditing && _editTargetType == 'TRANSFER';
 
   int _resolveInitialTabIndex() {
     // When editing, determine tab from transaction type (no transfer tab for edit)
@@ -236,6 +251,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _descriptionController.text = src.description;
     _memoController.text = src.memo ?? '';
     _selectedType = src.type;
+    _editTargetType = src.type;
+    _originalType = src.type;
     _selectedCategoryId = src.category?.id;
     _selectedCategoryDisplayName = src.category?.displayName;
     _selectedPaymentMethodId = src.paymentMethodId;
@@ -666,35 +683,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           bottom: isEditing
               ? PreferredSize(
                   preferredSize: const Size.fromHeight(48),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _selectedType == 'INCOME'
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward,
-                            color: _selectedType == 'INCOME'
-                                ? Colors.green
-                                : Colors.red,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_selectedType == 'INCOME' ? '수입' : '지출'} (유형 수정 불가)',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.7),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: _buildEditTypeSelector(context),
                 )
               : TabBar(
                   controller: _tabController,
@@ -706,7 +695,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 ),
         ),
         body: isEditing
-            ? _buildTransactionFormBody(context)
+            ? (_isConvertingToTransfer
+                ? _buildTransferFormContent(context)
+                : _buildTransactionFormBody(context))
             : TabBarView(
                 controller: _tabController,
                 children: [
@@ -726,6 +717,115 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       ),
       ),
     );
+  }
+
+  /// 수정 모드 유형 선택 — 지출 / 수입 / 이체.
+  ///
+  /// 수입↔지출은 카테고리가 유형별로 갈리므로 전환 시 선택을 비운다(서버도 불일치를 400 으로
+  /// 막는다). 이체는 폼 자체가 달라 본문이 이체 폼으로 바뀌고, 저장은 변환 API 를 탄다.
+  Widget _buildEditTypeSelector(BuildContext context) {
+    // 잔액 수정은 잔액 보정 전용(부호 있는 증감값)이라 수입/지출/이체로 바꿀 수 없다
+    // (서버도 400 으로 막는다) → 선택지를 주지 않고 상태만 알린다.
+    if (_selectedType == 'ADJUSTMENT') {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.tune,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.tertiary),
+              const SizedBox(width: 6),
+              Text(
+                '잔액 수정 (유형 변경 불가)',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Text(
+              '유형',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+            ),
+            const SizedBox(width: 8),
+            SegmentedButton<String>(
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              segments: const [
+                ButtonSegment(
+                  value: 'EXPENSE',
+                  icon: Icon(Icons.arrow_downward, size: 14),
+                  label: Text('지출'),
+                ),
+                ButtonSegment(
+                  value: 'INCOME',
+                  icon: Icon(Icons.arrow_upward, size: 14),
+                  label: Text('수입'),
+                ),
+                ButtonSegment(
+                  value: 'TRANSFER',
+                  icon: Icon(Icons.swap_horiz, size: 14),
+                  label: Text('이체'),
+                ),
+              ],
+              selected: {_editTargetType},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) {
+                if (selection.isEmpty) return;
+                _onEditTypeChanged(selection.first);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onEditTypeChanged(String next) {
+    if (next == _editTargetType) return;
+    setState(() {
+      _editTargetType = next;
+      if (next == 'TRANSFER') {
+        // 이체 폼은 금액/설명/메모를 공용 controller 로 쓴다. 날짜만 맞춰 준다.
+        _transferDate = _selectedDate;
+      } else {
+        _selectedType = next;
+        // 카테고리는 유형별로 갈린다 — 남겨두면 서버가 400 으로 막는다.
+        _selectedCategoryId = null;
+        _selectedCategoryDisplayName = null;
+      }
+    });
+    if (next != 'TRANSFER') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${next == 'INCOME' ? '수입' : '지출'}으로 변경 — 카테고리를 다시 선택하세요'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _buildTransactionFormBody(BuildContext context, {
@@ -1011,6 +1111,19 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
     setState(() => _isTransferSubmitting = true);
 
+    // 수정 모드에서 유형을 이체로 바꾼 경우 — 새 이체를 만드는 게 아니라 **원본 거래를
+    // 이체로 옮긴다**(서버가 삭제+생성을 한 트랜잭션으로 처리). 여기서 CreateTransfer 를
+    // 쓰면 거래와 이체가 둘 다 남아 금액이 이중 계상된다.
+    if (_isConvertingToTransfer) {
+      _convertToTransfer(
+        amount: amount,
+        description: description,
+        memo: memo,
+        dateStr: dateStr,
+      );
+      return;
+    }
+
     debugPrint('[TransferForm] _submitTransfer: amount=$amount, source=$_transferSourcePaymentMethodId, dest=$_transferDestinationPaymentMethodId, date=$dateStr');
     final bloc = context.read<TransferBloc>();
     bloc.add(CreateTransfer(
@@ -1021,6 +1134,56 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       transferDate: dateStr,
       memo: memo,
     ));
+  }
+
+  /// 거래 → 이체 변환 실행. 성공하면 거래/이체 두 목록을 함께 갱신하고 화면을 닫는다.
+  ///
+  /// BLoC 을 거치지 않고 repository 를 직접 부른다 — 이 작업은 두 스트림(거래 삭제 + 이체
+  /// 생성)에 걸쳐 있어 어느 한쪽 BLoC 의 상태 머신에 얹기가 어색하다. 대신 성공 후 두 BLoC
+  /// 을 모두 재조회해 목록이 갈라지지 않게 한다.
+  Future<void> _convertToTransfer({
+    required int amount,
+    required String? description,
+    required String? memo,
+    required String dateStr,
+  }) async {
+    final txnBloc = context.read<TransactionBloc>();
+    final result = await txnBloc.transactionRepository.convertToTransfer(
+      id: widget.transactionId!,
+      sourcePaymentMethodId: _transferSourcePaymentMethodId!,
+      destinationPaymentMethodId: _transferDestinationPaymentMethodId!,
+      amount: amount,
+      description: description,
+      memo: memo,
+      transferDate: dateStr,
+    );
+    if (!mounted) return;
+    setState(() => _isTransferSubmitting = false);
+
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      ),
+      (transfer) {
+        final moved = DateTime.parse(transfer.transferDate);
+        // 두 스트림을 함께 갱신 — 하나만 하면 원본 거래가 남아 보이거나 새 이체가 안 보인다.
+        txnBloc.add(LoadTransactions.fromFilter(
+          moved.year,
+          moved.month,
+          txnBloc.currentFilter,
+        ));
+        context
+            .read<TransferBloc>()
+            .add(LoadTransfers(year: moved.year, month: moved.month));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이체로 변경되었습니다')),
+        );
+        Navigator.of(context).pop(true);
+      },
+    );
   }
 
   Widget _buildTransferFormBody(BuildContext context) {
@@ -2121,6 +2284,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     if (isEditing) {
       bloc.add(UpdateTransaction(
         id: widget.transactionId!,
+        // 유형 변경 (수입↔지출). 바뀐 경우에만 보낸다. 서버가 카테고리 정합성·정산
+        // 기록 여부를 검증한다.
+        type: _editTargetType != _originalType ? _editTargetType : null,
         amount: amount,
         description: description,
         categoryId: resolvedCategoryId,
