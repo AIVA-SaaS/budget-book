@@ -31,6 +31,7 @@ import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.d
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
+import 'package:budget_book/core/widgets/ledger_date_header.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
@@ -1315,37 +1316,12 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String formatted;
-    try {
-      final date = DateTime.parse(dateStr);
-      formatted = DateFormat('M월 d일 (E)', 'ko').format(date);
-    } catch (_) {
-      formatted = dateStr;
-    }
-
-    return InkWell(
+    // 날짜 표기(포맷·배경·여백)는 LedgerDateHeader 단일 소스. 정산 뷰가 같은 표기를 쓴다.
+    return LedgerDateHeader(
+      dateStr: dateStr,
       onTap: onAddTap ??
           () => context.push('/transactions/create?date=$dateStr'),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.5),
-        child: Row(
-          children: [
-            Text(
-              formatted,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
-                  ),
-            ),
-            const Spacer(),
+      trailing: [
             if (dayIncome > 0)
               Text(
                 '+${CurrencyFormatter.format(dayIncome)}',
@@ -1377,9 +1353,7 @@ class _DateHeader extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.4),
             ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/ledger_date_header.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/reconciliation/domain/entities/reconciliation.dart';
 import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
@@ -158,6 +159,13 @@ class _ReconciliationViewState extends State<ReconciliationView> {
       ...unrecordedTf.map(LedgerItem.fromTransfer),
     ]..sort((a, b) => b.date.compareTo(a.date));
 
+    // 날짜별 그룹 — 타일 자체에는 날짜가 없다(리스트 모드도 헤더로 보여준다).
+    // 평면 리스트로 두면 "언제 거래인지 모르겠다" 가 된다.
+    final groups = <String, List<LedgerItem>>{};
+    for (final item in items) {
+      groups.putIfAbsent(item.date, () => []).add(item);
+    }
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 8),
       children: [
@@ -169,8 +177,13 @@ class _ReconciliationViewState extends State<ReconciliationView> {
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: Text('표시할 미기록 항목이 없습니다')),
           )
-        else
-          ...items.map((item) => _buildSelectableRow(context, item)),
+        else ...[
+          _buildSelectAllRow(context, items),
+          for (final entry in groups.entries) ...[
+            _buildDateGroupHeader(context, entry.key, entry.value),
+            ...entry.value.map((item) => _buildSelectableRow(context, item)),
+          ],
+        ],
         if (state.hasMoreUnrecorded)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -202,11 +215,104 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                     .add(LoadReconciliationDetail(s.id)),
                 onRename: () => _promptRename(context, s),
                 onDelete: () => _confirmDelete(context, s),
-                onRemoveItem: (itemId) => context
-                    .read<ReconciliationBloc>()
-                    .add(RemoveReconciliationItems(id: s.id, itemIds: [itemId])),
+                onRemoveItems: (itemIds) =>
+                    _confirmRemoveItems(context, s, itemIds),
               )),
         const SizedBox(height: 88),
+      ],
+    );
+  }
+
+  bool _isSelected(LedgerItem item) => item.isTransfer
+      ? _selectedTransferIds.contains(item.transfer!.id)
+      : _selectedTransactionIds.contains(item.transaction!.id);
+
+  /// 목록 항목 여러 건의 선택을 한 번에 켜고 끈다 (전체 선택 / 날짜별 선택 공용).
+  void _setSelection(Iterable<LedgerItem> items, bool selected) {
+    setState(() {
+      for (final item in items) {
+        final target =
+            item.isTransfer ? _selectedTransferIds : _selectedTransactionIds;
+        final id = item.isTransfer ? item.transfer!.id : item.transaction!.id;
+        if (selected) {
+          target.add(id);
+        } else {
+          target.remove(id);
+        }
+      }
+    });
+  }
+
+  /// 셋 중 하나: 전부 선택(true) / 일부(null, 삼상태) / 없음(false).
+  bool? _tristateValue(List<LedgerItem> items) {
+    final selected = items.where(_isSelected).length;
+    if (selected == 0) return false;
+    if (selected == items.length) return true;
+    return null;
+  }
+
+  /// 목록 맨 위 "전체 선택" 행.
+  ///
+  /// 하단 액션 바에도 같은 기능이 있지만, 사용자가 바를 발견하지 못했다
+  /// (2026-07-27 라이브 검증). 선택 대상 바로 위에 체크박스를 둬서 어포던스를 드러낸다.
+  Widget _buildSelectAllRow(BuildContext context, List<LedgerItem> items) {
+    final theme = Theme.of(context);
+    final value = _tristateValue(items);
+    return InkWell(
+      onTap: () => _setSelection(items, value != true),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 16),
+        child: Row(
+          children: [
+            Checkbox(
+              tristate: true,
+              value: value,
+              onChanged: (_) => _setSelection(items, value != true),
+            ),
+            Text(
+              value == true ? '전체 선택 해제' : '전체 선택',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            if (_selectedCount > 0)
+              Text(
+                '$_selectedCount건 선택',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 날짜 구분 헤더 + 그 날짜만 토글하는 체크박스. 표기는 리스트 모드와 공용 위젯.
+  Widget _buildDateGroupHeader(
+      BuildContext context, String dateStr, List<LedgerItem> dayItems) {
+    final value = _tristateValue(dayItems);
+    return LedgerDateHeader(
+      dateStr: dateStr,
+      onTap: () => _setSelection(dayItems, value != true),
+      leading: SizedBox(
+        width: 40,
+        child: Checkbox(
+          tristate: true,
+          value: value,
+          visualDensity: VisualDensity.compact,
+          onChanged: (_) => _setSelection(dayItems, value != true),
+        ),
+      ),
+      trailing: [
+        Text(
+          '${dayItems.length}건',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color:
+                    Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+        ),
       ],
     );
   }
@@ -398,6 +504,39 @@ class _ReconciliationViewState extends State<ReconciliationView> {
     bloc.add(RenameReconciliation(id: snapshot.id, label: controller.text.trim()));
   }
 
+  /// 스냅샷 항목 일부만 정산 취소 (다중 선택). 남은 항목이 없으면 BE 가 스냅샷 자체를 지운다.
+  Future<void> _confirmRemoveItems(BuildContext context,
+      Reconciliation snapshot, List<String> itemIds) async {
+    if (itemIds.isEmpty) return;
+    final bloc = context.read<ReconciliationBloc>();
+    final all = itemIds.length >= snapshot.itemCount;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('선택 ${itemIds.length}건 정산 취소'),
+        content: Text(
+          all
+              ? '${snapshot.displayName} 의 모든 항목이 빠집니다. 스냅샷도 함께 삭제되고 '
+                  '항목들은 미기록으로 되돌아갑니다. 거래 자체는 삭제되지 않습니다.'
+              : '선택한 ${itemIds.length}건이 미기록으로 되돌아갑니다. 거래 자체는 삭제되지 않습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('닫기'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('정산 취소'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    // 다건이어도 **한 번의 요청** — 낱건 반복은 중간 실패 시 절반만 취소된 상태가 남는다.
+    bloc.add(RemoveReconciliationItems(id: snapshot.id, itemIds: itemIds));
+  }
+
   Future<void> _confirmDelete(
       BuildContext context, Reconciliation snapshot) async {
     final bloc = context.read<ReconciliationBloc>();
@@ -544,13 +683,18 @@ class _SnapshotSectionHeader extends StatelessWidget {
   }
 }
 
-class _SnapshotTile extends StatelessWidget {
+/// 스냅샷 1건. 펼치면 항목 목록 + 액션(라벨 수정 / 선택 정산 취소 / 전체 정산 취소).
+///
+/// 이전에는 `trailing` 을 `PopupMenuButton(⋮)` 으로 덮어써서 **펼침 chevron 이 사라졌다** →
+/// 사용자가 스냅샷이 펼쳐진다는 것도, 그 안의 정산 취소도 발견하지 못했다
+/// (2026-07-27 라이브 검증). chevron 을 되돌리고 액션은 펼친 본문에 드러낸다.
+class _SnapshotTile extends StatefulWidget {
   final Reconciliation snapshot;
   final List<ReconciliationItem>? items;
   final VoidCallback onExpand;
   final VoidCallback onRename;
   final VoidCallback onDelete;
-  final ValueChanged<String> onRemoveItem;
+  final ValueChanged<List<String>> onRemoveItems;
 
   const _SnapshotTile({
     required this.snapshot,
@@ -558,11 +702,20 @@ class _SnapshotTile extends StatelessWidget {
     required this.onExpand,
     required this.onRename,
     required this.onDelete,
-    required this.onRemoveItem,
+    required this.onRemoveItems,
   });
 
   @override
+  State<_SnapshotTile> createState() => _SnapshotTileState();
+}
+
+class _SnapshotTileState extends State<_SnapshotTile> {
+  final Set<String> _selectedItemIds = {};
+
+  @override
   Widget build(BuildContext context) {
+    final snapshot = widget.snapshot;
+    final items = widget.items;
     final theme = Theme.of(context);
     final when = DateFormat('M/d HH:mm').format(snapshot.reconciledAt.toLocal());
     final subtitle = [
@@ -579,8 +732,13 @@ class _SnapshotTile extends StatelessWidget {
 
     return ExpansionTile(
       // 접힌 상태에서 헤더만 보이고, 펼칠 때 항목을 지연 로드한다.
+      // 접으면 선택도 비운다 (다른 스냅샷과 선택이 섞여 보이지 않게).
       onExpansionChanged: (expanded) {
-        if (expanded) onExpand();
+        if (expanded) {
+          widget.onExpand();
+        } else if (_selectedItemIds.isNotEmpty) {
+          setState(_selectedItemIds.clear);
+        }
       },
       title: Row(
         children: [
@@ -606,16 +764,6 @@ class _SnapshotTile extends StatelessWidget {
         ),
         maxLines: 2,
       ),
-      trailing: PopupMenuButton<String>(
-        onSelected: (value) {
-          if (value == 'rename') onRename();
-          if (value == 'delete') onDelete();
-        },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'rename', child: Text('라벨 수정')),
-          PopupMenuItem(value: 'delete', child: Text('정산 취소')),
-        ],
-      ),
       children: [
         if (items == null)
           const Padding(
@@ -628,21 +776,86 @@ class _SnapshotTile extends StatelessWidget {
               ),
             ),
           )
-        else
-          ...items!.map((item) => _SnapshotItemRow(
+        else ...[
+          ...items.map((item) => _SnapshotItemRow(
                 item: item,
-                onRemove: () => onRemoveItem(item.itemId),
+                selected: _selectedItemIds.contains(item.itemId),
+                onSelectedChanged: (v) => setState(() {
+                  if (v) {
+                    _selectedItemIds.add(item.itemId);
+                  } else {
+                    _selectedItemIds.remove(item.itemId);
+                  }
+                }),
               )),
+          _buildActions(context, items),
+        ],
       ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context, List<ReconciliationItem> items) {
+    final allSelected =
+        items.isNotEmpty && _selectedItemIds.length == items.length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: () => setState(() {
+              if (allSelected) {
+                _selectedItemIds.clear();
+              } else {
+                _selectedItemIds
+                  ..clear()
+                  ..addAll(items.map((i) => i.itemId));
+              }
+            }),
+            icon: Icon(
+              allSelected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 16,
+            ),
+            label: Text(allSelected ? '선택 해제' : '항목 전체 선택'),
+          ),
+          TextButton.icon(
+            onPressed: widget.onRename,
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text('라벨 수정'),
+          ),
+          TextButton.icon(
+            onPressed: _selectedItemIds.isEmpty
+                ? null
+                : () => widget.onRemoveItems(_selectedItemIds.toList()),
+            icon: const Icon(Icons.remove_circle_outline, size: 16),
+            label: Text('선택 ${_selectedItemIds.length}건 정산 취소'),
+          ),
+          TextButton.icon(
+            onPressed: widget.onDelete,
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            icon: const Icon(Icons.undo, size: 16),
+            label: const Text('전체 정산 취소'),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _SnapshotItemRow extends StatelessWidget {
   final ReconciliationItem item;
-  final VoidCallback onRemove;
+  final bool selected;
+  final ValueChanged<bool> onSelectedChanged;
 
-  const _SnapshotItemRow({required this.item, required this.onRemove});
+  const _SnapshotItemRow({
+    required this.item,
+    required this.selected,
+    required this.onSelectedChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -654,11 +867,22 @@ class _SnapshotItemRow extends StatelessWidget {
 
     return ListTile(
       dense: true,
-      contentPadding: const EdgeInsets.only(left: 24, right: 8),
-      leading: Icon(
-        item.isTransfer ? Icons.swap_horiz : Icons.receipt_long,
-        size: 16,
-        color: color,
+      contentPadding: const EdgeInsets.only(left: 8, right: 8),
+      onTap: () => onSelectedChanged(!selected),
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: selected,
+            visualDensity: VisualDensity.compact,
+            onChanged: (v) => onSelectedChanged(v == true),
+          ),
+          Icon(
+            item.isTransfer ? Icons.swap_horiz : Icons.receipt_long,
+            size: 16,
+            color: color,
+          ),
+        ],
       ),
       title: Row(
         children: [
@@ -692,19 +916,9 @@ class _SnapshotItemRow extends StatelessWidget {
           color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
         ),
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${CurrencyFormatter.format(item.snapshotAmount)}원',
-            style: theme.textTheme.bodySmall?.copyWith(color: color),
-          ),
-          IconButton(
-            tooltip: '정산에서 제외',
-            icon: const Icon(Icons.remove_circle_outline, size: 16),
-            onPressed: onRemove,
-          ),
-        ],
+      trailing: Text(
+        '${CurrencyFormatter.format(item.snapshotAmount)}원',
+        style: theme.textTheme.bodySmall?.copyWith(color: color),
       ),
     );
   }

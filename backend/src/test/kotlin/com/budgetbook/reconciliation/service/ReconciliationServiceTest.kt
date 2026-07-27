@@ -32,6 +32,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.springframework.data.jpa.domain.Specification
 import java.time.LocalDate
 import java.util.Optional
 import java.util.UUID
@@ -63,6 +64,7 @@ class ReconciliationServiceTest : BehaviorSpec({
         userRepository,
         coupleResolver,
         ReconciliationAggregator(),
+        ReconciliationScope(),
         syncEventPublisher
     )
 
@@ -236,34 +238,33 @@ class ReconciliationServiceTest : BehaviorSpec({
     Given("정산 생성 성공") {
         val expense = txn(amount = 10000, type = TransactionType.EXPENSE)
         val income = txn(amount = 30000, type = TransactionType.INCOME)
-        val adjustment = txn(amount = -2000, type = TransactionType.ADJUSTMENT)
 
-        When("지출/수입/조정 3건을 정산하면") {
+        When("지출/수입 2건을 정산하면") {
             defaults()
-            every { transactionRepository.findAllById(any()) } returns listOf(expense, income, adjustment)
+            every { transactionRepository.findAllById(any()) } returns listOf(expense, income)
 
             val result = service.createReconciliation(
                 me.id,
                 CreateReconciliationRequest(
                     "2026-07", "1차",
-                    transactionIds = listOf(expense.id, income.id, adjustment.id)
+                    transactionIds = listOf(expense.id, income.id)
                 )
             )
 
-            Then("회차는 1, 소계는 집계 규칙대로 (ADJUSTMENT 제외)") {
+            Then("회차는 1, 소계는 집계 규칙대로") {
                 result.seq shouldBe 1
                 result.label shouldBe "1차"
-                result.itemCount shouldBe 3
+                result.itemCount shouldBe 2
                 result.totalExpense shouldBe 10000
                 result.totalIncome shouldBe 30000
                 result.totalTransfer shouldBe 0
-                result.items shouldHaveSize 3
+                result.items shouldHaveSize 2
             }
 
             Then("헤더에 소계가 저장된다 (FE 재계산 금지 전제)") {
                 val saved = slot<Reconciliation>()
                 verify { reconciliationRepository.save(capture(saved)) }
-                saved.captured.itemCount shouldBe 3
+                saved.captured.itemCount shouldBe 2
                 saved.captured.totalExpense shouldBe 10000
                 saved.captured.totalIncome shouldBe 30000
             }
@@ -323,6 +324,69 @@ class ReconciliationServiceTest : BehaviorSpec({
                 // 50000(파트너 개인) 이 빠진 금액이어야 한다 — 안 빠지면 "합계 ≠ 행".
                 detail.totalExpense shouldBe 10000
                 detail.itemCount shouldBe 1
+            }
+        }
+    }
+
+    Given("잔액 수정(ADJUSTMENT) 은 정산 대상이 아니다") {
+        When("잔액 수정 거래를 정산에 넣으려 하면") {
+            defaults()
+            val adj = txn(type = TransactionType.ADJUSTMENT, amount = -30000)
+            every { transactionRepository.findAllById(listOf(adj.id)) } returns listOf(adj)
+
+            Then("VALIDATION_ERROR — 조용히 건너뛰지 않는다") {
+                // 무시하면 사용자가 고른 N건과 실제 기록 건수가 어긋난다.
+                shouldThrow<BusinessException> {
+                    service.createReconciliation(
+                        me.id,
+                        CreateReconciliationRequest("2026-07", transactionIds = listOf(adj.id))
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("요약을 조회하면") {
+            defaults()
+            val expense = txn(amount = 10000)
+            val income = txn(type = TransactionType.INCOME, amount = 70000)
+            val adj = txn(type = TransactionType.ADJUSTMENT, amount = -30000)
+            every { transactionRepository.findAll(any<Specification<Transaction>>()) } returns
+                listOf(expense, income, adj)
+            every {
+                transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
+                    couple.id, any(), any()
+                )
+            } returns emptyList()
+            every { reconciliationRepository.countByCoupleIdAndYearMonth(couple.id, "2026-07") } returns 0
+
+            val summary = service.getSummary(me.id, 2026, 7)
+
+            Then("미기록 건수·소계 어디에도 잔액 수정이 없다") {
+                // 건수까지 빼야 한다. 금액만 0 원 처리하면 목록에는 계속 남아
+                // "이 달 정산 완료" 에 영원히 도달하지 못한다.
+                summary.unrecordedCount shouldBe 2
+                summary.unrecordedExpense shouldBe 10000
+                summary.unrecordedIncome shouldBe 70000
+            }
+        }
+
+        When("남은 미기록이 잔액 수정뿐이면") {
+            defaults()
+            val adj = txn(type = TransactionType.ADJUSTMENT, amount = -30000)
+            every { transactionRepository.findAll(any<Specification<Transaction>>()) } returns listOf(adj)
+            every {
+                transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
+                    couple.id, any(), any()
+                )
+            } returns emptyList()
+            every { reconciliationRepository.countByCoupleIdAndYearMonth(couple.id, "2026-07") } returns 1
+
+            val summary = service.getSummary(me.id, 2026, 7)
+
+            Then("미기록 0건 — FE 가 \"이 달 정산 완료\" 로 판정할 수 있다") {
+                summary.unrecordedCount shouldBe 0
+                summary.unrecordedExpense shouldBe 0
+                summary.unrecordedIncome shouldBe 0
             }
         }
     }

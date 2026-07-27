@@ -54,6 +54,7 @@ class ReconciliationService(
     private val userRepository: UserRepository,
     private val coupleResolver: CoupleResolver,
     private val aggregator: ReconciliationAggregator,
+    private val scope: ReconciliationScope,
     private val syncEventPublisher: SyncEventPublisher
 ) {
 
@@ -143,8 +144,14 @@ class ReconciliationService(
             ?.let { tfs -> reconciliationItemRepository.findByTransferIdIn(tfs.map { it.id }) }
             ?.mapNotNull { it.transferId }?.toSet() ?: emptySet()
 
-        val unrecordedTx = transactions.filter { it.id !in reconciledTxIds }
-        val unrecordedTf = transfers.filter { it.id !in reconciledTfIds }
+        // 정산 대상이 아닌 종류(잔액 수정 = ADJUSTMENT)는 요약에서도 목록에서도 빠진다.
+        // 판정은 [ReconciliationScope] 단일 소스 — 목록 쿼리
+        // (`TransactionSpecifications`, reconciled=false) 와 **같은 정의**를 써야
+        // "요약 건수는 맞는데 행이 다른" 상태가 생기지 않는다 (ReconciliationScopeInvariantTest 가 고정).
+        val unrecordedTx = transactions
+            .filter { it.id !in reconciledTxIds && scope.isReconcilable(it.type) }
+        val unrecordedTf = transfers
+            .filter { it.id !in reconciledTfIds && scope.isReconcilable(it.kind) }
 
         // 미기록 소계도 스냅샷과 **같은 집계기** 로 계산한다 (규칙이 두 벌로 갈라지면
         // "미기록 + Σ스냅샷 = 월 전체" 가 깨진다).
@@ -331,6 +338,14 @@ class ReconciliationService(
                     throw ForbiddenException("FORBIDDEN", "Cannot reconcile a partner's private transaction.")
                 }
                 requireSameMonth(tx.transactionDate, yearMonth)
+                // 구버전 클라이언트나 직접 호출이 잔액 수정을 밀어 넣는 경로를 막는다.
+                // 조용히 건너뛰면 "N건 정산" 과 실제 기록 건수가 어긋난다 → 명시적 400.
+                if (!scope.isReconcilable(tx.type)) {
+                    throw BusinessException(
+                        "VALIDATION_ERROR",
+                        "잔액 수정 항목은 정산 대상이 아닙니다."
+                    )
+                }
                 if (txId in alreadyReconciled) {
                     throw ConflictException(
                         "ALREADY_RECONCILED",
@@ -364,6 +379,14 @@ class ReconciliationService(
                     throw ForbiddenException("FORBIDDEN", "Transfer belongs to a different couple.")
                 }
                 requireSameMonth(tf.transferDate, yearMonth)
+                // 거래 쪽과 대칭. 현재 모든 이체 종류가 대상이지만, 새 종류가 추가되면
+                // ReconciliationScope 의 when 이 컴파일 에러를 내고 여기 가드가 바로 작동한다.
+                if (!scope.isReconcilable(tf.kind)) {
+                    throw BusinessException(
+                        "VALIDATION_ERROR",
+                        "정산 대상이 아닌 이체가 포함되어 있습니다."
+                    )
+                }
                 if (tfId in alreadyReconciled) {
                     throw ConflictException(
                         "ALREADY_RECONCILED",

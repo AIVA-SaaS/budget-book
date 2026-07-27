@@ -264,3 +264,39 @@ jobs:
                rm /tmp/aiva-bb.conf; \
                echo 'nginx vhost unchanged'; \
              fi"
+
+  # ── 라이브 검증: nginx drift + 캐시 헤더 ──
+  # 2026-07-27 — 정산 아이콘 미노출 사고에서 드러난 두 구멍을 배포마다 막는다.
+  #  1) repo(ops/nas-nginx) 와 NAS 실제 vhost 가 갈라져 있었다. sync-nginx 는 경로 필터가
+  #     걸릴 때만 도니, 드리프트는 다음 nginx 변경 때 조용히 **되돌아간다**
+  #     (당시 repo 사본에는 PR #251 no-cache fix 와 ACME 챌린지 블록이 빠져 있었다).
+  #  2) 해시 없는 산출물에 immutable 캐시가 걸려 새 아이콘만 빈칸으로 보였다.
+  # 두 검사 모두 **관찰 레이어(NAS 파일 / 실제 HTTP 응답 헤더)** 에서 한다.
+  verify-live:
+    needs: [deploy-frontend, sync-nginx]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NAS_SSH_KEY }}" > ~/.ssh/nas_key
+          chmod 600 ~/.ssh/nas_key
+          ssh-keyscan -p ${{ secrets.NAS_SSH_PORT }} ${{ secrets.NAS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: nginx vhost drift check (repo == NAS)
+        run: |
+          scp -O -i ~/.ssh/nas_key -P ${{ secrets.NAS_SSH_PORT }} \
+            ops/nas-nginx/aiva-bb.conf \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }}:/tmp/aiva-bb.expected.conf
+          ssh -i ~/.ssh/nas_key -p ${{ secrets.NAS_SSH_PORT }} \
+            ${{ secrets.NAS_USERNAME }}@${{ secrets.NAS_HOST }} \
+            "sudo diff -u /usr/local/etc/nginx/sites-available/aiva-bb.conf /tmp/aiva-bb.expected.conf; \
+             rc=\$?; rm -f /tmp/aiva-bb.expected.conf; \
+             if [ \$rc -ne 0 ]; then echo '::error::NAS nginx vhost 가 ops/nas-nginx/aiva-bb.conf 와 다릅니다 (drift)'; fi; \
+             exit \$rc"
+
+      - name: Cache header verification
+        run: infra/scripts/verify-cache-headers.sh https://aiva-bb.duckdns.org
