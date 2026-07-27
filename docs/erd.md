@@ -1,8 +1,17 @@
 # Budget Book - Entity Relationship Diagram
 
 > Database schema definition for Budget Book.
-> All tables use PostgreSQL (hosted on Supabase).
+> PostgreSQL 16, self-hosted on the Synology NAS (`db_postgres_bb`, internal port 5433).
+> (Supabase 는 2026 상반기에 NAS 로 이전 완료 — 더 이상 사용하지 않는다.)
 > Migrations are managed via Flyway with `V{N}__` naming convention.
+>
+> **문서 범위 주의 (2026-07-27 감사)**: 아래 `## Table Details` 의 상세 표는 V12 까지만
+> 작성되어 있었고 V13~V64 에서 추가된 테이블·컬럼이 빠져 있었다. 그 공백은
+> [§ V13~V64 스키마 증분](#v13v64-스키마-증분) 에 정리했다. 신규 마이그레이션을 작성할 때는
+> **반드시 두 절을 함께** 확인할 것 (누락된 CHECK/UNIQUE 제약을 모른 채 작성하면
+> prod 에서 제약 위반이 난다 — 과거 실제 사고).
+>
+> 마지막 검증: 2026-07-27, 라이브 DB `flyway_schema_history` 최신 = V64 (전건 success).
 
 ---
 
@@ -599,6 +608,130 @@ Records transfers of funds between pockets. Affects balance calculation for both
 
 ---
 
+## V13~V64 스키마 증분
+
+> 위 `## Table Details` 는 V12 시점 스냅샷이다. 이 절은 그 이후 추가/변경분을 정리한다.
+> 컬럼 목록은 2026-07-27 라이브 DB(`information_schema.columns`) 기준으로 검증했다.
+
+### 기존 테이블에 추가된 컬럼
+
+| 테이블 | 컬럼 | 타입 | 비고 |
+|:---|:---|:---|:---|
+| `transactions` | `pocket_id` | UUID | V13. 머니 포켓 FK (nullable) |
+| `transactions` | `visibility` | VARCHAR(10) NOT NULL `'SHARED'` | V26. `SHARED`/`PRIVATE` |
+| `transactions` | `owner_id` | UUID | V26. PRIVATE 소유자 |
+| `transactions` | `paid_at` | DATE | V51. 카드 결제 완료일. null = 미결제(결제 대상) |
+| `transactions` | `needs_review` | BOOLEAN NOT NULL `false` | V61. "확인/입력 필요" 플래그. 통계 합계에 영향 없음 |
+| `transactions` | `settlement_transfer_id` | UUID | V63. 이 거래를 결제 완료로 마킹한 카드 정산 이체 ID |
+| `transactions` | `type` CHECK 확장 | — | V54. `INCOME`/`EXPENSE`/`ADJUSTMENT` |
+| `transactions` | `amount` CHECK 완화 | — | V46 (0 허용), V54 (ADJUSTMENT 는 음수 허용) |
+| `categories` | `group_id`, `visibility`, `owner_id`, `display_order` | — | V7 / V26 |
+| `category_groups` | `visibility`, `owner_id` | — | V26 |
+| `category_groups` | `category_type` | VARCHAR NOT NULL | V58. 그룹이 속한 카테고리 타입(수입/지출). 하드코딩 EXPENSE 금지 |
+| `payment_methods` | `closing_day` | INT | 카드 마감일 |
+| `payment_methods` | `linked_bank_id` | UUID | V34. CREDIT 카드의 결제 은행(BANK 타입 결제수단) |
+| `payment_methods` | `type` CHECK 확장 | — | V30. `CASH`/`DEBIT`/`CREDIT`/`BANK` |
+| `monthly_budgets` | `pocket_id` | UUID | V23 |
+| `monthly_budgets` | `period_type`, `start_date`, `end_date` | — | V24. `NONE`/`DAILY`/`WEEKLY`/`MONTHLY` |
+| `monthly_budgets` | `group_id` | UUID | V25. 그룹 단위 예산 |
+| `monthly_budgets` | `visibility`, `owner_id` | — | V26 |
+| `monthly_budgets` | `weekly_amount` | BIGINT | 주간 예산 source of truth. `amount = round(weekly*days/7)` (V64) |
+| `monthly_budgets` | `end_year_month`, `row_kind` | — | V57/V60. `TEMPLATE`(다월 반복) / `OVERRIDE`(단월) |
+| `money_pockets` | `goal_amount`, `target_date` | — | V17 |
+| `money_pockets` | `visibility`, `owner_id` | — | V26 |
+| `couples` | `dissolved_at` | TIMESTAMPTZ | V16 |
+| `users` | `is_active` | BOOLEAN NOT NULL `true` | V21 |
+| `users` | `provider` CHECK 확장 | — | V35. `GOOGLE`/`KAKAO`/`SYSTEM` (시스템 계정 UUID `0000…0001`) |
+| `users` | `email` | — | V62. 미동의 카카오 계정은 `{provider}_{providerId}@no-email.local` placeholder |
+
+### V13~V64 에서 추가된 테이블
+
+#### `transfers` (V33, V52·V54 확장)
+
+자산 간 이동 + 카드 결제. **거래 목록은 `transactions` + `transfers` 를 FE 에서 병합**해
+표시하므로, 목록/집계/필터를 건드릴 때 두 스트림을 함께 다뤄야 한다.
+
+| 컬럼 | 타입 | 비고 |
+|:---|:---|:---|
+| `id` | UUID PK | |
+| `couple_id` | UUID NOT NULL | FK `couples` |
+| `author_id` | UUID NOT NULL | FK `users` |
+| `source_payment_method_id` | UUID NOT NULL | 출금 자산 |
+| `destination_payment_method_id` | UUID NOT NULL | 입금 자산 |
+| `amount` | BIGINT NOT NULL | |
+| `description` / `memo` | VARCHAR(255) / TEXT | nullable |
+| `transfer_date` | DATE NOT NULL | |
+| `auto_settlement_key` | VARCHAR(100) UNIQUE | V35. 자동 정산 중복 방지 키 (partial unique) |
+| `is_card_settlement` | BOOLEAN NOT NULL `false` | V52. **deprecated** — `kind` 로 대체됨 |
+| `kind` | VARCHAR NOT NULL `'GENERIC'` | V54. CHECK `CARD_SETTLEMENT`/`EXPENSE_TRANSFER`/`INCOME_TRANSFER`/`GENERIC` |
+
+집계 규칙: `CARD_SETTLEMENT` 는 모든 통계에서 제외(원본 지출이 이미 집계됨),
+`EXPENSE_TRANSFER`→지출, `INCOME_TRANSFER`→수입, `GENERIC`→이체 합계.
+인덱스: `idx_transfers_couple_date_kind (couple_id, transfer_date, kind)` (V54/V56).
+
+#### `insurances` (V37)
+
+`id`, `couple_id`, `user_id`, `name`, `insurer?`, `insurance_type`, `premium_amount`,
+`payment_day?`, `payment_cycle`(`MONTHLY` 기본), `payment_method_id?`, `category_id?`,
+`start_date?`, `end_date?`, `memo?`, `is_active`, `visibility`, `owner_id?`, `created_at`, `updated_at`.
+
+#### `spending_plans` (V39, V40 확장)
+
+지출 계획 / 위시리스트. `id`, `couple_id`, `author_id`, `name`, `amount`, `target_date?`,
+`memo?`, `category_id?`, `payment_method_id?`, `budget_id?`, `linked_transaction_id?`,
+`status`(`PLANNED`/`COMPLETED`/`SKIPPED`/`OVERDUE`), `actual_amount?`, `completed_date?`,
+`is_recurring`, `frequency?`(`WEEKLY`/`MONTHLY`), `recurring_source_id?`, `visibility`,
+`owner_id?`, `priority`(`MEDIUM` 기본), `estimated_min?`, `estimated_max?`, `tags?`,
+`week_number?`(V40 주차 배정).
+
+#### `spending_plan_status_history` (V41)
+
+`id`, `spending_plan_id`, `from_status?`, `to_status`, `changed_by`, `actual_amount?`,
+`linked_transaction_id?`, `note?`, `created_at`.
+
+#### `weekly_budget_settlements` (V47)
+
+주간 예산 마감(정산). `id`, `couple_id`, `budget_id`, `year_month`, `week_number`,
+`week_start`, `week_end`, `category_id?`, `settled_amount`, `status`(`PENDING`/`SETTLED`),
+`settled_at?`, `settled_by?`, `created_at`, `updated_at`.
+
+> 이름이 비슷한 세 개념을 구분할 것: **카드 정산**(`transfers.kind=CARD_SETTLEMENT`),
+> **주간 예산 정산**(이 테이블), 그리고 장부 **정산 스냅샷**(별도 기능).
+
+#### `distribution_ratios` (V18)
+
+`id`, `couple_id`, `pocket_id`, `ratio`(NUMERIC), `created_at`, `updated_at`.
+
+#### `couple_preferences` (V38)
+
+`id`, `couple_id` (UNIQUE), `favorite_category_ids` UUID[], `favorite_payment_method_ids` UUID[],
+`created_at`, `updated_at`.
+
+#### `category_patterns` (V50)
+
+자동 카테고리 추천용 학습 데이터. `id`, `couple_id`, `keyword`, `category_id`,
+`frequency`(기본 1), `last_used_at`, `created_at`.
+
+#### `announcements` (V22)
+
+`id`, `title`, `content`, `is_active`, `created_by?`, `created_at`, `updated_at`.
+
+#### `feedback_posts` (V42) / `feedback_comments` (V43) / `feedback_votes` (V49)
+
+- `feedback_posts`: `id`, `user_id`, `category`, `title`, `content`,
+  `status`(`SUBMITTED` 기본), `admin_note?`, `resolved_release_id?`, `vote_count`(V49 캐시),
+  `created_at`, `updated_at`
+- `feedback_comments`: `id`, `post_id`, `author_id`, `content`, `is_admin_reply`, `created_at`
+- `feedback_votes`: `id`, `post_id`, `user_id`, `created_at`
+
+#### `release_notes` (V44) / `release_note_feedbacks` (V45)
+
+- `release_notes`: `id`, `version`(UNIQUE), `title`, `content`, `is_published`,
+  `published_at?`, `created_by`, `created_at`, `updated_at`
+- `release_note_feedbacks`: `release_note_id`, `feedback_post_id` (조인 테이블)
+
+---
+
 ## Relationships
 
 | From                      | To                          | Cardinality | Description                                                |
@@ -648,3 +781,56 @@ Records transfers of funds between pockets. Affects balance calculation for both
 | V11     | `V11__create_money_pockets_table.sql`            | Money pockets (budget envelopes) per couple              |
 | V12     | `V12__create_pocket_transfers_table.sql`         | Pocket transfers between money pockets                   |
 | V13     | `V13__add_pocket_id_to_transactions.sql`         | `transactions.pocket_id` FK to money pockets             |
+| V14     | `V14__add_budget_unique_constraint.sql`           | 예산 중복 방지 UNIQUE                                     |
+| V15     | `V15__add_pocket_transfer_indexes.sql`           | 포켓 이체 인덱스 3종                                      |
+| V16     | `V16__add_dissolved_at_to_couples.sql`           | `couples.dissolved_at`                                    |
+| V17     | `V17__add_pocket_goals.sql`                      | 포켓 목표 금액/기한                                       |
+| V18     | `V18__add_distribution_ratios.sql`               | `distribution_ratios` 테이블                              |
+| V19     | `V19__add_constraints.sql`                       | 전역 CHECK/UNIQUE 정비 (카테고리·결제수단·예산)            |
+| V20     | `V20__add_performance_indexes.sql`               | 조회 성능 인덱스                                          |
+| V21     | `V21__add_admin_fields.sql`                      | `users.is_active` + 역할 관련 필드                         |
+| V22     | `V22__add_announcements.sql`                     | `announcements` 테이블                                    |
+| V23     | `V23__add_pocket_id_to_budgets.sql`              | `monthly_budgets.pocket_id`                               |
+| V24     | `V24__budget_flexible_period.sql`                | `period_type`/`start_date`/`end_date` + CHECK             |
+| V25     | `V25__add_group_id_to_budgets.sql`               | 그룹 단위 예산                                            |
+| V26     | `V26__add_visibility_support.sql`                | 공유/개인(visibility·owner_id) 전면 도입                   |
+| V27     | `V27__fix_unique_constraints_for_visibility.sql` | visibility 반영 UNIQUE 재정의                             |
+| V28     | `V28__fix_weekly_budget_amounts.sql`             | 주간 예산 금액 보정                                        |
+| V29     | `V29__fix_transaction_visibility_from_category.sql` | 카테고리 기준 거래 visibility 백필                      |
+| V30     | `V30__add_bank_to_payment_method_type.sql`       | 결제수단 타입에 `BANK` 추가                                |
+| V31     | `V31__fix_fk_and_constraints.sql`                | FK/제약 정합성 수정                                        |
+| V32     | `V32__performance_and_cleanup.sql`               | 인덱스 정리 + 미사용 오브젝트 제거                          |
+| V33     | `V33__create_transfers_table.sql`                | **`transfers`** (자산 간 이체)                            |
+| V34     | `V34__add_linked_bank_id.sql`                    | `payment_methods.linked_bank_id` (카드 결제 은행)          |
+| V35     | `V35__add_system_account_and_auto_settlement.sql`| SYSTEM provider + `transfers.auto_settlement_key`         |
+| V36     | `V36__fix_category_unique_with_group.sql`        | 그룹 포함 카테고리 UNIQUE                                  |
+| V37     | `V37__create_insurances_table.sql`               | `insurances`                                              |
+| V38     | `V38__create_couple_preferences.sql`             | `couple_preferences` (즐겨찾기)                            |
+| V39     | `V39__create_spending_plans_table.sql`           | `spending_plans`                                          |
+| V40     | `V40__spending_plan_wishlist_enhancement.sql`    | 위시리스트 확장(우선순위·예상금액·주차)                     |
+| V41     | `V41__create_spending_plan_status_history.sql`   | `spending_plan_status_history`                            |
+| V42     | `V42__create_feedback_posts.sql`                 | `feedback_posts`                                          |
+| V43     | `V43__create_feedback_comments.sql`              | `feedback_comments`                                       |
+| V44     | `V44__create_release_notes.sql`                  | `release_notes` (version UNIQUE)                          |
+| V45     | `V45__create_release_note_feedbacks.sql`         | 릴리스노트 ↔ 피드백 조인 테이블                            |
+| V46     | `V46__allow_zero_amount_transactions.sql`        | 거래 금액 0 허용                                          |
+| V47     | `V47__create_weekly_budget_settlements.sql`      | `weekly_budget_settlements` (주간 예산 정산)               |
+| V48     | `V48__self_couple_backfill.sql`                  | 1인 커플 백필                                             |
+| V49     | `V49__create_feedback_votes.sql`                 | `feedback_votes` + `vote_count` 캐시                       |
+| V50     | `V50__create_category_patterns.sql`              | `category_patterns` (자동 분류 학습)                       |
+| V51     | `V51__add_paid_at_to_transactions.sql`           | `transactions.paid_at` (카드 결제 완료)                    |
+| V52     | `V52__add_is_card_settlement_to_transfers.sql`   | `transfers.is_card_settlement` (이후 `kind` 로 대체)       |
+| V53     | `V53__backfill_card_settlement_data.sql`         | 카드 결제 데이터 백필                                      |
+| V54     | `V54__add_transfer_kind_and_adjustment.sql`      | `transfers.kind` + `ADJUSTMENT` 거래 타입 + 금액 CHECK     |
+| V56     | `V56__add_transfer_kind_index.sql`               | `(couple_id, transfer_date, kind)` 인덱스                  |
+| V57     | `V57__budget_template_override.sql`              | 예산 TEMPLATE/OVERRIDE 구분 (`row_kind`, `end_year_month`) |
+| V58     | `V58__add_category_type_to_groups.sql`           | `category_groups.category_type`                           |
+| V59     | `V59__seed_default_income_group.sql`             | 기본 수입 그룹 시드                                        |
+| V60     | `V60__drop_template_unique_for_multi_segment.sql`| 다구간 TEMPLATE 허용을 위한 UNIQUE 완화                    |
+| V61     | `V61__add_transaction_needs_review.sql`          | `transactions.needs_review`                               |
+| V62     | `V62__backfill_placeholder_emails.sql`           | 이메일 미동의 카카오 계정 placeholder 백필                  |
+| V63     | `V63__add_settlement_transfer_id_to_transactions.sql` | `transactions.settlement_transfer_id`               |
+| V64     | `V64__unify_weekly_budget_conversion.sql`        | 주간 예산 환산 단일화 (`weekly_amount` = source of truth)  |
+
+> V55 는 결번(스킵)이다 — 실제 적용 이력에도 존재하지 않는다.
+> 라이브 적용 상태 확인: `select version, success from flyway_schema_history order by installed_rank desc`.

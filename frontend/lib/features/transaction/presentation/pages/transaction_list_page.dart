@@ -34,6 +34,7 @@ import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/core/widgets/filters/unified_filter_bar.dart';
 import 'package:budget_book/core/widgets/filters/payment_method_filter.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_calendar_view.dart';
@@ -216,23 +217,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final keyword =
         _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
 
-    final fmt = DateFormat('yyyy-MM-dd');
-    context.read<TransactionBloc>().add(LoadTransactions(
-          year: year,
-          month: month,
-          keyword: keyword,
-          categoryIds: _filterState.categoryIds,
-          categoryGroupIds: _filterState.categoryGroupIds,
-          paymentMethodIds: _filterState.paymentMethodIds,
-          pocketIds: _filterState.pocketIds,
-          amountMin: _filterState.amountMin,
-          amountMax: _filterState.amountMax,
-          dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
-          dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
-          transactionTypes: _filterState.transactionTypes,
-          visibility: _filterState.visibility,
-          needsReviewOnly:
-              _filterState.needsReviewOnly ? true : null,
+    // UI 필터 → 도메인 VO 변환은 toTransactionFilter 단일 경로 (필드 나열 금지).
+    context.read<TransactionBloc>().add(LoadTransactions.fromFilter(
+          year,
+          month,
+          _filterState.toTransactionFilter(keywordOverride: keyword),
         ));
     context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
   }
@@ -653,25 +642,12 @@ class _TransactionListPageState extends State<TransactionListPage> {
             final kw = _searchController.text.trim().isEmpty
                 ? null
                 : _searchController.text.trim();
-            final fmt = DateFormat('yyyy-MM-dd');
             context.read<TransactionBloc>().add(
-                  LoadTransactions(
-                    year: m.year,
-                    month: m.month,
-                    keyword: kw,
-                    categoryIds: _filterState.categoryIds,
-                    categoryGroupIds: _filterState.categoryGroupIds,
-                    paymentMethodIds: _filterState.paymentMethodIds,
-                    pocketIds: _filterState.pocketIds,
-                    amountMin: _filterState.amountMin,
-                    amountMax: _filterState.amountMax,
-                    dateFrom: _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null,
-                    dateTo: _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null,
+                  LoadTransactions.fromFilter(
+                    m.year,
+                    m.month,
+                    _filterState.toTransactionFilter(keywordOverride: kw),
                     scrollToDate: _pendingScrollToDate,
-                    transactionTypes: _filterState.transactionTypes,
-                    visibility: _filterState.visibility,
-                    needsReviewOnly:
-                        _filterState.needsReviewOnly ? true : null,
                   ),
                 );
           },
@@ -1285,7 +1261,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
       message: '거래를 불러오지 못했습니다',
       onRetry: () {
         context.read<TransactionBloc>().add(
-              LoadTransactions(year: now.year, month: now.month),
+              LoadTransactions.monthOnly(now.year, now.month),
             );
       },
       showHomeButton: true,

@@ -9,6 +9,7 @@ import 'package:budget_book/features/statistics/domain/entities/monthly_trend.da
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 
 class StatisticsRepositoryImpl implements StatisticsRepository {
   final StatisticsRemoteDataSource remoteDataSource;
@@ -19,36 +20,13 @@ class StatisticsRepositoryImpl implements StatisticsRepository {
   Future<Either<Failure, StatisticsSummary>> getSummary({
     required int year,
     required int month,
-    String visibility = 'ALL',
-    String? dateFrom,
-    String? dateTo,
-    String? categoryId,
-    String? paymentMethodId,
-    String? pocketId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    Set<String> paymentMethodIds = const {},
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? keyword,
-    Set<String> transactionTypes = const {},
+    TransactionFilter filter = TransactionFilter.empty,
   }) async {
     try {
       final result = await remoteDataSource.getSummary(
-        year: year, month: month, visibility: visibility,
-        dateFrom: dateFrom, dateTo: dateTo,
-        categoryId: categoryId,
-        paymentMethodId: paymentMethodId,
-        pocketId: pocketId,
-        categoryIds: categoryIds,
-        categoryGroupIds: categoryGroupIds,
-        paymentMethodIds: paymentMethodIds,
-        pocketIds: pocketIds,
-        amountMin: amountMin,
-        amountMax: amountMax,
-        keyword: keyword,
-        transactionTypes: transactionTypes,
+        year: year,
+        month: month,
+        filter: filter,
       );
       return Right(result);
     } on DioException catch (e) {

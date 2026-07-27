@@ -9,6 +9,7 @@ import 'package:budget_book/features/transaction/data/models/transaction_author_
 import 'package:budget_book/features/transaction/data/models/transaction_category_model.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/domain/entities/page_response.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 
@@ -18,22 +19,7 @@ class MockTransactionRemoteDataSource extends Mock
   Future<PageResponse<TransactionModel>> getTransactions({
     int? year,
     int? month,
-    String? type,
-    Set<String> transactionTypes = const {},
-    String? categoryId,
-    Set<String> categoryIds = const {},
-    Set<String> categoryGroupIds = const {},
-    String? keyword,
-    String? paymentMethodId,
-    Set<String> paymentMethodIds = const {},
-    String? pocketId,
-    Set<String> pocketIds = const {},
-    int? amountMin,
-    int? amountMax,
-    String? dateFrom,
-    String? dateTo,
-    String? visibility,
-    bool? needsReviewOnly,
+    TransactionFilter filter = TransactionFilter.empty,
     int page = 0,
     int size = 20,
   }) =>
@@ -41,22 +27,7 @@ class MockTransactionRemoteDataSource extends Mock
         Invocation.method(#getTransactions, [], {
           #year: year,
           #month: month,
-          #type: type,
-          #transactionTypes: transactionTypes,
-          #categoryId: categoryId,
-          #categoryIds: categoryIds,
-          #categoryGroupIds: categoryGroupIds,
-          #keyword: keyword,
-          #paymentMethodId: paymentMethodId,
-          #paymentMethodIds: paymentMethodIds,
-          #pocketId: pocketId,
-          #pocketIds: pocketIds,
-          #amountMin: amountMin,
-          #amountMax: amountMax,
-          #dateFrom: dateFrom,
-          #dateTo: dateTo,
-          #visibility: visibility,
-          #needsReviewOnly: needsReviewOnly,
+          #filter: filter,
           #page: page,
           #size: size,
         }),

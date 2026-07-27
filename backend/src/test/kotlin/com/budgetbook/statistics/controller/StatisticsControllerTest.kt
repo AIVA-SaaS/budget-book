@@ -59,6 +59,32 @@ class StatisticsControllerTest : FunSpec({
         verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) }
     }
 
+    // 2026-07-27 회귀 가드 — 거래 목록에는 needsReviewOnly 가 적용되는데 summary 에는
+    // 전달되지 않아 "확인/입력 필요만 보기" 상태에서 월 합계가 전체 금액을 보여줬다
+    // (합계 ≠ 보이는 행). 컨트롤러가 이 필터를 서비스로 넘기는지 고정한다.
+    test("getMonthlySummary passes needsReviewOnly to service") {
+
+        val summary = StatisticsSummaryResponse("2026-03", 0, 30000, 0, -30000, 2)
+        every {
+            statisticsService.getMonthlySummary(
+                userId = testUserId, year = 2026, month = 3, visibility = "ALL",
+                dateFrom = null, dateTo = null, needsReviewOnly = true
+            )
+        } returns summary
+
+        val filter = CommonFilterParams(needsReviewOnly = true)
+        val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
+
+        result.success shouldBe true
+        result.data!!.totalExpense shouldBe 30000
+        verify {
+            statisticsService.getMonthlySummary(
+                userId = testUserId, year = 2026, month = 3, visibility = "ALL",
+                dateFrom = null, dateTo = null, needsReviewOnly = true
+            )
+        }
+    }
+
     test("getMonthlySummary passes visibility PRIVATE to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 0, 100000, 5)

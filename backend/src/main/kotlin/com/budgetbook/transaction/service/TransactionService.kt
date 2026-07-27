@@ -140,7 +140,11 @@ class TransactionService(
             pocketId?.let { set.add(it) }
         }
 
-        val pageSize = size.coerceIn(1, 100)
+        // 상한 200 — FE(`TransactionBloc._pageSize = 200`) 와 일치시킨다.
+        // 이전 상한 100 은 FE 의 200 요청을 조용히 반토막 내 왕복을 2배로 만들었고
+        // (포커싱-구동 자동 LoadMore 가 보완해 표면화되지 않았다), mock 기대값(200)과도
+        // 어긋났다. 값 변경 시 FE `_pageSize` 와 함께 바꿀 것.
+        val pageSize = size.coerceIn(1, MAX_PAGE_SIZE)
         val sort = Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt"))
         val pageable = PageRequest.of(page, pageSize, sort)
 
@@ -632,6 +636,11 @@ class TransactionService(
     }
 
     companion object {
+        /**
+         * 거래 목록 페이지 크기 상한. FE `TransactionBloc._pageSize` 와 동일해야 한다.
+         */
+        const val MAX_PAGE_SIZE = 200
+
         fun parseVisibility(visibilityStr: String?): Visibility {
             return when (visibilityStr?.uppercase()) {
                 "PRIVATE" -> Visibility.PRIVATE

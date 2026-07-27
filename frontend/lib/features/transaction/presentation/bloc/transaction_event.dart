@@ -8,55 +8,42 @@ sealed class TransactionEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// 거래 목록 로드 이벤트.
+///
+/// **필터는 개별 필드가 아니라 [TransactionFilter] VO 하나로만 전달된다.**
+///
+/// 2026-04-15 "월 이동 후 필터 drop" 인시던트는 소비자들이 필터 필드를 손으로
+/// 나열하다 한 개(`transactionTypes` → 이후 `needsReviewOnly`)를 빠뜨려 3회 재발했다.
+/// `fromFilter` 팩토리만 추가했던 1차 대응은 **기본 생성자가 살아 있어서** 실효가 없었고
+/// (2026-07-27 감사에서 sync_event_handler / main_shell_page / app_router 3곳이
+/// `needsReviewOnly` 를 여전히 누락), 그래서 이번에는 생성자 자체를 봉인한다.
+///
+/// 공개 진입점은 2개뿐이다.
+/// - [LoadTransactions.fromFilter] — 필터가 있는 모든 경로 (기본)
+/// - [LoadTransactions.monthOnly] — 필터 없는 초기/리셋 로드임을 명시할 때만
+///
+/// 새 필터 추가 시 [TransactionFilter] 한 곳만 고치면 모든 경로가 자동 전파된다.
+/// 개별 필드 getter 는 하위 호환용 위임이며, 새 코드는 `event.filter` 를 직접 쓴다.
 class LoadTransactions extends TransactionEvent {
   final int year;
   final int month;
-  final String? keyword;
-  final String? categoryId;
-  final Set<String> categoryIds;
-  final Set<String> categoryGroupIds;
-  final String? paymentMethodId;
-  final Set<String> paymentMethodIds;
-  final String? pocketId;
-  final Set<String> pocketIds;
-  final int? amountMin;
-  final int? amountMax;
-  final String? scrollToDate;
-  final String? dateFrom;
-  final String? dateTo;
-  final String? type;
-  final Set<String> transactionTypes;
-  final String? visibility;
-  /// V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
-  final bool? needsReviewOnly;
 
-  const LoadTransactions({
+  /// 필터 전체 스냅샷. 절대 필드 단위로 분해해 재조립하지 않는다.
+  final TransactionFilter filter;
+
+  final String? scrollToDate;
+
+  const LoadTransactions._({
     required this.year,
     required this.month,
-    this.keyword,
-    this.categoryId,
-    this.categoryIds = const {},
-    this.categoryGroupIds = const {},
-    this.paymentMethodId,
-    this.paymentMethodIds = const {},
-    this.pocketId,
-    this.pocketIds = const {},
-    this.amountMin,
-    this.amountMax,
+    required this.filter,
     this.scrollToDate,
-    this.dateFrom,
-    this.dateTo,
-    this.type,
-    this.transactionTypes = const {},
-    this.visibility,
-    this.needsReviewOnly,
   });
 
   /// 필터 VO 전체를 드롭 없이 전파하는 단일 진입점.
-  /// MonthSyncHandler 등 외부 consumer 가 개별 필드를 수동 나열하다 한 필드를
-  /// 빠뜨리는 사고(2026-04-15 "월 이동 후 필터 drop" 인시던트, transactionTypes·
-  /// needsReviewOnly 누락으로 재발)를 원천 차단한다. 새 필터 추가 시 TransactionFilter
-  /// 와 LoadTransactions 생성자만 고치면 이 팩토리는 자동으로 전체를 전달한다.
+  ///
+  /// [clearDateRange] 는 월 이동 시 특정 월에 종속된 명시적 기간 필터를 해제한다
+  /// (페이지 내비게이터와 동일 규칙).
   factory LoadTransactions.fromFilter(
     int year,
     int month,
@@ -64,52 +51,51 @@ class LoadTransactions extends TransactionEvent {
     String? scrollToDate,
     bool clearDateRange = false,
   }) {
-    return LoadTransactions(
+    return LoadTransactions._(
       year: year,
       month: month,
-      keyword: f.keyword,
-      categoryId: f.categoryId,
-      categoryIds: f.categoryIds,
-      categoryGroupIds: f.categoryGroupIds,
-      paymentMethodId: f.paymentMethodId,
-      paymentMethodIds: f.paymentMethodIds,
-      pocketId: f.pocketId,
-      pocketIds: f.pocketIds,
-      amountMin: f.amountMin,
-      amountMax: f.amountMax,
-      // 월 이동 시 특정 월에 종속된 명시적 기간 필터는 해제(페이지 내비게이터와 동일 규칙).
-      dateFrom: clearDateRange ? null : f.dateFrom,
-      dateTo: clearDateRange ? null : f.dateTo,
-      type: f.type,
-      transactionTypes: f.transactionTypes,
-      visibility: f.visibility,
-      needsReviewOnly: f.needsReviewOnly,
+      filter: clearDateRange ? f.copyWith(clearDateRange: true) : f,
       scrollToDate: scrollToDate,
     );
   }
 
+  /// 필터 없이 해당 월만 로드. "필터를 잃어버린 것"과 "의도적으로 필터가 없는 것"을
+  /// 호출부에서 구분해 읽을 수 있도록 별도 팩토리로 둔다.
+  factory LoadTransactions.monthOnly(
+    int year,
+    int month, {
+    String? scrollToDate,
+  }) {
+    return LoadTransactions._(
+      year: year,
+      month: month,
+      filter: TransactionFilter.empty,
+      scrollToDate: scrollToDate,
+    );
+  }
+
+  // ── 하위 호환 위임 getter (신규 코드는 `filter` 사용) ──
+  String? get keyword => filter.keyword;
+  String? get categoryId => filter.categoryId;
+  Set<String> get categoryIds => filter.categoryIds;
+  Set<String> get categoryGroupIds => filter.categoryGroupIds;
+  String? get paymentMethodId => filter.paymentMethodId;
+  Set<String> get paymentMethodIds => filter.paymentMethodIds;
+  String? get pocketId => filter.pocketId;
+  Set<String> get pocketIds => filter.pocketIds;
+  int? get amountMin => filter.amountMin;
+  int? get amountMax => filter.amountMax;
+  String? get dateFrom => filter.dateFrom;
+  String? get dateTo => filter.dateTo;
+  String? get type => filter.type;
+  Set<String> get transactionTypes => filter.transactionTypes;
+  String? get visibility => filter.visibility;
+
+  /// V61 (2026-05-06) — true 면 needs_review=true 거래만 (확인/입력 필요만 보기).
+  bool? get needsReviewOnly => filter.needsReviewOnly;
+
   @override
-  List<Object?> get props => [
-        year,
-        month,
-        keyword,
-        categoryId,
-        categoryIds,
-        categoryGroupIds,
-        paymentMethodId,
-        paymentMethodIds,
-        pocketId,
-        pocketIds,
-        amountMin,
-        amountMax,
-        scrollToDate,
-        dateFrom,
-        dateTo,
-        type,
-        transactionTypes,
-        visibility,
-        needsReviewOnly,
-      ];
+  List<Object?> get props => [year, month, filter, scrollToDate];
 }
 
 class CreateTransaction extends TransactionEvent {
