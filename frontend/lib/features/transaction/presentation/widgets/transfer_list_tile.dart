@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 /// A list tile for displaying a transfer in the unified transaction list.
@@ -57,10 +58,21 @@ class TransferListTile extends StatelessWidget {
           ],
         ),
       ),
-      title: Text(
-        transfer.description ?? '이체',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      title: Row(
+        children: [
+          // V65 — 거래 타일과 **동일한** 배지 (두 스트림 표시 일치).
+          if (transfer.isReconciled) ...[
+            ReconciledBadge(seq: transfer.reconciliationSeq),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Text(
+              transfer.description ?? '이체',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
       subtitle: Text(
         '${transfer.sourcePaymentMethod.name} \u2192 ${transfer.destinationPaymentMethod.name}',

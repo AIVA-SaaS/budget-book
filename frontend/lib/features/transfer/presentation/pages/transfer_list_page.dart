@@ -11,6 +11,7 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
+import 'package:budget_book/core/widgets/reconciled_badge.dart';
 
 final _wonFormat = NumberFormat('#,###', 'ko');
 
@@ -257,6 +258,11 @@ class _TransferListTile extends StatelessWidget {
         ),
         title: Row(
           children: [
+            // V65 — 거래 목록과 동일한 정산 배지 (이체 상세 진입 전에도 상태가 보이도록).
+            if (transfer.isReconciled) ...[
+              ReconciledBadge(seq: transfer.reconciliationSeq),
+              const SizedBox(width: 6),
+            ],
             Flexible(
               child: Text(
                 transfer.sourcePaymentMethod.name,

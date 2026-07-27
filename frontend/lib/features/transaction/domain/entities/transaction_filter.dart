@@ -42,6 +42,12 @@ class TransactionFilter extends Equatable {
   /// null/false 모두 미적용으로 처리.
   final bool? needsReviewOnly;
 
+  /// V65 (2026-07-27) — 정산 스냅샷 필터.
+  /// `false` = 미기록만, `true` = 기록된 것만, `null` = 전체.
+  /// 목록이 페이지네이션되므로 미기록 판정을 클라이언트에서 하면 미로드 페이지 항목이
+  /// 누락된다 → 서버 필터를 쓴다.
+  final bool? reconciled;
+
   const TransactionFilter({
     this.keyword,
     this.categoryId,
@@ -59,6 +65,7 @@ class TransactionFilter extends Equatable {
     this.transactionTypes = const {},
     this.visibility,
     this.needsReviewOnly,
+    this.reconciled,
   });
 
   /// 비어있는 필터 (기본값).
@@ -81,7 +88,8 @@ class TransactionFilter extends Equatable {
       type != null ||
       transactionTypes.isNotEmpty ||
       visibility != null ||
-      needsReviewOnly == true;
+      needsReviewOnly == true ||
+      reconciled != null;
 
   TransactionFilter copyWith({
     String? keyword,
@@ -100,6 +108,7 @@ class TransactionFilter extends Equatable {
     Set<String>? transactionTypes,
     String? visibility,
     bool? needsReviewOnly,
+    bool? reconciled,
     /// 명시적 기간 필터 해제용. `??` 기반 copyWith 로는 null 을 넣어 지울 수 없으므로
     /// UnifiedFilterState.copyWith 와 같은 clear 플래그 관례를 따른다.
     bool clearDateRange = false,
@@ -122,6 +131,7 @@ class TransactionFilter extends Equatable {
         transactionTypes: transactionTypes ?? this.transactionTypes,
         visibility: visibility ?? this.visibility,
         needsReviewOnly: needsReviewOnly ?? this.needsReviewOnly,
+        reconciled: reconciled ?? this.reconciled,
       );
     }
     return TransactionFilter(
@@ -141,6 +151,7 @@ class TransactionFilter extends Equatable {
       transactionTypes: transactionTypes ?? this.transactionTypes,
       visibility: visibility ?? this.visibility,
       needsReviewOnly: needsReviewOnly ?? this.needsReviewOnly,
+      reconciled: reconciled ?? this.reconciled,
     );
   }
 
@@ -177,6 +188,7 @@ class TransactionFilter extends Equatable {
       transactionTypes: transactionTypes,
       visibility: visibility,
       needsReviewOnly: needsReviewOnly,
+      reconciled: reconciled,
     );
   }
 
@@ -198,6 +210,7 @@ class TransactionFilter extends Equatable {
         transactionTypes,
         visibility,
         needsReviewOnly,
+        reconciled,
       ];
 }
 
@@ -224,6 +237,8 @@ extension UnifiedFilterStateToTransactionFilter on UnifiedFilterState {
       visibility: visibility,
       // BE 는 true 일 때만 의미가 있다 (false/null 모두 미적용).
       needsReviewOnly: needsReviewOnly ? true : null,
+      // 정산 필터는 UnifiedFilterState 에 없다 — 정산 뷰가 직접 지정한다.
+      // (UI 필터바에 노출되면 리스트/달력 모드의 합계 정의가 흔들린다.)
     );
   }
 }
@@ -286,6 +301,10 @@ extension TransactionFilterQueryParams on TransactionFilter {
     // V61 (2026-05-06) — true 일 때만 전송 (false/null 모두 미적용).
     if (needsReviewOnly == true) {
       params['needsReviewOnly'] = true;
+    }
+    // V65 — false 도 의미가 있다("미기록만"). null 일 때만 생략.
+    if (reconciled != null) {
+      params['reconciled'] = reconciled;
     }
     return params;
   }
