@@ -3582,10 +3582,19 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 - 조회자가 볼 수 없는 항목(파트너의 `PRIVATE`)은 목록에서 제외되며, **소계도 게이팅 후 재계산**
   되어 표시된 행과 합계가 항상 일치한다.
 
+**정산 대상 범위** (2026-07-27 추가 — 서버 `ReconciliationScope` 단일 정의)
+
+- `Transaction(ADJUSTMENT)` (잔액 수정) 은 **정산 대상이 아니다.** 통장에 대응하는 사건이 없어
+  대조할 것이 없기 때문이다. 미기록 목록·`unrecordedCount`·소계 **전부에서 빠지며**, 정산 생성
+  요청에 포함하면 `400 VALIDATION_ERROR` 다. (금액만 0 원 처리하고 목록에 남기면 미기록이
+  0 이 되지 않아 "이 달 정산 완료" 에 영원히 도달하지 못한다.)
+- `Transfer(CARD_SETTLEMENT)` 는 **대상이다.** 소계에서만 빠진다(원본 지출 이중 계상 방지) —
+  실제 계좌 출금이므로 통장 대조 대상.
+
 **집계 규칙** (거래 목록/통계와 동일)
 
 - `Transaction(INCOME)` → `totalIncome`, `Transaction(EXPENSE)` → `totalExpense`
-- `Transaction(ADJUSTMENT)` → 수입/지출 모두 제외
+- `Transaction(ADJUSTMENT)` → 애초에 정산 대상이 아니므로 스냅샷에 존재하지 않는다
 - `Transfer(EXPENSE_TRANSFER)` → `totalExpense`, `Transfer(INCOME_TRANSFER)` → `totalIncome`
 - `Transfer(GENERIC)` → `totalTransfer`
 - `Transfer(CARD_SETTLEMENT)` → 전 버킷 제외 (원본 지출이 이미 집계됨)
@@ -3734,6 +3743,7 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 |:------:|:-----------------------|:----------------------------------------------------------------|
 | `400`  | `VALIDATION_ERROR`     | 빈 선택 / 1000건 초과 / `yearMonth` 형식 오류                     |
 | `400`  | `VALIDATION_ERROR`     | 항목의 날짜가 `yearMonth` 와 다른 달                              |
+| `400`  | `VALIDATION_ERROR`     | 잔액 수정(`ADJUSTMENT`) 거래 포함 — 정산 대상이 아님              |
 | `403`  | `FORBIDDEN`            | 다른 커플의 항목, 또는 파트너의 `PRIVATE` 항목                    |
 | `404`  | `TRANSACTION_NOT_FOUND` / `TRANSFER_NOT_FOUND` | 존재하지 않는 항목                |
 | `409`  | `ALREADY_RECONCILED`   | 이미 다른 스냅샷에 기록된 항목이 포함됨 (부부 동시 정산 경합 포함) |
@@ -3809,7 +3819,7 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | `yearMonth`          | `string`  | `YYYY-MM`                                          |
 | `snapshotCount`      | `integer` | 그 달의 스냅샷 개수                                 |
 | `recordedCount`      | `integer` | 스냅샷에 기록된 항목 수                              |
-| `unrecordedCount`    | `integer` | 미기록 항목 수 (0 이면 그 달 정산 완료)              |
+| `unrecordedCount`    | `integer` | 미기록 **정산 대상** 항목 수 (0 이면 그 달 정산 완료). 잔액 수정 제외 |
 | `unrecordedIncome`   | `integer` | 미기록 수입 소계                                    |
 | `unrecordedExpense`  | `integer` | 미기록 지출 소계                                    |
 | `unrecordedTransfer` | `integer` | 미기록 이체 소계                                    |
@@ -3845,6 +3855,10 @@ All endpoints require the `Authorization: Bearer {accessToken}` header.
 | Parameter    | Type      | Description                                                     |
 |:-------------|:----------|:----------------------------------------------------------------|
 | `reconciled` | `boolean` | `false` = 미기록만, `true` = 기록된 것만. 생략 = 전체            |
+
+`reconciled=false` 는 **정산 대상만** 돌려준다 — 잔액 수정(`ADJUSTMENT`) 거래는 제외된다
+(요약 `unrecordedCount` 와 같은 정의를 쓰지 않으면 "건수는 맞는데 행이 다른" 상태가 된다).
+`reconciled=true` 는 필터를 그대로 적용한다.
 
 **추가 응답 필드** (`TransactionResponse`, `TransferResponse`)
 

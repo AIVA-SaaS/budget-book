@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import 'package:budget_book/core/reconciliation/reconciliation_scope.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
@@ -362,11 +363,13 @@ class _DaySummary {
   final List<Transaction> transactions = [];
   final List<Transfer> transfers = [];
 
-  /// 그 날의 모든 항목(거래+이체)이 정산됐는지. 달력 셀의 정산 점 표시 조건.
+  /// 그 날의 **정산 대상** 항목(거래+이체)이 전부 정산됐는지. 달력 셀의 정산 점 표시 조건.
+  ///
   /// 두 스트림을 함께 보는 게 중요하다 — 거래만 검사하면 미정산 이체가 있는 날도
-  /// "정산 완료" 로 보인다.
-  bool get isFullyReconciled =>
-      (transactions.isNotEmpty || transfers.isNotEmpty) &&
-      transactions.every((t) => t.isReconciled) &&
-      transfers.every((t) => t.isReconciled);
+  /// "정산 완료" 로 보인다. 대상 판정은 ReconciliationScope 단일 소스 (잔액 수정 제외 —
+  /// 빼지 않으면 잔액 수정이 있는 날은 완료 점이 영영 뜨지 않는다).
+  bool get isFullyReconciled => ReconciliationScope.allReconciled(
+        transactions: transactions,
+        transfers: transfers,
+      );
 }
