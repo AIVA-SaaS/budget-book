@@ -24,6 +24,14 @@ void main() {
       expect(find.byIcon(Icons.check_circle), findsNothing);
     });
 
+    testWidgets('회차가 없어도 "정산" 텍스트를 붙인다 (아이콘 글리프 의존 제거)', (tester) async {
+      // 2026-07-28 — 특정 기기에서 아이콘 글리프가 안 뜨는 사례가 있어, 배지는 아이콘만으로
+      // 존재를 알리지 않는다.
+      await tester.pumpWidget(wrap(const ReconciledBadge()));
+
+      expect(find.text('정산'), findsOneWidget);
+    });
+
     testWidgets('compact 모드는 텍스트 없이 점만 (달력 셀 레이아웃 보호)', (tester) async {
       await tester.pumpWidget(wrap(const ReconciledBadge(seq: 3, compact: true)));
 

@@ -59,18 +59,19 @@ class ReconciledBadge extends StatelessWidget {
               size: 12,
               color: color,
             ),
-            if (seq != null) ...[
-              const SizedBox(width: 2),
-              Text(
-                '$seq차',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                  height: 1.0,
-                ),
+            const SizedBox(width: 2),
+            Text(
+              // 2026-07-28 — 회차가 없어도 **텍스트를 항상 붙인다**.
+              // 아이콘 글리프가 뜨지 않는 기기가 있어(정산 뷰 토글 사례) 아이콘만으로는
+              // 배지 존재 자체가 보이지 않을 수 있다.
+              seq != null ? '$seq차' : '정산',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color,
+                height: 1.0,
               ),
-            ],
+            ),
           ],
         ),
       ),
