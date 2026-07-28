@@ -1368,29 +1368,41 @@ class _ViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-07-28 — **아이콘 전용 → 텍스트 라벨**.
+    //
+    // 정산 세그먼트(`Icons.fact_check`)만 빈칸으로 보인다는 보고가 캐시 정리 뒤에도 이어졌다.
+    // 서버 쪽은 결백을 확인했다: 라이브 폰트 cmap 에 0xE256 이 있고 글리프에 실제 외곽선이
+    // 있으며(headless Chrome 렌더 확인), 배포된 번들도
+    // `IconData(57942,"MaterialIcons")` 를 요청한다. 즉 남은 변수는 **그 기기의 폰트 상태**뿐인데,
+    // 서버가 되돌릴 수 없는 영역이다.
+    //
+    // 그래서 이 UI 를 아이콘 글리프에 의존하지 않게 만든다. 라벨은 어떤 폰트 상태에서도
+    // 보이고(한글은 NotoSansKR), 아이콘만 보고 뜻을 유추할 필요도 없어진다.
+    // 아이콘+라벨은 좁은 폰에서 폭을 먹으므로 라벨만 둔다.
     return SegmentedButton<_TxViewMode>(
       style: const ButtonStyle(
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+          EdgeInsets.symmetric(horizontal: 8, vertical: 0),
         ),
+        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
       ),
       segments: const [
         ButtonSegment(
           value: _TxViewMode.list,
-          icon: Icon(Icons.list, size: 16),
-          tooltip: '리스트',
+          label: Text('목록'),
+          tooltip: '목록 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.calendar,
-          icon: Icon(Icons.calendar_month, size: 16),
-          tooltip: '달력',
+          label: Text('달력'),
+          tooltip: '달력 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.reconciliation,
-          icon: Icon(Icons.fact_check, size: 16),
-          tooltip: '정산',
+          label: Text('정산'),
+          tooltip: '정산 보기 — 미기록 항목 확인/기록',
         ),
       ],
       selected: {mode},
