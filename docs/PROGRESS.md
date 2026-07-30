@@ -12,7 +12,7 @@
 - **단계**: 아이콘 폰트 stale 캐시 영구 fix + 뷰 토글 라벨 제거 / 라이브 검증 대기
 - **상태**: verifying
 - **정본 문서**: `docs/sessions/2026-07-30_handoff.md` (직전 회차) + 이 대장
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `fix/icon-font-content-hash` → main
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · main = PR #281 머지(66eda89) · 배포 성공
 - **CI 3종**: `flutter analyze --no-fatal-infos` 통과 / `flutter test` 805건 통과 / `flutter build web --release` 통과 (BE 무변경)
 - **blocker**: 없음
 - **갱신**: 2026-07-30
@@ -58,6 +58,17 @@
    - 머지: squash + branch 삭제 (개인 계정 자동 진행 승인 범위)
    - 배포 후 자동 검증: `verify-live` job = nginx drift + `verify-cache-headers.sh`
      (아이콘 폰트 URL 의 content hash 존재 포함)
+
+5. **2026-07-30** — 배포 성공 + **서버 측 검증 완료**. 남은 것은 사용자 기기 확인.
+   - deploy-nas run 30507251616: changes/deploy-backend/deploy-frontend/sync-nginx/**verify-live 전부 success**
+   - 라이브 `FontManifest.json` → `fonts/MaterialIcons-Regular.309eccd00f9c.otf`
+     (로컬 빌드 해시와 동일 = 결정적), 그 URL 200 · `no-cache, must-revalidate` ·
+     cmap 에 `0xE256`·`0xE384`·`0xF06BB` 존재
+   - **옛 고정 URL `/assets/fonts/MaterialIcons-Regular.otf` → 404** (stale 캐시가 가릴 대상 자체가 사라짐)
+   - 서빙 번들에서 정산 세그먼트 확인: `new A.a5(57942,"MaterialIcons")` + `size 18` +
+     `label = null` + tooltip `"정산 보기 …"` → **아이콘 전용 + tooltip** 로 배포됨
+   - 재발 방지 등록: `~/.claude/harness/lessons-learned.jsonl` (deployment_cache, ui_pattern) +
+     `recurrence_check.py` 프로젝트 귀속 버그 fix(`.` 호출 시 자기 인시던트를 타 프로젝트로 집계)
 
 ## 3. 다음 단계
 
