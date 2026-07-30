@@ -20,7 +20,9 @@ echo "✅ Backend tests PASSED"
 echo ""
 echo "[2/4] Running Flutter analyze..."
 cd "$ROOT_DIR/frontend"
-flutter analyze
+# CI(ci-frontend.yml)와 동일한 플래그여야 한다 — 여기만 엄격하면 로컬 게이트가
+# 통과 불가능해지고(기존 info 3건), 반대면 CI 에서 처음 터진다. 2026-07-30 정렬.
+flutter analyze --no-fatal-infos --no-congratulate
 echo "✅ Flutter analyze PASSED"
 
 # 3. Frontend tests
