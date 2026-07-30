@@ -9,10 +9,10 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 정산 회차(#277~#282) 종결 — **사용자 라이브 검증 통과**. 다음 작업 미착수
+- **단계**: 정산 회차(#277~#285) + 아이콘 재발 방지 정리 **완전 종결**. 다음 회차 미착수
 - **상태**: done
-- **정본 문서**: 이 대장 (직전 회차 상세는 `docs/sessions/2026-07-30_handoff.md`)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · main = #282 머지(89c1cfe) · 배포 성공, 열린 작업 없음
+- **정본 문서**: 이 대장 §3(착수 지점) + `docs/incidents/2026-07-30_icon-font-stale-cache.md`
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · main = #284 머지(a4b9a3c) · 배포 성공, 열린 작업 없음
 - **CI 3종**: `flutter analyze --no-fatal-infos` 통과 / `flutter test` 805건 통과 / `flutter build web --release` 통과 (BE 무변경)
 - **blocker**: 없음
 - **갱신**: 2026-07-30
@@ -88,6 +88,12 @@
      고정하고 실패 메시지로 "파일명 버전 올리고 pubspec 갱신" 3단계를 지시(음성 경로 검증 완료).
    - `verify-cache-headers.sh` 검사 대상 7종 → **21종**(유형별 대표 경로 전부: canvaskit·wasm·
      shader·아이콘 PNG·프로젝트 폰트·AssetManifest·정적 html). 라이브 전수 통과 확인.
+
+8. **2026-07-30** — PR #284 머지·배포 성공 → **이 회차 완전 종결. `/clear` 안전.**
+   - deploy run 30528256355: deploy-frontend success / **verify-live success**
+     (확장된 21종 캐시 검사 + 아이콘 폰트 해시 검사 전부 통과)
+   - 라이브 폰트 해시 `309eccd00f9c` 유지(아이콘 구성 동일 = 결정적), 옛 고정 URL 404 유지
+   - 다음 세션은 이 대장 §3 "다음 회차 후보 — 착수 지점" 에서 시작한다
 
 ## 3. 다음 단계
 
