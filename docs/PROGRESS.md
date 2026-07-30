@@ -76,29 +76,65 @@
      잔액 수정(ADJUSTMENT) 정산 제외 / 거래 → 이체 변환 (2026-07-27_2_result.md §3)
    - 이로써 PR #277 ~ #282 회차 전체가 "완료" 판정. 열린 작업 없음.
 
+7. **2026-07-30** — 아이콘 재발 방지 **철저 정리**(사용자 지시). 코드 동작 변경 없음.
+   - 정본 문서 신설: `docs/incidents/2026-07-30_icon-font-stale-cache.md`
+     (5회 발생 타임라인 / 근본 원인 / 3·4회차 진단 오류 해부 / 방어선 4겹 / 잔존 위험 전수 /
+     5분 진단 순서 / 다른 프로젝트에도 쓰는 일반 규칙)
+   - 측정 2건 추가: ① pre-#277 nginx conf 확인 — `immutable` 은 **폰트 확장자에만** 걸려 있었고
+     `FontManifest.json` 은 항상 no-cache → **옛 폰트 URL 404 는 안전**(manifest 고착 불가).
+     ② 산출물 41개 전수 헤더 확인 — 전부 `no-cache, must-revalidate`, immutable 0건.
+   - 같은 위험군 1건 발견·차단: `NotoSansKR-Subset.woff2` 도 해시 없는 고정 URL + 재생성
+     스크립트 존재 → 교체 시 두부(□) 재발 가능. `project_font_pin_guard_test.dart` 가 sha256 을
+     고정하고 실패 메시지로 "파일명 버전 올리고 pubspec 갱신" 3단계를 지시(음성 경로 검증 완료).
+   - `verify-cache-headers.sh` 검사 대상 7종 → **21종**(유형별 대표 경로 전부: canvaskit·wasm·
+     shader·아이콘 PNG·프로젝트 폰트·AssetManifest·정적 html). 라이브 전수 통과 확인.
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션**: 없음(대기). 다음 회차 후보 중 사용자 선택 대기 —
-  ① 이체 → 거래 역변환(이번엔 거래→이체만 구현, 대칭 엔드포인트) ② 미기록 200건 초과 달의
-  추가 페이지 로드 UI ③ P4 월말 "미기록 N건" 인앱 알림(알림 인프라 선행) ④ P6 홈 대시보드
-  "미정산 N건" 위젯(`GET /reconciliations/summary` 재사용) ⑤ Android 배포
+- **다음 액션**: 없음(대기). 아래 후보 중 사용자가 지정하면 그 항목의 "착수 지점" 부터 시작한다.
 - **선행 조건**: 사용자 우선순위 지정
 - **완료 판정**: (다음 회차 착수 시 재작성)
+
+### 다음 회차 후보 — 착수 지점 (이 절만 읽으면 바로 시작 가능)
+
+1. **이체 → 거래 역변환** (추천 1순위. 대칭 구현이라 설계 위험 낮음, 신규 스키마 없음)
+   - 반대 방향 참조: `POST /transactions/{id}/convert-to-transfer`
+     → `TransactionController.kt:115` / `TransactionService.kt` / DTO `TransactionDtos.kt`
+   - 이체 종류 판정은 `TransferKindResolver` 하나로 관통 — 새 경로도 반드시 이걸 쓴다
+   - FE 호출부: `transaction_form_page.dart`, `transaction_remote_datasource.dart`
+   - 주의: 거래 목록은 거래 + 이체 FE 병합이라 변환 후 **양쪽 스트림 리로드** 필요
+     (`reference_transaction_merged_transfer_stream_drift` 계열 함정)
+   - 계약 먼저: `docs/api-spec.md` § Transactions 4-1 에 대칭 엔드포인트 추가
+2. **P6 홈 대시보드 "미정산 N건" 위젯** (추천 2순위. 기존 API 재사용)
+   - 데이터: `GET /reconciliations/summary` (이미 존재, `unrecordedCount`)
+   - 위젯 등록: `frontend/lib/features/home/domain/entities/dashboard_widget_config.dart`
+     + `features/home/presentation/widgets/` (기존 `monthly_trend_card.dart` 패턴 따르기)
+   - 주의: 위젯 ON/OFF·순서 설정에도 새 위젯이 반영되는지 전수 확인(`feedback_feature_impact_check`)
+3. **미기록 200건 초과 달의 추가 페이지 로드 UI**
+   - 현재는 안내 문구만: `reconciliation_view.dart:191` (+ 배경 주석 `:29`)
+   - BLoC: `reconciliation_bloc.dart:24` — 클라 필터링 금지 전제가 주석에 명시돼 있다
+   - 거래 목록의 LoadMore 패턴 참조: `reference_transaction_pagination_focus`
+4. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라가 없어 선행 작업이 크다(가장 큰 후보)
+5. **Android 배포(Play Store)** — PWA 설치는 이미 가능(`reference_pwa_android_installable`)
 <!-- /HNS:NEXT -->
 
 ## 4. 산출물 지도
 
+- `docs/incidents/2026-07-30_icon-font-stale-cache.md` — **아이콘 캐시 사건 정본**(5회 발생 분석·방어선·진단 순서). 비슷한 증상이면 코드보다 이 문서를 먼저 본다
 - `docs/sessions/2026-07-30_handoff.md` — 직전 회차 인수 문서(배포 현황·라이브 검증 체크리스트). 이력 보존용, 수정 금지
 - `docs/sessions/2026-07-28_icon-missing-handoff.md` — 아이콘 사건 1·2회차 측정 기록. 수정 금지
 - `infra/scripts/hash-icon-font.sh` — 아이콘 폰트 content hash (배포 파이프라인 필수 단계)
 - `infra/scripts/verify-cache-headers.sh` — 배포 후 캐시 정책 + 아이콘 폰트 해시 검증 게이트
 - `frontend/test/features/transaction/view_mode_toggle_guard_test.dart` — 뷰 토글 tooltip + 해시 게이트 배선 가드
+- `frontend/test/core/theme/project_font_pin_guard_test.dart` — 프로젝트 폰트(NotoSansKR) 지문 고정. 교체 시 파일명도 바꾸게 강제
 
 ## 5. 미해결·리스크
 
-- 사용자 기기의 stale 폰트는 새 URL 로 자동 해소되지만, **폰트 외** 다른 stale 캐시가 남아 있을
-  가능성은 배제하지 못한다. 정산 아이콘이 여전히 빈칸이면 그 기기에서 다른 아이콘의 렌더 여부를
-  먼저 확인해 기기·브라우저 폰트 문제와 분리한다.
-- 프로젝트 폰트(`NotoSansKR-Subset.woff2`)는 여전히 해시 없는 고정 URL(AssetManifest 등재 때문).
-  거의 안 바뀌는 파일이고 `no-cache` 로 서빙되므로 현재는 수용된 리스크.
+- 아이콘 폰트 건은 종결(라이브 검증 통과). 잔존 위험은 `docs/incidents/2026-07-30_icon-font-stale-cache.md` §5 에 전수 정리.
+- 프로젝트 폰트(`NotoSansKR-Subset.woff2`)는 여전히 해시 없는 고정 URL(`AssetManifest.bin` 등재
+  때문에 빌드 후 rename 이 불가). 교체 시 파일명을 바꾸는 규칙을 지문 가드 테스트로 강제했다 —
+  **자동화가 아니라 규칙 + 게이트**라는 점이 수용된 리스크.
+- 2026-06-05 이전에 `main.dart.js` 를 장기 캐시로 물린 기기가 남아 있다면 앱 전체가 구버전으로
+  보인다(보고 없음, `index.html` no-cache 로 대부분 자연 해소). 필요해지면 아이콘 폰트와 같은
+  방식으로 해시 가능 — `flutter_bootstrap.js` 의 참조 1곳 재작성.
