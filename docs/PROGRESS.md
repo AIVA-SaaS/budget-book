@@ -48,6 +48,11 @@
    - 재발 방지: 해시 단계가 빠지면 배포 후 `verify-cache-headers.sh` 가 실패(FontManifest 경로의
      해시 패턴 검사), 워크플로 배선이 빠지면 `flutter test` 가 실패
 
+3. **2026-07-30** — 커밋 → PR 생성 → 머지 → 배포 진입.
+   - 커밋: `fix(deploy): 아이콘 폰트 파일명에 content hash …` (a0de353)
+   - 함께 반영: `CLAUDE.md` 볼트 배선 안내(직전 회차 커밋 누락분)
+   - 배포 트리거: `.github/workflows/deploy-nas.yml` 변경 → BE·FE·nginx 3개 job 전부 실행
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
