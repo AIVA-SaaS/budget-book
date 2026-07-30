@@ -53,6 +53,12 @@
    - 함께 반영: `CLAUDE.md` 볼트 배선 안내(직전 회차 커밋 누락분)
    - 배포 트리거: `.github/workflows/deploy-nas.yml` 변경 → BE·FE·nginx 3개 job 전부 실행
 
+4. **2026-07-30** — PR #281 원격 CI 통과 → 머지·배포.
+   - CI: `backend-ci` pass / `frontend-ci` pass (2m2s)
+   - 머지: squash + branch 삭제 (개인 계정 자동 진행 승인 범위)
+   - 배포 후 자동 검증: `verify-live` job = nginx drift + `verify-cache-headers.sh`
+     (아이콘 폰트 URL 의 content hash 존재 포함)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
