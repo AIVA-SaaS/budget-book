@@ -1368,43 +1368,44 @@ class _ViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 2026-07-28 — **아이콘 전용 → 텍스트 라벨**.
+    // 2026-07-30 — **아이콘 전용** (텍스트 라벨 제거).
     //
-    // 정산 세그먼트(`Icons.fact_check`)만 빈칸으로 보인다는 보고가 캐시 정리 뒤에도 이어졌다.
-    // 서버 쪽은 결백을 확인했다: 라이브 폰트 cmap 에 0xE256 이 있고 글리프에 실제 외곽선이
-    // 있으며(headless Chrome 렌더 확인), 배포된 번들도
-    // `IconData(57942,"MaterialIcons")` 를 요청한다. 즉 남은 변수는 **그 기기의 폰트 상태**뿐인데,
-    // 서버가 되돌릴 수 없는 영역이다.
+    // 라벨은 원래 "글리프가 안 뜨는 기기"용 안전망이었는데(2026-07-28), 그 근본 원인이
+    // 이번에 구조적으로 제거됐다. 원인은 서버 폰트가 아니라 **URL 신원 ≠ 내용 신원**이었다:
+    // 트리셰이킹 아이콘 폰트는 내용이 빌드마다 바뀌는데 URL 이
+    // `assets/fonts/MaterialIcons-Regular.otf` 로 고정이라, nginx 가 그 URL 을 `immutable`
+    // 로 내보내던 시절에 캐시한 기기는 구 subset 을 물고 **재검증 요청조차 하지 않았다**.
+    // 그래서 정산 도입 이전 subset 에 없는 0xE256(fact_check) 만 빈칸이고 목록·달력은
+    // 정상이었다 — 헤더 fix(#277)로는 그 기기에 도달할 수 없었다.
     //
-    // 그래서 **아이콘은 유지하고 텍스트 라벨을 함께 둔다.** 아이콘은 한눈에 구분하는 값을
-    // 주고, 라벨은 글리프가 안 뜨는 기기에서도 기능이 사라지지 않게 하는 안전망이다.
-    // (아이콘 전용은 금지 — `view_mode_toggle_guard_test.dart` 가 고정한다.)
+    // 이제 배포 시 `infra/scripts/hash-icon-font.sh` 가 폰트 파일명에 content hash 를 넣고
+    // FontManifest 를 재작성하므로 stale 캐시가 새 글리프를 가릴 수 없고,
+    // `infra/scripts/verify-cache-headers.sh` 가 배포마다 그 해시를 강제한다.
+    //
+    // 아이콘 전용이므로 각 세그먼트는 tooltip(= 접근성 라벨)을 반드시 갖는다
+    // — `view_mode_toggle_guard_test.dart` 가 고정한다.
     return SegmentedButton<_TxViewMode>(
       style: const ButtonStyle(
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+          EdgeInsets.symmetric(horizontal: 8, vertical: 0),
         ),
-        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
       ),
       segments: const [
         ButtonSegment(
           value: _TxViewMode.list,
-          icon: Icon(Icons.list, size: 15),
-          label: Text('목록'),
+          icon: Icon(Icons.list, size: 18),
           tooltip: '목록 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.calendar,
-          icon: Icon(Icons.calendar_month, size: 15),
-          label: Text('달력'),
+          icon: Icon(Icons.calendar_month, size: 18),
           tooltip: '달력 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.reconciliation,
-          icon: Icon(Icons.fact_check, size: 15),
-          label: Text('정산'),
+          icon: Icon(Icons.fact_check, size: 18),
           tooltip: '정산 보기 — 미기록 항목 확인/기록',
         ),
       ],
