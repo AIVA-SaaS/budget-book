@@ -2,6 +2,10 @@
 
 부부 공유 가계부 앱 (수입/지출·예산·통계·실시간 동기화). 한국어 우선, 영어 지원.
 
+> 🗂 **볼트 배선(2026-07-27)**: 이 repo 의 `docs/`(141노트) 는 `~/vaults/projects/aiva-bb` 로 symlink 노출(**열람 전용**).
+> 작업은 반드시 **cwd = 이 repo** 에서 한다 — 이 프로젝트는 `.claude/hooks/pre-edit-guard.sh` **project-local 하드게이트**라 다른 cwd 에서는 강제가 뜨지 않는다(admin `GR1`).
+> 라우팅 등재: `~/vaults/admin/00-registry/projects.md` + `~/vaults/.claude/registry.json`. ⚠ 별칭 "가계부" 는 work-saas 선점 → `aiva-bb`/`budget-book` 으로 부른다.
+
 ## Tech Stack
 - BE: Kotlin + Spring Boot 3.x + Kotest + Gradle (Kotlin DSL)
 - DB: PostgreSQL 16 + Redis 7 (Synology NAS Docker)
