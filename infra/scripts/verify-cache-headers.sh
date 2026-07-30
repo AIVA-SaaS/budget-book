@@ -26,14 +26,31 @@ BASE_URL="${1:-https://aiva-bb.duckdns.org}"
 
 # content hash 가 URL 에 없는 산출물 = 매 배포마다 내용이 바뀔 수 있는 고정 URL.
 # 새 산출물 유형이 생기면 여기에 추가한다.
+# 2026-07-30 — 산출물 41개를 전수 확인해 **유형별 대표 경로**를 모두 넣었다. 이전에는 7종만
+# 검사해서, 예컨대 canvaskit.wasm 이나 프로젝트 폰트에 immutable 이 붙어도 잡히지 않았다.
 HASHLESS_PATHS=(
   "/index.html"
   "/main.dart.js"
+  "/flutter.js"
   "/flutter_bootstrap.js"
   "/flutter_service_worker.js"
   "/version.json"
+  "/manifest.json"
+  "/favicon.png"
+  "/icons/Icon-192.png"
+  "/privacy.html"
+  "/terms.html"
+  "/canvaskit/canvaskit.js"
+  "/canvaskit/canvaskit.wasm"
+  "/canvaskit/skwasm.js"
+  "/assets/AssetManifest.bin"
   "/assets/AssetManifest.bin.json"
   "/assets/FontManifest.json"
+  "/assets/NOTICES"
+  "/assets/shaders/ink_sparkle.frag"
+  # 프로젝트 폰트 — 해시 없는 고정 URL 이고 재생성 스크립트가 있다(ops/fonts/build-noto-subset.sh).
+  # 내용 교체 시 파일명을 바꾸도록 frontend/test/core/theme/project_font_pin_guard_test.dart 가 강제.
+  "/assets/assets/fonts/NotoSansKR-Subset.woff2"
 )
 
 fail=0

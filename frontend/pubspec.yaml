@@ -81,6 +81,9 @@ dev_dependencies:
   build_runner: ^2.4.12
   injectable_generator: ^2.6.2
   flutter_launcher_icons: ^0.14.1
+  # 프로젝트 폰트 지문 가드(test/core/theme/project_font_pin_guard_test.dart) 전용.
+  # transitive 로도 해석되지만 명시 선언해야 depend_on_referenced_packages 를 만족한다.
+  crypto: ^3.0.7
 
 flutter:
   uses-material-design: true
