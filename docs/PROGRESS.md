@@ -9,13 +9,13 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 정산 회차(#277~#285) + 아이콘 재발 방지 정리 **완전 종결**. 다음 회차 미착수
-- **상태**: done
-- **정본 문서**: 이 대장 §3(착수 지점) + `docs/incidents/2026-07-30_icon-font-stale-cache.md`
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · main = #284 머지(a4b9a3c) · 배포 성공, 열린 작업 없음
-- **CI 3종**: `flutter analyze --no-fatal-infos` 통과 / `flutter test` 805건 통과 / `flutter build web --release` 통과 (BE 무변경)
-- **blocker**: 없음
-- **갱신**: 2026-07-30
+- **단계**: 새 회차 **"이체 → 거래 역변환" 기획 완료 · 사용자 승인 대기**. 코드 변경 0줄
+- **상태**: blocked (승인 대기 — 코드 편집 시작 금지)
+- **정본 문서**: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (§0 에 재부팅 후 재개 절차)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · main = 이 기획 문서 커밋 · 작업 트리 clean, 실행 중 프로세스 없음
+- **CI 3종**: 직전 회차 기준 전부 통과(이번 회차는 아직 코드 없음)
+- **blocker**: 사용자 승인 1건 (승인되면 계획서 §2 부터 추가 승인 없이 자동 진행)
+- **갱신**: 2026-07-31
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -95,23 +95,49 @@
    - 라이브 폰트 해시 `309eccd00f9c` 유지(아이콘 구성 동일 = 결정적), 옛 고정 URL 404 유지
    - 다음 세션은 이 대장 §3 "다음 회차 후보 — 착수 지점" 에서 시작한다
 
+9. **2026-07-31** — 새 회차 **"이체 → 거래 역변환" 기획 완료**(승인 대기). 코드 변경 0줄.
+   - 사용자 요청: "PC 재부팅 후 이어서 진행할 수 있게 준비·세팅" → 기획과 상태를 **문서로 고정**
+   - 산출물: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (설계 정본 —
+     재개 절차 / 측정 사실 8건 / API 계약 / BE·FE 설계 / 테스트 / 로컬 CI)
+   - 측정(hard evidence): `transfers` FK 참조는 **2개뿐**(`transactions.settlement_transfer_id` V63,
+     `reconciliation_items.transfer_id` V65, 둘 다 SET NULL) · `Transfer` 에 visibility/owner 없음
+     (거래 생성은 visibility 를 카테고리에서 파생) · `updateTransfer` 는 이미 CARD_SETTLEMENT 차단 ·
+     `createTransaction` 은 카테고리-유형 일치 검증을 **안 한다**(update 경로에만 있음) ·
+     FE `getTransfer(id)` 이미 존재(새로고침 안전 prefill 가능)
+   - 설계 결정 3건: ① 순환 의존 회피 — `TransactionService.convertFromTransfer` + `TransferController`
+     호출(반대는 순환) ② 승계 규칙(결제수단: EXPENSE→출금 / INCOME→입금) ③ FE 는 이체 폼에서
+     거래 폼으로 push(피커 복제 금지 — 거래 폼이 이미 양쪽 폼 보유)
+   - 기획 중 발견한 기존 결함 1건: 정방향 변환이 Dashboard·PaymentMethod BLoC 을 리로드하지 않음
+     → 같은 PR 에서 양방향 공통 처리로 수정 예정
+   - 게이트: `pre-change-audit.sh . "amount_calculation ui_pattern navigation_state"` → OK / gate OPEN
+   - **다음 단계는 사용자 승인** — 승인 전 코드 편집 금지(§2 게이트)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션**: 없음(대기). 아래 후보 중 사용자가 지정하면 그 항목의 "착수 지점" 부터 시작한다.
-- **선행 조건**: 사용자 우선순위 지정
-- **완료 판정**: (다음 회차 착수 시 재작성)
+- **다음 액션**: 사용자가 기획을 **승인**하면 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md`
+  §4(백엔드) → §5(프론트) → §6(테스트) → §7(로컬 CI) 순서로 구현한다. 승인 전에는 코드 편집 금지.
+- **재부팅 후 첫 명령**: 계획서 §0 (cwd = 이 repo, `git switch main && git pull`, 이 STATE 확인)
+- **선행 조건**: 승인 1건. 유실 위험 없음(로컬 실행 프로세스 없음, 작업 트리 clean)
+- **완료 판정**: BE 4파일 + FE 5파일 + 문서 2 + 테스트 4 반영 → 로컬 CI 3종 통과 → PR 머지 →
+  **사용자 라이브 검증**(이체 폼에서 지출/수입 선택 → 거래로 변환 → 장부 목록에서 이체 사라지고
+  거래로 표시 + 월 합계·자산 잔액 즉시 갱신)
+- **다른 후보로 바꾸려면**: 아래 후보 2~5 중 지정. 기획서는 남겨두면 그대로 재사용 가능.
 
 ### 다음 회차 후보 — 착수 지점 (이 절만 읽으면 바로 시작 가능)
 
-1. **이체 → 거래 역변환** (추천 1순위. 대칭 구현이라 설계 위험 낮음, 신규 스키마 없음)
-   - 반대 방향 참조: `POST /transactions/{id}/convert-to-transfer`
-     → `TransactionController.kt:115` / `TransactionService.kt` / DTO `TransactionDtos.kt`
-   - 이체 종류 판정은 `TransferKindResolver` 하나로 관통 — 새 경로도 반드시 이걸 쓴다
-   - FE 호출부: `transaction_form_page.dart`, `transaction_remote_datasource.dart`
-   - 주의: 거래 목록은 거래 + 이체 FE 병합이라 변환 후 **양쪽 스트림 리로드** 필요
-     (`reference_transaction_merged_transfer_stream_drift` 계열 함정)
-   - 계약 먼저: `docs/api-spec.md` § Transactions 4-1 에 대칭 엔드포인트 추가
+1. **이체 → 거래 역변환** — ⏳ **기획 완료(2026-07-31) · 승인 대기.**
+   상세 설계는 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` 가 정본이다(이 요약보다 우선).
+   - 계약: `POST /api/v1/transfers/{id}/convert-to-transaction` → `ApiResponse<TransactionResponse>`
+   - 구현 위치: `TransactionService.convertFromTransfer` + `TransferController` 에서 호출
+     (반대로 넣으면 `TransactionService → TransferService` 기존 주입과 **순환 의존**)
+   - 차단 3종: 정산 기록됨 / `kind == CARD_SETTLEMENT` / 결제 링크 잔존
+   - 함정 선반영: `transfers.description` 은 nullable, `transactions.description` 은 NOT NULL →
+     승계 결과가 비면 400 으로 먼저 막는다(안 하면 DB 제약 500)
+   - FE: 이체 폼 유형 선택기 → 거래 폼(`convertFromTransferId`)으로 push. 거래 폼이 이미 양쪽 폼을
+     다 갖고 있어 피커 복제를 피한다
+   - 같이 고칠 기존 결함: 정방향 `_convertToTransfer` 가 Dashboard·PaymentMethod BLoC 을 리로드하지
+     않는다 → 네 BLoC 리로드를 양방향 공통 헬퍼로 (`feedback_common_scope_audit`)
 2. **P6 홈 대시보드 "미정산 N건" 위젯** (추천 2순위. 기존 API 재사용)
    - 데이터: `GET /reconciliations/summary` (이미 존재, `unrecordedCount`)
    - 위젯 등록: `frontend/lib/features/home/domain/entities/dashboard_widget_config.dart`
@@ -127,6 +153,8 @@
 
 ## 4. 산출물 지도
 
+- `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` — **현재 회차 설계 정본**(이체→거래 역변환).
+  재부팅/`/clear` 후 이 대장 다음으로 읽을 문서. 승인 시 이 문서 순서대로 구현한다
 - `docs/incidents/2026-07-30_icon-font-stale-cache.md` — **아이콘 캐시 사건 정본**(5회 발생 분석·방어선·진단 순서). 비슷한 증상이면 코드보다 이 문서를 먼저 본다
 - `docs/sessions/2026-07-30_handoff.md` — 직전 회차 인수 문서(배포 현황·라이브 검증 체크리스트). 이력 보존용, 수정 금지
 - `docs/sessions/2026-07-28_icon-missing-handoff.md` — 아이콘 사건 1·2회차 측정 기록. 수정 금지
