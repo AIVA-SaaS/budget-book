@@ -857,6 +857,13 @@ class _TransactionListPageState extends State<TransactionListPage> {
                             context.push('/transactions/detail/${tx.id}'),
                         onTransferTap: (tr) =>
                             context.push('/transfers/${tr.id}'),
+                        // 달력 일자 시트의 거래 추가. 목록 모드의 _DateHeader 와 동일하게
+                        // `_buildCreateTransactionUrl` 만 경유한다(필터 결제수단 전파).
+                        onAddTap: (day) => context.push(
+                          _buildCreateTransactionUrl(
+                            date: DateFormat('yyyy-MM-dd').format(day),
+                          ),
+                        ),
                       ),
                     )
                   else if (visibleTransactions.isEmpty &&

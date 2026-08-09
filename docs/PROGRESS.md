@@ -9,14 +9,16 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 새 회차 **"이체 → 거래 역변환" 기획 완료 · 사용자 승인 대기**. 코드 변경 0줄
-- **상태**: blocked (승인 대기 — 코드 편집 시작 금지)
-- **정본 문서**: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (§0 에 재부팅 후 재개 절차)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 작업 트리 clean, 실행 중 프로세스 없음
-- ⚠ **2026-08-06 이력 재작성됨(회사 이메일 제거) — 전 커밋 SHA 가 바뀌었다.** 로컬은 재작성 완료·**푸시 대기**. 타임라인 참조. 다른 기기의 기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
-- **CI 3종**: 직전 회차 기준 전부 통과(이번 회차는 아직 코드 없음)
-- **blocker**: 사용자 승인 1건 (승인되면 계획서 §2 부터 추가 승인 없이 자동 진행)
-- **갱신**: 2026-07-31
+- **단계**: **달력 일자 시트 "거래 추가" 진입** 회차 — 구현·로컬 CI 완료, PR 진행 중
+  (`fix/calendar-day-add`). 다음 회차는 **"이체 → 거래 역변환"**(기획 완료·착수 승인 확인 필요)
+- **상태**: in_progress (이 회차) / 다음 회차는 승인 한마디면 즉시 §4 부터 진행
+- **정본 문서**: 다음 회차 = `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (§0 재개 절차)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 실행 중 프로세스 없음
+- **CI**: 이번 회차 FE 로컬 게이트 전부 통과 — analyze / test 815건 / build web (BE 미변경)
+- **blocker**: 이 회차는 사용자 라이브 검증 1건. 다음 회차는 착수 승인 1건
+- **갱신**: 2026-08-09
+- 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
+  기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -123,14 +125,44 @@
     - 교훈: "스캔 결과 0건"은 **스캔 범위가 대상을 덮었을 때만** 근거가 된다. 범위를 먼저 검증할 것.
   - 남은 이력 이슈(별건): `kdh929624@gmail.com` **21건**. 회사 이메일은 아니라 이번 범위 밖 — 정리 여부는 사용자 판단.
 
+10. **2026-08-09** — **달력 일자 시트에 "거래 추가" 진입 신설**(별건 소규모 회차. 역변환 회차와 파일 무겹침).
+   - 사용자 지적: "거래 > 달력에서 거래 클릭해서 별도 노출될 때 거래를 추가할 수 없다"
+   - 측정(hard evidence): `TransactionCalendarView` 가 받는 콜백은 `onTransactionTap`/`onTransferTap`
+     **둘뿐**이었고 일자 시트(`_showDayBottomSheet`) 안에 추가 어포던스가 **전무**(빈 날은 `'거래 없음'`
+     텍스트만). 시트가 모달이라 페이지 FAB 을 배리어로 덮어 그 상태에서 추가 불가, 시트를 닫고 FAB 을
+     눌러도 `_buildCreateTransactionUrl(tab:)` 만 호출돼 **선택 일자가 승계되지 않았다**.
+     목록 모드에는 `_DateHeader.onAddTap` → `_buildCreateTransactionUrl(date:)` 로 이미 있던 진입 —
+     **달력에만 빠진 대칭 결함**(`feedback_common_scope_audit` 유형)
+   - 공통 범위 전수: `TableCalendar` 사용처 **1곳**(이 위젯뿐) · `LedgerDateHeader` 소비처 2곳 중
+     목록 페이지는 이미 보유, 정산 뷰는 그룹 체크박스 선택용이라 추가 진입 대상 아님 → **수정 2파일 확정**
+   - 산출물: `transaction_calendar_view.dart`(`onAddTap` 파라미터 + 시트 헤더 `+` 버튼 + 빈 날
+     [이 날짜에 거래 추가] 버튼 + `_addForDay` = pop 후 콜백) /
+     `transaction_list_page.dart`(호출부에서 `_buildCreateTransactionUrl(date:)` 주입) /
+     `test/features/transaction/calendar_day_sheet_add_test.dart`(신설, 4건)
+   - 설계 결정: URL 조립은 **상위 페이지의 `_buildCreateTransactionUrl` 단일 소스**만 한다. 위젯이 직접
+     push 하면 필터된 결제수단 전파가 끊긴다 → 가드 테스트가 위젯 내 `'/transactions/create'` 문자열
+     **부재**까지 고정
+   - 게이트: `pre-change-audit.sh . "navigation_state ui_pattern"` → OK / gate OPEN ·
+     `flutter analyze` 통과(잔여 info 3건은 기존 테스트 파일, 이번 변경과 무관) ·
+     `flutter test` **815건 통과** · `flutter build web --release` 성공
+   - 아이콘 위험군 아님: 새 코드포인트 없음(`Icons.add` 는 기존 FAB 에서 이미 사용) → 폰트 subset 불변
+   - 정정(§2-16 기록): 이력 재작성 **푸시는 완료**됐다. 측정 — `main` == `origin/main` (`49ef7ed`),
+     원격 실재 52개 브랜치·태그 33/33 전부 동기. 잔여 diff 는 stale `worktree-agent-*` 로컬 브랜치
+     7개뿐(원격과 무관한 폐기 대상)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션**: 사용자가 기획을 **승인**하면 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md`
-  §4(백엔드) → §5(프론트) → §6(테스트) → §7(로컬 CI) 순서로 구현한다. 승인 전에는 코드 편집 금지.
-- **재부팅 후 첫 명령**: 계획서 §0 (cwd = 이 repo, `git switch main && git pull`, 이 STATE 확인)
-- **선행 조건**: 승인 1건. 유실 위험 없음(로컬 실행 프로세스 없음, 작업 트리 clean)
-- **완료 판정**: BE 4파일 + FE 5파일 + 문서 2 + 테스트 4 반영 → 로컬 CI 3종 통과 → PR 머지 →
+- **다음 액션 (`/clear` 후 여기서 시작)**: 후보 1 **"이체 → 거래 역변환"** 착수.
+  사용자 착수 승인(한마디)을 확인한 뒤 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md`
+  §4(백엔드) → §5(프론트) → §6(테스트) → §7(로컬 CI) 순서로 구현한다. 승인 확인 전 코드 편집 금지(§2 게이트).
+  - 승인 이력: 기획은 2026-07-31 상신, **착수 지정은 아직 명시적으로 받지 않았다**(2026-08-09 회차는
+    사용자가 별건으로 지시한 달력 추가 결함이었다). 계획서 내용 자체는 재검토 불필요.
+- **첫 명령**: 계획서 §0 (cwd = 이 repo, `git switch main && git pull`, 이 STATE 확인)
+- **이번 회차(달력 추가)의 남은 것**: 사용자 라이브 검증 1건 — 거래 탭 → 달력 뷰 → 아무 날짜 탭 →
+  시트에서 `+`(항목 있는 날) 또는 [이 날짜에 거래 추가](빈 날) → **거래 폼의 날짜가 그 날짜로 들어오는지**.
+  결제수단 필터가 걸린 상태에서도 그 결제수단이 함께 승계되는지 같이 본다.
+- **완료 판정(역변환)**: BE 4파일 + FE 5파일 + 문서 2 + 테스트 4 반영 → 로컬 CI 3종 통과 → PR 머지 →
   **사용자 라이브 검증**(이체 폼에서 지출/수입 선택 → 거래로 변환 → 장부 목록에서 이체 사라지고
   거래로 표시 + 월 합계·자산 잔액 즉시 갱신)
 - **다른 후보로 바꾸려면**: 아래 후보 2~5 중 지정. 기획서는 남겨두면 그대로 재사용 가능.
@@ -172,6 +204,8 @@
 - `infra/scripts/hash-icon-font.sh` — 아이콘 폰트 content hash (배포 파이프라인 필수 단계)
 - `infra/scripts/verify-cache-headers.sh` — 배포 후 캐시 정책 + 아이콘 폰트 해시 검증 게이트
 - `frontend/test/features/transaction/view_mode_toggle_guard_test.dart` — 뷰 토글 tooltip + 해시 게이트 배선 가드
+- `frontend/test/features/transaction/calendar_day_sheet_add_test.dart` — 달력 일자 시트의 거래 추가 진입 +
+  URL 조립 단일 소스(`_buildCreateTransactionUrl` 경유) 가드
 - `frontend/test/core/theme/project_font_pin_guard_test.dart` — 프로젝트 폰트(NotoSansKR) 지문 고정. 교체 시 파일명도 바꾸게 강제
 
 ## 5. 미해결·리스크
