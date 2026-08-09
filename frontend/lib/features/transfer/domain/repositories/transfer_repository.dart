@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:budget_book/core/error/failure.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 abstract class TransferRepository {
@@ -56,6 +57,26 @@ abstract class TransferRepository {
     String? memo,
     bool clearMemo = false,
     TransferKind? kind,
+  });
+
+  /// 이체 → 거래 역변환 (원본 이체 삭제 + 거래 생성을 서버가 한 트랜잭션으로 처리).
+  ///
+  /// 정방향(`TransactionRepository.convertToTransfer`)이 **source 쪽 repository** 에
+  /// 있으므로 역방향은 여기가 소유한다 — 대칭이 깨지면 다음 사람이 한쪽만 고친다.
+  ///
+  /// 생략한 값은 서버가 원본 이체에서 승계한다. [paymentMethodId] 를 생략하면
+  /// `EXPENSE` → 출금 / `INCOME` → 입금 결제수단이 승계된다.
+  Future<Either<Failure, Transaction>> convertToTransaction({
+    required String id,
+    required String type,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amount,
+    String? transactionDate,
+    String? description,
+    String? memo,
+    bool? needsReview,
   });
 
   Future<Either<Failure, void>> deleteTransfer(String id);

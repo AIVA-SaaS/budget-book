@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/core/error/dio_error_mapper.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/transfer/data/datasources/transfer_remote_datasource.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/domain/repositories/transfer_repository.dart';
@@ -165,6 +166,41 @@ class TransferRepositoryImpl implements TransferRepository {
       return Left(mapDioError(e, '이체를 수정하지 못했습니다'));
     } catch (e) {
       return const Left(ServerFailure('이체를 수정하지 못했습니다'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Transaction>> convertToTransaction({
+    required String id,
+    required String type,
+    String? categoryId,
+    String? paymentMethodId,
+    String? pocketId,
+    int? amount,
+    String? transactionDate,
+    String? description,
+    String? memo,
+    bool? needsReview,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'type': type,
+        // 생략한 값은 서버가 원본 이체에서 승계한다 — 여기서 채우지 않는다.
+        if (categoryId != null) 'categoryId': categoryId,
+        if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+        if (pocketId != null) 'pocketId': pocketId,
+        if (amount != null) 'amount': amount,
+        if (transactionDate != null) 'transactionDate': transactionDate,
+        if (description != null) 'description': description,
+        if (memo != null) 'memo': memo,
+        if (needsReview != null) 'needsReview': needsReview,
+      };
+      final result = await remoteDataSource.convertToTransaction(id, data);
+      return Right(result);
+    } on DioException catch (e) {
+      return Left(mapDioError(e, '이체를 거래로 변경하지 못했습니다'));
+    } catch (e) {
+      return const Left(ServerFailure('이체를 거래로 변경하지 못했습니다'));
     }
   }
 

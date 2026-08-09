@@ -1292,6 +1292,9 @@ Updates an existing transaction. Only the author or the partner can update it.
 **동기화**: `TRANSACTION_DELETED` + `TRANSFER_CREATED` **두 이벤트**를 모두 발행한다.
 장부 목록은 거래+이체 병합이라 한쪽만 쏘면 파트너 화면에 원본 거래가 남는다.
 
+**역방향**: 이체를 거래로 되돌리려면 `POST /api/v1/transfers/{id}/convert-to-transaction`
+(Transfers §4-1). 두 방향의 차단 규칙·이벤트 규약은 대칭이다.
+
 ---
 
 ### 5. Delete Transaction
@@ -3493,6 +3496,70 @@ All fields are optional (partial update). Omitted fields retain their current va
 | `404`  | `TRANSFER_NOT_FOUND`       | Transfer does not exist or belongs to another couple     |
 | `404`  | `PAYMENT_METHOD_NOT_FOUND` | Specified payment method does not exist                  |
 | `403`  | `FORBIDDEN`                | Payment method belongs to another couple                 |
+
+> **거래로의 변경은 이 엔드포인트가 아니다.** 이체를 지출/수입으로 바꾸려면
+> `POST /api/v1/transfers/{id}/convert-to-transaction` (§4-1) 을 쓴다 — 테이블이 다르므로
+> 필드 수정이 아니라 삭제+생성이다.
+
+---
+
+### 4-1. Convert Transfer to Transaction
+
+이체를 거래(지출/수입)로 바꾼다. `### 4-1. Convert Transaction to Transfer` (거래 → 이체) 의
+거울상이며, 마찬가지로 **원본 이체 삭제 + 거래 생성**을 한 트랜잭션으로 처리하고 생성된 거래를
+돌려준다.
+
+| Item        | Value                                             |
+|:------------|:--------------------------------------------------|
+| **Method**  | `POST`                                            |
+| **Path**    | `/api/v1/transfers/{id}/convert-to-transaction`   |
+| **Auth**    | Required                                          |
+| **RateLimit** | 30 req / 60s                                    |
+
+**Request Body**
+
+```json
+{
+  "type": "EXPENSE",
+  "categoryId": "550e8400-e29b-41d4-a716-446655440021",
+  "paymentMethodId": null,
+  "pocketId": null,
+  "amount": 50000,
+  "transactionDate": "2026-07-15",
+  "description": "계좌 이동",
+  "memo": null,
+  "needsReview": false
+}
+```
+
+| Field             | Type      | Required | Description                                                     |
+|:------------------|:----------|:--------:|:-----------------------------------------------------------------|
+| `type`            | `string`  | Yes      | `EXPENSE` \| `INCOME`. 그 외(`ADJUSTMENT` 포함) 는 `400`          |
+| `categoryId`      | `UUID`    | No       | 주면 유형 일치 검증. visibility 는 이 카테고리에서 파생            |
+| `paymentMethodId` | `UUID`    | No       | 생략 시 `EXPENSE` → 출금 결제수단 / `INCOME` → 입금 결제수단 승계 |
+| `pocketId`        | `UUID`    | No       | 이체에 대응 개념이 없어 신규 입력값 (승계 없음)                   |
+| `amount`          | `long`    | No       | 생략 시 원본 이체 금액 승계                                        |
+| `transactionDate` | `string`  | No       | 생략 시 원본 `transferDate` 승계                                  |
+| `description`     | `string`  | No       | 생략 시 원본 설명 승계. **승계 결과가 비면 `400`**                 |
+| `memo`            | `string`  | No       | 생략 시 원본 메모 승계                                             |
+| `needsReview`     | `boolean` | No       | 기본 `false`                                                      |
+
+**Response `200 OK`**: `ApiResponse<TransactionResponse>` (생성된 거래)
+
+**Error Responses**
+
+| Status | Error Code | Description |
+|:-------|:-----------|:------------|
+| `400`  | `VALIDATION_ERROR` | 지원하지 않는 `type` / 정산에 기록됨 / 카드 결제(`CARD_SETTLEMENT`) 이체 / 결제 링크가 남은 이체 / 카테고리가 유형과 불일치 / 설명이 비어 있음 |
+| `403`  | `FORBIDDEN` | 다른 커플의 카테고리·결제수단·포켓 |
+| `404`  | `TRANSFER_NOT_FOUND` / `CATEGORY_NOT_FOUND` / `PAYMENT_METHOD_NOT_FOUND` / `POCKET_NOT_FOUND` | 대상 없음 (다른 커플의 이체도 `TRANSFER_NOT_FOUND`) |
+
+**설명 nullable 비대칭 주의**: `transfers.description` 은 nullable 인데
+`transactions.description` 은 NOT NULL 이다. 승계 결과가 비면 DB 제약(500) 전에 서버가
+`400 VALIDATION_ERROR("설명을 입력하세요.")` 로 먼저 막는다 — FE 는 이 경우 설명을 필수 입력으로 표시한다.
+
+**동기화**: `TRANSFER_DELETED` + `TRANSACTION_CREATED` **두 이벤트**를 모두 발행한다.
+장부 목록은 거래+이체 병합이라 한쪽만 쏘면 파트너 화면에 원본 이체가 남는다.
 
 ---
 

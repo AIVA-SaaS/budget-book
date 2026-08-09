@@ -1363,4 +1363,199 @@ class TransactionServiceTest : BehaviorSpec({
             }
         }
     }
+
+    // --- 이체 → 거래 역변환 (2026-08-09). 위 블록의 거울상. ---
+
+    Given("이체 → 거래 역변환") {
+        every { coupleResolver.getActiveCouple(user1.id) } returns couple
+        every { userRepository.findById(user1.id) } returns Optional.of(user1)
+        every { reconciliationLookup.refsForTransfers(any()) } returns emptyMap()
+        every { transactionRepository.existsBySettlementTransferId(any()) } returns false
+
+        val bank = PaymentMethod(couple = couple, name = "국민은행", type = PaymentMethodType.BANK)
+        val cash = PaymentMethod(couple = couple, name = "현금", type = PaymentMethodType.CASH)
+        every { paymentMethodRepository.findById(bank.id) } returns Optional.of(bank)
+        every { paymentMethodRepository.findById(cash.id) } returns Optional.of(cash)
+
+        fun transfer(
+            description: String? = "계좌 이동",
+            kind: com.budgetbook.transfer.domain.TransferKind =
+                com.budgetbook.transfer.domain.TransferKind.GENERIC
+        ) = com.budgetbook.transfer.domain.Transfer(
+            couple = couple, author = user1,
+            sourcePaymentMethod = bank, destinationPaymentMethod = cash,
+            amount = 50000, description = description, memo = "메모",
+            transferDate = LocalDate.of(2026, 7, 15), kind = kind
+        )
+
+        When("일반 이체를 지출로 바꾸면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+            every { transferRepository.delete(tr) } returns Unit
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.saveAndFlush(capture(txSlot)) } answers { txSlot.captured }
+
+            service.convertFromTransfer(
+                user1.id, tr.id,
+                com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+            )
+
+            Then("원본 값을 승계한 거래가 만들어지고 이체는 삭제된다") {
+                txSlot.captured.type shouldBe TransactionType.EXPENSE
+                txSlot.captured.amount shouldBe 50000
+                txSlot.captured.description shouldBe "계좌 이동"
+                txSlot.captured.memo shouldBe "메모"
+                txSlot.captured.transactionDate shouldBe LocalDate.of(2026, 7, 15)
+                verify { transferRepository.delete(tr) }
+            }
+
+            Then("지출은 돈이 나간 쪽(출금) 결제수단을 승계한다") {
+                txSlot.captured.paymentMethod?.id shouldBe bank.id
+            }
+
+            Then("이체 삭제 + 거래 생성 이벤트가 모두 발행된다 (장부는 두 스트림 병합)") {
+                val events = mutableListOf<SyncEvent>()
+                verify { syncEventPublisher.publish(capture(events)) }
+                events.any { it.type == "TRANSFER_DELETED" } shouldBe true
+                events.any { it.type == "TRANSACTION_CREATED" } shouldBe true
+            }
+        }
+
+        When("일반 이체를 수입으로 바꾸면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+            every { transferRepository.delete(tr) } returns Unit
+            val txSlot = slot<Transaction>()
+            every { transactionRepository.saveAndFlush(capture(txSlot)) } answers { txSlot.captured }
+
+            service.convertFromTransfer(
+                user1.id, tr.id,
+                com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "INCOME")
+            )
+
+            Then("수입은 돈이 들어온 쪽(입금) 결제수단을 승계한다") {
+                txSlot.captured.type shouldBe TransactionType.INCOME
+                txSlot.captured.paymentMethod?.id shouldBe cash.id
+            }
+        }
+
+        When("정산에 기록된 이체를 거래로 바꾸려 하면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+            every { reconciliationLookup.refsForTransfers(listOf(tr.id)) } returns mapOf(
+                tr.id to com.budgetbook.reconciliation.dto.ReconciliationRef(
+                    reconciliationId = UUID.randomUUID(),
+                    reconciliationSeq = 1,
+                    reconciledAt = java.time.Instant.now()
+                )
+            )
+
+            Then("VALIDATION_ERROR — 이체는 지워지지 않는다") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transferRepository.delete(any<com.budgetbook.transfer.domain.Transfer>()) }
+            }
+        }
+
+        When("카드 결제 이체를 거래로 바꾸려 하면") {
+            val tr = transfer(kind = com.budgetbook.transfer.domain.TransferKind.CARD_SETTLEMENT)
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+
+            Then("VALIDATION_ERROR — 전용 화면에서만 처리한다") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transferRepository.delete(any<com.budgetbook.transfer.domain.Transfer>()) }
+            }
+        }
+
+        When("결제 링크가 남은 이체를 거래로 바꾸려 하면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+            every { transactionRepository.existsBySettlementTransferId(tr.id) } returns true
+
+            Then("VALIDATION_ERROR — 링크가 조용히 끊기기 전에 막는다") {
+                // transactions.settlement_transfer_id 는 ON DELETE SET NULL 이라
+                // 가드가 없으면 미결제 합계가 조용히 어긋난다.
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transferRepository.delete(any<com.budgetbook.transfer.domain.Transfer>()) }
+            }
+        }
+
+        When("설명이 없는 이체를 거래로 바꾸려 하면") {
+            val tr = transfer(description = null)
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+
+            Then("VALIDATION_ERROR — DB NOT NULL 제약(500) 전에 막는다") {
+                // transfers.description 은 nullable, transactions.description 은 NOT NULL.
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.saveAndFlush(any<Transaction>()) }
+            }
+        }
+
+        When("유형과 맞지 않는 카테고리를 지정하면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+            // category 는 EXPENSE 형인데 INCOME 거래로 만들려는 경우.
+            every { categoryRepository.findById(category.id) } returns Optional.of(category)
+
+            Then("VALIDATION_ERROR — 저장 전에 막는다") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(
+                            type = "INCOME", categoryId = category.id
+                        )
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+                verify(exactly = 0) { transactionRepository.saveAndFlush(any<Transaction>()) }
+            }
+        }
+
+        When("잔액 수정으로 바꾸려 하면") {
+            val tr = transfer()
+            every { transferRepository.findByIdAndCoupleId(tr.id, couple.id) } returns tr
+
+            Then("VALIDATION_ERROR — ADJUSTMENT 는 잔액 보정 전용이다") {
+                shouldThrow<com.budgetbook.common.exception.BusinessException> {
+                    service.convertFromTransfer(
+                        user1.id, tr.id,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "ADJUSTMENT")
+                    )
+                }.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("다른 커플의 이체를 거래로 바꾸려 하면") {
+            val otherTransferId = UUID.randomUUID()
+            // findByIdAndCoupleId 가 couple 범위로 조회하므로 남의 이체는 애초에 안 잡힌다.
+            every { transferRepository.findByIdAndCoupleId(otherTransferId, couple.id) } returns null
+
+            Then("TRANSFER_NOT_FOUND") {
+                shouldThrow<NotFoundException> {
+                    service.convertFromTransfer(
+                        user1.id, otherTransferId,
+                        com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+                    )
+                }.code shouldBe "TRANSFER_NOT_FOUND"
+            }
+        }
+    }
 })

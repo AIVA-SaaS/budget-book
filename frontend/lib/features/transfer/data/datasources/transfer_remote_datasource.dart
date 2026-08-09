@@ -1,5 +1,6 @@
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import 'package:budget_book/features/transaction/data/models/transaction_model.dart';
 import 'package:budget_book/features/transfer/data/models/transfer_model.dart';
 
 abstract class TransferRemoteDataSource {
@@ -14,6 +15,12 @@ abstract class TransferRemoteDataSource {
   Future<TransferModel> updateCardSettlement(
       String id, Map<String, dynamic> data);
   Future<TransferModel> updateTransfer(String id, Map<String, dynamic> data);
+
+  /// 이체 → 거래 역변환. 서버가 원본 이체 삭제 + 거래 생성을 한 트랜잭션으로 처리하고
+  /// **거래**를 돌려준다 (거래 → 이체 변환의 거울상).
+  Future<TransactionModel> convertToTransaction(
+      String id, Map<String, dynamic> data);
+
   Future<void> deleteTransfer(String id);
 }
 
@@ -96,6 +103,18 @@ class TransferRemoteDataSourceImpl implements TransferRemoteDataSource {
       data: data,
     );
     return TransferModel.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<TransactionModel> convertToTransaction(
+      String id, Map<String, dynamic> data) async {
+    final response = await apiClient.dio.post(
+      '${ApiEndpoints.transfers}/$id/convert-to-transaction',
+      data: data,
+    );
+    return TransactionModel.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
   }

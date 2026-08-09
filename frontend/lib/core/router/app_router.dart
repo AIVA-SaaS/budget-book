@@ -432,6 +432,10 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     // 배치 4 D-4 (2026-04-26): state.extra 는 새로고침 유실 → copyFromId query param 권장
                     final copyFrom = state.extra as Transaction?;
                     final copyFromId = state.uri.queryParameters['copyFromId'];
+                    // 이체 → 거래 역변환 (2026-08-09). copyFromId 와 같은 이유로 query
+                    // param 이다 — 새로고침해도 변환 대상이 유지된다.
+                    final convertFromTransferId =
+                        state.uri.queryParameters['convertFromTransferId'];
                     final dateStr = state.uri.queryParameters['date'];
                     final initialPaymentMethodId = state.uri.queryParameters['paymentMethodId'];
                     DateTime? initialDate;
@@ -464,6 +468,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                         initialTab: tab,
                         copyFrom: copyFrom,
                         copyFromId: copyFromId,
+                        convertFromTransferId: convertFromTransferId,
                         initialDate: initialDate,
                         initialPaymentMethodId: initialPaymentMethodId,
                       ),
