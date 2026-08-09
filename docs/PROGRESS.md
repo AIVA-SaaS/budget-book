@@ -9,15 +9,15 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"이체 → 거래 역변환"** 회차 — 착수 승인 받음(2026-08-09) → 구현 완료 →
-  **로컬 CI 4종 전부 통과**. 다음은 커밋 → PR → 머지 → 배포 → **사용자 라이브 검증**
-- **상태**: 구현 완료 · PR 진입 대기(추가 승인 불필요 — §2 게이트상 기획 승인 이후는 자동 진행)
+- **단계**: **"이체 → 거래 역변환"** 회차 — 구현 → 로컬 CI → PR #290 머지 → **배포 성공**.
+  서버 측 검증 완료. **남은 것은 사용자 라이브 검증 1건** (이게 통과해야 "완료")
+- **상태**: 사용자 라이브 검증 대기
 - **정본 문서**: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (설계 정본, 그대로 구현됨)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 작업 브랜치 `feat/transfer-to-transaction` ·
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `3215399` · 작업 트리 clean ·
   실행 중 프로세스 없음
-- **CI / 배포**: 로컬 4종 통과 — `./gradlew test` / `flutter analyze`(전체 경로, 신규 지적 0) /
-  `flutter test` **820건** / `flutter build web --release`. 원격 CI·배포는 아직
-- **blocker**: 없음 (라이브 검증은 배포 후)
+- **CI / 배포**: 로컬 4종(gradlew test / analyze 전체 / test 820건 / build web) → 원격 CI 2종 →
+  squash 머지 → **deploy-nas run 31298339060 success**(deploy-frontend·deploy-backend·verify-live)
+- **blocker**: 사용자 라이브 검증 1건
 - **갱신**: 2026-08-09
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
@@ -192,13 +192,24 @@
    - 문서: `docs/api-spec.md` Transfers §4-1 신설 + 양방향 상호 참조 2곳
    - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
 
+14. **2026-08-09** — PR #290 머지 → 배포 성공 → **서버 측 검증 완료. 남은 것은 사용자 기기 확인.**
+   - 원격 CI: `Backend CI` pass(4m18s) / `Frontend CI` pass(2m29s) → squash 머지 + 브랜치 삭제
+   - main `3215399` · deploy-nas run 31298339060: changes / **deploy-frontend success** /
+     **deploy-backend success** / **verify-live success** (sync-nginx 는 변경 없어 skipped)
+   - 라이브 번들 측정: `main.dart.js` last-modified 06:13Z(이번 배포) ·
+     escaped `거래로 변경`("거래로 변경") **5건** ·
+     `convert-to-transaction` **1건** → FE·BE 양쪽 배선이 번들에 올라갔다.
+     (한글 원문 grep 은 항상 0건 — `reference_live_bundle_string_verification`)
+   - **미완**: 사용자 라이브 검증 1건(§3 참조). 이것이 통과할 때까지 이 회차는 "완료" 아님
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션 (`/clear` 후 여기서 시작)**: 이체 → 거래 역변환 **구현은 끝났다**(타임라인 13).
-  남은 절차는 커밋 → PR 생성 → 원격 CI 2종 → squash 머지 → deploy-nas → **사용자 라이브 검증**.
-  개인 계정(AIVA-SaaS)이라 머지까지 자동 진행 범위다(`feedback_personal_account_auto_merge`).
-- **첫 명령**: `git switch feat/transfer-to-transaction && git status` (작업 트리 확인)
+- **다음 액션 (`/clear` 후 여기서 시작)**: 이체 → 거래 역변환은 **배포까지 끝났다**(타임라인 13·14).
+  남은 것은 **사용자 라이브 검증 1건뿐** — 아래 판정 항목을 사용자에게 확인받는다.
+  검증 통과 보고를 받으면 이 회차를 종결 기록하고, 다음 회차 후보를 제시한다.
+  실패하면 `domains/01-diagnosis.md` 로 들어간다(추측 fix 금지, 증상-역행 grep 먼저).
+- **첫 명령**: 없음(코드 변경 없음). 사용자 확인 대기 상태다.
 - **완료 판정(역변환)**: PR 머지·배포로는 완료가 아니다. **사용자 라이브 검증**까지 —
   이체 수정 폼에서 지출/수입 선택 → 거래 폼(배너·승계값 확인) → 저장 → 장부 목록에서 이체가 사라지고
   거래로 표시 + **월 합계·자산 잔액 즉시 갱신**(이 회차에서 같이 고친 부분).
