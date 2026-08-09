@@ -217,3 +217,41 @@ data class ConvertToTransferRequest(
     @field:Size(max = 1000)
     val memo: String? = null
 )
+
+/**
+ * 이체 → 거래 역변환 요청 (2026-08-09).
+ *
+ * `ConvertToTransferRequest` 의 거울상이다. 원본 이체를 지우고 같은 내용의 거래를 만드는
+ * 한 번의 원자적 작업이며, 생략한 값은 원본 이체를 승계한다.
+ *
+ * 승계 규칙 중 결제수단만 유형에 따라 갈린다 — EXPENSE 는 돈이 나간 쪽(출금),
+ * INCOME 은 돈이 들어온 쪽(입금)이 그 거래의 결제수단이다.
+ */
+data class ConvertToTransactionRequest(
+    /** `EXPENSE` | `INCOME`. 이체에는 대응 개념이 없어 사용자가 반드시 지정한다. */
+    @field:NotBlank
+    val type: String,
+
+    /** 생략 시 카테고리 없음. 주면 유형 일치 검증 + visibility 를 이 카테고리에서 파생. */
+    val categoryId: UUID? = null,
+
+    /** 생략 시 EXPENSE → 출금 결제수단 / INCOME → 입금 결제수단 승계. */
+    val paymentMethodId: UUID? = null,
+
+    /** 이체에는 대응 개념이 없어 신규 입력값(승계 없음). */
+    val pocketId: UUID? = null,
+
+    @field:Min(1)
+    @field:Max(999_999_999)
+    val amount: Long? = null,
+
+    val transactionDate: LocalDate? = null,
+
+    @field:Size(max = 255)
+    val description: String? = null,
+
+    @field:Size(max = 1000)
+    val memo: String? = null,
+
+    val needsReview: Boolean = false
+)

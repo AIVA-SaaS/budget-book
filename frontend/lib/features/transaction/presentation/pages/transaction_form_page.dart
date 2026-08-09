@@ -44,6 +44,7 @@ import 'package:budget_book/features/ai/domain/entities/ai_classify_result.dart'
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
@@ -67,6 +68,14 @@ class TransactionFormPage extends StatefulWidget {
   /// 새로고침 시에도 URL 에서 보존되어 prefill 가능.
   final String? copyFromId;
 
+  /// 이체 → 거래 역변환 대상 이체의 id (2026-08-09, query param).
+  ///
+  /// 지정되면 이 폼은 "새 거래 등록" 이 아니라 **원본 이체를 거래로 옮기는** 모드가 된다:
+  /// 저장 시 변환 API(이체 삭제 + 거래 생성)를 타고, 이체 탭은 숨긴다.
+  /// 변환을 이체 폼이 아니라 이 폼에서 하는 이유는 카테고리·포켓 피커가 여기에만 있어
+  /// 복제를 피하기 위함이다 (거래 → 이체 변환도 이 폼에서 일어난다).
+  final String? convertFromTransferId;
+
   /// Optional initial date for the transaction.
   /// Used when navigating from a date header in the transaction list.
   final DateTime? initialDate;
@@ -85,6 +94,7 @@ class TransactionFormPage extends StatefulWidget {
     this.initialType,
     this.copyFrom,
     this.copyFromId,
+    this.convertFromTransferId,
     this.initialDate,
     this.initialPaymentMethodId,
     this.initialTab,
@@ -186,6 +196,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   /// 수정 모드에서 이체로 바꾸는 중인가 (본문/저장 경로가 갈린다).
   bool get _isConvertingToTransfer => isEditing && _editTargetType == 'TRANSFER';
 
+  /// 이체 → 거래 역변환 모드인가 (저장 경로가 갈린다. 정방향의 거울상).
+  bool get _isConvertingFromTransfer => widget.convertFromTransferId != null;
+
+  /// 이체 탭을 숨겨야 하는가 — 수정 모드, 그리고 역변환 모드(목적지가 거래로 고정).
+  bool get _hidesTransferTab => isEditing || _isConvertingFromTransfer;
+
   int _resolveInitialTabIndex() {
     // When editing, determine tab from transaction type (no transfer tab for edit)
     if (isEditing) {
@@ -213,9 +229,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     // Initialize tab controller (hide transfer tab when editing)
     final initialIndex = _resolveInitialTabIndex();
     _tabController = TabController(
-      length: isEditing ? 2 : 3,
+      length: _hidesTransferTab ? 2 : 3,
       vsync: this,
-      initialIndex: isEditing ? initialIndex.clamp(0, 1) : initialIndex,
+      initialIndex:
+          _hidesTransferTab ? initialIndex.clamp(0, 1) : initialIndex,
     );
     _tabController.addListener(_onTabChanged);
 
@@ -235,6 +252,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     if (isEditing) {
       _isLoadingTransaction = true;
       _loadTransaction();
+    } else if (_isConvertingFromTransfer) {
+      // copyFromId 와 같은 방식 — query param 의 id 로 fetch 후 prefill 하므로
+      // 새로고침해도 변환 대상이 살아남는다.
+      _isLoadingTransaction = true;
+      _loadConvertFromTransfer(widget.convertFromTransferId!);
     } else if (widget.copyFrom != null) {
       _prefillFromTransaction(widget.copyFrom!);
     } else if (widget.copyFromId != null) {
@@ -273,6 +295,58 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       }
     });
   }
+
+  /// 역변환 원본 이체. 결제수단 승계(지출=출금 / 수입=입금)에 계속 필요해서 들고 있는다.
+  Transfer? _sourceTransfer;
+
+  Future<void> _loadConvertFromTransfer(String id) async {
+    try {
+      final repo = context.read<TransferBloc>().transferRepository;
+      final result = await repo.getTransfer(id);
+      if (!mounted) return;
+      result.fold(
+        (failure) {
+          setState(() => _isLoadingTransaction = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('변환할 이체를 불러올 수 없습니다: ${failure.message}'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        },
+        (transfer) {
+          setState(() {
+            _isLoadingTransaction = false;
+            _prefillFromTransfer(transfer);
+          });
+        },
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingTransaction = false);
+    }
+  }
+
+  /// 이체 값을 거래 폼에 승계한다. 서버 승계 규칙(§4)과 **같은 규칙**이어야 한다 —
+  /// 화면에 보이는 값과 저장되는 값이 갈라지면 사용자가 틀린 걸 확인하고 저장하게 된다.
+  void _prefillFromTransfer(Transfer transfer) {
+    _sourceTransfer = transfer;
+    _descriptionController.text = transfer.description ?? '';
+    _memoController.text = transfer.memo ?? '';
+    _selectedPaymentMethodId = _inheritedPaymentMethodId(transfer);
+    final parsed = DateTime.tryParse(transfer.transferDate);
+    if (parsed != null) _selectedDate = parsed;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _amountController.text = CurrencyFormatter.format(transfer.amount);
+      }
+    });
+  }
+
+  /// 지출은 돈이 나간 쪽(출금), 수입은 들어온 쪽(입금)이 그 거래의 결제수단이다.
+  String _inheritedPaymentMethodId(Transfer transfer) =>
+      _selectedType == 'INCOME'
+          ? transfer.destinationPaymentMethod.id
+          : transfer.sourcePaymentMethod.id;
 
   Future<void> _loadCopyFromTransaction(String id) async {
     try {
@@ -313,6 +387,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           _selectedType = 'INCOME';
           _selectedCategoryId = null;
           _selectedCategoryDisplayName = null;
+        }
+        // 역변환 모드에서 지출↔수입을 바꾸면 승계할 결제수단도 반대쪽이 된다
+        // (지출=출금 / 수입=입금). 안 바꾸면 화면 값과 서버 승계 규칙이 갈라진다.
+        final source = _sourceTransfer;
+        if (source != null && _tabController.index < 2) {
+          _selectedPaymentMethodId = _inheritedPaymentMethodId(source);
         }
         // Tab 2 (transfer) doesn't change _selectedType
       });
@@ -672,7 +752,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         },
         child: Scaffold(
           appBar: AppBar(
-            title: Text(isEditing ? '거래 수정' : '거래 추가'),
+            title: Text(isEditing
+                ? '거래 수정'
+                : (_isConvertingFromTransfer ? '거래로 변경' : '거래 추가')),
           actions: [
             if (isEditing)
               IconButton(
@@ -687,10 +769,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 )
               : TabBar(
                   controller: _tabController,
-                  tabs: const [
-                    Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
-                    Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
-                    Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
+                  tabs: [
+                    const Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
+                    const Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
+                    // 역변환 모드에서는 목적지가 거래로 고정이라 이체 탭이 없다
+                    // (TabController.length 와 반드시 같은 조건이어야 한다).
+                    if (!_hidesTransferTab)
+                      const Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
                   ],
                 ),
         ),
@@ -698,23 +783,55 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             ? (_isConvertingToTransfer
                 ? _buildTransferFormContent(context)
                 : _buildTransactionFormBody(context))
-            : TabBarView(
-                controller: _tabController,
+            : Column(
                 children: [
-                  // Tab 0: Expense form
-                  _buildTransactionFormBody(context, formKey: _expenseFormKey),
-                  // Tab 1: Income form
-                  _buildTransactionFormBody(context,
-                    formKey: _incomeFormKey,
-                    categoryFocusNode: _incomeCategoryFocusNode,
-                    pmFocusNode: _incomePmFocusNode,
-                    pocketFocusNode: _incomePocketFocusNode,
+                  if (_isConvertingFromTransfer) _buildConvertBanner(context),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Tab 0: Expense form
+                        _buildTransactionFormBody(context,
+                            formKey: _expenseFormKey),
+                        // Tab 1: Income form
+                        _buildTransactionFormBody(context,
+                          formKey: _incomeFormKey,
+                          categoryFocusNode: _incomeCategoryFocusNode,
+                          pmFocusNode: _incomePmFocusNode,
+                          pocketFocusNode: _incomePocketFocusNode,
+                        ),
+                        // Tab 2: Transfer form (embedded)
+                        if (!_hidesTransferTab) _buildTransferFormBody(context),
+                      ],
+                    ),
                   ),
-                  // Tab 2: Transfer form (embedded)
-                  _buildTransferFormBody(context),
                 ],
               ),
       ),
+      ),
+    );
+  }
+
+  /// 역변환 모드 안내 — 저장이 "추가" 가 아니라 "이동" 임을 미리 알린다.
+  Widget _buildConvertBanner(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      color: scheme.tertiaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.swap_horiz, size: 18, color: scheme.onTertiaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '이체 → 거래로 변경 — 저장하면 원본 이체가 삭제됩니다',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onTertiaryContainer,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1169,21 +1286,78 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       ),
       (transfer) {
         final moved = DateTime.parse(transfer.transferDate);
-        // 두 스트림을 함께 갱신 — 하나만 하면 원본 거래가 남아 보이거나 새 이체가 안 보인다.
-        txnBloc.add(LoadTransactions.fromFilter(
-          moved.year,
-          moved.month,
-          txnBloc.currentFilter,
-        ));
-        context
-            .read<TransferBloc>()
-            .add(LoadTransfers(year: moved.year, month: moved.month));
+        _reloadAfterConversion(moved.year, moved.month);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('이체로 변경되었습니다')),
         );
         Navigator.of(context).pop(true);
       },
     );
+  }
+
+  /// 이체 → 거래 역변환 실행. 정방향 [_convertToTransfer] 의 거울상.
+  ///
+  /// 마찬가지로 BLoC 을 거치지 않고 repository 를 직접 부른다 — 이체 삭제 + 거래 생성이
+  /// 두 스트림에 걸쳐 있어 어느 한쪽 BLoC 의 상태 머신에 얹기가 어색하다.
+  Future<void> _convertToTransaction({
+    required int amount,
+    required String description,
+    required String? memo,
+    required String dateStr,
+    required String? categoryId,
+  }) async {
+    final repo = context.read<TransferBloc>().transferRepository;
+    final result = await repo.convertToTransaction(
+      id: widget.convertFromTransferId!,
+      type: _selectedType,
+      categoryId: categoryId,
+      paymentMethodId: _selectedPaymentMethodId,
+      pocketId: _selectedPocketId,
+      amount: amount,
+      transactionDate: dateStr,
+      description: description,
+      memo: memo,
+      needsReview: _needsReview,
+    );
+    if (!mounted) return;
+    _submitTimeoutTimer?.cancel();
+    setState(() => _isSubmitting = false);
+
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      ),
+      (transaction) {
+        final moved = DateTime.parse(transaction.transactionDate);
+        _reloadAfterConversion(moved.year, moved.month);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('거래로 변경되었습니다')),
+        );
+        // 원본 이체는 이제 없다 — 진입 경로(이체 수정 폼)로 pop 하면 사라진 이체의
+        // 폼으로 되돌아간다. 장부 목록으로 보낸다.
+        context.go('/transactions?year=${moved.year}&month=${moved.month}');
+      },
+    );
+  }
+
+  /// 변환 성공 후 재조회 — **양방향 공통**.
+  ///
+  /// 네 BLoC 을 모두 갱신해야 한다: 거래·이체(장부는 두 스트림 병합) + 대시보드(월 합계)
+  /// + 결제수단(자산 잔액). 이전에는 정방향이 앞의 둘만 갱신해 변환 직후 월 합계와 자산
+  /// 잔액이 그대로였다 — 한쪽만 고치면 또 갈라지므로 두 방향이 이 헬퍼를 함께 쓴다.
+  void _reloadAfterConversion(int year, int month) {
+    final txnBloc = context.read<TransactionBloc>();
+    txnBloc.add(LoadTransactions.fromFilter(
+      year,
+      month,
+      txnBloc.currentFilter,
+    ));
+    context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
+    getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
+    getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
   }
 
   Widget _buildTransferFormBody(BuildContext context) {
@@ -2280,6 +2454,20 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
     final amount = submission.amount;
     final resolvedCategoryId = submission.categoryId;
+
+    // 역변환 모드 — 새 거래를 만드는 게 아니라 **원본 이체를 거래로 옮긴다**(서버가
+    // 삭제+생성을 한 트랜잭션으로 처리). 여기서 CreateTransaction 을 쓰면 이체와 거래가
+    // 둘 다 남아 금액이 이중 계상된다 (정방향 _submitTransfer 의 거울상 분기).
+    if (_isConvertingFromTransfer) {
+      _convertToTransaction(
+        amount: amount,
+        description: description,
+        memo: memo,
+        dateStr: dateStr,
+        categoryId: resolvedCategoryId,
+      );
+      return;
+    }
 
     if (isEditing) {
       bloc.add(UpdateTransaction(

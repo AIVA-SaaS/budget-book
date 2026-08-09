@@ -557,6 +557,15 @@ interface TransactionRepository : JpaRepository<Transaction, UUID>, JpaSpecifica
         @Param("transferId") transferId: UUID
     ): Int
 
+    /**
+     * 이체 → 거래 역변환 가드 (2026-08-09).
+     *
+     * 결제 링크가 남은 이체를 지우면 `transactions.settlement_transfer_id` 가 조용히
+     * NULL 로 끊겨(V63 `ON DELETE SET NULL`) 그 달 미결제 합계가 어긋난다.
+     * `kind == CARD_SETTLEMENT` 검사와 겹치지만, 과거·자동 생성 데이터를 위한 두 번째 방어선.
+     */
+    fun existsBySettlementTransferId(settlementTransferId: UUID): Boolean
+
     @Modifying
     @Query(
         value = """

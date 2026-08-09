@@ -302,9 +302,93 @@ class _TransferFormPageState extends State<TransferFormPage> {
                 onPressed: _isSubmitting ? null : () => _confirmDelete(context),
               ),
           ],
+          bottom: _showsTypeSelector
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(48),
+                  child: _buildTypeSelector(context),
+                )
+              : null,
         ),
         body: _buildForm(context),
       ),
+    );
+  }
+
+  /// 유형 선택기를 보일 조건 (2026-08-09).
+  ///
+  /// 수정 모드에서 원본 이체를 읽어온 뒤에만 보인다 — 종류를 모르면 카드 결제 이체를
+  /// 걸러낼 수 없다. 카드 결제는 전용 플로우(`/card-settlement`)가 있어 애초에 이 폼으로
+  /// 오지 않지만, 서버도 400 으로 막는 규칙이라 UI 에서도 선택지를 주지 않는다.
+  bool get _showsTypeSelector =>
+      isEditing &&
+      _existingTransfer != null &&
+      _existingTransfer!.kind != TransferKind.cardSettlement;
+
+  /// 유형 선택 — 지출 / 수입 / 이체. 거래 폼의 수정 모드 선택기(`_buildEditTypeSelector`)와
+  /// 같은 모양이다.
+  ///
+  /// 지출/수입을 고르면 **거래 폼으로 보낸다**. 이 폼에 카테고리·포켓 피커를 복제하지 않기
+  /// 위해서다 — 변환은 언제나 거래 폼에서 일어난다(거래 → 이체 방향도 마찬가지).
+  Widget _buildTypeSelector(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Text(
+              '유형',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+            ),
+            const SizedBox(width: 8),
+            SegmentedButton<String>(
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              segments: const [
+                ButtonSegment(
+                  value: 'EXPENSE',
+                  icon: Icon(Icons.arrow_downward, size: 14),
+                  label: Text('지출'),
+                ),
+                ButtonSegment(
+                  value: 'INCOME',
+                  icon: Icon(Icons.arrow_upward, size: 14),
+                  label: Text('수입'),
+                ),
+                ButtonSegment(
+                  value: 'TRANSFER',
+                  icon: Icon(Icons.swap_horiz, size: 14),
+                  label: Text('이체'),
+                ),
+              ],
+              selected: const {'TRANSFER'},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) {
+                if (selection.isEmpty) return;
+                _onTypeSelected(selection.first);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onTypeSelected(String next) {
+    if (next == 'TRANSFER') return;
+    // 거래 폼이 원본 이체를 fetch 해 prefill 한다 (query param 이라 새로고침에도 유지).
+    final tab = next == 'INCOME' ? 'income' : 'expense';
+    context.push(
+      '/transactions/create'
+      '?convertFromTransferId=${widget.transferId}&tab=$tab',
     );
   }
 

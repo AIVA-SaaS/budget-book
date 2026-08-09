@@ -20,7 +20,9 @@ import java.util.UUID
 class TransferControllerTest : FunSpec({
 
     val transferService = mockk<TransferService>()
-    val controller = TransferController(transferService)
+    // 이체 → 거래 역변환 위임 대상 (구현은 TransactionService 소유 — 순환 의존 회피).
+    val transactionService = mockk<com.budgetbook.transaction.service.TransactionService>()
+    val controller = TransferController(transferService, transactionService)
     val testUserId = UUID.randomUUID()
 
     fun sampleTransferResponse() = TransferResponse(
@@ -91,5 +93,19 @@ class TransferControllerTest : FunSpec({
 
         result.statusCode shouldBe HttpStatus.NO_CONTENT
         verify { transferService.deleteTransfer(testUserId, transferId) }
+    }
+
+    test("convertToTransaction delegates to TransactionService") {
+        val transferId = UUID.randomUUID()
+        val request = com.budgetbook.transaction.dto.ConvertToTransactionRequest(type = "EXPENSE")
+        every {
+            transactionService.convertFromTransfer(testUserId, transferId, request)
+        } returns mockk(relaxed = true)
+
+        val result = controller.convertToTransaction(testUserId, transferId, request)
+
+        result.success shouldBe true
+        // 이체 서비스가 아니라 거래 서비스가 소유한다 (순환 의존 회피 — 되돌리지 말 것).
+        verify { transactionService.convertFromTransfer(testUserId, transferId, request) }
     }
 })

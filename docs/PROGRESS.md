@@ -9,14 +9,15 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 달력 일자 시트 "거래 추가" 회차 **완료**(PR #287·#288, 라이브 검증 통과 2026-08-09).
-  **열린 작업 없음.** 다음 회차는 **"이체 → 거래 역변환"**(기획 완료, 착수 승인 대기)
-- **상태**: idle — 착수 승인 한마디면 계획서 §4 부터 추가 승인 없이 진행
-- **정본 문서**: 다음 회차 = `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (§0 재개 절차)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 작업 트리 clean · 실행 중 프로세스 없음
-- **CI / 배포**: 직전 회차 전부 통과(로컬 analyze·test 815건·build web → 원격 CI 2종 →
-  deploy-nas run 31293344811 success, verify-live 포함)
-- **blocker**: 다음 회차 착수 승인 1건
+- **단계**: **"이체 → 거래 역변환"** 회차 — 착수 승인 받음(2026-08-09) → 구현 완료 →
+  **로컬 CI 4종 전부 통과**. 다음은 커밋 → PR → 머지 → 배포 → **사용자 라이브 검증**
+- **상태**: 구현 완료 · PR 진입 대기(추가 승인 불필요 — §2 게이트상 기획 승인 이후는 자동 진행)
+- **정본 문서**: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (설계 정본, 그대로 구현됨)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 작업 브랜치 `feat/transfer-to-transaction` ·
+  실행 중 프로세스 없음
+- **CI / 배포**: 로컬 4종 통과 — `./gradlew test` / `flutter analyze`(전체 경로, 신규 지적 0) /
+  `flutter test` **820건** / `flutter build web --release`. 원격 CI·배포는 아직
+- **blocker**: 없음 (라이브 검증은 배포 후)
 - **갱신**: 2026-08-09
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
@@ -167,35 +168,49 @@
      시트를 pop 한 뒤 네비게이션하는 `_addForDay`/탭 콜백 규약이 스택을 오염시키지 않았다)
    - 이로써 PR #287·#288 회차 완료. 다음은 §3 "다음 액션"(이체 → 거래 역변환, 착수 승인 대기)
 
+13. **2026-08-09** — **이체 → 거래 역변환: 착수 승인("다음 작업 진행해줘") → 구현 완료 → 로컬 CI 4종 통과.**
+   - 승인: 사용자 착수 지정. 기획 정본(`2026-07-31_transfer-to-transaction_plan.md`)을 그대로 구현,
+     설계 변경 없음
+   - BE 산출물: `ConvertToTransactionRequest`(DTO) / `TransactionService.convertFromTransfer` /
+     `TransactionRepository.existsBySettlementTransferId` /
+     `TransferController POST /{id}/convert-to-transaction`(RateLimit 30/60s)
+   - 배치 결정 유지: 구현은 **거래 서비스**, 호출은 이체 컨트롤러 — 반대로 넣으면
+     `TransactionService → TransferService` 기존 주입과 순환 빈 의존. 근거를 코드 주석에 남김
+   - 차단 3종 + 설명 공백 가드 + 카테고리-유형 일치 검증(`createTransaction` 에는 없어 변환 경로에서
+     명시적으로 태움) / `saveAndFlush` 후 이체 삭제 / `TRANSFER_DELETED` + `TRANSACTION_CREATED` 2건 발행
+   - FE 산출물: `TransferRepository.convertToTransaction`(datasource·impl 포함) /
+     거래 폼 `convertFromTransferId` 모드(이체 fetch → prefill, 이체 탭 숨김, 변경 배너, 저장 시 변환 API) /
+     이체 폼 수정 모드 유형 선택기(지출·수입 선택 → 거래 폼으로 push) / 라우터 query param 배선
+   - **기존 결함 동시 수정**: 정방향 `_convertToTransfer` 가 Dashboard·PaymentMethod 를 리로드하지
+     않던 문제 → **네 BLoC 리로드를 양방향 공통 헬퍼 `_reloadAfterConversion` 로** 묶음
+     (`feedback_common_scope_audit` — 한 곳만 수정 금지)
+   - 테스트: BE 서비스 8케이스(승계·결제수단 방향·차단 4종·이벤트 2건·404) + 컨트롤러 위임 1건 +
+     **Testcontainers 통합 4건**(실제 PG: 이체 삭제+거래 삽입 원자성, INCOME 입금 승계,
+     설명 NULL 400 가드, 카드결제 차단) / FE repository 3건 + 배선 가드 5건(양방향 대칭 고정)
+   - 게이트: `./gradlew test` 통과 · `flutter analyze` 신규 지적 0 · `flutter test` 820건 통과 ·
+     `flutter build web --release` 성공. 아이콘 신규 코드포인트 없음(폰트 subset 불변)
+   - 문서: `docs/api-spec.md` Transfers §4-1 신설 + 양방향 상호 참조 2곳
+   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션 (`/clear` 후 여기서 시작)**: 후보 1 **"이체 → 거래 역변환"** 착수.
-  사용자 착수 승인(한마디)을 확인한 뒤 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md`
-  §4(백엔드) → §5(프론트) → §6(테스트) → §7(로컬 CI) 순서로 구현한다. 승인 확인 전 코드 편집 금지(§2 게이트).
-  - 승인 이력: 기획은 2026-07-31 상신, **착수 지정은 아직 명시적으로 받지 않았다**(2026-08-09 회차는
-    사용자가 별건으로 지시한 달력 추가 결함이었다). 계획서 내용 자체는 재검토 불필요.
-- **첫 명령**: 계획서 §0 (cwd = 이 repo, `git switch main && git pull`, 이 STATE 확인)
-- **직전 회차(달력 추가)**: 라이브 검증 통과로 **종결**(타임라인 12). 남은 것 없음.
-- **완료 판정(역변환)**: BE 4파일 + FE 5파일 + 문서 2 + 테스트 4 반영 → 로컬 CI 3종 통과 → PR 머지 →
-  **사용자 라이브 검증**(이체 폼에서 지출/수입 선택 → 거래로 변환 → 장부 목록에서 이체 사라지고
-  거래로 표시 + 월 합계·자산 잔액 즉시 갱신)
-- **다른 후보로 바꾸려면**: 아래 후보 2~5 중 지정. 기획서는 남겨두면 그대로 재사용 가능.
+- **다음 액션 (`/clear` 후 여기서 시작)**: 이체 → 거래 역변환 **구현은 끝났다**(타임라인 13).
+  남은 절차는 커밋 → PR 생성 → 원격 CI 2종 → squash 머지 → deploy-nas → **사용자 라이브 검증**.
+  개인 계정(AIVA-SaaS)이라 머지까지 자동 진행 범위다(`feedback_personal_account_auto_merge`).
+- **첫 명령**: `git switch feat/transfer-to-transaction && git status` (작업 트리 확인)
+- **완료 판정(역변환)**: PR 머지·배포로는 완료가 아니다. **사용자 라이브 검증**까지 —
+  이체 수정 폼에서 지출/수입 선택 → 거래 폼(배너·승계값 확인) → 저장 → 장부 목록에서 이체가 사라지고
+  거래로 표시 + **월 합계·자산 잔액 즉시 갱신**(이 회차에서 같이 고친 부분).
+  함께 볼 것: 정방향(거래 → 이체)도 변환 직후 대시보드·자산이 갱신되는지 — 같은 헬퍼를 쓴다.
+- **배포 후 측정 팁**: 한글은 번들에서 `\uXXXX` 이스케이프 → 원문 grep 은 항상 0건.
+  `'거래로 변경'` 은 escaped 형태로 대조하고 `last-modified` + `verify-live` 를 함께 본다
+  (`reference_live_bundle_string_verification`).
+- **그 다음 회차**: 아래 후보 2~5 중 사용자가 지정.
 
 ### 다음 회차 후보 — 착수 지점 (이 절만 읽으면 바로 시작 가능)
 
-1. **이체 → 거래 역변환** — ⏳ **기획 완료(2026-07-31) · 승인 대기.**
-   상세 설계는 `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` 가 정본이다(이 요약보다 우선).
-   - 계약: `POST /api/v1/transfers/{id}/convert-to-transaction` → `ApiResponse<TransactionResponse>`
-   - 구현 위치: `TransactionService.convertFromTransfer` + `TransferController` 에서 호출
-     (반대로 넣으면 `TransactionService → TransferService` 기존 주입과 **순환 의존**)
-   - 차단 3종: 정산 기록됨 / `kind == CARD_SETTLEMENT` / 결제 링크 잔존
-   - 함정 선반영: `transfers.description` 은 nullable, `transactions.description` 은 NOT NULL →
-     승계 결과가 비면 400 으로 먼저 막는다(안 하면 DB 제약 500)
-   - FE: 이체 폼 유형 선택기 → 거래 폼(`convertFromTransferId`)으로 push. 거래 폼이 이미 양쪽 폼을
-     다 갖고 있어 피커 복제를 피한다
-   - 같이 고칠 기존 결함: 정방향 `_convertToTransfer` 가 Dashboard·PaymentMethod BLoC 을 리로드하지
-     않는다 → 네 BLoC 리로드를 양방향 공통 헬퍼로 (`feedback_common_scope_audit`)
+1. ~~**이체 → 거래 역변환**~~ — ✅ 구현 완료(2026-08-09, 타임라인 13). 라이브 검증만 남음.
 2. **P6 홈 대시보드 "미정산 N건" 위젯** (추천 2순위. 기존 API 재사용)
    - 데이터: `GET /reconciliations/summary` (이미 존재, `unrecordedCount`)
    - 위젯 등록: `frontend/lib/features/home/domain/entities/dashboard_widget_config.dart`
@@ -212,7 +227,11 @@
 ## 4. 산출물 지도
 
 - `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` — **현재 회차 설계 정본**(이체→거래 역변환).
-  재부팅/`/clear` 후 이 대장 다음으로 읽을 문서. 승인 시 이 문서 순서대로 구현한다
+  2026-08-09 그대로 구현 완료 — 설계 변경 없음. 라이브 검증 시 기대 동작의 근거 문서
+- `frontend/test/features/transfer/convert_wiring_guard_test.dart` — 이체↔거래 변환 **양방향 대칭** 가드
+  (네 BLoC 리로드 공통 헬퍼 경유 / 이체 폼은 거래 폼으로 보낸다 / 저장이 변환 API 를 탄다)
+- `backend/src/test/kotlin/com/budgetbook/transfer/integration/TransferToTransactionIntegrationTest.kt`
+  — 실제 PG 로 원자성·NOT NULL·FK 가드 검증(mock 으로는 안 잡히는 층)
 - `docs/incidents/2026-07-30_icon-font-stale-cache.md` — **아이콘 캐시 사건 정본**(5회 발생 분석·방어선·진단 순서). 비슷한 증상이면 코드보다 이 문서를 먼저 본다
 - `docs/sessions/2026-07-30_handoff.md` — 직전 회차 인수 문서(배포 현황·라이브 검증 체크리스트). 이력 보존용, 수정 금지
 - `docs/sessions/2026-07-28_icon-missing-handoff.md` — 아이콘 사건 1·2회차 측정 기록. 수정 금지

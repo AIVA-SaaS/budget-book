@@ -20,6 +20,7 @@ import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.category.domain.CategoryType
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
 import com.budgetbook.transaction.dto.CategorySummary
+import com.budgetbook.transaction.dto.ConvertToTransactionRequest
 import com.budgetbook.transaction.dto.ConvertToTransferRequest
 import com.budgetbook.transaction.dto.CreateTransactionRequest
 import com.budgetbook.transaction.dto.PageResponse
@@ -522,6 +523,146 @@ class TransactionService(
             authorId = userId
         ))
         return created
+    }
+
+    /**
+     * 이체 → 거래 역변환 (2026-08-09). `convertToTransfer` 의 거울상.
+     *
+     * **배치 이유**: 구현이 거래 서비스에 있고 `TransferController` 가 이 서비스를 주입해
+     * 호출한다. 반대로 `TransferService` 에 두면 `TransactionService → TransferService`
+     * 기존 주입(:62)과 맞물려 순환 빈 의존이 된다. 원칙은 "생성 규칙은 항상 **목적지**
+     * 도메인 서비스가 소유한다" — 정방향도 이체 생성을 `TransferService` 에 맡긴다.
+     * (되돌리지 말 것. 컨트롤러 → 다른 서비스 의존은 순환이 아니다.)
+     *
+     * 되돌릴 수 없는 이동이라 다른 기능이 이 이체를 붙잡고 있으면 막는다 —
+     * 정산 스냅샷 / 카드 결제 / 결제 링크 잔존.
+     */
+    @Transactional
+    fun convertFromTransfer(
+        userId: UUID,
+        transferId: UUID,
+        request: ConvertToTransactionRequest
+    ): TransactionResponse {
+        val couple = getActiveCouple(userId)
+        val user = userRepository.findById(userId)
+            .orElseThrow { NotFoundException("USER_NOT_FOUND", "User not found.") }
+        val transfer = transferRepository.findByIdAndCoupleId(transferId, couple.id)
+            ?: throw NotFoundException("TRANSFER_NOT_FOUND", "Transfer does not exist.")
+
+        // 거래는 EXPENSE/INCOME 만 만든다. ADJUSTMENT 는 잔액 보정 전용이라 이체에서 올 수 없다.
+        val transactionType = runCatching { TransactionType.valueOf(request.type.uppercase()) }
+            .getOrElse { throw BusinessException("VALIDATION_ERROR", "지원하지 않는 거래 유형입니다: ${request.type}") }
+        if (transactionType == TransactionType.ADJUSTMENT) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "이체는 잔액 수정으로 변경할 수 없습니다. 지출 또는 수입을 선택하세요."
+            )
+        }
+
+        if (reconciliationLookup.refsForTransfers(listOf(transferId)).isNotEmpty()) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "정산에 기록된 이체는 유형을 변경할 수 없습니다. 정산에서 제외한 뒤 다시 시도하세요."
+            )
+        }
+        if (transfer.kind == TransferKind.CARD_SETTLEMENT) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "카드 결제 이체는 거래로 변경할 수 없습니다. 카드 결제 화면에서 처리하세요."
+            )
+        }
+        if (transactionRepository.existsBySettlementTransferId(transferId)) {
+            throw BusinessException(
+                "VALIDATION_ERROR",
+                "결제에 연결된 거래가 남아 있는 이체는 거래로 변경할 수 없습니다. 연결을 먼저 해제하세요."
+            )
+        }
+
+        // 승계 — 결제수단만 유형에 따라 갈린다 (지출은 돈이 나간 쪽, 수입은 들어온 쪽).
+        val inheritedPaymentMethodId = when (transactionType) {
+            TransactionType.EXPENSE -> transfer.sourcePaymentMethod.id
+            else -> transfer.destinationPaymentMethod.id
+        }
+        // transfers.description 은 nullable 인데 transactions.description 은 NOT NULL 이다.
+        // 여기서 막지 않으면 DB 제약에서 500 이 난다.
+        val description = (request.description ?: transfer.description)?.trim().orEmpty()
+        if (description.isEmpty()) {
+            throw BusinessException("VALIDATION_ERROR", "설명을 입력하세요.")
+        }
+
+        val amount = request.amount ?: transfer.amount
+        validateAmountForType(transactionType, amount)
+
+        val category = request.categoryId?.let { catId ->
+            val cat = categoryRepository.findById(catId)
+                .orElseThrow { NotFoundException("CATEGORY_NOT_FOUND", "Specified category does not exist.") }
+            OwnershipValidator.validateOwnership(cat.couple.id, couple, "Category")
+            cat
+        }
+        // 생성 규칙과 동일 — visibility 는 항상 카테고리에서 파생한다 (요청 값이 아니라).
+        val effectiveVisibility = category?.visibility ?: Visibility.SHARED
+
+        val paymentMethod = (request.paymentMethodId ?: inheritedPaymentMethodId).let { pmId ->
+            val pm = paymentMethodRepository.findById(pmId)
+                .orElseThrow { NotFoundException("PAYMENT_METHOD_NOT_FOUND", "Specified payment method does not exist.") }
+            OwnershipValidator.validateOwnership(pm.couple.id, couple, "Payment method")
+            pm
+        }
+
+        val pocket = request.pocketId?.let { pocketId ->
+            val p = moneyPocketRepository.findById(pocketId)
+                .orElseThrow { NotFoundException("POCKET_NOT_FOUND", "Specified pocket does not exist.") }
+            OwnershipValidator.validateOwnership(p.couple.id, couple, "Pocket")
+            if (!p.isActive) {
+                throw NotFoundException("POCKET_NOT_FOUND", "Specified pocket is not active.")
+            }
+            p
+        }
+
+        val transactionDate = request.transactionDate ?: transfer.transferDate
+        val transaction = Transaction(
+            couple = couple,
+            author = user,
+            category = category,
+            type = transactionType,
+            amount = amount,
+            description = description,
+            memo = request.memo ?: transfer.memo,
+            transactionDate = transactionDate,
+            paymentMethod = paymentMethod,
+            settlementDate = calculateSettlementDate(paymentMethod, transactionDate),
+            pocket = pocket,
+            visibility = effectiveVisibility,
+            owner = if (effectiveVisibility == Visibility.PRIVATE) user else null,
+            needsReview = request.needsReview
+        )
+        // createTransaction 은 카테고리-유형 일치를 검증하지 않는다(update 경로에만 있다).
+        // 변환은 유형을 새로 정하는 경로라 여기서 명시적으로 태운다.
+        validateCategoryMatchesType(transaction)
+
+        // 저장 → flush → 삭제 순서. 같은 트랜잭션에서 이체를 먼저 지우면 삭제 flush 와
+        // 삽입 flush 순서를 JPA 가 보장하지 않는다 (reference_card_settlement_flush_ordering).
+        val saved = transactionRepository.saveAndFlush(transaction)
+        transferRepository.delete(transfer)
+
+        // 이체 스트림도 갱신해야 목록이 정합해진다 — 거래 이벤트만 쏘면 파트너 화면에
+        // 원본 이체가 그대로 남는다 (장부 목록은 두 스트림 병합).
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSFER_DELETED",
+            entityType = "TRANSFER",
+            entityId = transferId,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        syncEventPublisher.publish(SyncEvent(
+            type = "TRANSACTION_CREATED",
+            entityType = "TRANSACTION",
+            entityId = saved.id,
+            coupleId = couple.id,
+            authorId = userId
+        ))
+        learnPattern(couple.id, saved.description, saved.category?.id)
+        return saved.toResponse()
     }
 
     /**

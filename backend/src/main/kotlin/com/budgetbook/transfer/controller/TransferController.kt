@@ -3,6 +3,9 @@ package com.budgetbook.transfer.controller
 import com.budgetbook.common.dto.ApiResponse
 import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
+import com.budgetbook.transaction.dto.ConvertToTransactionRequest
+import com.budgetbook.transaction.dto.TransactionResponse
+import com.budgetbook.transaction.service.TransactionService
 import com.budgetbook.transfer.dto.CreateCardSettlementRequest
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.TransferResponse
@@ -26,7 +29,10 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/transfers")
 class TransferController(
-    private val transferService: TransferService
+    private val transferService: TransferService,
+    // 이체 → 거래 역변환 (2026-08-09). 구현이 TransactionService 에 있는 이유는
+    // 그 메서드 주석 참고 — 반대로 넣으면 서비스 간 순환 의존이 된다.
+    private val transactionService: TransactionService
 ) {
 
     @RateLimit(maxRequests = 20, windowSeconds = 60)
@@ -114,6 +120,21 @@ class TransferController(
         @Valid @RequestBody request: UpdateTransferRequest
     ): ApiResponse<TransferResponse> {
         return ApiResponse.ok(transferService.updateTransfer(userId, id, request))
+    }
+
+    /**
+     * 이체 → 거래 역변환 (2026-08-09).
+     * 원본 이체 삭제 + 거래 생성이 한 트랜잭션으로 처리된다.
+     * 거래 → 이체(`POST /transactions/{id}/convert-to-transfer`) 의 거울상.
+     */
+    @RateLimit(maxRequests = 30, windowSeconds = 60)
+    @PostMapping("/{id}/convert-to-transaction")
+    fun convertToTransaction(
+        @AuthUser userId: UUID,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: ConvertToTransactionRequest
+    ): ApiResponse<TransactionResponse> {
+        return ApiResponse.ok(transactionService.convertFromTransfer(userId, id, request))
     }
 
     @RateLimit(maxRequests = 20, windowSeconds = 60)
