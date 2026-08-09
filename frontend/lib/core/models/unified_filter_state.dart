@@ -13,6 +13,15 @@ enum FilterType {
   needsReview,
 }
 
+/// 거래 유형 표시 라벨의 **단일 정의**.
+/// 'TRANSFER' 는 FE 전용 pseudo-type (BE 는 EXPENSE/INCOME/ADJUSTMENT 만 안다).
+/// 필터 칩·필터 시트·빈 상태 문구가 모두 이 맵을 쓴다(라벨 이중 정의 방지).
+const Map<String, String> kTransactionTypeLabels = {
+  'EXPENSE': '지출',
+  'INCOME': '수입',
+  'TRANSFER': '이체',
+};
+
 class UnifiedFilterState extends Equatable {
   final DateTime? dateFrom;
   final DateTime? dateTo;

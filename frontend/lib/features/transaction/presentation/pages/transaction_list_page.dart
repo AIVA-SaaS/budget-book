@@ -42,6 +42,8 @@ import 'package:budget_book/features/transaction/presentation/widgets/transactio
 import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
 import 'package:budget_book/features/reconciliation/presentation/widgets/reconciliation_view.dart';
 import 'package:budget_book/features/transaction/presentation/utils/running_balance.dart';
+import 'package:budget_book/features/transaction/presentation/utils/ledger_gating.dart';
+import 'package:budget_book/features/transaction/presentation/utils/ledger_empty_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_bloc.dart';
 import 'package:budget_book/features/payment_method/presentation/bloc/payment_method_state.dart';
@@ -724,65 +726,29 @@ class _TransactionListPageState extends State<TransactionListPage> {
                   ? transferState.transfers
                   : <Transfer>[];
 
-              // Filter transfers by payment method if filter is active
-              final filterPmId = _filterState.paymentMethodIds.isNotEmpty
+              // CHANGE 2 / 2026-08-10 구조적 수정 — SINGLE gating step shared by
+              // calendar + list + summary + running-balance so all of them
+              // consume the SAME lists.
+              //
+              // 이체 게이팅을 여기서 인라인으로 나열하지 않는다. 필터 축이 늘 때마다
+              // 이체 스트림에서만 축이 누락되는 사고가 4회 반복됐다(확인 필요/카테고리/
+              // 포켓/금액 누락, 결제수단은 first 1개만 적용). 판정은 전부
+              // `ledger_gating.dart` 의 gateLedger 안에 있고, 필터 VO 에 필드가
+              // 추가되면 필드 수 가드 테스트가 실패해 갱신을 강제한다.
+              final gated = gateLedger(
+                transactions: state.filteredTransactions,
+                transfers: transfers,
+                filter: _filterState,
+                keyword: _searchController.text,
+              );
+              final visibleTransactions = gated.transactions;
+              final visibleTransfers = gated.transfers;
+
+              final types = _filterState.transactionTypes;
+              // 결제수단 1개 필터 시에만 의미가 있는 자산 모드 판정용(MODE B).
+              final filterPmId = _filterState.paymentMethodIds.length == 1
                   ? _filterState.paymentMethodIds.first
                   : null;
-              final filteredTransfers = filterPmId != null
-                  ? transfers.where((t) =>
-                      t.sourcePaymentMethod.id == filterPmId ||
-                      t.destinationPaymentMethod.id == filterPmId).toList()
-                  : transfers;
-
-              // Filter transfers by date if date filter is active
-              final fmt = DateFormat('yyyy-MM-dd');
-              final filterDateFrom = _filterState.dateFrom != null ? fmt.format(_filterState.dateFrom!) : null;
-              final filterDateTo = _filterState.dateTo != null ? fmt.format(_filterState.dateTo!) : null;
-              final dateFilteredTransfers = filterDateFrom != null || filterDateTo != null
-                  ? filteredTransfers.where((t) {
-                      if (filterDateFrom != null && t.transferDate.compareTo(filterDateFrom) < 0) return false;
-                      if (filterDateTo != null && t.transferDate.compareTo(filterDateTo) > 0) return false;
-                      return true;
-                    }).toList()
-                  : filteredTransfers;
-
-              // Filter transfers by keyword if search is active
-              final keyword = _searchController.text.trim().toLowerCase();
-              final searchedTransfers = keyword.isEmpty
-                  ? dateFilteredTransfers
-                  : dateFilteredTransfers.where((t) {
-                      final desc = t.description?.toLowerCase() ?? '';
-                      final src = t.sourcePaymentMethod.name.toLowerCase();
-                      final dst = t.destinationPaymentMethod.name.toLowerCase();
-                      return desc.contains(keyword) ||
-                          src.contains(keyword) ||
-                          dst.contains(keyword);
-                    }).toList();
-
-              // CHANGE 2 — SINGLE gating step shared by calendar + list +
-              // running-balance so all three consume the SAME lists.
-              //
-              // visibleTransactions: client-side type gating. TRANSFER is not a
-              // transaction type, so a TRANSFER-only selection yields zero
-              // transactions (fixes "이체 필터 무효"). Empty set keeps all. BE
-              // already narrows for EXPENSE/INCOME; this is correct + robust.
-              final types = _filterState.transactionTypes;
-              final visibleTransactions = types.isEmpty
-                  ? state.filteredTransactions
-                  : state.filteredTransactions
-                      .where((t) => types.contains(t.type))
-                      .toList();
-
-              // visibleTransfers: hide unless the filter includes transfers
-              // (preserves prior showTransfers), AND hide under the PRIVATE
-              // (개인) visibility filter — transfers are treated as SHARED for
-              // now (all current assets are shared).
-              final includeTransfers =
-                  types.isEmpty || types.contains('TRANSFER');
-              final showTransfers =
-                  includeTransfers && _filterState.visibility != 'PRIVATE';
-              final visibleTransfers =
-                  showTransfers ? searchedTransfers : const <Transfer>[];
 
               // S2: single aggregation entry point via LedgerSummary.from
               // kind/type branching lives inside the factory, including
@@ -1278,15 +1244,33 @@ class _TransactionListPageState extends State<TransactionListPage> {
     }
   }
 
+  /// 빈 상태. 2026-08-10 — 선택한 필터에 맞는 동적 문구.
+  ///
+  /// 문구 생성은 `ledger_empty_message.dart` 순수 함수 한 곳에서 한다(필터 축이
+  /// 늘어날 때 화면마다 문구가 갈라지는 것을 막는다). 필터가 걸려 있으면
+  /// "거래 추가" 보다 "필터 초기화" 가 사용자가 원하는 다음 행동이다.
   Widget _buildEmpty(BuildContext context) {
-    return EmptyStateWidget(
-      icon: Icons.receipt_long,
-      title: '거래 내역이 없습니다',
-      subtitle: '이 달에 기록된 거래가 없습니다',
-      actionLabel: '거래 추가',
-      // 회차 1 (2026-05-26) — 필터된 결제수단 자동 전파를 위해 헬퍼 사용.
-      onAction: () => context.push(_buildCreateTransactionUrl()),
+    final msg = buildLedgerEmptyMessage(
+      _filterState,
+      keyword: _searchController.text,
     );
+    return EmptyStateWidget(
+      icon: msg.hasFilters ? Icons.filter_alt_off : Icons.receipt_long,
+      title: msg.title,
+      subtitle: msg.subtitle,
+      actionLabel: msg.hasFilters ? '필터 초기화' : '거래 추가',
+      // 회차 1 (2026-05-26) — 필터된 결제수단 자동 전파를 위해 헬퍼 사용.
+      onAction: msg.hasFilters
+          ? _clearAllFilters
+          : () => context.push(_buildCreateTransactionUrl()),
+    );
+  }
+
+  /// 필터 + 검색어를 함께 해제하고 재조회한다.
+  /// (검색어는 VO 밖에 있으므로 필터만 비우면 결과가 그대로인 것처럼 보인다)
+  void _clearAllFilters() {
+    _searchController.clear();
+    _onFilterChanged(const UnifiedFilterState());
   }
 
   Widget _buildError(BuildContext context) {
