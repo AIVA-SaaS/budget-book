@@ -22,6 +22,14 @@ class TransactionCalendarView extends StatefulWidget {
   final void Function(Transaction)? onTransactionTap;
   final void Function(Transfer)? onTransferTap;
 
+  /// 일자 시트에서 **그 날짜로 거래 추가** 진입. 인자는 선택된 일자.
+  ///
+  /// URL 조립을 여기서 하지 않는 이유: 거래 추가 URL 은 상위 페이지의
+  /// `_buildCreateTransactionUrl` 단일 소스가 만든다(필터된 결제수단 전파가 그 헬퍼에
+  /// 걸려 있어, 위젯이 직접 push 하면 필터 propagation 이 끊긴다 — 목록 모드의
+  /// `_DateHeader.onAddTap` 과 같은 규약).
+  final void Function(DateTime)? onAddTap;
+
   const TransactionCalendarView({
     super.key,
     required this.year,
@@ -30,6 +38,7 @@ class TransactionCalendarView extends StatefulWidget {
     required this.transfers,
     this.onTransactionTap,
     this.onTransferTap,
+    this.onAddTap,
   });
 
   @override
@@ -306,6 +315,16 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                      if (widget.onAddTap != null) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: () => _addForDay(ctx, day),
+                          icon: const Icon(Icons.add),
+                          iconSize: 20,
+                          visualDensity: VisualDensity.compact,
+                          tooltip: '이 날짜에 거래 추가',
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -313,12 +332,28 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                 Expanded(
                   child: !hasItems
                       ? Center(
-                          child: Text(
-                            '거래 없음',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '거래 없음',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              // 빈 날은 헤더의 + 아이콘만으로는 눈에 잘 안 띈다.
+                              // 시트가 FAB 을 가리므로(모달 배리어) 추가 진입이 시트
+                              // 안에 반드시 있어야 한다.
+                              if (widget.onAddTap != null) ...[
+                                const SizedBox(height: 12),
+                                FilledButton.tonalIcon(
+                                  onPressed: () => _addForDay(ctx, day),
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('이 날짜에 거래 추가'),
+                                ),
+                              ],
+                            ],
                           ),
                         )
                       : ListView(
@@ -353,6 +388,13 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
         );
       },
     );
+  }
+
+  /// 시트를 먼저 닫고 상위 콜백으로 넘긴다(항목 탭 경로와 동일 규약).
+  /// 닫지 않으면 폼에서 돌아왔을 때 옛 데이터가 담긴 시트가 그대로 남는다.
+  void _addForDay(BuildContext sheetContext, DateTime day) {
+    Navigator.of(sheetContext).pop();
+    widget.onAddTap!(day);
   }
 }
 
