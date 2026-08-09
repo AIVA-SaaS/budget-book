@@ -9,16 +9,17 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"이체 → 거래 역변환"** 회차 — 구현 → 로컬 CI → PR #290 머지 → **배포 성공**.
-  서버 측 검증 완료. **남은 것은 사용자 라이브 검증 1건** (이게 통과해야 "완료")
-- **상태**: 사용자 라이브 검증 대기
-- **정본 문서**: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (설계 정본, 그대로 구현됨)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `3215399` · 작업 트리 clean ·
-  실행 중 프로세스 없음
-- **CI / 배포**: 로컬 4종(gradlew test / analyze 전체 / test 820건 / build web) → 원격 CI 2종 →
-  squash 머지 → **deploy-nas run 31298339060 success**(deploy-frontend·deploy-backend·verify-live)
-- **blocker**: 사용자 라이브 검증 1건
-- **갱신**: 2026-08-09
+- **단계**: **"장부 필터 게이팅 단일화 + 동적 빈 상태 문구"** 회차 (Step 1) — 구현 + 로컬 CI 통과.
+  다음은 커밋 → PR → 머지 → 배포 → 사용자 라이브 검증.
+- **직전 회차 종결**: 이체 → 거래 역변환(PR #290) **사용자 라이브 검증 통과 = 완료**(2026-08-10 확인)
+- **상태**: 구현 완료, PR 전
+- **정본 문서**: `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` (§7 에 남은 요구사항 Step 1~7)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `4845efe` 기준 작업
+- **CI**: 로컬 4종 통과 — analyze(신규 0건) / flutter test **843건** / `./gradlew test` / build web
+- **하네스 게이트**: `filter_propagation` = STRUCTURAL_FIX_REQUIRED → 기획서에 구조적 수정 3종 포함 후
+  `acknowledge-gate.sh` 로 해제
+- **blocker**: 없음
+- **갱신**: 2026-08-10
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
   기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
@@ -202,26 +203,66 @@
      (한글 원문 grep 은 항상 0건 — `reference_live_bundle_string_verification`)
    - **미완**: 사용자 라이브 검증 1건(§3 참조). 이것이 통과할 때까지 이 회차는 "완료" 아님
 
+15. **2026-08-10** — 이체 → 거래 역변환 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
+   - 사용자 확인: 정상 동작. PR #286 기획 → #290 구현 → 배포 → 라이브 검증까지 전 구간 종료
+   - 이 회차의 산출물(양방향 리로드 공통 헬퍼 + 대칭 가드 테스트)은 §4 산출물 지도에 유지
+
+16. **2026-08-10** — 신규 회차 착수: **장부 필터 게이팅 단일화 + 동적 빈 상태 문구** (Step 1).
+   - 사용자 보고: "확인 필요 등 필터 적용 시 이체를 선택 안 했는데도 이체가 보인다" +
+     "결과가 없을 때 선택한 필터에 맞는 동적 문구" + "남은 요구사항 단계 정리"
+   - 진단(hard evidence): `transaction_list_page.dart:727~785` 이체 게이팅이 필터 축을 **수동 나열** →
+     `needsReviewOnly` · 카테고리 · 포켓 · 금액 **4축 누락**, 결제수단은 `paymentMethodIds.first`
+     **1개만** 적용. `Transfer` 엔티티에는 needsReview/category/pocket 필드가 **없어** 해당 축이
+     켜지면 이체는 매칭 불가 = 전량 제외가 정답. 거래·합계는 BE 가 정상 필터
+     (`TransactionSpecifications.kt:100`, `StatisticsService.kt:105`) → "거래는 맞는데 이체만 남는" 비대칭
+   - 하네스 감사: `filter_propagation` **STRUCTURAL_FIX_REQUIRED**(4회째 재발) → 게이트 LOCKED →
+     기획서에 구조적 수정 포함 후 `acknowledge-gate.sh` 로 해제
+   - 결정(사용자 승인): Step 1 범위 = 게이팅 단일화 + 동적 빈 문구 + 결제수단 복수선택 fix 한 PR
+   - 산출물: `ledger_gating.dart`(신설, 이체 게이팅 단일 진입점) /
+     `ledger_empty_message.dart`(신설, 빈 상태 문구 단일 생성기) /
+     `ledger_gating_test.dart` · `ledger_empty_message_test.dart`(신설) /
+     `transaction_list_page.dart`(인라인 게이팅 제거 + 동적 빈 상태 + 필터 초기화 액션) /
+     `unified_filter_state.dart`(`kTransactionTypeLabels` 공용 상수) / `unified_filter_bar.dart`(라벨 참조)
+   - 재발 방지(구조): ① 이체 게이팅 단일 진입점 ② **필드 수 가드** — `UnifiedFilterState` 에 필드가
+     늘면 `kUnifiedFilterAxisCount` 불일치로 테스트 실패 → 이체 판정 갱신 강제
+     ③ 페이지에 인라인 이체 필터링이 재도입되면 소스 검사 테스트가 실패
+   - 게이트: 로컬 CI 4종 통과(analyze 신규 0 / flutter test 843 / gradlew test / build web)
+   - 미해결로 남긴 것: 금액·기간·결제수단 필터만 켠 경우 BE summary 는 이체를 합계에서 빼는데
+     FE 행에는 이체가 남는다(`StatisticsService.kt:147` "필터 활성 시 totalTransfer=0").
+     이번 보고 증상과는 무관한 **기존** 불일치 → 별도 회차 후보로 §3 에 등재
+
+17. **2026-08-10** — PR #292 생성(원격 CI 진행) + 자체 검토에서 잡은 후속 1건 반영.
+   - PR: https://github.com/AIVA-SaaS/budget-book/pull/292 (커밋 `1514728`)
+   - 자체 검토 지적: `toTransactionFilter(keywordOverride:)` 는 override 가 null/빈 문자열이면
+     VO 의 keyword 로 fallback 하는데, FE 게이팅은 빈 검색창(`''`)을 "검색어 없음"으로 처리해
+     **BE 가 좁힌 거래 ↔ FE 가 남긴 이체가 어긋날 수 있었다**(합계 ≠ 행 계열)
+   - 조치: `resolveLedgerKeyword` 로 실효 검색어 규칙을 한 곳에 두고 게이팅·빈 상태 문구가 공유.
+     회귀 테스트 추가(빈 검색창 → VO keyword fallback)
+   - 게이트: 유틸 테스트 31건 통과 / analyze 신규 0건
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션 (`/clear` 후 여기서 시작)**: 이체 → 거래 역변환은 **배포까지 끝났다**(타임라인 13·14).
-  남은 것은 **사용자 라이브 검증 1건뿐** — 아래 판정 항목을 사용자에게 확인받는다.
-  검증 통과 보고를 받으면 이 회차를 종결 기록하고, 다음 회차 후보를 제시한다.
-  실패하면 `domains/01-diagnosis.md` 로 들어간다(추측 fix 금지, 증상-역행 grep 먼저).
-- **첫 명령**: 없음(코드 변경 없음). 사용자 확인 대기 상태다.
-- **완료 판정(역변환)**: PR 머지·배포로는 완료가 아니다. **사용자 라이브 검증**까지 —
-  이체 수정 폼에서 지출/수입 선택 → 거래 폼(배너·승계값 확인) → 저장 → 장부 목록에서 이체가 사라지고
-  거래로 표시 + **월 합계·자산 잔액 즉시 갱신**(이 회차에서 같이 고친 부분).
-  함께 볼 것: 정방향(거래 → 이체)도 변환 직후 대시보드·자산이 갱신되는지 — 같은 헬퍼를 쓴다.
+- **다음 액션 (`/clear` 후 여기서 시작)**: Step 1(장부 필터 게이팅) 구현 + 로컬 CI 는 끝났다
+  (타임라인 16). 커밋 → PR → CI → 머지 → 배포 → **사용자 라이브 검증** 순으로 진행한다.
+- **첫 명령**: `git status` 로 변경 확인 → 브랜치 생성 후 커밋(개인 계정이라 머지까지 자동 진행 승인 범위).
+- **완료 판정(Step 1)**: 머지·배포는 완료가 아니다. 거래 탭에서 다음이 전부 확인돼야 한다 —
+  ① 확인/입력 필요만 ON → **이체 0건** + 월합계바 이체 금액 미표시
+  ② 카테고리 / 포켓 필터 → 이체 0건
+  ③ 결제수단 **2개 이상** 선택 → 두 결제수단 이체가 **모두** 표시(예전엔 첫 1개만)
+  ④ 금액범위 → 범위 밖 이체 제외
+  ⑤ 결과 0건일 때 조건에 맞는 문구 + `필터 초기화` 버튼 동작
+  ⑥ 달력뷰에서도 ①~④ 동일(이체 마커가 사라짐)
 - **배포 후 측정 팁**: 한글은 번들에서 `\uXXXX` 이스케이프 → 원문 grep 은 항상 0건.
-  `'거래로 변경'` 은 escaped 형태로 대조하고 `last-modified` + `verify-live` 를 함께 본다
-  (`reference_live_bundle_string_verification`).
-- **그 다음 회차**: 아래 후보 2~5 중 사용자가 지정.
+  `'확인/입력 필요한 거래가 없습니다'` 를 escaped 형태로 대조하고 `last-modified` + `verify-live` 를
+  함께 본다 (`reference_live_bundle_string_verification`).
+- **그 다음 회차**: 아래 Step 2~7 중 사용자가 지정(기획서 §7 과 동일 순서).
 
 ### 다음 회차 후보 — 착수 지점 (이 절만 읽으면 바로 시작 가능)
 
-1. ~~**이체 → 거래 역변환**~~ — ✅ 구현 완료(2026-08-09, 타임라인 13). 라이브 검증만 남음.
+0. ~~**이체 → 거래 역변환**~~ — ✅ **완료**(라이브 검증 통과, 2026-08-10 타임라인 15).
+1. **Step 2 — 남은 라이브 검증 정리**: 정산 스냅샷 A1~A10 / B1~B7 / C1~C5
+   (`docs/sessions/2026-07-27_1_result.md §4.1`), KI-006(지출계획 완료 시 거래 자동 등록).
 2. **P6 홈 대시보드 "미정산 N건" 위젯** (추천 2순위. 기존 API 재사용)
    - 데이터: `GET /reconciliations/summary` (이미 존재, `unrecordedCount`)
    - 위젯 등록: `frontend/lib/features/home/domain/entities/dashboard_widget_config.dart`
@@ -231,14 +272,25 @@
    - 현재는 안내 문구만: `reconciliation_view.dart:191` (+ 배경 주석 `:29`)
    - BLoC: `reconciliation_bloc.dart:24` — 클라 필터링 금지 전제가 주석에 명시돼 있다
    - 거래 목록의 LoadMore 패턴 참조: `reference_transaction_pagination_focus`
-4. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라가 없어 선행 작업이 크다(가장 큰 후보)
-5. **Android 배포(Play Store)** — PWA 설치는 이미 가능(`reference_pwa_android_installable`)
+4. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
+   Step 1 이 남긴 임시 전제("이체는 전부 공유 취급")를 정식화하는 회차 —
+   고칠 지점은 `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳으로 좁혀져 있다.
+5. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라가 없어 선행 작업이 크다(가장 큰 후보)
+6. **Android 배포(Play Store)** — PWA 설치는 이미 가능(`reference_pwa_android_installable`)
+7. **합계 ≠ 행 잔존 불일치** — 금액/기간/결제수단 필터만 켠 경우 BE summary 는 이체를 빼고
+   (`StatisticsService.kt:147` totalTransfer=0, EXPENSE_TRANSFER 도 미합산) FE 행에는 이체가 남는다.
+   소규모 BE 회차.
 <!-- /HNS:NEXT -->
 
 ## 4. 산출물 지도
 
-- `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` — **현재 회차 설계 정본**(이체→거래 역변환).
-  2026-08-09 그대로 구현 완료 — 설계 변경 없음. 라이브 검증 시 기대 동작의 근거 문서
+- `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` — **현재 회차 설계 정본**(장부 필터 게이팅
+  단일화 + 동적 빈 문구). §7 에 남은 요구사항 Step 1~7 정리
+- `frontend/lib/features/transaction/presentation/utils/ledger_gating.dart` — **이체 게이팅 단일 진입점**.
+  장부에 새 필터 축을 추가할 때 반드시 여기 판정을 먼저 쓴다(필드 수 가드가 강제)
+- `frontend/lib/features/transaction/presentation/utils/ledger_empty_message.dart` — 빈 상태 문구 단일 생성기
+- `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` — 이체→거래 역변환 설계 정본.
+  2026-08-10 라이브 검증 통과로 **종결**. 이력 보존용
 - `frontend/test/features/transfer/convert_wiring_guard_test.dart` — 이체↔거래 변환 **양방향 대칭** 가드
   (네 BLoC 리로드 공통 헬퍼 경유 / 이체 폼은 거래 폼으로 보낸다 / 저장이 변환 API 를 탄다)
 - `backend/src/test/kotlin/com/budgetbook/transfer/integration/TransferToTransactionIntegrationTest.kt`

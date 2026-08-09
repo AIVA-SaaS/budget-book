@@ -57,18 +57,12 @@ class UnifiedFilterBar extends StatelessWidget {
     return count;
   }
 
-  static const Map<String, String> _typeLabels = {
-    'EXPENSE': '지출',
-    'INCOME': '수입',
-    'TRANSFER': '이체',
-  };
-
   List<_ChipData> get _allChips {
     final chips = <_ChipData>[];
     if (enabledFilters.contains(FilterType.transactionType) &&
         state.transactionTypes.isNotEmpty) {
       final labels = state.transactionTypes
-          .map((t) => _typeLabels[t] ?? t)
+          .map((t) => kTransactionTypeLabels[t] ?? t)
           .join('/');
       chips.add(_ChipData(
         label: labels,
