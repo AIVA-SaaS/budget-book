@@ -8,6 +8,8 @@
 // 순수 함수로 유지한다(getIt/BuildContext 의존 없음) — 카테고리명 같은 **값 라벨**은
 // 상단 필터 칩이 이미 보여주므로 문구에는 축 이름만 쓴다.
 import 'package:budget_book/core/models/unified_filter_state.dart';
+import 'package:budget_book/features/transaction/presentation/utils/ledger_gating.dart'
+    show resolveLedgerKeyword;
 
 class LedgerEmptyMessage {
   final String title;
@@ -44,7 +46,8 @@ LedgerEmptyMessage buildLedgerEmptyMessage(
   UnifiedFilterState filter, {
   String? keyword,
 }) {
-  final kw = (keyword ?? filter.keyword)?.trim() ?? '';
+  // 실효 검색어 규칙은 게이팅과 공유한다(문구가 행/합계와 다른 기준을 쓰지 않도록).
+  final kw = resolveLedgerKeyword(filter, keyword);
   final axes = _activeAxes(filter, kw);
 
   if (axes.isEmpty) {

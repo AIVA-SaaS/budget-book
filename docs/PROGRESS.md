@@ -231,6 +231,15 @@
      FE 행에는 이체가 남는다(`StatisticsService.kt:147` "필터 활성 시 totalTransfer=0").
      이번 보고 증상과는 무관한 **기존** 불일치 → 별도 회차 후보로 §3 에 등재
 
+17. **2026-08-10** — PR #292 생성(원격 CI 진행) + 자체 검토에서 잡은 후속 1건 반영.
+   - PR: https://github.com/AIVA-SaaS/budget-book/pull/292 (커밋 `1514728`)
+   - 자체 검토 지적: `toTransactionFilter(keywordOverride:)` 는 override 가 null/빈 문자열이면
+     VO 의 keyword 로 fallback 하는데, FE 게이팅은 빈 검색창(`''`)을 "검색어 없음"으로 처리해
+     **BE 가 좁힌 거래 ↔ FE 가 남긴 이체가 어긋날 수 있었다**(합계 ≠ 행 계열)
+   - 조치: `resolveLedgerKeyword` 로 실효 검색어 규칙을 한 곳에 두고 게이팅·빈 상태 문구가 공유.
+     회귀 테스트 추가(빈 검색창 → VO keyword fallback)
+   - 게이트: 유틸 테스트 31건 통과 / analyze 신규 0건
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->

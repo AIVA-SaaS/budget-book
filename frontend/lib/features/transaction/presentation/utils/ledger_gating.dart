@@ -31,6 +31,17 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 /// (새 필터가 이체 스트림에서만 조용히 누락되던 사고의 구조적 봉인)
 const int kUnifiedFilterAxisCount = 16;
 
+/// 실효 검색어 결정 규칙 — FE 게이팅과 BE 전송이 **같은 규칙**을 쓰도록 한 곳에 둔다.
+///
+/// `toTransactionFilter(keywordOverride:)` 는 override 가 null 이면 VO 의 keyword 로
+/// 되돌아간다. 화면이 빈 검색창(`''`)을 넘길 때 FE 만 "검색어 없음"으로 판단하면
+/// 서버가 좁힌 거래 목록과 FE 가 남긴 이체가 어긋난다(합계 ≠ 행 계열).
+String resolveLedgerKeyword(UnifiedFilterState filter, String? override) {
+  final o = override?.trim() ?? '';
+  if (o.isNotEmpty) return o;
+  return filter.keyword?.trim() ?? '';
+}
+
 /// 게이팅 결과. 목록/달력/합계/러닝밸런스가 **이 두 리스트만** 소비한다.
 class GatedLedger {
   final List<Transaction> transactions;
@@ -61,8 +72,7 @@ GatedLedger gateLedger({
       : transactions.where((t) => types.contains(t.type)).toList();
 
   // 이체: 축 전수 판정.
-  final effectiveKeyword =
-      (keyword ?? filter.keyword)?.trim().toLowerCase() ?? '';
+  final effectiveKeyword = resolveLedgerKeyword(filter, keyword).toLowerCase();
   final gatedTransfers = _transfersExcludedWholesale(filter)
       ? const <Transfer>[]
       : transfers

@@ -222,6 +222,24 @@ void main() {
       );
       expect(byPm.transfers, hasLength(1));
     });
+
+    test('빈 검색창은 VO 의 keyword 로 되돌아간다 (BE 전송 규칙과 동일)', () {
+      // toTransactionFilter(keywordOverride: null) 이 filter.keyword 로 fallback 하므로
+      // FE 게이팅도 같은 규칙이어야 행/합계가 어긋나지 않는다.
+      expect(resolveLedgerKeyword(const UnifiedFilterState(keyword: '월세'), ''),
+          '월세');
+      expect(resolveLedgerKeyword(const UnifiedFilterState(keyword: '월세'), '커피'),
+          '커피');
+      expect(resolveLedgerKeyword(const UnifiedFilterState(), '  '), '');
+
+      final g = gateLedger(
+        transactions: const [],
+        transfers: [tf(id: 'hit', description: '월세 이체'), tf(id: 'miss')],
+        filter: const UnifiedFilterState(keyword: '월세'),
+        keyword: '',
+      );
+      expect(g.transfers.map((t) => t.id), ['hit']);
+    });
   });
 
   group('거래 스트림 타입 게이팅', () {
