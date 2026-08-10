@@ -9,16 +9,16 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"장부 필터 게이팅 단일화 + 동적 빈 상태 문구"** 회차 — PR #292 머지 → 배포 →
-  **사용자 라이브 검증 통과 = 완료**(2026-08-10). 직전 "이체 → 거래 역변환"(PR #290)도 완료
-- **상태**: **열린 작업 없음.** 다음 회차 지정 대기
-- **회차 경계**: 다음 회차는 **`/clear` 후 새 세션**에서 시작한다(§3 첫 절)
-- **정본 문서**: `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` (§7 에 남은 요구사항 Step 1~7)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `c6bed67` · 작업 트리 clean
-- **CI / 배포**: 로컬 4종(analyze 신규 0 / flutter test 843 / gradlew test / build web) → 원격 CI 2종 →
-  squash 머지 → **deploy-nas run 31343215446 success**(deploy-frontend·verify-live)
-- **하네스 게이트**: `filter_propagation` = STRUCTURAL_FIX_REQUIRED → 기획서에 구조적 수정 3종 포함 후
-  `acknowledge-gate.sh` 로 해제
+- **단계**: **"홈 대시보드 월말 점검(미기록 N건) 위젯"** 회차 — 승인 → 구현 완료 →
+  **로컬 CI 4종 통과**(타임라인 21). 남은 것: 커밋 · PR · 머지 · 배포 · 사용자 라이브 검증
+- **정본 문서**: `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · 기준 `main` = `0657c84`
+- **범위**: FE 전용 — BE·DB·api-spec 변경 0(`/reconciliations/summary` 재사용)
+- **CI**: analyze 신규 0 / flutter test **900** / `./gradlew test` / `build web --release` 전부 통과
+- **하네스 게이트**: `navigation_state` STRUCTURAL_FIX_REQUIRED → 구조적 수정
+  (`ledgerLocation` required year/month + 이관 + 가드) 포함 후 `acknowledge-gate.sh` 로 **해제 완료**
+- **다음 회차 예약**: 월 네비게이터 개선(연/월 드릴다운 피커 + "오늘" 버튼) —
+  `docs/sessions/2026-08-10_3_month-navigator_plan.md` (타임라인 22)
 - **blocker**: 없음
 - **갱신**: 2026-08-10
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
@@ -264,11 +264,90 @@
         원인은 **개발 회차가 아닌 "남은 라이브 검증 정리"를 회차 번호에 섞어 넣은 것**.
         아래 §3 에서 회차 번호는 실제 착수 순서로만 매기고, 사용자 확인 트랙은 회차 밖으로 분리했다
 
+20. **2026-08-10** — 새 회차 착수(대장 §3 후보 1번): **홈 대시보드 "월말 점검(미기록 N건)" 위젯
+   기획 완료 — 승인 대기.** 코드 변경 0줄.
+   - 산출물: `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md` (설계 정본)
+   - 측정(hard evidence): `GET /reconciliations/summary` 는 BE·FE 배선이 **이미 전부 존재**
+     (컨트롤러 `:51`, `ReconciliationRepository.getSummary`, DI 등재) → **이번 회차는 FE 전용,
+     BE·DB·api-spec 변경 0** · 위젯 추가 시 손대야 하는 지점은 **5곳**(기본 목록 / 기본 설정값 /
+     `_buildWidgetById` / 설정 시트 분기 / `home_config_page._getIconData`) ·
+     기존 사용자 마이그레이션 불필요(`loadConfig` 가 신규 ID 자동 append)
+   - 측정으로 드러난 **차단 요인 1건**: 거래 탭 뷰 모드(리스트/달력/정산)는 SharedPreferences
+     에만 있고 `/transactions` 라우트에 `view` 파라미터가 **없다** → "위젯 탭 → 정산 뷰" 는
+     현재 구조로 불가능. `view` 쿼리 파라미터 신설이 이번 범위에 포함된다
+   - 함께 고칠 기존 결함 1건: 홈 화면 구성에서 위젯을 켜도 **pull-to-refresh 전까지 홈에
+     반영되지 않는다**(`dashboard_page` 가 initState·새로고침에서만 설정을 읽음). 새 위젯은
+     기본 OFF 라 첫 동작이 "켜기" 이므로 이 결함이 그대로면 기능이 없는 것처럼 보인다(P4)
+   - 하네스 감사: `ui_pattern` WARNING(타 프로젝트 2건) / `navigation_state`
+     **STRUCTURAL_FIX_REQUIRED**(3건) → 게이트 LOCKED.
+     **측정: 2026-04-15 인시던트가 지정한 방지책 `navigation_helpers.dart` 는 실제로 도입된 적이
+     없다**(`find lib -name "navigation_helpers*"` → 0건). 3회 재발의 이유가 이것 —
+     방지책이 문서로만 남고 코드 강제가 없었다
+   - 구조적 수정(기획서 §3-3): ① 중앙 헬퍼 `core/utils/ledger_route.dart` 신설
+     (**year/month required** = 컴파일 타임 월 누락 차단) ② `dashboard_page` 의 장부 URL 직접
+     조립 **3곳**(`:647`·`:774`·`:1166`) 전수 이관 ③ raw `'/transactions?` 리터럴 0건 가드 테스트
+     ④ 위젯 등록 누락(5곳) 소스 스캔 가드
+   - 용어 확정: 대장 후보의 "미정산" → 앱 용어는 **미기록**. 위젯 이름은 **월말 점검**
+     ("정산" 은 이 프로젝트에서 3개 동명 개념 — `reference_reconciliation_snapshot`)
+   - **다음 단계는 사용자 승인** — 승인 전 코드 편집 금지(§2 게이트).
+     승인 시 `acknowledge-gate.sh` 로 navigation_state 게이트 해제 후 착수
+
+21. **2026-08-10** — 월말 점검 위젯 **승인("전체 승인") → 구현 완료 → 로컬 CI 4종 통과.**
+   - 하네스: `acknowledge-gate.sh frontend` 로 navigation_state 게이트 해제(기획서에 구조적 수정 포함)
+   - 구조적 수정(하네스 요구 이행): `core/utils/ledger_route.dart` 신설 —
+     `ledgerLocation({required year, required month, view, ...})` **year/month required 로
+     월 누락을 컴파일 타임 차단**. `dashboard_page` 의 URL 문자열 조립 3곳 전수 이관 +
+     raw `'/transactions?` 리터럴 0건 가드. 뷰 전환 규칙은 순수 함수
+     `nextLedgerViewOnUpdate` 로 분리(value→null 무시 규칙을 단위 테스트로 고정)
+   - 신설: `/transactions?view=` 쿼리 파라미터(리스트/달력/정산). URL 명시 > 저장된 prefs,
+     **URL 진입은 prefs 를 덮어쓰지 않는다**. `initialView` 가 있으면 `_loadViewMode()` 를
+     호출하지 않아 비동기 prefs 복원이 URL 지정을 덮는 레이스를 차단
+   - BE 변경 0 — `GET /reconciliations/summary` 재사용
+   - 성능: 위젯이 **꺼져 있으면 요약 API 를 호출하지 않는다**(기본 OFF). 켠 경우에도 기존 6개
+     호출과 같은 `Future.wait` 에 합류 → 직렬 지연 증가 없음
+   - 함께 고친 기존 결함: 홈 화면 구성에서 위젯을 켜도 pull-to-refresh 전까지 반영되지 않던 문제 →
+     `HomeConfigService.revision` ValueNotifier + 대시보드 구독(설정 저장 시 config 재로드 +
+     LoadDashboard 재발행). 모든 저장 경로가 `saveConfig` 를 지나므로 토글·순서·개별 설정 전부 커버
+   - 산출물(FE): `core/utils/ledger_route.dart` · `home/presentation/widgets/reconciliation_summary_card.dart`
+     (신설) / `dashboard_bloc.dart`·`dashboard_state.dart`·`dashboard_page.dart`·
+     `dashboard_widget_config.dart`·`home_config_service.dart`·`widget_settings_sheet.dart`·
+     `home_config_page.dart`·`injection.dart`·`app_router.dart`·`transaction_list_page.dart`(수정)
+   - 테스트: `ledger_route_test`(13) · `reconciliation_summary_card_test`(7) ·
+     `dashboard_widget_registry_guard_test`(위젯별 렌더 분기·아이콘 매핑 전수 + 설정 시트 +
+     URL 리터럴 가드) · `home_config_revision_test`(6) · `ledger_view_param_wiring_test`(4) ·
+     `dashboard_bloc_test`(게이팅 verifyNever 포함 3건 추가) · 위젯 개수 가드 10→11
+   - 게이트: **analyze 신규 지적 0 / flutter test 900건 통과 / `./gradlew test` 통과 /
+     `flutter build web --release` 성공**. 아이콘은 `fact_check`·`check_circle` 둘 다 기존
+     사용처가 있어 **폰트 subset 불변**
+   - 용어: 위젯 이름 "월말 점검", 지표 "미기록 N건"(앱 용어). "미정산" 문구는 쓰지 않는다
+   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
+
+22. **2026-08-10** — 사용자 추가 요청 접수(회차 진행 중) → **다음 회차로 등재.** 코드 변경 0줄.
+   - 요청: "`< yyyy년 mm월 >` 의 달력 팝업에서 **연도별 보기 → 연도 내 달 선택**이 가능했으면,
+     또 **팝업 전에 '오늘로 가는 버튼'**이 적절한 위치에 있으면 좋겠다"
+   - 산출물: `docs/sessions/2026-08-10_3_month-navigator_plan.md` (설계 정본)
+   - 측정: 공용 위젯 `core/widgets/month_navigator.dart` 하나를 **13개 페이지**가 쓴다 →
+     한 곳 수정이 전체 반영. **단 홈 대시보드만 예외** — `dashboard_page.dart:235 _MonthHeader`
+     자체 구현이고 날짜가 `Text` 라 **눌러도 팝업이 뜨지 않는다**(공용 위젯만 고치면 홈은 누락) ·
+     팝업(`calendar_picker_dialog.dart`)의 `CalendarDatePicker` 는 **연도 선택은 이미 되지만
+     월 그리드가 없다** — 연도를 골라도 원하는 달까지 좌우로 넘겨야 한다(요청의 정확한 결손 지점) ·
+     `onDatePicked` 실사용은 **1곳뿐**(거래 목록 스크롤)이라 나머지 12곳은 "월 우선" 전환에
+     부작용이 없다 · "오늘" 버튼은 **어디에도 없다**
+   - 판단: 현재 회차(월말 점검 위젯)와 **파일·관심사가 겹치지 않고** 회귀 범위가 13개 페이지로
+     넓다 → 같은 PR 에 섞지 않고 다음 회차로 분리(§3 후보 1번으로 승격)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 장부 필터 게이팅 회차(Step 1) **라이브 검증 통과 = 완료**(타임라인 19).
-  **열린 작업 없음.** 다음 회차는 아래 후보 중 사용자가 지정한다.
+- **현재 상태**: 월말 점검 위젯 회차 **구현·로컬 CI 완료**(타임라인 21) → 커밋·PR·배포 진행 중.
+  정본 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
+- **이 회차의 완료 조건**: 배포 후 **사용자 라이브 검증**(기획서 §9 A/B/C 시나리오) 통과.
+  머지·배포만으로는 완료가 아니다(GR3).
+- **다음 회차(예약 완료)**: **월 네비게이터 개선** — 연/월 드릴다운 피커 + "오늘" 버튼 +
+  홈 `_MonthHeader` 통합. 정본 `docs/sessions/2026-08-10_3_month-navigator_plan.md`.
+  착수 지점: 기획서 §2 Step 1(`showMonthYearPickerDialog`)부터.
+  **회차 경계 규칙대로 `/clear` 후 새 세션에서 시작**한다.
+- 아래 후보 목록은 그 다음을 위해 그대로 둔다(번호는 착수 순서가 아니라 대기열).
 - **회차 경계 규칙(사용자 확정)**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
   다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지.
   이 절만 읽으면 새 세션에서 바로 시작할 수 있도록 착수 지점을 적어 둔다.

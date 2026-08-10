@@ -64,6 +64,8 @@ class _HomeConfigPageState extends State<HomeConfigPage> {
         return Icons.show_chart;
       case 'donut_large':
         return Icons.donut_large;
+      case 'fact_check':
+        return Icons.fact_check;
       default:
         return Icons.widgets;
     }

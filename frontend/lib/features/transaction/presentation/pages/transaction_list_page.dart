@@ -42,6 +42,7 @@ import 'package:budget_book/features/transaction/presentation/widgets/transactio
 import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
 import 'package:budget_book/features/reconciliation/presentation/widgets/reconciliation_view.dart';
 import 'package:budget_book/features/transaction/presentation/utils/running_balance.dart';
+import 'package:budget_book/core/utils/ledger_route.dart';
 import 'package:budget_book/features/transaction/presentation/utils/ledger_gating.dart';
 import 'package:budget_book/features/transaction/presentation/utils/ledger_empty_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,6 +58,13 @@ class TransactionListPage extends StatefulWidget {
   /// Phase 25 후속 — 예산/분석에서 그룹 단위로 거래 필터.
   final String? initialCategoryGroupId;
 
+  /// URL `?view=` 로 지정된 뷰 모드(`list`/`calendar`/`reconciliation`).
+  ///
+  /// 2026-08-10 신설 — 홈 "월말 점검" 위젯이 정산 뷰로 직접 진입하기 위해 필요하다.
+  /// 지정되면 저장된 뷰(SharedPreferences)보다 **우선**하지만, 저장값을 덮어쓰지는
+  /// 않는다 (1회성 이동 의도이지 기본 뷰 변경이 아니다).
+  final String? initialView;
+
   const TransactionListPage({
     super.key,
     this.initialPaymentMethodId,
@@ -64,6 +72,7 @@ class TransactionListPage extends StatefulWidget {
     this.initialCategoryId,
     this.initialCategoryName,
     this.initialCategoryGroupId,
+    this.initialView,
   });
 
   @override
@@ -124,8 +133,25 @@ class _TransactionListPageState extends State<TransactionListPage> {
         });
       }
     }
-    _loadViewMode();
+    // 뷰 모드 우선순위 (2026-08-10):
+    //   URL `?view=` 명시 > SharedPreferences 저장값.
+    // URL 이 명시됐으면 _loadViewMode() 를 **호출하지 않는다** — 호출하면 비동기 prefs
+    // 복원이 나중에 완료되면서 URL 로 지정한 모드를 덮어쓰는 레이스가 생긴다
+    // (홈 위젯 → 정산 뷰 진입이 리스트로 튕기는 형태).
+    final urlView = parseLedgerView(widget.initialView);
+    if (urlView != null) {
+      _viewMode = _viewModeFrom(urlView);
+    } else {
+      _loadViewMode();
+    }
   }
+
+  /// [LedgerView](URL 직렬화용) → 이 페이지의 내부 enum. 이름이 1:1 대응한다.
+  _TxViewMode _viewModeFrom(LedgerView v) => switch (v) {
+        LedgerView.list => _TxViewMode.list,
+        LedgerView.calendar => _TxViewMode.calendar,
+        LedgerView.reconciliation => _TxViewMode.reconciliation,
+      };
 
   @override
   void didUpdateWidget(covariant TransactionListPage oldWidget) {
@@ -176,6 +202,20 @@ class _TransactionListPageState extends State<TransactionListPage> {
         );
       });
       _reloadWithFilters();
+    }
+
+    // 뷰 모드도 nav 필터와 **같은 규칙**을 따른다 (2026-08-10). 판정 자체는
+    // nextLedgerViewOnUpdate 가 단독으로 갖는다 — 규칙(특히 value→null 무시)이
+    // 페이지 안에 흩어지지 않도록 순수 함수로 빼고 단위 테스트로 고정했다.
+    final newView = nextLedgerViewOnUpdate(
+      previous: oldWidget.initialView,
+      current: widget.initialView,
+    );
+    if (newView != null) {
+      final mode = _viewModeFrom(newView);
+      if (mode != _viewMode) {
+        setState(() => _viewMode = mode);
+      }
     }
   }
 

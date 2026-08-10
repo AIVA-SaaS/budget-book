@@ -116,8 +116,10 @@ void main() {
       expect(config.order, 0);
     });
 
-    test('defaultDashboardWidgets has 10 items', () {
-      expect(defaultDashboardWidgets.length, 10);
+    // 개수 가드 — 위젯을 추가하면 여기서 먼저 실패해서 등록 5곳 점검을 강제한다
+    // (렌더 분기·아이콘 매핑·설정 시트는 dashboard_widget_registry_guard_test 가 본다).
+    test('defaultDashboardWidgets has 11 items', () {
+      expect(defaultDashboardWidgets.length, 11);
     });
 
     test('defaultDashboardWidgets has asset_balance disabled', () {

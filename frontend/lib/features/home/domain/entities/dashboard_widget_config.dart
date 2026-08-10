@@ -52,6 +52,12 @@ class DashboardWidgetConfig {
       );
 }
 
+/// Widget id of the month-end review card ("월말 점검", 미기록 N건).
+///
+/// Kept as a constant because [DashboardBloc] reads it to decide whether the
+/// reconciliation summary needs to be fetched at all.
+const kReconciliationWidgetId = 'reconciliation_summary';
+
 /// Default widget settings per widget type.
 const defaultWidgetSettings = <String, Map<String, dynamic>>{
   'monthly_summary': {
@@ -79,6 +85,9 @@ const defaultWidgetSettings = <String, Map<String, dynamic>>{
   'category_breakdown': {
     'count': 5,
     'type': 'EXPENSE',
+  },
+  kReconciliationWidgetId: {
+    'showSubtotals': true,
   },
 };
 
@@ -155,5 +164,17 @@ const defaultDashboardWidgets = [
     icon: 'donut_large',
     enabled: false,
     order: 9,
+  ),
+  // Month-end review widget (2026-08-10). Default OFF \u2014 DashboardBloc gates the
+  // reconciliation summary call on this flag, so users who never enable it pay
+  // no extra request. Label is "\uc6d4\ub9d0 \uc810\uac80 / \ubbf8\uae30\ub85d", never "\ubbf8\uc815\uc0b0": this app has
+  // three distinct concepts named \uc815\uc0b0 (ledger snapshot, card settlement,
+  // weekly budget close), so the ledger wording is used verbatim.
+  DashboardWidgetConfig(
+    id: kReconciliationWidgetId,
+    name: '\uc6d4\ub9d0 \uc810\uac80',
+    icon: 'fact_check',
+    enabled: false,
+    order: 10,
   ),
 ];
