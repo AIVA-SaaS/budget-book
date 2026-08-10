@@ -98,6 +98,7 @@ import 'package:budget_book/features/reconciliation/data/datasources/reconciliat
 import 'package:budget_book/features/reconciliation/data/repositories/reconciliation_repository_impl.dart';
 import 'package:budget_book/features/reconciliation/domain/repositories/reconciliation_repository.dart';
 import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_bloc.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_summary_cubit.dart';
 
 final getIt = GetIt.instance;
 
@@ -369,6 +370,13 @@ Future<void> configureDependencies() async {
     ),
     dispose: (bloc) => bloc.close(),
   );
+  // 분석 탭 상단 "월말 점검" 카드 전용 — 요약 8개 숫자만 조회한다.
+  getIt.registerLazySingleton<ReconciliationSummaryCubit>(
+    () => ReconciliationSummaryCubit(
+      repository: getIt<ReconciliationRepository>(),
+    ),
+    dispose: (cubit) => cubit.close(),
+  );
 
   // Insurance feature
   getIt.registerLazySingleton<InsuranceRemoteDataSource>(
@@ -487,7 +495,6 @@ Future<void> configureDependencies() async {
       statisticsRepository: getIt<StatisticsRepository>(),
       transactionRepository: getIt<TransactionRepository>(),
       budgetRepository: getIt<BudgetRepository>(),
-      reconciliationRepository: getIt<ReconciliationRepository>(),
     ),
     dispose: (bloc) => bloc.close(),
   );

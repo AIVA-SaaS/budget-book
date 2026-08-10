@@ -24,15 +24,10 @@ void main() {
   final settingsSheet =
       read('lib/features/home/presentation/widgets/widget_settings_sheet.dart');
 
-  /// ids that are referenced through a constant rather than a literal.
-  const symbolicCase = {
-    kReconciliationWidgetId: 'case kReconciliationWidgetId:',
-  };
-
   group('every default widget is wired everywhere', () {
     for (final widget in defaultDashboardWidgets) {
       test('${widget.id} renders on the dashboard', () {
-        final needle = symbolicCase[widget.id] ?? "case '${widget.id}':";
+        final needle = "case '${widget.id}':";
         expect(
           dashboardPage.contains(needle),
           isTrue,
@@ -54,7 +49,7 @@ void main() {
 
   test('widgets that declare default settings expose a settings control', () {
     for (final entry in defaultWidgetSettings.entries) {
-      final needle = symbolicCase[entry.key] ?? "case '${entry.key}':";
+      final needle = "case '${entry.key}':";
       expect(
         settingsSheet.contains(needle),
         isTrue,
@@ -62,6 +57,25 @@ void main() {
             '사용자가 값을 바꿀 방법이 없다.',
       );
     }
+  });
+
+  test('analysis tab hosts the month-end review card', () {
+    // 2026-08-10 — 홈 대시보드는 라우팅되지 않는다(`/home` → `/transactions` redirect).
+    // 이 카드가 다시 죽은 화면으로 옮겨가면 사용자에게 도달하지 못한다.
+    final analysis =
+        read('lib/features/analysis/presentation/pages/analysis_page.dart');
+    expect(analysis.contains('ReconciliationSummaryCard'), isTrue);
+    expect(analysis.contains('ReconciliationSummaryCubit'), isTrue);
+  });
+
+  test('the card builds its ledger URL through the single source', () {
+    final card = read(
+      'lib/features/reconciliation/presentation/widgets/reconciliation_summary_card.dart',
+    );
+    expect(card.contains('ledgerLocation('), isTrue);
+    expect(card.contains("'/transactions"), isFalse,
+        reason: '월 누락(navigation_state, 3회 재발)을 컴파일이 막게 하려면 '
+            'ledgerLocation() 만 써야 한다.');
   });
 
   test('dashboard never assembles a ledger URL by hand', () {

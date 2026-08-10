@@ -5,7 +5,6 @@ import 'package:budget_book/features/statistics/domain/entities/monthly_trend.da
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
-import 'package:budget_book/features/reconciliation/domain/entities/reconciliation.dart';
 
 sealed class DashboardState extends Equatable {
   const DashboardState();
@@ -31,10 +30,6 @@ class DashboardLoaded extends DashboardState {
   final List<PaymentMethodStatistics> paymentMethodStats;
   final List<MonthlyTrend> monthlyTrends;
   final List<CategoryStatistics> categoryStats;
-
-  /// Month-end review data. Null when the widget is off (never requested) or
-  /// when the request failed — either way the card is skipped.
-  final ReconciliationSummary? reconciliationSummary;
   final String? summaryError;
   final String? transactionsError;
   final String? budgetError;
@@ -48,7 +43,6 @@ class DashboardLoaded extends DashboardState {
     this.paymentMethodStats = const [],
     this.monthlyTrends = const [],
     this.categoryStats = const [],
-    this.reconciliationSummary,
     this.summaryError,
     this.transactionsError,
     this.budgetError,
@@ -64,7 +58,6 @@ class DashboardLoaded extends DashboardState {
         paymentMethodStats,
         monthlyTrends,
         categoryStats,
-        reconciliationSummary,
         summaryError,
         transactionsError,
         budgetError,

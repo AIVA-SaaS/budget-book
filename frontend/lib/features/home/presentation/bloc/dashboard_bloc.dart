@@ -12,10 +12,6 @@ import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/features/statistics/domain/repositories/statistics_repository.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/budget/domain/repositories/budget_repository.dart';
-import 'package:budget_book/features/reconciliation/domain/entities/reconciliation.dart';
-import 'package:budget_book/features/reconciliation/domain/repositories/reconciliation_repository.dart';
-import 'package:budget_book/features/home/data/home_config_service.dart';
-import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
 import 'dashboard_event.dart';
 import 'dashboard_state.dart';
 
@@ -23,31 +19,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final StatisticsRepository statisticsRepository;
   final TransactionRepository transactionRepository;
   final BudgetRepository budgetRepository;
-  final ReconciliationRepository reconciliationRepository;
 
   DashboardBloc({
     required this.statisticsRepository,
     required this.transactionRepository,
     required this.budgetRepository,
-    required this.reconciliationRepository,
   }) : super(const DashboardInitial()) {
     on<LoadDashboard>(_onLoadDashboard);
   }
 
-  /// Whether the month-end review widget is switched on.
-  ///
-  /// The summary endpoint scans a whole month of transactions + transfers, so it
-  /// is only worth calling when the card is actually rendered. The widget ships
-  /// default OFF, meaning most users pay nothing for this feature.
-  Future<bool> _isReconciliationWidgetEnabled() async {
-    try {
-      final configs = await HomeConfigService().loadConfig();
-      return configs
-          .any((c) => c.id == kReconciliationWidgetId && c.enabled);
-    } catch (_) {
-      return false;
-    }
-  }
 
   Future<int> _getRecentCount() async {
     try {
@@ -71,11 +51,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       if (state is! DashboardLoaded) {
         emit(const DashboardLoading());
       }
-
-      // Gate the reconciliation call on the widget being enabled (see
-      // _isReconciliationWidgetEnabled). Resolved before Future.wait so the
-      // request joins the same parallel batch instead of running after it.
-      final wantsReconciliation = await _isReconciliationWidgetEnabled();
 
       // Load all data in parallel
       final futureResults = await Future.wait<dynamic>([
@@ -102,11 +77,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           month: event.month,
           type: 'EXPENSE',
         ),
-        if (wantsReconciliation)
-          reconciliationRepository.getSummary(
-            year: event.year,
-            month: event.month,
-          ),
       ]);
 
       final summaryResult =
@@ -121,11 +91,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           futureResults[4] as Either<Failure, List<MonthlyTrend>>;
       final categoryResult =
           futureResults[5] as Either<Failure, List<CategoryStatistics>>;
-      // Index 6 exists only when the widget is on — the list is built with a
-      // collection-if above, so never index it unconditionally.
-      final reconciliationResult = wantsReconciliation
-          ? futureResults[6] as Either<Failure, ReconciliationSummary>
-          : null;
 
       StatisticsSummary? summary;
       String? summaryError;
@@ -167,12 +132,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         (data) => categoryStats = data,
       );
 
-      ReconciliationSummary? reconciliationSummary;
-      reconciliationResult?.fold(
-        (failure) => {}, // silently ignore - widget won't show
-        (data) => reconciliationSummary = data,
-      );
-
       emit(DashboardLoaded(
         year: event.year,
         month: event.month,
@@ -182,7 +141,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         paymentMethodStats: pmStats,
         monthlyTrends: monthlyTrends,
         categoryStats: categoryStats,
-        reconciliationSummary: reconciliationSummary,
         summaryError: summaryError,
         transactionsError: transactionsError,
         budgetError: budgetError,

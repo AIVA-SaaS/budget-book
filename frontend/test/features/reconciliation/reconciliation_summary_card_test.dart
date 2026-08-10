@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:budget_book/features/home/presentation/widgets/reconciliation_summary_card.dart';
+import 'package:budget_book/features/reconciliation/presentation/widgets/reconciliation_summary_card.dart';
 import 'package:budget_book/features/reconciliation/domain/entities/reconciliation.dart';
 
-/// 홈 "월말 점검" 카드.
+/// 분석 탭 "월말 점검" 카드.
 ///
 /// 고정하는 것: 용어(미기록) · 서버 소계를 그대로 표시 · 확인 필요 배지 ·
 /// 정산 완료 상태 · **탭 시 보고 있던 달이 목적지 URL 에 실린다**(navigation_state).
@@ -32,7 +32,6 @@ void main() {
   Future<Uri?> pumpAndTap(
     WidgetTester tester,
     ReconciliationSummary data, {
-    Map<String, dynamic> settings = const {},
     bool tap = true,
   }) async {
     Uri? landed;
@@ -46,7 +45,6 @@ void main() {
               summary: data,
               year: 2026,
               month: 3,
-              settings: settings,
             ),
           ),
         ),
@@ -97,18 +95,6 @@ void main() {
     expect(text, isNot(contains('이체')));
   });
 
-  testWidgets('hides subtotals when the setting is off', (tester) async {
-    await pumpAndTap(
-      tester,
-      summary(expense: 250000),
-      settings: const {'showSubtotals': false},
-      tap: false,
-    );
-
-    expect(find.text('미기록 7건'), findsOneWidget);
-    expect(find.textContaining('지출'), findsNothing);
-  });
-
   testWidgets('shows a needs-review badge when there are flagged rows',
       (tester) async {
     await pumpAndTap(tester, summary(needsReviewCount: 2), tap: false);
@@ -133,7 +119,7 @@ void main() {
     final landed = await pumpAndTap(tester, summary());
 
     expect(landed, isNotNull);
-    // 홈이 3월을 보고 있었으면 목적지도 3월이어야 한다 — "오늘" 로 리셋되면
+    // 분석 탭이 3월을 보고 있었으면 목적지도 3월이어야 한다 — "오늘" 로 리셋되면
     // navigation_state 인시던트(3회 재발)의 재현이다.
     expect(landed!.queryParameters['year'], '2026');
     expect(landed.queryParameters['month'], '3');

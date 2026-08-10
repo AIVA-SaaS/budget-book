@@ -1,21 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
 
 /// Persists dashboard widget configuration (order + visibility + settings) via SharedPreferences.
 class HomeConfigService {
   static const _key = 'dashboard_widget_config';
-
-  /// Bumped on every successful [saveConfig].
-  ///
-  /// The dashboard used to re-read this config only in initState and on
-  /// pull-to-refresh. Since the config screen is pushed on top of the shell, the
-  /// dashboard's State survives the round trip — so toggling a widget on did
-  /// nothing visible until the user happened to pull-to-refresh, which reads as
-  /// "the feature is broken". Every write path goes through [saveConfig], so
-  /// listening here covers reorder, on/off and per-widget settings alike.
-  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   /// Loads saved config or returns defaults.
   ///
@@ -63,7 +52,6 @@ class HomeConfigService {
     final jsonStr =
         jsonEncode(configs.map((c) => c.toJson()).toList());
     await prefs.setString(_key, jsonStr);
-    revision.value++;
   }
 
   /// Gets settings for a specific widget, merging saved with defaults.
