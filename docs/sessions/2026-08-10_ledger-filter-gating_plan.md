@@ -147,14 +147,26 @@ BE 변경 없음(거래·합계는 이미 서버가 정확히 필터).
 
 ## 7. 남은 요구사항 — 단계 정리 (3번째 요구사항)
 
-| 단계 | 항목 | 근거/문서 | 비고 |
-|---|---|---|---|
-| Step 1 (이번) | 장부 필터 이체 누출 fix + 동적 빈 문구 | 본 기획서 | FE only, PR 1개 |
-| Step 2 | 미종결 라이브 검증 정리 | PROGRESS §3, current-tasks | 역변환(PR #290), RECON-VERIFY A/B/C, KI-006 |
-| Step 3 | RECON-P6 홈 "미정산 N건" 위젯 | current-tasks Backlog | 기존 API 재사용, 소규모 |
-| Step 4 | 미기록 200건 초과 추가 페이지 로드 UI | `reconciliation_view.dart:191` | LoadMore 패턴 재사용 |
-| Step 5 | ASSET-PRIVATE 개인 자산 + 이체 visibility 파생 | 메모리 | 본 fix 의 "이체=SHARED 취급" 임시 전제를 정식화 |
-| Step 6 | RECON-P4 월말 "미기록 N건" 인앱 알림 | current-tasks Backlog | 알림 인프라 선행, 최대 규모 |
-| Step 7 | REL-ANDROID / KI-007-P2 카카오 비즈니스 | current-tasks Backlog | 선택 |
+> **2026-08-10 정정**: 최초 작성 시 "미종결 라이브 검증 정리"(= 사용자 확인 트랙)를 Step 2 로
+> 회차 번호에 섞어 넣는 바람에, 번호 순서와 추천 회차가 어긋났다. 번호는 **개발 회차의 착수
+> 순서**로만 매기고 확인 트랙은 분리한다. 대장 `docs/PROGRESS.md §3` 이 정본이며 아래는 사본이다.
+>
+> **회차 경계**: 한 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 멈춘다.
+> 다음 회차는 **`/clear` 후 새 세션**에서 시작한다(메모리 `feedback_round_boundary_clear`).
 
-> 표 형식은 기획 문서 내부용. 사용자 보고 시에는 불릿으로 전달(글로벌 §1.9).
+개발 회차 (착수 순서):
+
+- **Step 1 — 완료(2026-08-10 라이브 검증 통과)**: 장부 필터 이체 누출 fix + 동적 빈 문구 (PR #292)
+- **Step 2**: RECON-P6 홈 "미정산 N건" 위젯 — 기존 API 재사용, 소규모. **다음 회차 추천**
+- **Step 3**: 미기록 200건 초과 추가 페이지 로드 UI (`reconciliation_view.dart:191`)
+- **Step 4**: 합계 ≠ 행 잔존 불일치 (소규모 BE, `StatisticsService.kt:147`)
+- **Step 5**: ASSET-PRIVATE 개인 자산 + 이체 visibility 파생
+  — 본 회차의 "이체=SHARED 취급" 임시 전제를 정식화. 고칠 지점은
+  `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳
+- **Step 6**: RECON-P4 월말 "미기록 N건" 인앱 알림 — 알림 인프라 선행, 최대 규모
+- **Step 7**: REL-ANDROID / KI-007-P2 카카오 비즈니스 — 선택
+
+회차 밖 트랙 (사용자 확인만 필요, 개발 착수 아님):
+
+- 정산 스냅샷 라이브 검증 A1~A10 / B1~B7 / C1~C5 (`docs/sessions/2026-07-27_1_result.md §4.1`)
+- KI-006 배포 후 확인 (`docs/known-issues.md`)
