@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
+import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_summary_cubit.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
@@ -59,6 +60,11 @@ class MonthSyncHandler extends StatelessWidget {
     // Dashboard
     try {
       getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
+    } catch (_) {}
+
+    // 월말 점검 요약 (분석 탭 상단 카드)
+    try {
+      getIt<ReconciliationSummaryCubit>().load(year: year, month: month);
     } catch (_) {}
 
     // Payment method card settlement summary

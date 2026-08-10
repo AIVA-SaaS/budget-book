@@ -4,8 +4,8 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/ledger_route.dart';
 import 'package:budget_book/features/reconciliation/domain/entities/reconciliation.dart';
 
-/// Dashboard card showing how many ledger entries of the month are still not
-/// captured in a reconciliation snapshot ("월말 점검 · 미기록 N건").
+/// 분석 탭 상단 카드 — 그 달의 장부 항목 중 아직 정산 스냅샷에 담기지 않은
+/// 건수를 보여준다 ("월말 점검 · 미기록 N건").
 ///
 /// Wording follows the ledger screen verbatim (미기록, not 미정산) — see
 /// `reconciliation_view.dart`. Subtotals are rendered exactly as the server
@@ -16,20 +16,16 @@ class ReconciliationSummaryCard extends StatelessWidget {
   final ReconciliationSummary summary;
   final int year;
   final int month;
-  final Map<String, dynamic> settings;
 
   const ReconciliationSummaryCard({
     super.key,
     required this.summary,
     required this.year,
     required this.month,
-    this.settings = const {},
   });
 
-  bool get _showSubtotals => settings['showSubtotals'] != false;
-
   /// Navigates to the ledger's reconciliation view for **the month being shown
-  /// on the dashboard** — not "today". Carrying year/month is the whole point of
+  /// on the analysis tab** — not "today". Carrying year/month is the whole point of
   /// [ledgerLocation]'s required parameters (navigation_state incidents).
   void _openLedger(BuildContext context) {
     context.go(ledgerLocation(
@@ -98,7 +94,7 @@ class ReconciliationSummaryCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                if (_showSubtotals && _subtotalText.isNotEmpty) ...[
+                if (_subtotalText.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
                     _subtotalText,

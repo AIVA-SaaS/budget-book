@@ -9,12 +9,17 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"홈 대시보드 월말 점검(미기록 N건) 위젯"** 회차 — 승인 → 구현 완료 →
-  **로컬 CI 4종 통과**(타임라인 21). 남은 것: 커밋 · PR · 머지 · 배포 · 사용자 라이브 검증
+- **단계**: **"월말 점검(미기록 N건) 카드"** 회차 — PR #293 배포 후 **홈 대시보드가 라우팅되지
+  않는다는 사실 발견**(타임라인 23) → 사용자 결정에 따라 **분석 탭으로 이전 완료**(타임라인 24).
+  남은 것: 커밋 · PR · 머지 · 배포 · 사용자 라이브 검증
+- ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
+  `DashboardPage` 는 미라우팅(죽은 코드), 탭 4개(거래·분석·자산·더보기).
+  설정의 "홈 화면 구성" 도 고아 항목이다. 홈 위젯 전제의 계획은 전부 무효
 - **정본 문서**: `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
 - **repo / 브랜치**: `AIVA-SaaS/budget-book` · 기준 `main` = `0657c84`
 - **범위**: FE 전용 — BE·DB·api-spec 변경 0(`/reconciliations/summary` 재사용)
-- **CI**: analyze 신규 0 / flutter test **900** / `./gradlew test` / `build web --release` 전부 통과
+- **CI**: analyze 신규 0 / flutter test **894** / `./gradlew test` / `build web --release` 전부 통과.
+  추가 게이트: **배포 전 번들 문자열 확인**(카드가 트리셰이킹되지 않았는지)
 - **하네스 게이트**: `navigation_state` STRUCTURAL_FIX_REQUIRED → 구조적 수정
   (`ledgerLocation` required year/month + 이관 + 가드) 포함 후 `acknowledge-gate.sh` 로 **해제 완료**
 - **다음 회차 예약**: 월 네비게이터 개선(연/월 드릴다운 피커 + "오늘" 버튼) —
@@ -336,10 +341,56 @@
    - 판단: 현재 회차(월말 점검 위젯)와 **파일·관심사가 겹치지 않고** 회귀 범위가 13개 페이지로
      넓다 → 같은 PR 에 섞지 않고 다음 회차로 분리(§3 후보 1번으로 승격)
 
+23. **2026-08-10** — PR #293 머지·배포 성공. 그러나 배포 후 번들 검증에서 **회차 전제가 틀렸음을 발견**.
+   ⚠ **홈 대시보드 화면은 이 앱에 더 이상 존재하지 않는다.**
+   - 배포: main `f2e3d92` · deploy-nas run **31348106262 success**(deploy-frontend·**verify-live**)
+   - 번들 대조 중 이상 발견: 새 카드의 고유 문구(`이 달은 정산 완료입니다`, `확인 필요 `)가
+     라이브·로컬 번들 **양쪽에서 0건**. 반면 `월말 점검`(위젯 목록 이름)·`소계 표시`(설정 시트)는 존재
+   - 측정(추측 배제, 실험 6회): 마커 삽입 → clean 빌드 → 소스맵 → profile 빌드 →
+     **대조군 실험**(기존 위젯 `monthly_trend_card` 에 마커)에서 **대조군도 사라짐** →
+     "내 코드만 제거" 가 아니라 **그 파일들을 참조하는 화면 자체가 죽은 코드**임이 드러남
+   - **근본 원인**: `app_router.dart:792` — `/home` 은 **`/transactions` 로 redirect** 다.
+     `DashboardPage` 를 **어디서도 라우팅하지 않는다**(전역 참조: 자기 정의 4줄뿐).
+     탭은 4개(거래·분석·자산·더보기). git 이력 `ea065d0 feat(nav): Phase 25 Step 10 — 홈 탭 제거(6→5탭) #163`
+   - 따라서 `dashboard_page.dart`(1,252줄)와 그것만 참조하는 위젯들(월별 추이·카테고리별 현황·
+     이번 월말 점검 카드)은 전부 dart2js 가 트리셰이킹한다. 설정의 **"홈 화면 구성"**(`settings_page.dart:232`)도
+     **존재하지 않는 화면을 설정하는 고아 항목**이다
+   - 라이브 영향: **회귀 없음**(죽은 코드 추가일 뿐). 실제로 살아 있는 산출물은
+     `/transactions?view=` 파라미터 + `parseLedgerView`/`nextLedgerViewOnUpdate`(거래 목록에서 동작),
+     `HomeConfigService.revision`(설정 저장 시 bump). `ledgerLocation` 은 호출부가 죽은 화면이라 현재는 미사용
+   - **프로세스 실패(재발 방지 대상)**: 기획 §2 에서 "위젯 등록 5곳" 은 전수 조사했으면서
+     **그 화면이 사용자에게 도달 가능한지(라우팅 여부)는 확인하지 않았다.**
+     대장 후보 목록과 메모리(`project_home_customization`)가 홈 탭 존재를 전제하고 있었고 그대로 믿었다.
+     → 새 규칙: **화면에 무언가를 추가하기 전, 그 화면의 라우팅 진입점을 먼저 측정한다**
+   - **다음 결정은 사용자 몫**: 홈 탭 복원 / 위젯을 살아있는 화면으로 이전 / 되돌리기
+
+24. **2026-08-10** — 사용자 결정("위젯을 분석 탭으로 이전") → **이전 완료 + 이번 회차가 추가했던
+   대시보드 배선 회수.** 로컬 CI 4종 + **번들 포함 검증** 통과.
+   - 배치: 분석 탭(`analysis_page.dart`)의 **MonthNavigator 바로 아래** — 예산/통계 두 sub-tab 이
+     공유하는 위치. 요약이 없으면(미조회·실패) 아무것도 그리지 않는다
+   - 데이터: `ReconciliationSummaryCubit` 신설(요약 8개 숫자만 조회).
+     `ReconciliationBloc` 재사용을 피한 이유 = 그쪽은 스냅샷 목록 + 미기록 항목 최대 200건까지
+     함께 불러온다. `MonthSyncHandler` 에 등록해 월 이동 시 자동 재조회 + 탭 진입 시 1회 재조회
+     (거래 탭에서 정산하고 돌아왔을 때 stale 방지). **늦게 도착한 지난 달 응답이 현재 달을
+     덮어쓰지 않도록** 요청 연/월 대조 가드 + 회귀 테스트
+   - 회수(이전이지 복사가 아니므로): 대시보드 위젯 등록 5곳 · `DashboardBloc` 요약 로드/게이팅 ·
+     `DashboardLoaded.reconciliationSummary` · `HomeConfigService.revision` · 관련 테스트 전부 원복.
+     위젯 개수 가드도 11 → 10 으로 복귀
+   - 유지(살아 있는 산출물): `core/utils/ledger_route.dart`(이제 **분석 탭 카드가 실제로 사용** —
+     구조적 수정이 죽은 코드가 아니게 됐다) · `/transactions?view=` 파라미터 ·
+     `parseLedgerView`/`nextLedgerViewOnUpdate`
+   - 카드 단순화: 위젯 설정(`showSubtotals`) 제거 — 설정 화면 자체가 고아라 의미가 없다
+   - 새 가드: ① 분석 탭이 카드+cubit 을 호스팅하는지 ② 카드가 `ledgerLocation` 만 쓰는지
+     (raw `'/transactions` 리터럴 0건) — **다시 죽은 화면으로 옮겨가는 것을 테스트가 막는다**
+   - 게이트: analyze 신규 0 / flutter test **894** / `./gradlew test` / `build web --release` ·
+     **배포 전 번들 검증**: `이 달은 정산 완료입니다` 1 · `확인 필요 ` 1 · `월말 점검` 1
+     (직전 실패의 직접적 재발 방지 — 이제 빌드 산출물에서 카드가 확인된다)
+   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 월말 점검 위젯 회차 **구현·로컬 CI 완료**(타임라인 21) → 커밋·PR·배포 진행 중.
+- **현재 상태**: 월말 점검 카드 **분석 탭 이전 완료**(타임라인 24) → 커밋·PR·배포 진행 중.
   정본 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
 - **이 회차의 완료 조건**: 배포 후 **사용자 라이브 검증**(기획서 §9 A/B/C 시나리오) 통과.
   머지·배포만으로는 완료가 아니다(GR3).

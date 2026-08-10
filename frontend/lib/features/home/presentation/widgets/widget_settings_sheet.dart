@@ -196,14 +196,6 @@ class _WidgetSettingsSheetState extends State<_WidgetSettingsSheet> {
             options: {3: '3개', 5: '5개', 10: '10개'},
           ),
         ];
-      case kReconciliationWidgetId:
-        return [
-          _buildDropdownControl<bool>(
-            label: '소계 표시',
-            key: 'showSubtotals',
-            options: {true: '표시', false: '숨김'},
-          ),
-        ];
       default:
         return [
           const Padding(
