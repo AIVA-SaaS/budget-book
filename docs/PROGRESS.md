@@ -9,16 +9,17 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"장부 필터 게이팅 단일화 + 동적 빈 상태 문구"** 회차 (Step 1) — 구현 + 로컬 CI 통과.
-  다음은 커밋 → PR → 머지 → 배포 → 사용자 라이브 검증.
+- **단계**: **"장부 필터 게이팅 단일화 + 동적 빈 상태 문구"** 회차 (Step 1) — 구현 → 로컬 CI →
+  PR #292 머지 → **배포 성공**. 서버 측 검증 완료. **남은 것은 사용자 라이브 검증**
 - **직전 회차 종결**: 이체 → 거래 역변환(PR #290) **사용자 라이브 검증 통과 = 완료**(2026-08-10 확인)
-- **상태**: 구현 완료, PR 전
+- **상태**: 사용자 라이브 검증 대기
 - **정본 문서**: `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` (§7 에 남은 요구사항 Step 1~7)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `4845efe` 기준 작업
-- **CI**: 로컬 4종 통과 — analyze(신규 0건) / flutter test **843건** / `./gradlew test` / build web
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `c6bed67` · 작업 트리 clean
+- **CI / 배포**: 로컬 4종(analyze 신규 0 / flutter test 843 / gradlew test / build web) → 원격 CI 2종 →
+  squash 머지 → **deploy-nas run 31343215446 success**(deploy-frontend·verify-live)
 - **하네스 게이트**: `filter_propagation` = STRUCTURAL_FIX_REQUIRED → 기획서에 구조적 수정 3종 포함 후
   `acknowledge-gate.sh` 로 해제
-- **blocker**: 없음
+- **blocker**: 사용자 라이브 검증 6항목(§3)
 - **갱신**: 2026-08-10
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
@@ -240,12 +241,27 @@
      회귀 테스트 추가(빈 검색창 → VO keyword fallback)
    - 게이트: 유틸 테스트 31건 통과 / analyze 신규 0건
 
+18. **2026-08-10** — PR #292 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
+   남은 것은 사용자 라이브 검증.**
+   - 원격 CI: `backend-ci` pass(10s) / `frontend-ci` pass(2m11s) → squash 머지 + 브랜치 삭제
+   - main `c6bed67` · deploy-nas run **31343215446 success**
+     (changes / **deploy-frontend success** / **verify-live success**;
+     BE 변경이 없어 deploy-backend·sync-nginx 는 skipped)
+   - 라이브 번들 측정(`main.dart.js`): escaped 대조 —
+     `확인/입력 필요한 거래가 없습니다` 1건 · `필터 초기화` 1건 · `적용된 필터: ` 1건 ·
+     `이체 내역이 없습니다` 2건. 한글 원문 grep 은 항상 0건이 정상
+     (`reference_live_bundle_string_verification`). 이 문구들은 이번 PR 에서 처음 생긴 것이라
+     **번들 신원 자체가 이번 배포임을 증명**한다
+   - **미완**: 사용자 라이브 검증(§3 완료 판정 6항목). 통과 전까지 이 회차는 "완료" 아님
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **다음 액션 (`/clear` 후 여기서 시작)**: Step 1(장부 필터 게이팅) 구현 + 로컬 CI 는 끝났다
-  (타임라인 16). 커밋 → PR → CI → 머지 → 배포 → **사용자 라이브 검증** 순으로 진행한다.
-- **첫 명령**: `git status` 로 변경 확인 → 브랜치 생성 후 커밋(개인 계정이라 머지까지 자동 진행 승인 범위).
+- **다음 액션 (`/clear` 후 여기서 시작)**: Step 1(장부 필터 게이팅)은 **배포까지 끝났다**
+  (타임라인 16~18). 남은 것은 **사용자 라이브 검증뿐** — 아래 6항목을 확인받는다.
+  통과 보고를 받으면 회차를 종결 기록하고 Step 2 이후 후보를 제시한다.
+  실패하면 `domains/01-diagnosis.md`(추측 fix 금지, 증상-역행 grep 먼저).
+- **첫 명령**: 없음(코드 변경 없음). 사용자 확인 대기 상태다.
 - **완료 판정(Step 1)**: 머지·배포는 완료가 아니다. 거래 탭에서 다음이 전부 확인돼야 한다 —
   ① 확인/입력 필요만 ON → **이체 0건** + 월합계바 이체 금액 미표시
   ② 카테고리 / 포켓 필터 → 이체 0건
