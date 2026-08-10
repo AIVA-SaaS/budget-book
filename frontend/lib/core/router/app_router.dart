@@ -284,6 +284,11 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                 final categoryName = state.uri.queryParameters['categoryName'];
                 // Phase 25 후속 — 예산/분석 에서 그룹 단위 필터 지원
                 final categoryGroupId = state.uri.queryParameters['categoryGroupId'];
+                // 2026-08-10 — 뷰 모드(리스트/달력/정산)를 URL 로 지정할 수 있게 한다.
+                // 이전에는 SharedPreferences 에만 있어서 "홈 위젯 → 정산 뷰" 같은
+                // cross-tab 진입이 아예 불가능했다. nav 필터가 아니라 **표시 모드**라
+                // 아래 hasExplicitNavFilter 판정에는 넣지 않는다 (필터를 wipe 하면 안 된다).
+                final view = state.uri.queryParameters['view'];
 
                 // 회차 1 (2026-05-26) — Bug 1 fix: chip-applied nav 필터 보존.
                 //
@@ -418,6 +423,7 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                     initialCategoryId: categoryId,
                     initialCategoryName: categoryName,
                     initialCategoryGroupId: categoryGroupId,
+                    initialView: view,
                   ),
                 );
               },

@@ -27,6 +27,8 @@ import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart'
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/features/home/presentation/widgets/monthly_trend_card.dart';
 import 'package:budget_book/features/home/presentation/widgets/category_breakdown_card.dart';
+import 'package:budget_book/features/home/presentation/widgets/reconciliation_summary_card.dart';
+import 'package:budget_book/core/utils/ledger_route.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -43,6 +45,31 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadWidgetConfig();
+    HomeConfigService.revision.addListener(_onWidgetConfigChanged);
+  }
+
+  @override
+  void dispose() {
+    HomeConfigService.revision.removeListener(_onWidgetConfigChanged);
+    super.dispose();
+  }
+
+  /// Reacts to the home-config screen saving a change (toggle / reorder /
+  /// per-widget settings) while this page sits underneath it in the stack.
+  ///
+  /// Re-reading the config alone is not enough: a widget that was just switched
+  /// on has no data in the current DashboardLoaded state (the BLoC skips
+  /// requests for disabled widgets), so it would render as missing. Re-issuing
+  /// LoadDashboard for the *same* month fills that gap.
+  void _onWidgetConfigChanged() {
+    if (!mounted) return;
+    _loadWidgetConfig();
+    final state = context.read<DashboardBloc>().state;
+    if (state is DashboardLoaded) {
+      context.read<DashboardBloc>().add(
+            LoadDashboard(year: state.year, month: state.month),
+          );
+    }
   }
 
   Future<void> _loadWidgetConfig() async {
@@ -105,6 +132,17 @@ class _DashboardPageState extends State<DashboardPage> {
         return CategoryBreakdownCard(
           categoryStats: state.categoryStats,
           settings: _getWidgetSettings('category_breakdown'),
+        );
+      case kReconciliationWidgetId:
+        // Null when the summary request failed — skip rather than render an
+        // empty card (same policy as trend / breakdown).
+        final recon = state.reconciliationSummary;
+        if (recon == null) return null;
+        return ReconciliationSummaryCard(
+          summary: recon,
+          year: state.year,
+          month: state.month,
+          settings: _getWidgetSettings(kReconciliationWidgetId),
         );
       default:
         return const SizedBox.shrink();
@@ -644,7 +682,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                     if (shell != null) {
                       shell.goBranch(1);
                     } else {
-                      context.go('/transactions?year=$year&month=$month');
+                      context.go(ledgerLocation(year: year, month: month));
                     }
                   },
                   child: const Text('더보기'),
@@ -770,9 +808,12 @@ class _PaymentMethodStatsCard extends StatelessWidget {
               final color = _colors[index % _colors.length];
 
               return InkWell(
-                onTap: () => context.push(
-                  '/transactions?year=$year&month=$month&paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}',
-                ),
+                onTap: () => context.push(ledgerLocation(
+                  year: year,
+                  month: month,
+                  paymentMethodId: stat.paymentMethodId,
+                  paymentMethodName: stat.paymentMethodName,
+                )),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1163,7 +1204,12 @@ class _AiInsightPreviewCardState extends State<_AiInsightPreviewCard> {
                   final categoryId = insight.data?['categoryId'];
                   final categoryName = insight.data?['categoryName'];
                   if (categoryId != null) {
-                    context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=$categoryId&categoryName=${Uri.encodeComponent(categoryName?.toString() ?? '')}');
+                    context.go(ledgerLocation(
+                      year: widget.year,
+                      month: widget.month,
+                      categoryId: categoryId.toString(),
+                      categoryName: categoryName?.toString() ?? '',
+                    ));
                     return;
                   }
                 } else if (insight.type == 'BUDGET_WARNING' || insight.type == 'BUDGET_ADJUST') {

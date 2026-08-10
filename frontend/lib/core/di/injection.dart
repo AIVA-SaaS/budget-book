@@ -487,6 +487,7 @@ Future<void> configureDependencies() async {
       statisticsRepository: getIt<StatisticsRepository>(),
       transactionRepository: getIt<TransactionRepository>(),
       budgetRepository: getIt<BudgetRepository>(),
+      reconciliationRepository: getIt<ReconciliationRepository>(),
     ),
     dispose: (bloc) => bloc.close(),
   );
