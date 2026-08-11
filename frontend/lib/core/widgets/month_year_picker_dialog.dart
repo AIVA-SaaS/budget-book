@@ -1,4 +1,4 @@
-/// Year → month → day drill-down picker used by `MonthNavigator`.
+/// Unified year+month picker (with optional day grid) used by `MonthNavigator`.
 ///
 /// ## 왜 별도 다이얼로그인가 (2026-08-11)
 ///
@@ -10,11 +10,24 @@
 /// "특정 날짜 입력"이 본질**(거래·이체·보험·지출계획·카드정산 폼, 기간 필터 5곳, 포켓 시트 2곳)
 /// 이라 월 우선으로 바꾸면 그쪽이 전부 퇴보한다. 그래서 월 이동 전용 피커를 따로 둔다.
 ///
+/// ## 왜 프레임워크 위젯을 하나도 쓰지 않는가 (2026-08-11, 2차)
+///
+/// 1차 버전은 일 단계에서 `CalendarDatePicker` 를 그대로 썼다. 그 위젯의 헤더
+/// (`2026년 8월 ▾`)는 **Material 이 소유**하고 눌리면 내부 연도 목록을 연다 — 숨기거나
+/// 탭을 가로챌 공개 API 가 없다. 우리가 그 옆에 `월 선택으로` 버튼을 하나 더 붙였더니
+/// **어포던스가 둘로 갈라져** 사용자가 내장 헤더를 먼저 눌렀고, "월 선택이 나와야 하는데
+/// 연도 설정이 나온다" 는 결함이 됐다.
+///
+/// 그래서 이 파일은 **연·월·일 세 축을 전부 자체 위젯으로 그린다**. "우리가 개선한 경로
+/// 옆에 프레임워크가 만든 다른 경로가 열려 있는" 상태 자체를 없앤 것이 구조적 수정이고,
+/// `month_navigator_single_source_guard_test.dart` 가 *이 파일에 `CalendarDatePicker` 가
+/// 없다* 를 소스 스캔으로 고정한다(하네스 `navigation_state`, STRUCTURAL_FIX_REQUIRED).
+///
 /// **이 파일의 함수를 직접 호출하는 파일은 `month_navigator.dart` 하나여야 한다** —
-/// 월 이동 UI 가 다시 페이지별로 갈라지는 것을 `month_navigator_single_source_guard_test.dart`
-/// 가 막는다(하네스 `navigation_state`, 4회 재발).
+/// 월 이동 UI 가 다시 페이지별로 갈라지는 것을 같은 가드가 막는다.
 library;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// 사용자가 피커에서 고른 값.
@@ -36,11 +49,14 @@ class MonthPickerResult {
   DateTime get date => DateTime(year, month, day ?? 1);
 }
 
-/// 연/월(선택적으로 일) 드릴다운 피커를 띄운다.
+/// 연/월(선택적으로 일) 피커를 띄운다.
+///
+/// 연도와 월은 **한 화면**에 있다 — 왼쪽 휠로 연도를 돌리면 오른쪽 12개월 그리드가
+/// 즉시 그 연도 기준으로 바뀌고, 달을 한 번 누르면 확정된다(단계 전환 없음).
 ///
 /// [allowDaySelection] 이 true 면 **일 그리드로 진입**하고(기존 사용감 유지),
-/// 헤더를 눌러 월 → 연도로 올라갈 수 있다. false 면 **월 그리드로 진입**해
-/// 달 선택이 1탭으로 끝난다.
+/// 헤더의 `YYYY년 M월` 을 눌러 연/월 화면으로 올라갈 수 있다. false 면 연/월 화면으로
+/// 진입해 달 선택이 1탭으로 끝난다.
 Future<MonthPickerResult?> showMonthYearPickerDialog({
   required BuildContext context,
   required int initialYear,
@@ -61,10 +77,19 @@ Future<MonthPickerResult?> showMonthYearPickerDialog({
   );
 }
 
-enum _PickerStage { year, month, day }
+/// 단계는 둘뿐이다. 연도는 월과 같은 화면에 있으므로 "연도 단계" 가 존재하지 않는다.
+enum _PickerStage { monthYear, day }
 
-/// 연도 그리드 한 페이지에 담는 연도 수 (3열 × 4행).
-const int _yearsPerPage = 12;
+/// 그리드 한 칸의 높이(칸 44 + 상하 여백 4).
+const double _cellExtent = 52;
+
+/// 월 그리드는 3열 × 4행이다. 연도 휠 높이를 여기에 맞춰 나란히 세운다.
+const double _monthGridHeight = _cellExtent * 4;
+
+/// 연도 휠 열의 폭.
+const double _yearWheelWidth = 92;
+
+const List<String> _weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
 class _MonthYearPickerDialog extends StatefulWidget {
   final int initialYear;
@@ -92,34 +117,30 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   late int _year;
   late int _month;
 
-  /// 연도 그리드가 보여주는 12년 묶음의 첫 연도.
-  late int _yearPageStart;
-
-  /// 일 그리드에서 사용자가 마지막으로 고른 날짜.
-  late DateTime _selectedDay;
+  late FixedExtentScrollController _yearController;
 
   @override
   void initState() {
     super.initState();
     _year = widget.initialYear;
     _month = widget.initialMonth;
-    _selectedDay =
-        _clampToRange(DateTime(widget.initialYear, widget.initialMonth));
-    _yearPageStart = _pageStartFor(_year);
-    _stage = widget.allowDaySelection ? _PickerStage.day : _PickerStage.month;
+    _stage =
+        widget.allowDaySelection ? _PickerStage.day : _PickerStage.monthYear;
+    _yearController = FixedExtentScrollController(initialItem: _yearIndex);
+  }
+
+  @override
+  void dispose() {
+    _yearController.dispose();
+    super.dispose();
   }
 
   int get _firstYear => widget.firstDate.year;
   int get _lastYear => widget.lastDate.year;
 
-  int _pageStartFor(int year) =>
-      _firstYear + ((year - _firstYear) ~/ _yearsPerPage) * _yearsPerPage;
+  List<int> get _years => [for (var y = _firstYear; y <= _lastYear; y++) y];
 
-  DateTime _clampToRange(DateTime d) {
-    if (d.isBefore(widget.firstDate)) return widget.firstDate;
-    if (d.isAfter(widget.lastDate)) return widget.lastDate;
-    return d;
-  }
+  int get _yearIndex => (_year - _firstYear).clamp(0, _years.length - 1);
 
   bool _isMonthEnabled(int year, int month) {
     final monthStart = DateTime(year, month);
@@ -128,17 +149,41 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
         !monthStart.isAfter(widget.lastDate);
   }
 
-  void _pickMonth(int year, int month) {
+  bool _isDayEnabled(int day) {
+    final d = DateTime(_year, _month, day);
+    return !d.isBefore(DateUtils.dateOnly(widget.firstDate)) &&
+        !d.isAfter(DateUtils.dateOnly(widget.lastDate));
+  }
+
+  void _pickMonth(int month) {
     if (widget.allowDaySelection) {
       setState(() {
-        _year = year;
         _month = month;
-        _selectedDay = _clampToRange(DateTime(year, month));
         _stage = _PickerStage.day;
       });
       return;
     }
-    Navigator.pop(context, MonthPickerResult(year: year, month: month));
+    Navigator.pop(context, MonthPickerResult(year: _year, month: month));
+  }
+
+  /// 일 그리드에서 연/월 화면으로 올라간다.
+  ///
+  /// 일 그리드의 `‹ ›` 로 해가 바뀌었을 수 있으므로 휠 컨트롤러를 현재 연도에 맞춰
+  /// 다시 만든다. 이 시점에 휠은 트리에 없어(=컨트롤러 detached) dispose 가 안전하다.
+  void _openMonthYearStage() {
+    setState(() {
+      _stage = _PickerStage.monthYear;
+      _yearController.dispose();
+      _yearController = FixedExtentScrollController(initialItem: _yearIndex);
+    });
+  }
+
+  void _shiftMonth(int delta) {
+    final shifted = DateTime(_year, _month + delta);
+    setState(() {
+      _year = shifted.year;
+      _month = shifted.month;
+    });
   }
 
   @override
@@ -152,8 +197,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
           children: [
             _buildTitleBar(context),
             switch (_stage) {
-              _PickerStage.year => _buildYearStage(context),
-              _PickerStage.month => _buildMonthStage(context),
+              _PickerStage.monthYear => _buildMonthYearStage(context),
               _PickerStage.day => _buildDayStage(context),
             },
           ],
@@ -163,8 +207,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   }
 
   String get _title => switch (_stage) {
-        _PickerStage.year => '연도 선택',
-        _PickerStage.month => '월 선택',
+        _PickerStage.monthYear => '연/월 선택',
         _PickerStage.day => '날짜 선택',
       };
 
@@ -188,12 +231,182 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     );
   }
 
-  /// `‹ 라벨 ›` 헤더. 가운데 라벨은 상위 단계로 올라가는 버튼이다.
-  Widget _buildStageHeader({
+  // ─────────────────────────────── 연/월 한 화면 ───────────────────────────────
+
+  Widget _buildMonthYearStage(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      child: SizedBox(
+        height: _monthGridHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(width: _yearWheelWidth, child: _buildYearWheel(context)),
+            Expanded(child: _buildMonthGrid(context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearWheel(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final years = _years;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 가운데 밴드 — "지금 이 값" 을 드러낸다. 스크롤을 가로채면 안 되므로 IgnorePointer.
+        IgnorePointer(
+          child: Container(
+            height: 44,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        ScrollConfiguration(
+          // Flutter 웹 기본 동작은 마우스 드래그 스크롤을 제외한다 — 보정하지 않으면
+          // PC 에서 연도 휠이 마우스로 안 돌아간다.
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: const {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+            },
+          ),
+          child: ListWheelScrollView.useDelegate(
+            controller: _yearController,
+            itemExtent: 44,
+            diameterRatio: 1.8,
+            perspective: 0.004,
+            physics: const FixedExtentScrollPhysics(),
+            onSelectedItemChanged: (index) =>
+                setState(() => _year = years[index]),
+            childDelegate: ListWheelChildBuilderDelegate(
+              childCount: years.length,
+              builder: (ctx, index) {
+                final y = years[index];
+                final selected = y == _year;
+                return _YearWheelItem(
+                  year: y,
+                  selected: selected,
+                  isThisYear: y == DateTime.now().year,
+                  // 가운데가 아닌 연도를 눌러도 선택되게 한다 — 휠만으로는 정밀도가 낮다.
+                  onTap: selected
+                      ? null
+                      : () => _yearController.animateToItem(
+                            index,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                          ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthGrid(BuildContext context) {
+    final now = DateTime.now();
+    return _buildGrid(
+      columns: 3,
+      children: [
+        for (var m = 1; m <= 12; m++)
+          _GridCell(
+            label: '$m월',
+            selected: _year == widget.initialYear && m == widget.initialMonth,
+            outlined: _year == now.year && m == now.month,
+            onTap: _isMonthEnabled(_year, m) ? () => _pickMonth(m) : null,
+          ),
+      ],
+    );
+  }
+
+  // ──────────────────────────────── 일 그리드 ────────────────────────────────
+
+  Widget _buildDayStage(BuildContext context) {
+    final now = DateTime.now();
+    final daysInMonth = DateUtils.getDaysInMonth(_year, _month);
+    // Dart 의 weekday 는 월=1 … 일=7. 일요일 시작 그리드라 7 을 0 으로 접는다.
+    final leadingBlanks = DateTime(_year, _month).weekday % 7;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildStageHeader(
+          context,
+          label: '$_year년 $_month월',
+          onPrev: _isMonthEnabled(DateTime(_year, _month - 1).year,
+                  DateTime(_year, _month - 1).month)
+              ? () => _shiftMonth(-1)
+              : null,
+          onNext: _isMonthEnabled(DateTime(_year, _month + 1).year,
+                  DateTime(_year, _month + 1).month)
+              ? () => _shiftMonth(1)
+              : null,
+          onLabelTap: _openMonthYearStage,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              for (final w in _weekdayLabels)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      w,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+          child: _buildGrid(
+            columns: 7,
+            children: [
+              for (var i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
+              for (var d = 1; d <= daysInMonth; d++)
+                _GridCell(
+                  label: '$d',
+                  semanticLabel: '$_month월 $d일',
+                  selected: false,
+                  outlined:
+                      now.year == _year && now.month == _month && now.day == d,
+                  // 월과 마찬가지로 1탭이 곧 확정이다 — 별도 확인 버튼을 두지 않는다.
+                  onTap: _isDayEnabled(d)
+                      ? () => Navigator.pop(
+                            context,
+                            MonthPickerResult(
+                                year: _year, month: _month, day: d),
+                          )
+                      : null,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// `‹ 라벨 ›` 헤더. 가운데 라벨은 연/월 화면으로 올라가는 버튼이다.
+  Widget _buildStageHeader(
+    BuildContext context, {
     required String label,
     required VoidCallback? onPrev,
     required VoidCallback? onNext,
-    required VoidCallback? onLabelTap,
+    required VoidCallback onLabelTap,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -203,7 +416,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: onPrev,
-            tooltip: '이전',
+            tooltip: '이전 달',
           ),
           Expanded(
             child: TextButton(
@@ -221,8 +434,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  if (onLabelTap != null)
-                    const Icon(Icons.arrow_drop_down, size: 20),
+                  const Icon(Icons.arrow_drop_up, size: 20),
                 ],
               ),
             ),
@@ -230,144 +442,19 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: onNext,
-            tooltip: '다음',
+            tooltip: '다음 달',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildYearStage(BuildContext context) {
-    final pageEnd = _yearPageStart + _yearsPerPage - 1;
-    final years = [
-      for (var y = _yearPageStart; y <= pageEnd; y++)
-        if (y >= _firstYear && y <= _lastYear) y,
-    ];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildStageHeader(
-          label: '$_yearPageStart – $pageEnd',
-          onPrev: _yearPageStart - _yearsPerPage >= _firstYear
-              ? () => setState(() => _yearPageStart -= _yearsPerPage)
-              : null,
-          onNext: _yearPageStart + _yearsPerPage <= _lastYear
-              ? () => setState(() => _yearPageStart += _yearsPerPage)
-              : null,
-          // 연도가 최상위 단계라 더 올라갈 곳이 없다.
-          onLabelTap: null,
-        ),
-        _buildGrid(
-          context,
-          columns: 3,
-          items: [
-            for (final y in years)
-              _GridCell(
-                label: '$y년',
-                selected: y == _year,
-                outlined: y == DateTime.now().year,
-                onTap: () => setState(() {
-                  _year = y;
-                  _stage = _PickerStage.month;
-                }),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMonthStage(BuildContext context) {
-    final now = DateTime.now();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildStageHeader(
-          label: '$_year년',
-          onPrev:
-              _year - 1 >= _firstYear ? () => setState(() => _year -= 1) : null,
-          onNext:
-              _year + 1 <= _lastYear ? () => setState(() => _year += 1) : null,
-          onLabelTap: () => setState(() {
-            _yearPageStart = _pageStartFor(_year);
-            _stage = _PickerStage.year;
-          }),
-        ),
-        _buildGrid(
-          context,
-          columns: 3,
-          items: [
-            for (var m = 1; m <= 12; m++)
-              _GridCell(
-                label: '$m월',
-                selected:
-                    _year == widget.initialYear && m == widget.initialMonth,
-                outlined: _year == now.year && m == now.month,
-                onTap: _isMonthEnabled(_year, m)
-                    ? () => _pickMonth(_year, m)
-                    : null,
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDayStage(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: TextButton.icon(
-              icon: const Icon(Icons.chevron_left, size: 20),
-              label: const Text('월 선택으로'),
-              onPressed: () => setState(() => _stage = _PickerStage.month),
-            ),
-          ),
-        ),
-        CalendarDatePicker(
-          // 월 그리드에서 다른 달을 고르고 돌아오면 그 달로 다시 그려야 한다.
-          key: ValueKey('$_year-$_month'),
-          initialDate: _selectedDay,
-          firstDate: widget.firstDate,
-          lastDate: widget.lastDate,
-          onDateChanged: (d) => _selectedDay = d,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                MonthPickerResult(
-                  year: _selectedDay.year,
-                  month: _selectedDay.month,
-                  day: _selectedDay.day,
-                ),
-              ),
-              child: const Text('선택'),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGrid(
-    BuildContext context, {
-    required int columns,
-    required List<_GridCell> items,
-  }) {
+  Widget _buildGrid({required int columns, required List<Widget> children}) {
     final rows = <Widget>[];
-    for (var i = 0; i < items.length; i += columns) {
-      final slice = items.sublist(
+    for (var i = 0; i < children.length; i += columns) {
+      final slice = children.sublist(
         i,
-        (i + columns) > items.length ? items.length : i + columns,
+        (i + columns) > children.length ? children.length : i + columns,
       );
       rows.add(Row(
         children: [
@@ -378,14 +465,52 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
         ],
       ));
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-      child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+    return Column(mainAxisSize: MainAxisSize.min, children: rows);
+  }
+}
+
+/// 연도 휠의 한 항목.
+class _YearWheelItem extends StatelessWidget {
+  final int year;
+  final bool selected;
+  final bool isThisYear;
+  final VoidCallback? onTap;
+
+  const _YearWheelItem({
+    required this.year,
+    required this.selected,
+    required this.isThisYear,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '$year',
+            style: TextStyle(
+              fontSize: selected ? 18 : 15,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              color: selected
+                  ? scheme.primary
+                  : scheme.onSurface.withValues(alpha: 0.55),
+              decoration:
+                  isThisYear && !selected ? TextDecoration.underline : null,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
-/// 연도/월 그리드의 한 칸.
+/// 월/일 그리드의 한 칸.
 class _GridCell extends StatelessWidget {
   final String label;
 
@@ -395,6 +520,9 @@ class _GridCell extends StatelessWidget {
   /// 오늘이 속한 값 — 테두리로 표시.
   final bool outlined;
 
+  /// 스크린리더용 라벨. 일 그리드는 숫자만 나오므로 달을 붙여준다.
+  final String? semanticLabel;
+
   final VoidCallback? onTap;
 
   const _GridCell({
@@ -402,6 +530,7 @@ class _GridCell extends StatelessWidget {
     required this.selected,
     required this.outlined,
     required this.onTap,
+    this.semanticLabel,
   });
 
   @override
@@ -434,11 +563,15 @@ class _GridCell extends StatelessWidget {
           child: SizedBox(
             height: 44,
             child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  semanticsLabel: semanticLabel,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
