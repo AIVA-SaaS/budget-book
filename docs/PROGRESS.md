@@ -9,17 +9,19 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"월말 점검(미기록 N건) 카드"** 회차 — PR #293(홈 전제 오류) → PR #294(분석 탭 이전)
-  → 배포 → **사용자 라이브 검증 통과 = 완료**(2026-08-11, 타임라인 26)
-- **상태**: **열린 작업 없음.** 다음 회차는 아래 §3 에 착수 지점까지 고정돼 있다
-- **회차 경계**: 다음 회차는 **`/clear` 후 새 세션**에서 시작한다
+- **단계**: **"월 네비게이터 개선(연/월 드릴다운 피커 + 오늘 버튼)"** 회차 — 2026-08-11 착수.
+  재측정 → 기획 v2 → 사용자 결정(진입 단계) → 하네스 게이트 해제 완료 → **구현 중**
+- **상태**: 열린 작업 = 이 회차. 직전 회차(월말 점검 카드)는 라이브 검증 통과로 종결(타임라인 26)
+- **회차 경계**: 이 회차 종결 후 다음 회차는 **`/clear` 후 새 세션**에서 시작한다
 - ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
   `DashboardPage` 는 미라우팅(죽은 코드), 탭 4개(거래·분석·자산·더보기).
   설정의 "홈 화면 구성" 도 고아 항목이다. **홈 위젯 전제의 계획·후보는 전부 무효**
   (메모리 `reference_dead_home_dashboard`)
-- **정본 문서**: 종결 회차 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md` /
-  **다음 회차 = `docs/sessions/2026-08-10_3_month-navigator_plan.md`**
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `49fccfa` 이후 · 작업 트리 clean
+- **정본 문서**: **진행 중 회차 = `docs/sessions/2026-08-10_3_month-navigator_plan.md` (v2)** /
+  직전 종결 회차 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
+- **하네스 게이트**: `navigation_state` STRUCTURAL_FIX_REQUIRED → 기획 v2 §2(S1~S4) 근거로
+  `acknowledge-gate.sh` 해제 완료(2026-08-11)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `a70a2ef` 이후
 - **CI 게이트(4종 + 1)**: analyze 신규 0 / flutter test **894** / `./gradlew test` /
   `build web --release` + **배포 전 번들 문자열 확인**(신규 UI 가 트리셰이킹되지 않았는지).
   마지막 항목은 이번 회차에서 추가됐다
@@ -411,36 +413,74 @@
    - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 시작
      (메모리 `feedback_round_boundary_clear`)
 
+27. **2026-08-11** — 월 네비게이터 회차 **착수**: 재측정으로 기획서 사실 오류 2건 정정(v2) →
+   사용자 결정 → 하네스 게이트 해제. 코드 변경은 아직 0줄.
+   - **하네스**: `pre-change-audit.sh . navigation_state` → 🚫 **STRUCTURAL_FIX_REQUIRED**
+     (인시던트 4건: 2026-04-14 / 04-15 ×2 / **08-10 죽은 화면 배포**). v1 기획의 구조 항목이
+     무효가 된 Step 3(홈 통합)에 의존하고 있어 **그대로는 게이트를 못 넘는 상태**였다
+   - **정정 ①**: "사용처 13개 페이지" → **실제 렌더되는 호스트는 9개**.
+     `statistics_page:68` · `budget_list_page:269/566` 은 `showMonthNavigator: false` 로만
+     쓰이는 죽은 분기(유일 사용처가 `analysis_page:117/135`, `/budgets`·`/statistics` 는 redirect)
+   - **정정 ②**: v1 Step 3(홈 `_MonthHeader` → MonthNavigator 통합) **무효** — 홈은 미라우팅.
+     삭제도 하지 않는다(홈 복원 여부 미결 + `dashboard_widget_registry_guard_test` 연쇄 정리 필요)
+   - **추가 측정**: `showCalendarPickerDialog` 호출부 18곳 중 **17곳이 "날짜 입력"이 본질**
+     → 기존 함수 무변경, 월 피커 신설 / `Icons.today` 기존 사용 중 → **신규 아이콘 코드포인트 없음**
+     (폰트 subset 리스크 해당 없음) / `MonthNavigator` 전용 테스트 **0건**
+   - **구조적 수정 4종**(게이트 해제 근거): S1 자체 월 헤더 금지 스캔 —
+     **`dashboard_page` 는 "미라우팅인 동안만" 예외**라 홈을 되살리면 테스트가 깨져 이행 강제 /
+     S2 월 피커 단일 소스 / S3 **도달성 고정**(9개 호스트 목록 + 라우터 참조 검사 — 08-10 인시던트
+     직결) / S4 MonthNavigator 위젯 테스트 신설
+   - **사용자 결정(진입 단계)**: 거래 탭은 **일 달력 먼저**(기존 유지) + 헤더 탭으로 월→연도
+     드릴업. 나머지 8곳은 월 그리드 진입. 기각안(거래 탭도 월 그리드)은 달 이동 1탭이 되는 대신
+     같은 달 일 스크롤이 2→3탭으로 퇴보 — **퇴보 없는 쪽을 택했다**
+   - 게이트: `acknowledge-gate.sh budget-book <plan>` ✅ 편집 허용
+   - **미완**: 구현 · 로컬 CI 4종+번들 검증 · PR · 배포 · 사용자 라이브 검증
+
+28. **2026-08-11** — 월 네비게이터 구현 완료 · **로컬 게이트 5종 전부 통과**. 커밋/PR 전.
+   - 브랜치 `feat/month-navigator-drilldown-picker`
+   - 산출물(신규): `core/widgets/month_year_picker_dialog.dart` —
+     `MonthPickerResult{year, month, day?}` + 3단(`year ↔ month ↔ day`) 드릴다운.
+     **`day == null` 이 "월까지만 골랐다"** 는 신호라, 1일 선택과 월 선택이 구별된다
+     (`DateTime` 하나로 뭉갰으면 거래 목록이 매번 스크롤했을 것)
+   - 산출물(수정): `core/widgets/month_navigator.dart` —
+     `allowDaySelection: onDatePicked != null` / **`Icons.today` "오늘" 버튼**
+     (이번 달이면 비활성, 툴팁 `이번 달로`) / 좌측 48 스페이서로 대칭 유지 +
+     `Flexible`+ellipsis(좁은 화면·큰 글꼴 배율 overflow 방어)
+   - 산출물(테스트 신규 30건): 가드 `month_navigator_single_source_guard_test.dart`(S1~S3) ·
+     `month_navigator_test.dart`(S4) · `month_year_picker_dialog_test.dart`
+   - **게이트**: analyze 신규 0(기존 info 3건만) / flutter test **924**(894 + 30) /
+     `./gradlew test` BUILD SUCCESSFUL / `build web --release` ✅
+   - **배포 전 번들 검증 ✅**: `이번 달로` 1 · `월 선택으로` 1 · `연도 선택` 2 · `월 선택` 2 ·
+     `날짜 선택` 2 — 신규 UI 가 트리셰이킹되지 않았다
+   - ⚠ **검증 방법 정정**: dart2js 는 한글을 **소문자** hex 로 이스케이프한다(`이`).
+     대문자 `이` 로만 grep 하면 **0건이 나와 오탐**한다. 이번에 실제로 한 번 겪었다
+     → 메모리 `reference_live_bundle_string_verification` 보강 대상
+   - **미완**: PR · 머지 · 배포 · 사용자 라이브 검증
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 월말 점검 카드 회차 **라이브 검증 통과 = 완료**(타임라인 26). **열린 작업 없음.**
+- **현재 상태**: **월 네비게이터 개선 — 구현·로컬 게이트 5종 완료**(타임라인 28).
+  남은 것은 PR → 머지 → 배포 → **사용자 라이브 검증**(기획서 §6 A1~C2).
 - **회차 경계 규칙**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
   다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지
   (메모리 `feedback_round_boundary_clear`)
 
-### 다음 회차 — **월 네비게이터 개선** (기획 완료, 착수 지점 고정)
+### 진행 중 회차 — **월 네비게이터 개선** (기획 v2 확정, 구현 단계)
 
-정본: `docs/sessions/2026-08-10_3_month-navigator_plan.md` (사용자 요청 2026-08-10)
+정본: `docs/sessions/2026-08-10_3_month-navigator_plan.md` **(v2 — 2026-08-11 재측정 반영)**
 
-- **요청**: `< yyyy년 mm월 >` 의 달력 팝업에서 **연도별 보기 → 연도 내 달 선택**이 편하도록 +
-  **팝업 전에 "오늘로 가는 버튼"** 을 적절한 위치에
-- **첫 명령**: `bash ~/.claude/harness/scripts/pre-change-audit.sh . navigation_state`
-  (게이트 확인 — 이번 회차의 `ledgerLocation` 이행 이력을 근거로 처리) →
-  기획서 §2 Step 1(`showMonthYearPickerDialog`)부터 순서대로
-- **핵심 측정(이미 완료, 재조사 불필요)**:
-  - 공용 위젯 `lib/core/widgets/month_navigator.dart` 하나를 **13개 페이지**가 쓴다 →
-    한 곳 수정이 전체 반영
-  - 팝업 `lib/core/widgets/calendar_picker_dialog.dart` 의 `CalendarDatePicker` 는
-    **연도 선택은 이미 되지만 월 그리드가 없다** — 연도를 골라도 원하는 달까지 좌우로
-    넘겨야 한다. 이것이 요청의 정확한 결손 지점
-  - `onDatePicked`(일 선택) 실사용은 **1곳뿐**(`transaction_list_page.dart:679`, 선택 일자로
-    스크롤) → 나머지 12곳은 "월 우선" 전환에 부작용 없음
-  - **"오늘" 버튼은 어디에도 없다**(네비게이터·팝업 모두)
-  - 홈 대시보드 `_MonthHeader` 통합(기획서 Step 3)은 **홈 화면이 죽은 코드이므로 무의미** →
-    착수 시 그 Step 은 제외하고 시작한다(기획서는 이 사실 발견 전에 작성됐다)
-- **주의**: 회귀 범위가 13개 페이지로 넓다. 각 페이지의 기존 위젯 테스트 유무를 먼저 전수 확인하고,
-  없는 페이지는 `MonthNavigator` 자체 위젯 테스트로 대체 커버한다
+- **요청**(사용자 2026-08-10): `< yyyy년 mm월 >` 팝업에서 **연도별 보기 → 연도 내 달 선택** +
+  **"오늘로 가는 버튼"**
+- **남은 작업**: PR 생성 → 원격 CI → 머지 → 배포 → 라이브 번들 확인 → **사용자 라이브 검증**.
+  구현 1~4 단계는 타임라인 28 에서 완료됐다
+- **되풀이 금지 — 이미 측정 끝난 사실**:
+  - 렌더되는 호스트는 **9개**(13 아님). `statistics_page` · `budget_list_page` 의
+    MonthNavigator 3곳은 `showMonthNavigator: false` 로만 쓰이는 죽은 분기
+  - 홈 `_MonthHeader` 는 **손대지 않는다**(미라우팅). S1 가드가 "되살아나면 실패" 로 고정
+  - `MonthNavigator` 전용 테스트 0건 → 9곳을 공용 위젯 테스트로 일괄 커버
+- **배포 전 게이트(5번째)**: 번들에서 `이번 달로` 등 신규 문자열을 **escaped 형태로** 대조
+  (`reference_live_bundle_string_verification`)
 
 ### 그 다음 대기열 (착수 순서 아님)
 
