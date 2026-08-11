@@ -29,7 +29,8 @@ void main() {
   const hosts = <String, String>{
     'lib/features/transaction/presentation/pages/transaction_list_page.dart':
         'TransactionListPage',
-    'lib/features/analysis/presentation/pages/analysis_page.dart': 'AnalysisPage',
+    'lib/features/analysis/presentation/pages/analysis_page.dart':
+        'AnalysisPage',
     'lib/features/transfer/presentation/pages/transfer_list_page.dart':
         'TransferListPage',
     'lib/features/payment_method/presentation/pages/payment_method_page.dart':
@@ -78,7 +79,8 @@ void main() {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final src = entity.readAsStringSync();
         // 좌우 화살표 + 월 상태 변경을 한 파일이 동시에 갖고 있으면 자체 월 헤더다.
-        if (src.contains('Icons.chevron_left') && src.contains('changeMonth(')) {
+        if (src.contains('Icons.chevron_left') &&
+            src.contains('changeMonth(')) {
           offenders.add(entity.path.replaceAll(r'\', '/'));
         }
       }
@@ -125,6 +127,21 @@ void main() {
         }
       }
       expect(callers, ['lib/core/widgets/month_navigator.dart']);
+    });
+
+    test('월 피커는 프레임워크 위젯(CalendarDatePicker)을 쓰지 않는다', () {
+      // 2026-08-11 구조적 수정: 일 단계에서 CalendarDatePicker 를 쓰면 그 위젯의 헤더
+      // (`2026년 8월 ▾`)가 **Material 소유**라 눌리면 내부 연도 목록이 열린다 — 숨기거나
+      // 가로챌 공개 API 가 없어, 우리가 만든 "월로 올라가기" 어포던스와 둘로 갈라진다.
+      // 실제로 그렇게 갈라져 "월 선택이 나와야 하는데 연도 설정이 나온다" 는 결함이 났다.
+      // 연·월·일 전부 자체 위젯으로 그리는 것이 그 재발 경로를 없애는 유일한 방법이다.
+      final picker = read('lib/core/widgets/month_year_picker_dialog.dart');
+      expect(
+        picker.contains('CalendarDatePicker('),
+        isFalse,
+        reason: '월 피커가 다시 프레임워크 달력을 품었다. 그 헤더는 우리가 제어할 수 없어 '
+            '"월 선택 대신 연도 설정" 결함이 재발한다 — 자체 일 그리드를 유지하라.',
+      );
     });
 
     test('일 선택이 본질인 호출부는 기존 showCalendarPickerDialog 를 계속 쓴다', () {

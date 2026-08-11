@@ -91,9 +91,11 @@ void main() {
       await tester.tap(find.text('2026년 8월'));
       await tester.pumpAndSettle();
 
-      expect(find.text('월 선택'), findsOneWidget);
-      expect(find.text('2026년'), findsOneWidget);
+      // 연도와 월이 한 화면에 있다 — 연도 전용 단계는 존재하지 않는다.
+      expect(find.text('연/월 선택'), findsOneWidget);
+      expect(find.text('2026'), findsOneWidget); // 연도 휠 항목
       expect(find.text('3월'), findsOneWidget);
+      expect(find.text('연도 선택'), findsNothing);
     });
 
     testWidgets('onDatePicked 가 있으면 일 그리드로 진입한다 (거래 목록)', (tester) async {
@@ -109,7 +111,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('날짜 선택'), findsOneWidget);
-      expect(find.text('월 선택으로'), findsOneWidget);
+      expect(find.text('토'), findsOneWidget); // 자체 일 그리드의 요일 헤더
+      expect(
+        find.byType(CalendarDatePicker),
+        findsNothing,
+        reason: 'Material 내장 헤더가 다시 들어오면 "월 선택 대신 연도 설정" 결함이 재발한다.',
+      );
     });
   });
 
@@ -151,10 +158,8 @@ void main() {
 
       await tester.tap(find.text('2026년 8월'));
       await tester.pumpAndSettle();
-      // 일 그리드로 진입해 있다 — 15일 선택 후 확정.
+      // 일 그리드로 진입해 있다 — 15일 1탭이 곧 확정이다(확인 버튼 없음).
       await tester.tap(find.text('15'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('선택'));
       await tester.pumpAndSettle();
 
       expect(datePicked, DateTime(2026, 8, 15));
