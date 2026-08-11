@@ -9,22 +9,22 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"월말 점검(미기록 N건) 카드"** 회차 — PR #293(홈 전제 오류) → PR #294 **분석 탭 이전**
-  → 배포 성공 + 라이브 번들 검증 통과(타임라인 25). **남은 것은 사용자 라이브 검증 하나**
+- **단계**: **"월말 점검(미기록 N건) 카드"** 회차 — PR #293(홈 전제 오류) → PR #294(분석 탭 이전)
+  → 배포 → **사용자 라이브 검증 통과 = 완료**(2026-08-11, 타임라인 26)
+- **상태**: **열린 작업 없음.** 다음 회차는 아래 §3 에 착수 지점까지 고정돼 있다
+- **회차 경계**: 다음 회차는 **`/clear` 후 새 세션**에서 시작한다
 - ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
   `DashboardPage` 는 미라우팅(죽은 코드), 탭 4개(거래·분석·자산·더보기).
-  설정의 "홈 화면 구성" 도 고아 항목이다. 홈 위젯 전제의 계획은 전부 무효
-- **정본 문서**: `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `552cfae` · 작업 트리 clean
-- **범위**: FE 전용 — BE·DB·api-spec 변경 0(`/reconciliations/summary` 재사용)
-- **CI**: analyze 신규 0 / flutter test **894** / `./gradlew test` / `build web --release` 전부 통과.
-  추가 게이트: **배포 전 번들 문자열 확인**(카드가 트리셰이킹되지 않았는지)
-- **하네스 게이트**: `navigation_state` STRUCTURAL_FIX_REQUIRED → 구조적 수정
-  (`ledgerLocation` required year/month + 이관 + 가드) 포함 후 `acknowledge-gate.sh` 로 **해제 완료**
-- **다음 회차 예약**: 월 네비게이터 개선(연/월 드릴다운 피커 + "오늘" 버튼) —
-  `docs/sessions/2026-08-10_3_month-navigator_plan.md` (타임라인 22)
+  설정의 "홈 화면 구성" 도 고아 항목이다. **홈 위젯 전제의 계획·후보는 전부 무효**
+  (메모리 `reference_dead_home_dashboard`)
+- **정본 문서**: 종결 회차 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md` /
+  **다음 회차 = `docs/sessions/2026-08-10_3_month-navigator_plan.md`**
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `49fccfa` 이후 · 작업 트리 clean
+- **CI 게이트(4종 + 1)**: analyze 신규 0 / flutter test **894** / `./gradlew test` /
+  `build web --release` + **배포 전 번들 문자열 확인**(신규 UI 가 트리셰이킹되지 않았는지).
+  마지막 항목은 이번 회차에서 추가됐다
 - **blocker**: 없음
-- **갱신**: 2026-08-10
+- **갱신**: 2026-08-11
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
   기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
@@ -396,50 +396,65 @@
      **직전 배포에서 0건이던 카드 문구가 이번엔 모두 존재**. 카드가 실제로 번들에 들어갔다
    - **미완**: 사용자 라이브 검증. 통과 전까지 이 회차는 "완료" 아님
 
+26. **2026-08-11** — 월말 점검 카드 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
+   - 사용자 확인: "잘 된다". PR #293(홈 전제 오류) → PR #294(분석 탭 이전) → 배포 →
+     라이브 검증까지 전 구간 종료. **열린 작업 없음**
+   - 이 회차가 남긴 살아 있는 산출물(§4 산출물 지도에 유지):
+     `core/utils/ledger_route.dart`(`ledgerLocation`, **year/month required** — 하네스
+     navigation_state 3회 재발의 구조적 수정을 실제로 이행) · `/transactions?view=` 파라미터
+     (리스트/달력/정산 URL 진입, 저장된 뷰를 덮어쓰지 않음) · `ReconciliationSummaryCubit` ·
+     분석 탭 월말 점검 카드
+   - 이 회차의 가장 큰 소득은 기능이 아니라 **전제 검증 규칙**이다 —
+     화면에 무언가를 추가하기 전 라우팅 진입점을 먼저 측정한다.
+     메모리 `feedback_screen_reachability_check` · `reference_dead_home_dashboard` ·
+     하네스 인시던트(`dead_code`/`navigation_state`/`deployment_verification`) 등록 완료
+   - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 시작
+     (메모리 `feedback_round_boundary_clear`)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 월말 점검 카드 분석 탭 이전 **배포 완료**(타임라인 25). **사용자 라이브 검증 대기.**
-  확인 항목: ① 분석 탭 상단에 "월말 점검 · 미기록 N건" 카드가 보인다 ② 그 숫자가 거래 탭
-  정산 뷰 상단과 같다 ③ 카드를 누르면 **보고 있던 달 그대로** 정산 뷰로 이동한다
-  ④ 지난 달로 이동해도 카드 숫자가 그 달 기준으로 바뀐다 ⑤ 정산을 기록하고 분석 탭에
-  돌아오면 숫자가 갱신된다 ⑥ 정산 뷰에서 항목 수정 저장 시 정산 뷰에 머문다
-  정본 = `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md`
-- **이 회차의 완료 조건**: 배포 후 **사용자 라이브 검증**(기획서 §9 A/B/C 시나리오) 통과.
-  머지·배포만으로는 완료가 아니다(GR3).
-- **다음 회차(예약 완료)**: **월 네비게이터 개선** — 연/월 드릴다운 피커 + "오늘" 버튼 +
-  홈 `_MonthHeader` 통합. 정본 `docs/sessions/2026-08-10_3_month-navigator_plan.md`.
-  착수 지점: 기획서 §2 Step 1(`showMonthYearPickerDialog`)부터.
-  **회차 경계 규칙대로 `/clear` 후 새 세션에서 시작**한다.
-- 아래 후보 목록은 그 다음을 위해 그대로 둔다(번호는 착수 순서가 아니라 대기열).
-- **회차 경계 규칙(사용자 확정)**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
-  다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지.
-  이 절만 읽으면 새 세션에서 바로 시작할 수 있도록 착수 지점을 적어 둔다.
+- **현재 상태**: 월말 점검 카드 회차 **라이브 검증 통과 = 완료**(타임라인 26). **열린 작업 없음.**
+- **회차 경계 규칙**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
+  다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지
   (메모리 `feedback_round_boundary_clear`)
-- **첫 명령**: 없음. 사용자가 회차를 지정하기 전까지 코드 변경 없음.
-- **번호 규칙**: 아래 번호는 **개발 회차의 착수 순서**다. 사용자 확인만 필요한 항목은
-  회차 번호에 섞지 않고 아래 "회차 밖 트랙" 에 둔다(번호와 추천이 어긋났던 원인).
 
-### 다음 회차 후보 — 착수 지점 (이 절만 읽으면 바로 시작 가능)
+### 다음 회차 — **월 네비게이터 개선** (기획 완료, 착수 지점 고정)
 
-1. **홈 대시보드 "미정산 N건" 위젯** ← **추천(다음 회차)**. 기존 API 재사용, 소규모
-   - 데이터: `GET /reconciliations/summary` (이미 존재, `unrecordedCount`)
-   - 위젯 등록: `frontend/lib/features/home/domain/entities/dashboard_widget_config.dart`
-     + `features/home/presentation/widgets/` (기존 `monthly_trend_card.dart` 패턴 따르기)
-   - 주의: 위젯 ON/OFF·순서 설정에도 새 위젯이 반영되는지 전수 확인(`feedback_feature_impact_check`)
-2. **미기록 200건 초과 달의 추가 페이지 로드 UI**
-   - 현재는 안내 문구만: `reconciliation_view.dart:191` (+ 배경 주석 `:29`)
-   - BLoC: `reconciliation_bloc.dart:24` — 클라 필터링 금지 전제가 주석에 명시돼 있다
-   - 거래 목록의 LoadMore 패턴 참조: `reference_transaction_pagination_focus`
-3. **합계 ≠ 행 잔존 불일치** (소규모 BE) — 금액/기간/결제수단 필터만 켠 경우 BE summary 는
-   이체를 빼는데(`StatisticsService.kt:147` totalTransfer=0, EXPENSE_TRANSFER 미합산)
-   FE 행에는 이체가 남는다. 2026-08-10 회차에서 발견했으나 보고 증상과 무관해 손대지 않았다.
-4. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
-   2026-08-10 회차가 남긴 임시 전제("이체는 전부 공유 취급")를 정식화하는 회차 —
-   고칠 지점은 `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳으로 좁혀져 있다.
-5. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라가 없어 선행 작업이 크다(가장 큰 후보)
-6. **Android 배포(Play Store)** — PWA 설치는 이미 가능(`reference_pwa_android_installable`)
-7. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
+정본: `docs/sessions/2026-08-10_3_month-navigator_plan.md` (사용자 요청 2026-08-10)
+
+- **요청**: `< yyyy년 mm월 >` 의 달력 팝업에서 **연도별 보기 → 연도 내 달 선택**이 편하도록 +
+  **팝업 전에 "오늘로 가는 버튼"** 을 적절한 위치에
+- **첫 명령**: `bash ~/.claude/harness/scripts/pre-change-audit.sh . navigation_state`
+  (게이트 확인 — 이번 회차의 `ledgerLocation` 이행 이력을 근거로 처리) →
+  기획서 §2 Step 1(`showMonthYearPickerDialog`)부터 순서대로
+- **핵심 측정(이미 완료, 재조사 불필요)**:
+  - 공용 위젯 `lib/core/widgets/month_navigator.dart` 하나를 **13개 페이지**가 쓴다 →
+    한 곳 수정이 전체 반영
+  - 팝업 `lib/core/widgets/calendar_picker_dialog.dart` 의 `CalendarDatePicker` 는
+    **연도 선택은 이미 되지만 월 그리드가 없다** — 연도를 골라도 원하는 달까지 좌우로
+    넘겨야 한다. 이것이 요청의 정확한 결손 지점
+  - `onDatePicked`(일 선택) 실사용은 **1곳뿐**(`transaction_list_page.dart:679`, 선택 일자로
+    스크롤) → 나머지 12곳은 "월 우선" 전환에 부작용 없음
+  - **"오늘" 버튼은 어디에도 없다**(네비게이터·팝업 모두)
+  - 홈 대시보드 `_MonthHeader` 통합(기획서 Step 3)은 **홈 화면이 죽은 코드이므로 무의미** →
+    착수 시 그 Step 은 제외하고 시작한다(기획서는 이 사실 발견 전에 작성됐다)
+- **주의**: 회귀 범위가 13개 페이지로 넓다. 각 페이지의 기존 위젯 테스트 유무를 먼저 전수 확인하고,
+  없는 페이지는 `MonthNavigator` 자체 위젯 테스트로 대체 커버한다
+
+### 그 다음 대기열 (착수 순서 아님)
+
+1. **미기록 200건 초과 달의 추가 페이지 로드 UI** — 안내 문구만 있다
+   (`reconciliation_view.dart:191`). BLoC 주석에 클라 필터링 금지 전제 명시.
+   LoadMore 패턴은 `reference_transaction_pagination_focus`
+2. **합계 ≠ 행 잔존 불일치**(소규모 BE) — 금액/기간/결제수단 필터만 켜면 BE summary 는
+   이체를 빼는데(`StatisticsService.kt:147`) FE 행에는 이체가 남는다
+3. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
+   고칠 지점은 `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳으로 좁혀져 있다
+4. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라 선행 필요(가장 큼)
+5. **Android 배포(Play Store)** — PWA 설치는 이미 가능
+6. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
+7. ~~홈 대시보드 위젯 고도화~~ — **무효**(홈 화면 미라우팅). 되살리려면 홈 탭 복원 여부부터 결정
 
 ### 회차 밖 트랙 — 사용자 확인만 필요 (개발 착수 아님)
 
@@ -449,8 +464,16 @@
 
 ## 4. 산출물 지도
 
-- `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` — **현재 회차 설계 정본**(장부 필터 게이팅
-  단일화 + 동적 빈 문구). §7 에 남은 요구사항 Step 1~7 정리
+- `frontend/lib/core/utils/ledger_route.dart` — **장부 목록 URL 단일 소스**(`ledgerLocation`).
+  year/month 가 required 라 "화면 이동 시 보던 달이 안 따라간다"(navigation_state, 3회 재발)를
+  컴파일이 막는다. 새 진입 경로는 반드시 이 함수를 쓴다
+- `frontend/lib/features/reconciliation/presentation/widgets/reconciliation_summary_card.dart`
+  + `.../bloc/reconciliation_summary_cubit.dart` — 분석 탭 "월말 점검" 카드.
+  **홈이 아니라 분석 탭**에 있는 이유는 홈 화면이 미라우팅이기 때문(타임라인 23)
+- `frontend/test/features/home/dashboard_widget_registry_guard_test.dart` — 위젯 등록 누락 가드 +
+  장부 URL 단일 소스 가드 + **카드가 살아 있는 화면에 호스팅되는지** 가드
+- `docs/sessions/2026-08-10_ledger-filter-gating_plan.md` — 장부 필터 게이팅 설계 정본(장부 필터 게이팅
+  단일화 + 동적 빈 문구, 2026-08-10 종결). §7 에 남은 요구사항 Step 1~7 정리 — 단 "홈 위젯" 항목은 무효
 - `frontend/lib/features/transaction/presentation/utils/ledger_gating.dart` — **이체 게이팅 단일 진입점**.
   장부에 새 필터 축을 추가할 때 반드시 여기 판정을 먼저 쓴다(필드 수 가드가 강제)
 - `frontend/lib/features/transaction/presentation/utils/ledger_empty_message.dart` — 빈 상태 문구 단일 생성기
