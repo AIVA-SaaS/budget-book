@@ -9,10 +9,14 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"연/월 피커 단일 화면 통합 + 스피너"** 회차 — PR #296 머지 → 배포 성공 →
-  **서버 측 검증 완료**(2026-08-11, 타임라인 33). 남은 것은 **사용자 라이브 검증**
-- **상태**: main `1ae11be` · 작업 트리 clean. 라이브 검증 시나리오는 정본 기획서
-  `docs/sessions/2026-08-11_1_month-picker-unified_plan.md` §9 (A1~C3)
+- **단계**: **"연/월 피커 단일 화면 통합 + 스피너"** 회차 — PR #296 → 배포 →
+  **사용자 라이브 검증 통과 = 완료**(2026-08-11, 타임라인 34)
+- **상태**: **열린 작업 없음.** 다음 회차(합계 ≠ 행 잔존 불일치)는 아래 §3 에 착수 지점까지
+  고정돼 있다 — **분석부터** 시작한다
+- **회차 경계**: 다음 회차는 **`/clear` 후 새 세션**에서 시작한다
+- **이번 회차 교훈**: UI 개선이 프레임워크 위젯 위에 얹히면 어포던스가 둘로 갈라진다.
+  완료 기준은 "경로 추가"가 아니라 **"경쟁 경로 0개"** — 제어 불가하면 위젯을 교체한다
+  (메모리 `reference_framework_owned_affordance`)
 - **확정된 설계**: 왼쪽 연도 **휠 스피너** + 오른쪽 12개월 그리드(한 화면, 단계 전환 0회) /
   일 선택은 **자체 일 그리드**로 교체해 `CalendarDatePicker` 를 피커에서 제거
 - ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
@@ -542,59 +546,59 @@
      테스트(`CalendarDatePicker(` 소스 부재 + `findsNothing`)가 한다
    - **미완**: 사용자 라이브 검증(기획서 §9 A1~C3). 통과 전까지 이 회차는 "완료" 아님
 
+34. **2026-08-11** — 연/월 피커 통합 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
+   - 사용자 확인: "전체 잘 된다" — 기획서 §9 A1~C3 전 항목 통과. PR #296 배포까지 전 구간 종료
+   - 이 회차가 남긴 살아 있는 산출물(§4 산출물 지도에 유지):
+     `core/widgets/month_year_picker_dialog.dart`(연도 휠 + 12개월 그리드 한 화면,
+     자체 일 그리드, `CalendarDatePicker` 0개) · 가드 S2 의 프레임워크 위젯 부재 검사 ·
+     위젯 테스트 12건
+   - **재발 방지 등록**: `~/.claude/harness/lessons-learned.jsonl`(ui_pattern, navigation_state) +
+     메모리 `reference_framework_owned_affordance`.
+     교훈 한 줄 — **"경로를 추가했다"가 아니라 "경쟁 경로를 0개로 만들었다"가 완료 기준이다.**
+     제어 불가한 프레임워크 어포던스가 남아 있으면 위젯 교체 외에 해결이 없다
+   - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 **분석부터** 시작
+     (메모리 `feedback_round_boundary_clear`)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 월 네비게이터 회차 **라이브 검증 통과 = 완료**(타임라인 30). **열린 작업 없음.**
+- **현재 상태**: 연/월 피커 통합 회차 **라이브 검증 통과 = 완료**(타임라인 34). **열린 작업 없음.**
 - **회차 경계 규칙**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
   다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지
   (메모리 `feedback_round_boundary_clear`)
 
-### 다음 회차 — **연/월 피커 단일 화면 통합 + 스피너** (착수 지점 고정, **분석부터**)
+### 다음 회차 — **합계 ≠ 행 잔존 불일치** (착수 지점 고정, **분석부터**)
 
-직전 회차(#295)에 대한 사용자 후속 요청이다. 정본 기획서는 **새로 쓴다**
-→ `docs/sessions/2026-08-11_1_month-picker-unified_plan.md`
+대기열에서 이걸 먼저 잡는 이유: 사용자 눈에 **숫자가 틀려 보이는** 유일한 항목이고
+범위가 작다(BE 위주). 나머지는 기능 추가·인프라라 급하지 않다.
+정본 기획서는 새로 쓴다 → `docs/sessions/YYYY-MM-DD_N_summary-row-mismatch_plan.md`
 
-- **요청**(사용자, 2026-08-11 — 원문 취지):
-  1. 월 선택과 연 선택이 **사실상 같은 포맷**인데 서로 왔다갔다 하는 게 번거롭다
-     → **하나의 공간에서 연도와 월을 같이** 고를 수 있으면 좋겠다
-  2. `날짜 선택`(일 달력)에서 `2026년 8월` 을 누르면 **연도 설정이 바로 나온다 —
-     월 선택이 나와야 한다**
-  3. (부가) 연도·월을 **스피너로 돌려** 고르는 방식도 있으면 좋겠다
-- **첫 명령**: `bash ~/.claude/harness/scripts/pre-change-audit.sh . navigation_state`
-  (게이트 재확인 — 2026-08-11 의 S1~S4 이행을 근거로 처리) → 그 다음 **분석**
-- **이미 측정된 사실 (재조사 불필요)**:
-  - 요청 2 의 범인은 **`CalendarDatePicker` 내장 헤더**다. `month_year_picker_dialog.dart`
-    의 `_buildDayStage` 가 `CalendarDatePicker` 를 그대로 쓰고, 그 위젯의 헤더
-    (`2026년 8월 ▾`)는 Material 기본 동작으로 **연도 목록**을 연다. 직전 회차가 넣은
-    `월 선택으로` 버튼은 **그것과 별개의 두 번째 어포던스**라 사용자가 내장 헤더를 먼저 눌렀다.
-    → 통합 설계로 이 이중 어포던스 자체를 없애는 것이 정답. 내장 헤더를 숨길 수 없다면
-    일 단계에서 `CalendarDatePicker` 를 계속 쓸지부터 판단해야 한다
-  - 피커 파일은 하나(`core/widgets/month_year_picker_dialog.dart`)이고 **호출부는
-    `month_navigator.dart` 한 곳뿐**(S2 가드가 강제) → 변경 파급은 좁다
-  - `MonthNavigator` 를 렌더하는 호스트는 **9곳**(13 아님). S3 가드에 목록이 박혀 있다
-  - 기존 `showCalendarPickerDialog`(호출부 17곳, "날짜 입력"이 본질)는 **이번에도 대상 아님**
-- **분석 시 정할 것**:
-  - 단일 화면 형태 — 좌: 연도 리스트 / 우: 월 그리드? 상단 연도 스트립 + 하단 월 그리드?
-    아니면 **스피너 2열(연/월)** 하나로 통일? (요청 1·3 이 같은 답으로 수렴할 수 있다)
-  - 일(day) 선택을 이 화면에 어떻게 붙일지 — 거래 탭 1곳만 쓰는 기능이다
-  - 스피너를 넣는다면 신규 의존성 없이(`ListWheelScrollView`) 가능한지
-- **주의**: 직전 회차 산출물의 가드 3종(S1/S2/S3)과 위젯 테스트 30건이 이 파일들을 덮고 있다.
-  구조를 바꾸면 **가드도 함께 갱신**해야 하며, 가드를 약화시키는 방향이면 그 이유를 기획서에 남긴다
+- **증상**: 금액/기간/결제수단 필터만 켜면 **상단 합계와 아래 행이 서로 다른 집합**을 센다.
+  BE summary 는 이체를 빼는데(`StatisticsService.kt:147`) FE 목록에는 이체 행이 남는다
+- **첫 명령**: `bash ~/.claude/harness/scripts/pre-change-audit.sh . filter_propagation amount_calculation`
+  → 그 다음 `StatisticsService.kt` 의 summary 쿼리와 `ledger_gating.dart` 판정을 **나란히** 읽는다
+- **이미 알려진 지형 (재조사 불필요)**:
+  - 거래 목록은 **거래 + 이체 FE 병합** 스트림이다. 집계/필터를 한쪽에만 넣으면 drift 한다
+    (메모리 `reference_transaction_merged_transfer_stream_drift` — 이 프로젝트 최대 재발원)
+  - 이체 게이팅의 단일 진입점은 `lib/features/transaction/presentation/utils/ledger_gating.dart`.
+    새 판정은 반드시 여기를 먼저 거친다(필드 수 가드가 강제)
+  - 필터는 VO 하나로 관통해야 한다 — 필드 수동 나열은 4회 재발원
+    (메모리 `feedback_filter_vo_single_source`, `reference_month_move_filter_drop`)
+- **분석 시 정할 것**: 정답이 "합계도 이체를 포함" 인지 "목록도 이체를 제외" 인지.
+  **어느 쪽이든 20곳 표시 위치 전수 확인**이 전제다(메모리 `feedback_financial_consistency`).
+  판정 기준을 기획서에 사전에 못 박고 시작한다
 
 ### 그 다음 대기열 (착수 순서 아님)
 
 1. **미기록 200건 초과 달의 추가 페이지 로드 UI** — 안내 문구만 있다
    (`reconciliation_view.dart:191`). BLoC 주석에 클라 필터링 금지 전제 명시.
    LoadMore 패턴은 `reference_transaction_pagination_focus`
-2. **합계 ≠ 행 잔존 불일치**(소규모 BE) — 금액/기간/결제수단 필터만 켜면 BE summary 는
-   이체를 빼는데(`StatisticsService.kt:147`) FE 행에는 이체가 남는다
-3. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
+2. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
    고칠 지점은 `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳으로 좁혀져 있다
-4. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라 선행 필요(가장 큼)
-5. **Android 배포(Play Store)** — PWA 설치는 이미 가능
-6. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
-7. ~~홈 대시보드 위젯 고도화~~ — **무효**(홈 화면 미라우팅). 되살리려면 홈 탭 복원 여부부터 결정
+3. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라 선행 필요(가장 큼)
+4. **Android 배포(Play Store)** — PWA 설치는 이미 가능
+5. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
+6. ~~홈 대시보드 위젯 고도화~~ — **무효**(홈 화면 미라우팅). 되살리려면 홈 탭 복원 여부부터 결정
 
 ### 회차 밖 트랙 — 사용자 확인만 필요 (개발 착수 아님)
 
@@ -604,6 +608,12 @@
 
 ## 4. 산출물 지도
 
+- `frontend/lib/core/widgets/month_year_picker_dialog.dart` — **월 이동 피커 정본**.
+  연도 휠 + 12개월 그리드 한 화면 + 자체 일 그리드. **프레임워크 위젯을 쓰지 않는다** —
+  `CalendarDatePicker` 를 다시 넣으면 그 헤더가 우리 제어 밖이라 "월 선택 대신 연도 설정"
+  결함이 재발한다(가드가 막는다). 호출부는 `month_navigator.dart` 한 곳
+- `frontend/test/core/widgets/month_navigator_single_source_guard_test.dart` — S1 자체 월 헤더 금지 /
+  S2 피커 단일 소스 + **프레임워크 위젯 부재** / S3 도달성 9곳 고정
 - `frontend/lib/core/utils/ledger_route.dart` — **장부 목록 URL 단일 소스**(`ledgerLocation`).
   year/month 가 required 라 "화면 이동 시 보던 달이 안 따라간다"(navigation_state, 3회 재발)를
   컴파일이 막는다. 새 진입 경로는 반드시 이 함수를 쓴다
