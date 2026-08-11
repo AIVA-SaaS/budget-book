@@ -9,10 +9,10 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"연/월 피커 단일 화면 통합 + 스피너"** 회차 — 승인 → **구현 완료 · 로컬 게이트 5종
-  통과**(2026-08-11, 타임라인 32). 남은 것은 PR·머지·배포·사용자 라이브 검증
-- **상태**: 브랜치 `feat/month-picker-unified`. 정본 기획서
-  `docs/sessions/2026-08-11_1_month-picker-unified_plan.md` §9 가 라이브 검증 시나리오(A/B/C)
+- **단계**: **"연/월 피커 단일 화면 통합 + 스피너"** 회차 — PR #296 머지 → 배포 성공 →
+  **서버 측 검증 완료**(2026-08-11, 타임라인 33). 남은 것은 **사용자 라이브 검증**
+- **상태**: main `1ae11be` · 작업 트리 clean. 라이브 검증 시나리오는 정본 기획서
+  `docs/sessions/2026-08-11_1_month-picker-unified_plan.md` §9 (A1~C3)
 - **확정된 설계**: 왼쪽 연도 **휠 스피너** + 오른쪽 12개월 그리드(한 화면, 단계 전환 0회) /
   일 선택은 **자체 일 그리드**로 교체해 `CalendarDatePicker` 를 피커에서 제거
 - ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
@@ -526,6 +526,21 @@
    - **배포 전 번들 검증 ✅**: `연/월 선택` 1 · `날짜 선택` 2 · `이번 달로` 1 · 요일 라벨 7종 전부
      (한글은 **소문자** hex 이스케이프로만 잡힌다 — 원문 grep 은 전부 0건)
    - **미완**: PR · 머지 · 배포 · 사용자 라이브 검증
+
+33. **2026-08-11** — PR #296 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
+   남은 것은 사용자 라이브 검증.**
+   - 원격 CI: `backend-ci` pass(10s) / `frontend-ci` pass(2m3s) → squash 머지 + 브랜치 삭제
+   - main `1ae11be` · deploy-nas run **31538119612 success**
+     (changes / deploy-frontend / **verify-live** success; BE·nginx 변경 없어 skipped)
+   - **라이브 번들 검증** `[측정]`: `main.dart.js` last-modified 21:31Z ·
+     `cache-control: no-cache, must-revalidate` · `연/월 선택` 1 · `날짜 선택` 2 ·
+     `이번 달로` 1 · `이전 달` 3 · `다음 달` 4 (전부 소문자 hex 이스케이프)
+   - ⚠ 번들에 `연도 선택` 문자열이 **여전히 남아 있다** — 우리 코드가 아니라
+     `flutter_localizations` 한국어 리소스(`selectYearSemanticsLabel`)다. 다른 17곳이 쓰는
+     `showCalendarPickerDialog` 가 `CalendarDatePicker` 를 계속 쓰므로 정상이다.
+     **번들 문자열로는 월 피커의 프레임워크 이탈을 판정할 수 없다** — 그 판정은 가드
+     테스트(`CalendarDatePicker(` 소스 부재 + `findsNothing`)가 한다
+   - **미완**: 사용자 라이브 검증(기획서 §9 A1~C3). 통과 전까지 이 회차는 "완료" 아님
 
 ## 3. 다음 단계
 
