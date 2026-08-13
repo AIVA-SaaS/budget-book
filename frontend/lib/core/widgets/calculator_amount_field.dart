@@ -17,6 +17,11 @@ class CalculatorAmountField extends StatefulWidget {
   final ValueChanged<int>? onAmountChanged;
   final String? helperText;
 
+  /// Optional external focus node, so a caller can move focus here (e.g.
+  /// "저장 & 계속" returns to the top and puts the cursor back on the amount).
+  /// When omitted the field owns one internally.
+  final FocusNode? focusNode;
+
   const CalculatorAmountField({
     super.key,
     required this.controller,
@@ -24,6 +29,7 @@ class CalculatorAmountField extends StatefulWidget {
     this.validator,
     this.onAmountChanged,
     this.helperText,
+    this.focusNode,
   });
 
   @override
@@ -31,13 +37,18 @@ class CalculatorAmountField extends StatefulWidget {
 }
 
 class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
+
+  /// Only an internally created node may be disposed here.
+  late final bool _ownsFocusNode;
   bool _isExpressionMode = false;
   int? _previewResult;
 
   @override
   void initState() {
     super.initState();
+    _ownsFocusNode = widget.focusNode == null;
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
     widget.controller.addListener(_onTextChanged);
   }
@@ -46,7 +57,7 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
     widget.controller.removeListener(_onTextChanged);
-    _focusNode.dispose();
+    if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
   }
 

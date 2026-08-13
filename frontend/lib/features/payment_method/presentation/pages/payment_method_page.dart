@@ -180,10 +180,10 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
+          backgroundColor: paymentMethodTypeColor(context, method.type).withValues(alpha: 0.15),
           child: Icon(
             paymentMethodTypeIcon(method.type),
-            color: paymentMethodTypeColor(method.type),
+            color: paymentMethodTypeColor(context, method.type),
             size: 20,
           ),
         ),

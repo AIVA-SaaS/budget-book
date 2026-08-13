@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:budget_book/core/theme/bb_colors.dart';
+
 /// Group labels for payment method types, used in selector sheet section headers.
 const paymentMethodGroupLabels = <String, String>{
   'CASH': '현금',
@@ -31,19 +33,16 @@ IconData paymentMethodTypeIcon(String type) {
 }
 
 /// Returns a representative [Color] for the given payment method type.
-Color paymentMethodTypeColor(String type) {
-  return switch (type) {
-    'CASH' => Colors.green,
-    'DEBIT' => Colors.blue,
-    'CREDIT' => Colors.deepPurple,
-    'BANK' => Colors.teal,
-    _ => Colors.grey,
-  };
-}
+///
+/// Delegates to [BbColors] so the color has a dark-mode pair. It used to
+/// return raw palette values (`Colors.green` …), which stayed light-mode-only
+/// on every screen that called it — and eight screens do.
+Color paymentMethodTypeColor(BuildContext context, String type) =>
+    context.bb.paymentType(type);
 
 /// Builds a small colored badge [Widget] for the given payment method type.
 Widget buildPaymentMethodTypeBadge(BuildContext context, String type) {
-  final color = paymentMethodTypeColor(type);
+  final color = paymentMethodTypeColor(context, type);
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(

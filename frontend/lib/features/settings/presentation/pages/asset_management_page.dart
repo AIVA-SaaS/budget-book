@@ -25,6 +25,11 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
+import 'package:budget_book/core/theme/bb_colors.dart';
+import 'package:budget_book/core/theme/bb_density.dart';
+import 'package:budget_book/core/widgets/asset_edit_mode_scope.dart';
+import 'package:budget_book/core/widgets/entity_tile_row.dart';
+import 'package:budget_book/core/widgets/one_line_label.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
@@ -82,11 +87,27 @@ void _showAddGroupDialogTopLevel(
   );
 }
 
-class AssetManagementPage extends StatelessWidget {
+class AssetManagementPage extends StatefulWidget {
   final int? initialYear;
   final int? initialMonth;
 
   const AssetManagementPage({super.key, this.initialYear, this.initialMonth});
+
+  @override
+  State<AssetManagementPage> createState() => _AssetManagementPageState();
+}
+
+class _AssetManagementPageState extends State<AssetManagementPage> {
+  /// 보기 모드는 이름 + 금액만 보여준다. 활성 토글 · 설정(⋮) · 순서 변경(≡) 은
+  /// 이 컨트롤러가 켜졌을 때만 나타난다. 탭을 바꿔도 유지되고, 화면을 나가면
+  /// 컨트롤러와 함께 사라진다 (검증 B6).
+  final AssetEditModeController _editMode = AssetEditModeController();
+
+  @override
+  void dispose() {
+    _editMode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +120,7 @@ class AssetManagementPage extends StatelessWidget {
           return Scaffold(
             appBar: AppBar(
               title: const Text('자산 관리'),
+              actions: [_buildEditToggle(context)],
               bottom: const TabBar(
                 tabs: [
                   Tab(text: '결제수단'),
@@ -112,25 +134,42 @@ class AssetManagementPage extends StatelessWidget {
             // 과 사용 금액 (전월/미결제/이번달) 을 PageView 로 통합. 좌우 스와이프 +
             // dot indicator 로 동일 영역에서 데이터 전환. 결제수단 탭 + credit 보유
             // 시에만 2 page, 그외는 자산 1 page.
-            body: const Column(
-              children: [
-                MonthNavigator(),
-                _AssetPagerHeader(),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _PaymentMethodTab(),
-                      _CategoryTab(),
-                      _PocketTab(),
-                    ],
+            body: AssetEditModeScope(
+              controller: _editMode,
+              child: const Column(
+                children: [
+                  MonthNavigator(),
+                  _AssetPagerHeader(),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _PaymentMethodTab(),
+                        _CategoryTab(),
+                        _PocketTab(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             floatingActionButton: _buildFab(context),
           );
         },
       ),
+    );
+  }
+
+  /// 아이콘만 두면 편집 진입을 못 찾는다는 어포던스 위험(R1)이 있어 라벨을 병기한다.
+  Widget _buildEditToggle(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _editMode,
+      builder: (context, editing, _) {
+        return TextButton.icon(
+          onPressed: _editMode.toggle,
+          icon: Icon(editing ? Icons.check : Icons.edit_outlined, size: 18),
+          label: Text(editing ? '완료' : '편집'),
+        );
+      },
     );
   }
 
@@ -184,7 +223,8 @@ class AssetManagementPage extends StatelessWidget {
     final coupled = isCoupleMode();
     final isIncome = _lastSelectedCategoryType == 'INCOME';
     final typeLabel = isIncome ? '수입' : '지출';
-    final typeColor = isIncome ? Colors.blue.shade700 : Colors.deepOrange;
+    final typeColor =
+        isIncome ? context.bb.income.color : context.bb.expense.color;
 
     showModalBottomSheet(
       context: context,
@@ -543,7 +583,9 @@ class _CategoryTabState extends State<_CategoryTab> {
 
   Widget _buildGroupSection(BuildContext context, CategoryGroup group,
       {int groupIndex = 0, Key? key}) {
-    final color = UIHelpers.parseColor(group.color);
+    // guard S6 — 사용자 지정 색은 readable() 을 거쳐야 다크에서 묻지 않는다.
+    final color = context.bb.readable(UIHelpers.parseColor(group.color));
+    final editing = AssetEditModeScope.of(context);
     final isVirtual = group.id == _virtualGroupId;
     final sortedCategories = List<Category>.from(group.categories)
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
@@ -557,22 +599,25 @@ class _CategoryTabState extends State<_CategoryTab> {
           padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
           child: Row(
             children: [
-              // Drag handle for group reorder
-              ReorderableDragStartListener(
-                index: groupIndex,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  child: Icon(
-                    Icons.drag_handle,
-                    size: 20,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
+              // Drag handle for group reorder — 편집 모드에서만.
+              if (editing) ...[
+                ReorderableDragStartListener(
+                  index: groupIndex,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Icon(
+                      Icons.drag_handle,
+                      size: 20,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
+                const SizedBox(width: 4),
+              ],
               CircleAvatar(
                 radius: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
@@ -601,7 +646,7 @@ class _CategoryTabState extends State<_CategoryTab> {
                           .withValues(alpha: 0.5),
                     ),
               ),
-              if (!isVirtual)
+              if (!isVirtual && editing)
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
                   iconSize: 20,
@@ -635,13 +680,17 @@ class _CategoryTabState extends State<_CategoryTab> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('그룹 삭제', style: TextStyle(color: Colors.red)),
+                          Icon(Icons.delete_outline,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.error),
+                          const SizedBox(width: 8),
+                          Text('그룹 삭제',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error)),
                         ],
                       ),
                     ),
@@ -712,32 +761,13 @@ class _CategoryTabState extends State<_CategoryTab> {
         return Padding(
           key: ValueKey(c.id),
           padding: const EdgeInsets.only(left: 20),
-          child: Row(
-            children: [
-              Expanded(
-                child: CategoryListTile(
-                  category: c,
-                  onEdit: () => _showEditCategory(context, c),
-                  onDelete: () => _showDeleteCategoryDialog(context, c),
-                ),
-              ),
-              if (sortedCategories.length > 1)
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                    child: Icon(
-                      Icons.drag_handle,
-                      size: 20,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-            ],
+          // 순서 변경 핸들은 타일 안 편집 모드 레인으로 들어갔다 — 보기 모드에서
+          // 이름이 쓸 수 있는 폭이 그만큼 돌아온다.
+          child: CategoryListTile(
+            category: c,
+            onEdit: () => _showEditCategory(context, c),
+            onDelete: () => _showDeleteCategoryDialog(context, c),
+            reorderIndex: sortedCategories.length > 1 ? index : null,
           ),
         );
       },
@@ -795,7 +825,8 @@ class _CategoryTabState extends State<_CategoryTab> {
               Navigator.of(dialogContext).pop();
               getIt<CategoryGroupBloc>().add(DeleteCategoryGroup(group.id));
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error),
             child: const Text('삭제'),
           ),
         ],
@@ -880,7 +911,8 @@ class _CategoryTabState extends State<_CategoryTab> {
               Navigator.of(dialogContext).pop();
               context.read<CategoryBloc>().add(DeleteCategory(category.id));
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error),
             child: const Text('삭제'),
           ),
         ],
@@ -1082,7 +1114,7 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
 
             if (listItem.isHeader) {
               final typeLabel = paymentMethodGroupLabels[listItem.type] ?? listItem.type!;
-              final typeColor = paymentMethodTypeColor(listItem.type!);
+              final typeColor = context.bb.paymentType(listItem.type!);
               return Container(
                 key: ValueKey('header_${listItem.type}'),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -1107,30 +1139,11 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             }
 
             final method = listItem.paymentMethod!;
-            return Row(
+            // 순서 변경 핸들은 이제 타일 안(편집 모드 액션 레인)에 있다. 예전처럼
+            // 타일 밖 Row 로 빼면 보기 모드에서도 40dp 를 영구히 잡아먹는다.
+            return KeyedSubtree(
               key: ValueKey(method.id),
-              children: [
-                Expanded(
-                  child: _buildPaymentMethodTile(
-                    context,
-                    method,
-                    settlement,
-                  ),
-                ),
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                    child: Icon(
-                      Icons.drag_handle,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ],
+              child: _buildPaymentMethodTile(context, method, settlement, index),
             );
           },
         );
@@ -1138,109 +1151,83 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
     );
   }
 
+  /// 결제수단 한 행.
+  ///
+  /// 회차 12(2026-05-04) 의 `Transform.scale(0.85)` 는 Switch 의 **레이아웃 폭을
+  /// 1dp 도 줄이지 않았다** — Transform 은 페인트만 스케일하므로 부모 Row 는 여전히
+  /// 52dp 를 예약한다. 그래서 컴팩트해 보이기만 하고 이름 영역은 그대로 눌려 있었다.
+  /// 이번에는 토글·설정·순서를 편집 모드로 빼서 **폭 자체를 회수**한다.
   Widget _buildPaymentMethodTile(
     BuildContext context,
     PaymentMethod method,
     CardSettlementSummary? settlement,
+    int reorderIndex,
   ) {
-    final theme = Theme.of(context);
+    final bb = context.bb;
 
-    // Phase 25 Step 4 — 잔액/미결제 표시 (v1.0 payment_method_page 이식)
-    Widget? subtitle;
+    int cardAmount(CardSettlementMonth? month) =>
+        month?.cards
+            .firstWhere(
+              (c) => c.paymentMethodId == method.id,
+              orElse: () => const CardSettlementCard(
+                paymentMethodId: '',
+                paymentMethodName: '',
+                amount: 0,
+                transactionCount: 0,
+              ),
+            )
+            .amount ??
+        0;
+
+    String? subtitle;
+    EntityMetric? trailingMetric;
+    final metrics = <EntityMetric>[];
+    final badges = <EntityBadge>[];
+
     if (method.isCredit) {
-      // 카드: 마감일/결제일 + 미결제/이번달 (settlement 기준)
-      final prevAmount = settlement?.previousMonth.cards
-              .firstWhere((c) => c.paymentMethodId == method.id,
-                  orElse: () => const CardSettlementCard(
-                      paymentMethodId: '',
-                      paymentMethodName: '',
-                      amount: 0,
-                      transactionCount: 0))
-              .amount ??
-          0;
-      final currAmount = settlement?.currentMonth.cards
-              .firstWhere((c) => c.paymentMethodId == method.id,
-                  orElse: () => const CardSettlementCard(
-                      paymentMethodId: '',
-                      paymentMethodName: '',
-                      amount: 0,
-                      transactionCount: 0))
-              .amount ??
-          0;
-      final unpaidAmount = settlement?.unpaidMonth?.cards
-              .firstWhere((c) => c.paymentMethodId == method.id,
-                  orElse: () => const CardSettlementCard(
-                      paymentMethodId: '',
-                      paymentMethodName: '',
-                      amount: 0,
-                      transactionCount: 0))
-              .amount ??
-          0;
-      subtitle = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '마감일: ${method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일'}, 결제일: ${method.settlementDay ?? '-'}일',
-            style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+      final closing =
+          method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일';
+      subtitle = '마감일: $closing, 결제일: ${method.settlementDay ?? '-'}일';
+      if (settlement != null) {
+        final unpaid = cardAmount(settlement.unpaidMonth);
+        metrics.addAll([
+          EntityMetric(
+            label: '전월',
+            value: '${CurrencyFormatter.format(cardAmount(settlement.previousMonth))}원',
           ),
-          const SizedBox(height: 2),
-          // 회차 12 follow-up (2026-05-04) — 모바일에서 chip 3개 + trailing
-          // (Switch + PopupMenu) 가로 overflow 방지. Wrap 으로 좁은 화면 시
-          // 자동 줄바꿈.
-          if (settlement != null)
-            Wrap(
-              spacing: 4,
-              runSpacing: 2,
-              children: [
-                _SubChip(
-                    label: '전월',
-                    value: prevAmount,
-                    bg: Colors.grey.shade200,
-                    fg: Colors.grey.shade800),
-                _SubChip(
-                    label: '미결제',
-                    value: unpaidAmount,
-                    bg: unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50,
-                    fg: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
-                _SubChip(
-                    label: '이번달',
-                    value: currAmount,
-                    bg: Colors.blue.shade50,
-                    fg: Colors.blue.shade800),
-              ],
-            ),
-        ],
-      );
+          EntityMetric(
+            label: '미결제',
+            value: '${CurrencyFormatter.format(unpaid)}원',
+            tone: unpaid > 0 ? EntityTone.expense : EntityTone.neutral,
+          ),
+          EntityMetric(
+            label: '이번달',
+            value: '${CurrencyFormatter.format(cardAmount(settlement.currentMonth))}원',
+            tone: EntityTone.income,
+          ),
+        ]);
+      }
     } else {
-      // 비-카드: 잔액 표시 (null 시 0원 fallback) + 기본 결제수단 뱃지
       final balance = method.balance ?? 0;
-      final sign = balance >= 0 ? Colors.green.shade800 : Colors.red.shade800;
-      // 회차 12 follow-up — 모바일에서 잔액 + "기본" 라벨 overflow 방지.
-      subtitle = Row(
-        children: [
-          Flexible(
-            child: Text(
-              '잔액: ${CurrencyFormatter.formatWithSign(balance)}',
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700, color: sign),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (method.isDefault) ...[
-            const SizedBox(width: 8),
-            Text('· 기본',
-                style: TextStyle(
-                    fontSize: 11,
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.45))),
-          ],
-        ],
+      trailingMetric = EntityMetric(
+        label: '잔액',
+        value: CurrencyFormatter.formatWithSign(balance),
+        tone: balance >= 0 ? EntityTone.positive : EntityTone.negative,
       );
+      if (method.isDefault) badges.add(const EntityBadge(label: '기본'));
     }
 
-    return ListTile(
+    return EntityTileRow(
+      title: method.name,
+      subtitle: subtitle,
+      badges: badges,
+      trailingMetric: trailingMetric,
+      metrics: metrics,
+      // 타입 텍스트 뱃지는 제거했다 — 아바타 아이콘이 이미 타입을 말하고 있어서
+      // 40~50dp 를 중복으로 쓰고 있었다.
+      leadingIcon: paymentMethodTypeIcon(method.type),
+      leadingColor: bb.paymentType(method.type),
+      dimmed: !method.isActive,
       // 사용자 요청: 자산 항목 클릭 시 해당 결제수단으로 필터된 거래 탭으로 이동
       onTap: () {
         final encodedName = Uri.encodeComponent(method.name);
@@ -1248,110 +1235,42 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
           '/transactions?paymentMethodId=${method.id}&paymentMethodName=$encodedName',
         );
       },
-      leading: CircleAvatar(
-        backgroundColor: paymentMethodTypeColor(method.type).withValues(alpha: 0.15),
-        child: Icon(
-          paymentMethodTypeIcon(method.type),
-          color: paymentMethodTypeColor(method.type),
-          size: 20,
-        ),
-      ),
-      title: Row(
-        children: [
-          Flexible(child: Text(method.name, overflow: TextOverflow.ellipsis)),
-          const SizedBox(width: 8),
-          buildPaymentMethodTypeBadge(context, method.type),
-          if (!method.isActive) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '비활성',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      subtitle: subtitle,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 회차 12 follow-up (2026-05-04) — 모바일에서 Switch 가 trailing 공간
-          // 과도하게 차지하여 subtitle chip overflow 유발. visualDensity +
-          // materialTapTargetSize 로 컴팩트화.
-          Transform.scale(
-            scale: 0.85,
-            child: Switch(
-              value: method.isActive,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (value) {
-                context.read<PaymentMethodBloc>().add(
-                      UpdatePaymentMethod(id: method.id, isActive: value),
-                    );
-              },
-            ),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (action) {
-              if (action == 'edit') {
-                _showEditPaymentMethod(context, method);
-              } else if (action == 'delete') {
-                _showDeleteDialog(context, method);
-              } else if (action == 'adjust_balance') {
-                BalanceAdjustmentSheet.show(
-                  context,
-                  paymentMethodId: method.id,
-                  paymentMethodName: method.name,
-                  currentBalance: method.balance ?? 0,
-                );
-              }
-            },
-            itemBuilder: (_) => [
-              // Phase 25 Step 4 — 잔액 수정 popup 항목 (비-카드만, tune IconButton 분리 금지)
-              if (!method.isCredit)
-                const PopupMenuItem(
-                  value: 'adjust_balance',
-                  child: Row(
-                    children: [
-                      Icon(Icons.tune, size: 20),
-                      SizedBox(width: 8),
-                      Text('잔액 수정'),
-                    ],
-                  ),
-                ),
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text('수정'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline,
-                        size: 20, color: theme.colorScheme.error),
-                    const SizedBox(width: 8),
-                    Text('삭제',
-                        style: TextStyle(color: theme.colorScheme.error)),
-                  ],
-                ),
-              ),
-            ],
+      actions: EntityTileActions(
+        isActive: method.isActive,
+        onActiveChanged: (value) {
+          context.read<PaymentMethodBloc>().add(
+                UpdatePaymentMethod(id: method.id, isActive: value),
+              );
+        },
+        menu: [
+          // Phase 25 Step 4 — 잔액 수정 popup 항목 (비-카드만, tune IconButton 분리 금지)
+          if (!method.isCredit)
+            const EntityMenuAction(
+                value: 'adjust_balance', label: '잔액 수정', icon: Icons.tune),
+          const EntityMenuAction(
+              value: 'edit', label: '수정', icon: Icons.edit_outlined),
+          const EntityMenuAction(
+            value: 'delete',
+            label: '삭제',
+            icon: Icons.delete_outline,
+            destructive: true,
           ),
         ],
+        onMenuSelected: (action) {
+          if (action == 'edit') {
+            _showEditPaymentMethod(context, method);
+          } else if (action == 'delete') {
+            _showDeleteDialog(context, method);
+          } else if (action == 'adjust_balance') {
+            BalanceAdjustmentSheet.show(
+              context,
+              paymentMethodId: method.id,
+              paymentMethodName: method.name,
+              currentBalance: method.balance ?? 0,
+            );
+          }
+        },
+        reorderIndex: reorderIndex,
       ),
     );
   }
@@ -1401,7 +1320,8 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
                   .read<PaymentMethodBloc>()
                   .add(DeletePaymentMethod(method.id));
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error),
             child: const Text('삭제'),
           ),
         ],
@@ -1451,7 +1371,9 @@ class _PocketTab extends StatelessWidget {
   }
 
   Widget _buildPocketTile(BuildContext context, MoneyPocket pocket) {
-    final color = UIHelpers.parseColor(pocket.color);
+    // 사용자가 고른 색은 여기 한 곳에서만 보정한다 (guard S6):
+    // 다크 배경에 묻지 않도록 HSL 명도만 클램프하고 색상·채도는 그대로 둔다.
+    final color = context.bb.readable(UIHelpers.parseColor(pocket.color));
     final typeLabel = switch (pocket.type) {
       'LIVING' => '생활비',
       'FIXED' => '고정지출',
@@ -1463,81 +1385,41 @@ class _PocketTab extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(
-            UIHelpers.resolveIcon(pocket.icon, fallback: Icons.account_balance_wallet),
-            color: color,
-            size: 20,
-          ),
+      child: EntityTileRow(
+        title: pocket.name,
+        leadingIcon: UIHelpers.resolveIcon(pocket.icon,
+            fallback: Icons.account_balance_wallet),
+        leadingColor: color,
+        badges: [EntityBadge(label: typeLabel, color: color)],
+        trailingMetric: EntityMetric(
+          label: '잔액',
+          value: '${CurrencyFormatter.format(pocket.balance)}원',
+          tone: pocket.balance >= 0 ? EntityTone.positive : EntityTone.negative,
         ),
-        title: Row(
-          children: [
-            Flexible(
-                child: Text(pocket.name, overflow: TextOverflow.ellipsis)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                typeLabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
+        metrics: [
+          EntityMetric(
+            label: '할당',
+            value: '${CurrencyFormatter.format(pocket.allocatedAmount)}원',
+          ),
+        ],
+        actions: EntityTileActions(
+          menu: const [
+            EntityMenuAction(
+                value: 'edit', label: '수정', icon: Icons.edit_outlined),
+            EntityMenuAction(
+              value: 'delete',
+              label: '삭제',
+              icon: Icons.delete_outline,
+              destructive: true,
             ),
           ],
-        ),
-        subtitle: Text(
-          '잔액: ${CurrencyFormatter.format(pocket.balance)}원 / 할당: ${CurrencyFormatter.format(pocket.allocatedAmount)}원',
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.6),
-          ),
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (action) {
+          onMenuSelected: (action) {
             if (action == 'edit') {
               _showEditPocket(context, pocket);
             } else if (action == 'delete') {
               _showDeleteDialog(context, pocket);
             }
           },
-          itemBuilder: (_) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('수정'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.error),
-                  const SizedBox(width: 8),
-                  Text('삭제',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1583,7 +1465,8 @@ class _PocketTab extends StatelessWidget {
               Navigator.of(dialogContext).pop();
               context.read<PocketBloc>().add(DeletePocket(pocket.id));
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(dialogContext).colorScheme.error),
             child: const Text('삭제'),
           ),
         ],
@@ -1738,7 +1621,9 @@ class _CardSettlementCardsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bb = context.bb;
     final theme = Theme.of(context);
+    final unpaid = summary.unpaidMonth?.totalAmount ?? 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       child: Row(
@@ -1748,19 +1633,17 @@ class _CardSettlementCardsView extends StatelessWidget {
               label: '전월 사용',
               amount: summary.previousMonth.totalAmount,
               count: summary.previousMonth.cards.length,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _SettlementCard(
               label: '미결제',
-              amount: summary.unpaidMonth?.totalAmount ?? 0,
+              amount: unpaid,
               count: summary.unpaidMonth?.cards.length ?? 0,
-              color: (summary.unpaidMonth?.totalAmount ?? 0) > 0
-                  ? theme.colorScheme.error
-                  : Colors.green.shade700,
-              highlight: (summary.unpaidMonth?.totalAmount ?? 0) > 0,
+              color: unpaid > 0 ? bb.expense.color : bb.positiveBalance,
+              highlight: unpaid > 0,
             ),
           ),
           const SizedBox(width: 8),
@@ -1769,7 +1652,7 @@ class _CardSettlementCardsView extends StatelessWidget {
               label: '이번달 사용',
               amount: summary.currentMonth.totalAmount,
               count: summary.currentMonth.cards.length,
-              color: Colors.blue.shade800,
+              color: bb.income.color,
             ),
           ),
         ],
@@ -1802,7 +1685,7 @@ class _AssetSummaryHeader extends StatelessWidget {
         final debt = state.cardSettlementSummary?.unpaidMonth?.totalAmount ?? 0;
         final net = asset - debt;
 
-        final theme = Theme.of(context);
+        final bb = context.bb;
         return Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: Row(
@@ -1811,8 +1694,7 @@ class _AssetSummaryHeader extends StatelessWidget {
                 child: _SummaryCard(
                   label: '총자산',
                   value: asset,
-                  color: Colors.green.shade700,
-                  bg: Colors.green.withValues(alpha: 0.08),
+                  color: bb.income.color,
                   icon: Icons.account_balance_wallet,
                 ),
               ),
@@ -1821,8 +1703,7 @@ class _AssetSummaryHeader extends StatelessWidget {
                 child: _SummaryCard(
                   label: '부채',
                   value: debt,
-                  color: Colors.red.shade700,
-                  bg: Colors.red.withValues(alpha: 0.08),
+                  color: bb.expense.color,
                   icon: Icons.credit_card,
                   signed: false,
                 ),
@@ -1832,9 +1713,7 @@ class _AssetSummaryHeader extends StatelessWidget {
                 child: _SummaryCard(
                   label: '순자산',
                   value: net,
-                  color: net >= 0 ? theme.colorScheme.primary : Colors.red.shade700,
-                  bg: (net >= 0 ? theme.colorScheme.primary : Colors.red)
-                      .withValues(alpha: 0.08),
+                  color: net >= 0 ? bb.positiveBalance : bb.negativeBalance,
                   icon: Icons.savings,
                   signed: true,
                 ),
@@ -1868,6 +1747,7 @@ class _SettlementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final density = context.density;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1879,12 +1759,16 @@ class _SettlementCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          OneLineLabel(
             label,
-            style: TextStyle(
-                fontSize: 11, color: color, fontWeight: FontWeight.w600),
+            baseFontSize: density.headerLabelFontSize,
+            minFontSize: 10,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
+          // 금액은 FittedBox 로 줄인다 — 카드 폭이 화면의 1/3 뿐이라 축소 하한을
+          // 두면 잘릴 수 있고, 금액은 **잘리는 것보다 작아지는 쪽**이 맞다
+          // (금액 축약·절단 금지).
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -1899,34 +1783,8 @@ class _SettlementCard extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 10,
                     color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                        theme.colorScheme.onSurface.withValues(alpha: 0.6))),
         ],
-      ),
-    );
-  }
-}
-
-class _SubChip extends StatelessWidget {
-  final String label;
-  final int value;
-  final Color bg;
-  final Color fg;
-  const _SubChip({
-    required this.label,
-    required this.value,
-    required this.bg,
-    required this.fg,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(
-        '$label ${CurrencyFormatter.format(value)}원',
-        style:
-            TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
@@ -1936,7 +1794,6 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final int value;
   final Color color;
-  final Color bg;
   final IconData icon;
   final bool signed;
 
@@ -1944,20 +1801,22 @@ class _SummaryCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
-    required this.bg,
     required this.icon,
     this.signed = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final density = context.density;
     final formatted = signed
         ? CurrencyFormatter.formatWithSign(value)
         : CurrencyFormatter.format(value);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: bg,
+        // 배경은 전경색의 옅은 틴트다. 색 자체가 라이트·다크 쌍으로 정의돼
+        // 있으므로 두 모드 모두에서 대비가 유지된다.
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -1967,9 +1826,14 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: color),
               const SizedBox(width: 4),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+              Expanded(
+                child: OneLineLabel(
+                  label,
+                  baseFontSize: density.headerLabelFontSize,
+                  minFontSize: 10,
+                  style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -1979,7 +1843,7 @@ class _SummaryCard extends StatelessWidget {
             child: Text(
               formatted,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: density.headerValueFontSize,
                 fontWeight: FontWeight.w800,
                 color: color,
               ),

@@ -9,21 +9,25 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"합계 ≠ 행 불일치" 회차 종결(완료)** — PR #297 → 배포 → **사용자 라이브 검증
-  A1~A11 전부 통과** (2026-08-13, 타임라인 41)
-- **다음 회차**: **자산 탭 모바일 가독성 + 브랜드 색상 체계 개편** — 기획 **승인 완료**,
-  코드 **0줄**, 착수 대기. 기획서
+- **단계**: **자산 탭 모바일 가독성 + 브랜드 색상 회차 — 구현 진행 중**
+  (브랜치 `feat/asset-tab-mobile-theme`). 기획서
   `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md` (§6 커밋 순서 정본)
-- ⚠ **착수는 `/clear` 후 새 세션에서** — 회차 경계 규칙(메모리 `feedback_round_boundary_clear`).
-  이 세션에서 다음 회차 코드를 시작하지 않는다
+- **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마**(타임라인 42) /
+  **커밋 2 공통 타일**(43) / **커밋 3 자산 탭 이관**(44) / **커밋 4 자산 현황 카드**(45) /
+  **커밋 5 저장&계속 스크롤**(46) / **커밋 6 색 래칫 가드**(47)
+- **남은 것**: 원격 CI 재실행 → 머지 → 배포 → **사용자 라이브 검증**
+  (구현 커밋 6개 + 로컬 CI + CI 실패 1건 수정 완료. PR **#298**)
+- **직전 회차("합계 ≠ 행")는 종결** — PR #297, 라이브 검증 A1~A11 전부 통과 (타임라인 41)
 - **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
   타일은 **편집 모드 분리**(보기 모드 = 이름+금액만, 편집 모드에서만 토글·⋮·≡) /
   범위 = 자산 탭 3탭 + 분석>예산의 "자산 현황" 카드 + 테마 토큰(앱 전역) + 저장&계속 스크롤 fix.
   나머지 68파일 하드코딩 색은 **래칫 가드로 점진 축소**(이번 회차 미수정)
-- **하네스 게이트**: `ui_pattern` **STRUCTURAL_FIX_REQUIRED — LOCKED, acknowledge 미실행**.
-  착수 첫 단계가 `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`.
-  해제 근거는 기획서 §5 S1~S7(타일 API 봉인 / 색 래칫 / ListTile·MediaQuery 직접사용 금지 /
-  32조합 오버플로 매트릭스 / WCAG 명도비 자동측정 / 사용자색 보정 단일지점 / 저장&계속 offset 0)
+- **하네스 게이트**: `ui_pattern` STRUCTURAL_FIX_REQUIRED — **acknowledge 완료(2026-08-13)**.
+  해제 근거 §5 S1~S7 중 **S5(WCAG 명도비 자동측정) 구현 완료**, 나머지 S1~S4·S6·S7 은
+  커밋 2·3·5·6 에서 구현 예정
+- **색 최종값(측정 확정)**: 브랜드 틸 `#0F766E`/`#5ED3C4` · 수입 `#2563EB`/`#60A5FA` ·
+  지출 **`#D11440`**/`#FB7185`(로즈 — 순수 레드는 M3 error 와 hue 0° 충돌) ·
+  이체 슬레이트 · 예산 앰버 · 저축 바이올렛. **후보 `#E11D48` 은 명도비 4.47 로 자동 반려됨**
 - **선행 측정 완료(U1)**: 통계 위젯 9개 중 `colorScheme.primary` 의존은 1건뿐
   (`period_budget_tab.dart`) → **차트는 이번 회차 미변경**. 씨드를 틸로 바꿔도 차트는 안 깨진다
 - **핵심 측정치**: 360dp 에서 결제수단 한 행의 고정 크롬 **236dp** / 콘텐츠 잔여 **124dp**.
@@ -738,29 +742,162 @@
    - 후속으로 이관: `/transfers` 진입점 부활 여부 · 차트 수입 그린 vs 장부 수입 블루 불일치 ·
      죽은 화면 6개 정리(결과 문서 §9)
 
+42. **2026-08-13** — 자산 탭 회차 **착수**: 하네스 게이트 해제 + **커밋 1(토큰/테마 기반) 완료**.
+   - 게이트: `acknowledge-gate.sh frontend <기획서>` 실행 → `ui_pattern`
+     STRUCTURAL_FIX_REQUIRED **acknowledged**(frontend 편집 허용). 브랜치
+     `feat/asset-tab-mobile-theme`
+   - 산출물: `core/theme/bb_colors.dart`(BbColors ThemeExtension — 브랜드 틸 씨드 `#0F766E` /
+     다크 `#5ED3C4` + 의미 토큰 7종의 `color·container·onContainer` 삼중쌍 + 결제수단 타입색 5종 +
+     `readable()` HSL 명도 클램프 + WCAG 명도비·색상거리 계산) / `core/theme/bb_density.dart`
+     (compact<400 / regular / wide≥840, `MediaQuery.sizeOf` 단일 독점 지점) /
+     `core/widgets/one_line_label.dart`(String 봉인 + TextPainter 이진탐색 4회 + 프레임 메모이즈,
+     **금액 축약 없음**) / `app_theme.dart`(씨드 교체 + `extensions:` 주입, light·dark primary 명시
+     override) / `app_colors.dart` `@Deprecated` 위임
+   - 게이트 결과: 신규 테스트 41건 + 기존 936건 = **`flutter test` 977건 전부 통과**
+     (씨드 변경이 기존 위젯 테스트를 하나도 깨지 않음 — R3 전역 영향 1차 확인)
+   - **측정으로 확정된 값 2건**(사전 판정 기준 §3 U3 적용):
+     ① 수입 블루는 `#2196F3`(hue 206.6°, 틸과 31.3° 차 → 기준 40° 미달)을 버리고 **`#2563EB`**
+     (hue 221.2°, 45.9° 차)로 이동
+     ② 지출 레드는 M3 `error` 와 hue 차가 0°라 **로즈 계열 `#D11440`**(hue 346°, error 와 18° 차).
+     최초 후보 `#E11D48` 은 **M3 라이트 surface 가 순백이 아니라서** 명도비 4.47:1 로
+     4.5 기준 **미달 → 자동 테스트가 반려** → 한 단계 어둡게 재선정(측정이 색을 결정한 사례)
+   - 판정 근거: `bb_colors_contrast_test.dart` 가 라이트·다크 각각 토큰 전수(본문 4.5 / 아이콘 3.0)
+     + 브랜드-수입-지출 hue 거리 + error 충돌을 **자동 측정**. 미달 토큰은 채택 불가
+
+43. **2026-08-13** — **커밋 2(공통 타일 + 편집 모드 스코프) 완료.**
+   - 산출물: `core/widgets/entity_tile_row.dart`(ListTile 을 쓰지 않는 자체 타일 —
+     `title: String` 봉인, 뱃지·메트릭·액션 전부 값 타입) /
+     `core/widgets/asset_edit_mode_scope.dart`(InheritedNotifier — 편집 모드 켜짐이
+     페이지 전체가 아니라 타일만 리빌드) / `bb_density.toggleSlotWidth` 추가
+   - **설계 판정 1건(측정 후 추가)**: 320dp·textScale 1.3 에서는 이름과 금액을 한 줄에 같이 둘 수
+     없다 → 타일이 **폭을 먼저 재고**(`OneLineLabel.measureWidth`) 안 들어가면 **금액을 아래 칩
+     줄로 내린다**. 이름을 자르지도, 금액을 축약하지도 않는 유일한 해법
+     (`feedback_financial_consistency` 준수). 편집 모드에서는 액션 레인이 우측을 차지하므로
+     금액·부제·칩을 감추고 이름+레인만 남긴다
+   - 게이트: **S4 32조합 매트릭스**(320·360·390·768 × 라이트·다크 × 1.0·1.3배 × 보기·편집)
+     통과 — 오버플로 0건 / 보기 모드에서 13자 이름 **ellipsis 0건** / 편집 모드 액션 탭 타깃 ≥40dp.
+     **S1 API 봉인 가드**(Widget 타입 필드·ListTile 사용 0건 소스 스캔) 통과.
+     `EntityTone` 전 값의 칩 배경↔전경 명도비 ≥4.5 자동 측정 통과
+   - `flutter test` **1019건 통과** / `flutter analyze` 신규 지적 **0건**(잔여 3건은 기존 파일)
+   - ⚠ **기획서 §6 대비 순서 조정 1건**: S3(ListTile·MediaQuery 직접사용 금지)·S6(parseColor→
+     readable) 가드는 대상 화면이 아직 이관 전이라 **커밋 3(이관)과 같은 커밋**에 넣는다.
+     커밋 2 에 넣으면 그 커밋이 빨간 상태로 남는다
+
+44. **2026-08-13** — **커밋 3(자산 탭 이관) 완료.**
+   - 이관: 결제수단·카테고리·포켓 **3개 탭 타일 전부** `EntityTileRow` 로 /
+     `CategoryListTile` 도 같은 타일로(자산 탭이 유일한 라이브 사용처) /
+     상단 헤더 `_AssetSummaryHeader`·`_CardSettlementCardsView`·`_SettlementCard`·
+     `_SummaryCard` 를 density·토큰으로 / `_SubChip` 은 타일 메트릭으로 흡수돼 **삭제**
+   - AppBar **편집 버튼**(아이콘 + "편집/완료" 텍스트 병기 — R1 어포던스 완화) +
+     `AssetEditModeScope` 배선. 카테고리 **그룹 헤더의 ≡·⋮ 도 편집 모드에서만** 노출
+   - 순서 변경 핸들을 **타일 밖 Row → 타일 안 편집 레인**으로 이동. 예전 구조는 보기
+     모드에서도 40dp 를 영구히 점유했다. **reorder 인덱스 계산은 무변경**(visual index
+     그대로 전달) — R2 회귀 표면을 만들지 않았다
+   - **공통 범위 감사에서 추가 발견 1건**(`feedback_common_scope_audit` 적용):
+     `paymentMethodTypeColor` 가 자산 탭 말고도 **8개 파일**(필터 시트·거래 폼·지출계획·
+     보험·반복거래·대시보드 등)에서 쓰이고 있었다. 자산 탭만 토큰으로 바꾸면 같은 결제수단이
+     화면마다 다른 색이 된다 → **헬퍼 자체의 시그니처를 `(BuildContext, String)` 으로 바꿔
+     `context.bb.paymentType` 에 위임**하고 호출부 8곳 일괄 수정. 하드코딩 5색 제거 +
+     전 화면 다크 쌍 확보
+   - 게이트: **S3 가드**(대상 파일 `ListTile(` 0건 · `MediaQuery...width` 직접 사용 0건,
+     `BbDensity` 가 앱 전체 유일 읽기 지점) + **S6 가드**(`parseColor` 결과는 반드시
+     `readable()` 통과) 신설·통과. `flutter test` **1025건 통과** /
+     `flutter analyze` 신규 지적 **0건**
+   - 대상 파일 하드코딩 팔레트 색 **0건**(`Colors.transparent` 제외 — 테마 중립)
+
+45. **2026-08-13** — **커밋 4(분석>예산 "자산 현황" 카드) 완료.**
+   - `account_balance_card.dart` 의 `_AssetItem` 을 `EntityTileRow` 로, 그룹 헤더 색
+     (현금 green / 은행 blue / 카드 purple 하드코딩)을 `context.bb.paymentType` 으로.
+     칩 3종(전월·미결제·이번달)은 타일 메트릭으로 흡수 — 하드코딩 색 **0건**
+   - **설계 추가 1건**: 이 화면에는 편집 모드가 없는데 "잔액 수정"(tune) 버튼은 살아 있는
+     기능이다. 편집 모드 전용 액션으로 넣으면 **기능이 사라진다** → 타일에
+     `EntityViewAction`(아이콘·툴팁·콜백 3개만 받는 봉인 값 타입) 슬롯을 하나 추가해
+     보기 모드에서만 노출. S1 봉인 가드에 이 슬롯도 등재
+   - 부수: 항목 끝 `chevron_right` 장식 아이콘 제거(행 전체가 이미 탭 가능, 폭 16dp 회수)
+   - 게이트: S3·S6 가드 대상 목록에 이 파일 추가 후 통과 / `flutter test` **1025건 통과** /
+     `analyze` 신규 지적 **0건**
+
+46. **2026-08-13** — **커밋 5(저장 & 계속 → 최상단) 완료.**
+   - `transaction_form_page.dart`: 폼 본문 `SingleChildScrollView` 에 **탭별
+     ScrollController** 3개(지출·수입·편집) + **탭별 금액 FocusNode** 2개.
+     `_resetFormForContinue()` 가 `animateTo(0)` + 금액 필드 포커스 요청까지 한다
+   - `CalculatorAmountField` 에 **외부 `focusNode` 주입 옵션** 추가(없으면 종전대로 내부 생성,
+     외부 주입 시 dispose 하지 않는다 — 소유권 분리)
+   - **왜 탭별인가**: 지출/수입 폼은 `TabBarView` 에서 동시에 살아 있어 하나를 공유하면
+     두 ScrollView 에 같은 컨트롤러가 붙어 런타임 예외가 난다. FocusNode 를 탭별로
+     분리해 둔 기존 선례와 같은 이유
+   - 게이트: **S7 위젯 테스트 신설** — 폼을 최하단까지 스크롤 → "저장 & 계속" →
+     `offset == 0` + 금액 포커스. **지출 탭·수입 탭 각각** + 컨트롤러 인스턴스 분리 검증.
+     이 페이지의 **첫 위젯 테스트**다(기존에는 bloc 테스트뿐)
+   - **테스트 구성 중 측정한 사실 2건**: ① 성공 리스너는 `_isSubmitting` 가드를 먼저
+     보므로 검증을 통과시켜야 경로가 돈다 → `copyFrom` 복사 등록 경로로 카테고리·결제수단·
+     금액을 채웠다 ② 탭을 옮기면 카테고리 타입이 달라져 선택이 초기화되므로,
+     수입 케이스는 탭 전환이 아니라 `initialType: 'INCOME'` 으로 **직접 진입**해야 한다
+   - `flutter test` **1029건 통과** / `analyze` 신규 지적 **0건**
+
+47. **2026-08-13** — **커밋 6(하드코딩 색 래칫 가드) 완료.**
+   - 산출물: `tool/hardcoded_color_scan.dart`(스캐너 + baseline 생성기, 주석·doc 제외,
+     `Colors.transparent` 는 테마 중립이라 제외) / `test/core/theme/hardcoded_color_baseline.json`
+     (**313건 / 73파일** — 스크립트가 생성, 손으로 쓰지 않는다) /
+     `hardcoded_color_ratchet_test.dart`
+   - 규칙 4가지: ① 파일별 상한 초과 금지 ② **신규 파일은 0** ③ baseline 이 실제보다 높으면
+     실패(가드가 헐거워진 상태를 붙잡는다 — R4 대응) ④ 이관 완료 **10개 파일은 0 고정**
+   - **가드가 실제로 무는지 역방향 확인**: `entity_tile_row.dart` 에 `Colors.red` 한 줄을
+     넣자 3개 테스트가 즉시 실패(`0 → 1`), 되돌리면 통과. 스캐너가 조용히 망가지는 경우도
+     "총합 > 0" 테스트로 잡는다
+   - ⚠ 기획서의 baseline 표기(324건/71파일)와 숫자가 다른 이유: 기획 시점 측정은 주석과
+     `Colors.transparent` 를 포함한 단순 grep 이었고, 이 스캐너는 둘 다 제외한다.
+     **이제부터의 정본은 스크립트가 만든 JSON** 이다
+
+48. **2026-08-13** — **로컬 CI 5종 전부 통과 + 번들 문자열 확인.**
+   - `flutter analyze --no-fatal-infos --no-congratulate`(전체) — 3건, **전부 기존 파일**
+     (신규 지적 0)
+   - `flutter test` — **1034건 통과**
+   - `flutter build web --release` — 성공(아이콘 폰트 트리셰이킹 37,460B)
+   - `./gradlew test` / `./gradlew build -x test` — 통과 (BE 변경 0건 확인)
+   - **번들 문자열 확인**(메모리 `reference_live_bundle_string_verification`): 한글은
+     `\uXXXX` 로 이스케이프되므로 원문 grep 은 항상 0건 → ASCII 보존 이스케이프로 대조.
+     `편집`·`완료`·`비활성`·`잔액 수정`·`저장 & 계속`·`기본 카테고리`·`전월`·`미결제`·`이번달`
+     **전부 존재**
+
+49. **2026-08-13** — **PR #298 원격 CI 실패 → 근본 원인 수정 + 재발 방지.**
+   - backend-ci 통과 / **frontend-ci 실패 — `flutter test` 1031 pass, 3 fail**
+     (전부 신규 `transaction_form_continue_scroll_test.dart`)
+   - **로컬은 통과했는데 CI 만 실패한 이유 = Flutter SDK 스큐**
+     (메모리 `feedback_flutter_sdk_skew_analyze` 재현). 로컬 **3.41.2**(2026-02 리비전),
+     CI 는 `channel: stable` 을 실행 시점에 해석 → 더 최신. 최신 SDK 에만 있는 프레임워크
+     assert 가 터졌다: **"ListTile background color or ink splashes may be invisible"**
+   - **진짜 결함이다(테스트 문제 아님)**: `ListTile` 은 **가장 가까운 Material 조상** 위에
+     배경·잉크를 그리는데, 중간에 색칠된 `Container` 가 있으면 그 뒤에 깔려 안 보인다.
+     내 S7 테스트가 **이 페이지를 처음 렌더한 위젯 테스트**라 잠복해 있던 결함이 드러난 것
+   - **전수 조사 후 일괄 수정**(`feedback_common_scope_audit`): 조상 관계까지 보는 스캐너로
+     `lib` 전체를 훑어 **2건** 확정 → ① `transaction_form_page` 메모 카드의 `SwitchListTile`
+     ② `category_group_selector_sheet` 의 "잔액 조정" 고정 항목.
+     둘 다 `Material(type: MaterialType.transparency)` 로 감쌌다
+   - **재발 방지**: `tool/listtile_ink_scan.dart` + `listtile_ink_guard_test.dart` 신설.
+     **설치된 SDK 버전과 무관하게** 소스에서 잡는다(SDK 스큐로 다시 새는 것을 막는 유일한 방법).
+     역방향 확인 완료 — 색칠된 Container 안에 ListTile 을 넣자 즉시 실패, 되돌리면 통과
+   - `flutter test` **1036건 통과** / `analyze` 신규 지적 0건
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **직전 회차("합계 ≠ 행")는 종결됐다** — 라이브 검증 전부 통과, 결과 문서
-  `docs/sessions/2026-08-13_2_summary-row-mismatch_result.md`. 이 회차로 되돌아갈 일은 없다
-- **다음 회차 = 자산 탭 모바일 가독성 + 브랜드 색상.** 기획 승인 완료, 남은 착수 조건 없음.
-  ⚠ 단 **`/clear` 후 새 세션에서 시작**한다(회차 경계 규칙)
+- **진행 중 = 자산 탭 모바일 가독성 + 브랜드 색상 회차.** 브랜치 `feat/asset-tab-mobile-theme`,
+  게이트 해제 완료, **커밋 1 완료**. 아래 3번부터 이어서 진행한다
 
 ### 착수 순서 (기획서 §6, 고정)
 
-1. `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`
-   — 이걸 하지 않으면 frontend 편집이 훅에 막힌다. (U1 선행 측정은 **이미 완료** — 차트 미변경)
-2. **커밋 1 토큰/테마**: `bb_colors.dart`(틸 씨드 + 라이트·다크 쌍 + 의미 토큰) /
-   `bb_density.dart`(320·400·840 경계) / `one_line_label.dart`(축소 하한 12sp, 금액 축약 금지) /
-   `BbColors.readable()`(사용자 색 HSL 명도 클램프) + 단위 테스트 + **WCAG 명도비 테스트**
-3. **커밋 2 공통 타일**: `entity_tile_row.dart`(`title: String` 봉인) + `AssetEditModeScope`
-   (InheritedNotifier) + **32조합 매트릭스 테스트** + ListTile·MediaQuery 직접사용 금지 가드
-4. **커밋 3 자산 탭 이관**: 결제수단·카테고리·포켓 3탭 + **상단 헤더 3카드**(`_AssetSummaryHeader` /
-   `_CardSettlementCardsView` / `_SettlementCard` / `_SummaryCard` / `_SubChip`) +
-   AppBar 편집 버튼 + reorder 편집모드 배선 + `CategoryListTile` 이관
-5. **커밋 4** `account_balance_card.dart`(분석>예산의 자산 현황) 같은 토큰·타일로
-6. **커밋 5 저장&계속**: 탭별 ScrollController + `animateTo(0)` + 금액 필드 포커스 + offset 0 테스트
-7. **커밋 6** 하드코딩 색 **래칫 가드**(baseline 324건/71파일, 신규 파일 0, 대상 6파일 0)
+1. ~~하네스 게이트 acknowledge~~ — **완료**
+2. ~~**커밋 1 토큰/테마**~~ — **완료** (`bb_colors` / `bb_density` / `one_line_label` /
+   `app_theme` 씨드 교체, 테스트 977건 통과)
+3. ~~**커밋 2 공통 타일**~~ — **완료** (`entity_tile_row.dart` 봉인 API + `AssetEditModeScope` +
+   32조합 매트릭스 + S1 가드. S3·S6 가드는 커밋 3 으로 이동)
+4. ~~**커밋 3 자산 탭 이관**~~ — **완료** (3탭 + 헤더 카드 + AppBar 편집 버튼 +
+   `CategoryListTile` + S3·S6 가드 + `paymentMethodTypeColor` 8파일 공통 이관)
+5. ~~**커밋 4** 자산 현황 카드~~ — **완료** (`EntityViewAction` 슬롯 추가로 잔액 수정 버튼 보존)
+6. ~~**커밋 5 저장&계속**~~ — **완료** (탭별 ScrollController·FocusNode + S7 위젯 테스트)
+7. ~~**커밋 6** 하드코딩 색 래칫 가드~~ — **완료** (baseline **313건/73파일**, 스크립트 생성.
+   신규 파일 0 / 이관 10파일 0 / baseline 인플레도 실패)
 8. 로컬 CI 5종 → PR → 원격 CI → 머지 → 배포 → 기획서 §10 **A1~A5 / B1~B7 / C1~C6 / D1~D3**
    라이브 검증 요청(0단계 = 오프라인 배너 확인)
 - BE·DB·`docs/api-spec.md` 변경 **0건**

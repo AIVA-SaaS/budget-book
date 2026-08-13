@@ -54,7 +54,7 @@ class PaymentMethodFilter extends StatelessWidget {
               id: sorted[i].id,
               label: sorted[i].name,
               leadingIcon: paymentMethodTypeIcon(sorted[i].type),
-              leadingColor: paymentMethodTypeColor(sorted[i].type),
+              leadingColor: paymentMethodTypeColor(context, sorted[i].type),
               isDeletable: false,
               displayOrder: i,
               group: sorted[i].type,

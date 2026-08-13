@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/theme/bb_colors.dart';
+import 'package:budget_book/core/widgets/entity_tile_row.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
@@ -54,13 +56,16 @@ class AccountBalanceCard extends StatelessWidget {
           ),
         ],
         if (cashMethods.isNotEmpty)
-          _AssetGroup(label: '현금', icon: Icons.money, color: Colors.green,
+          _AssetGroup(label: '현금', icon: Icons.money,
+              color: context.bb.paymentType('CASH'),
               methods: cashMethods, settlement: settlement),
         if (bankDebitMethods.isNotEmpty)
-          _AssetGroup(label: '은행 / 체크', icon: Icons.account_balance, color: Colors.blue,
+          _AssetGroup(label: '은행 / 체크', icon: Icons.account_balance,
+              color: context.bb.paymentType('BANK'),
               methods: bankDebitMethods, settlement: settlement),
         if (creditMethods.isNotEmpty)
-          _AssetGroup(label: '카드', icon: Icons.credit_card, color: Colors.purple,
+          _AssetGroup(label: '카드', icon: Icons.credit_card,
+              color: context.bb.paymentType('CREDIT'),
               methods: creditMethods, settlement: settlement),
       ],
     );
@@ -126,7 +131,6 @@ class _AssetItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isCredit = pm.isCredit as bool;
 
     int prevAmount = 0;
@@ -146,83 +150,55 @@ class _AssetItem extends StatelessWidget {
       } catch (_) {}
     }
 
-    return InkWell(
+    final balance = pm.balance as int?;
+
+    return EntityTileRow(
+      title: pm.name as String,
+      leadingIcon: paymentMethodTypeIcon(pm.type as String),
+      leadingColor: context.bb.paymentType(pm.type as String),
+      trailingMetric: isCredit
+          ? null
+          : EntityMetric(
+              value: balance != null
+                  ? CurrencyFormatter.formatWithSign(balance)
+                  : '-',
+              tone: (balance ?? 0) >= 0
+                  ? EntityTone.positive
+                  : EntityTone.negative,
+            ),
+      metrics: isCredit
+          ? [
+              EntityMetric(
+                  label: '전월',
+                  value: '${CurrencyFormatter.format(prevAmount)}원'),
+              EntityMetric(
+                label: '미결제',
+                value: '${CurrencyFormatter.format(unpaidAmount)}원',
+                tone: unpaidAmount > 0 ? EntityTone.expense : EntityTone.neutral,
+              ),
+              EntityMetric(
+                label: '이번달',
+                value: '${CurrencyFormatter.format(currAmount)}원',
+                tone: EntityTone.income,
+              ),
+            ]
+          : const [],
       onTap: () => context.push(
         '/transactions?paymentMethodId=${pm.id}&paymentMethodName=${Uri.encodeComponent(pm.name as String)}',
       ),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-        child: Row(
-          children: [
-            Icon(paymentMethodTypeIcon(pm.type as String), size: 16,
-                color: paymentMethodTypeColor(pm.type as String)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(pm.name as String,
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-            ),
-            if (!isCredit) ...[
-              Text(
-                pm.balance != null ? CurrencyFormatter.formatWithSign(pm.balance as int) : '-',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
-                    color: pm.balance != null && (pm.balance as int) >= 0
-                        ? Colors.green.shade800 : Colors.red.shade800),
+      // 이 화면에는 편집 모드가 없다 — 잔액 수정은 상시 노출 액션으로 유지한다.
+      viewAction: (!isCredit && balance != null)
+          ? EntityViewAction(
+              icon: Icons.tune,
+              tooltip: '잔액 수정',
+              onPressed: () => BalanceAdjustmentSheet.show(
+                context,
+                paymentMethodId: pm.id as String,
+                paymentMethodName: pm.name as String,
+                currentBalance: balance,
               ),
-              if (pm.balance != null)
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: IconButton(
-                    icon: Icon(Icons.tune, size: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
-                    padding: EdgeInsets.zero,
-                    tooltip: '잔액 수정',
-                    onPressed: () => BalanceAdjustmentSheet.show(
-                      context,
-                      paymentMethodId: pm.id as String,
-                      paymentMethodName: pm.name as String,
-                      currentBalance: pm.balance as int,
-                    ),
-                  ),
-                ),
-            ],
-            if (isCredit)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    _chip('전월', CurrencyFormatter.format(prevAmount),
-                        Colors.grey.shade200, context, textColor: Colors.grey.shade800),
-                    const SizedBox(width: 3),
-                    _chip('미결제', CurrencyFormatter.format(unpaidAmount),
-                        unpaidAmount > 0 ? Colors.red.shade50 : Colors.green.shade50, context,
-                        textColor: unpaidAmount > 0 ? Colors.red.shade800 : Colors.green.shade800),
-                  ]),
-                  const SizedBox(height: 2),
-                  _chip('이번달', CurrencyFormatter.format(currAmount),
-                      Colors.blue.shade50, context, textColor: Colors.blue.shade800),
-                ],
-              ),
-            const SizedBox(width: 2),
-            Icon(Icons.chevron_right, size: 14,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.25)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chip(String label, String value, Color bg, BuildContext context, {Color? textColor}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text('$label $value원',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-              color: textColor ?? Theme.of(context).colorScheme.onSurface)),
+            )
+          : null,
     );
   }
 }

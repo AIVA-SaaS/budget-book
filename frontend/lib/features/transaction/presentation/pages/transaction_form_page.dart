@@ -165,6 +165,15 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   final FocusNode _incomePmFocusNode = FocusNode();
   final FocusNode _incomePocketFocusNode = FocusNode();
 
+  // "저장 & 계속" 은 최상단으로 돌아가야 한다. 지출/수입 폼은 TabBarView 에서
+  // 동시에 살아 있으므로 스크롤 컨트롤러도 FocusNode 와 같은 이유로 탭별 1개다
+  // (하나를 공유하면 두 ScrollView 에 붙어 런타임 예외가 난다).
+  final ScrollController _expenseScrollController = ScrollController();
+  final ScrollController _incomeScrollController = ScrollController();
+  final ScrollController _editScrollController = ScrollController();
+  final FocusNode _expenseAmountFocusNode = FocusNode();
+  final FocusNode _incomeAmountFocusNode = FocusNode();
+
   // Tab controller for expense/income/transfer tabs
   late final TabController _tabController;
 
@@ -629,6 +638,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _incomeCategoryFocusNode.dispose();
     _incomePmFocusNode.dispose();
     _incomePocketFocusNode.dispose();
+    _expenseScrollController.dispose();
+    _incomeScrollController.dispose();
+    _editScrollController.dispose();
+    _expenseAmountFocusNode.dispose();
+    _incomeAmountFocusNode.dispose();
     super.dispose();
   }
 
@@ -792,13 +806,17 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       children: [
                         // Tab 0: Expense form
                         _buildTransactionFormBody(context,
-                            formKey: _expenseFormKey),
+                            formKey: _expenseFormKey,
+                            scrollController: _expenseScrollController,
+                            amountFocusNode: _expenseAmountFocusNode),
                         // Tab 1: Income form
                         _buildTransactionFormBody(context,
                           formKey: _incomeFormKey,
                           categoryFocusNode: _incomeCategoryFocusNode,
                           pmFocusNode: _incomePmFocusNode,
                           pocketFocusNode: _incomePocketFocusNode,
+                          scrollController: _incomeScrollController,
+                          amountFocusNode: _incomeAmountFocusNode,
                         ),
                         // Tab 2: Transfer form (embedded)
                         if (!_hidesTransferTab) _buildTransferFormBody(context),
@@ -950,12 +968,15 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     FocusNode? categoryFocusNode,
     FocusNode? pmFocusNode,
     FocusNode? pocketFocusNode,
+    ScrollController? scrollController,
+    FocusNode? amountFocusNode,
   }) {
     final catFn = categoryFocusNode ?? _categoryFocusNode;
     final pmFn = pmFocusNode ?? _paymentMethodFocusNode;
     final pocketFn = pocketFocusNode ?? _pocketFocusNode;
     // BlocListener is now in the top-level MultiBlocListener in build()
     return SingleChildScrollView(
+        controller: scrollController ?? _editScrollController,
         padding: const EdgeInsets.all(24),
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
@@ -975,6 +996,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                     order: const NumericFocusOrder(1),
                     child: CalculatorAmountField(
                       controller: _amountController,
+                      focusNode: amountFocusNode,
                       decoration: const InputDecoration(
                         labelText: '금액',
                         suffixText: '원',
@@ -1610,7 +1632,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             thickness: 1,
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
-          SwitchListTile(
+          // 카드가 배경색을 칠하고 있어서, 타일을 그대로 두면 ListTile 의 배경·잉크
+          // 스플래시가 그 뒤에 깔려 보이지 않는다(최신 Flutter 는 assert 로 잡는다).
+          // 투명 Material 을 하나 끼워 타일이 자기 잉크를 카드 위에 그리게 한다.
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
             value: _needsReview,
             onChanged: (v) => setState(() => _needsReview = v),
             dense: true,
@@ -1643,6 +1670,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             subtitle: const Text(
               '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
               style: TextStyle(fontSize: 12),
+            ),
             ),
           ),
         ],
@@ -2074,7 +2102,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                         id: e.$2.id,
                         label: e.$2.name,
                         leadingIcon: paymentMethodTypeIcon(e.$2.type),
-                        leadingColor: paymentMethodTypeColor(e.$2.type),
+                        leadingColor: paymentMethodTypeColor(context, e.$2.type),
                         isDeletable: true,
                         displayOrder: e.$1,
                         group: e.$2.type,
@@ -2394,12 +2422,35 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       }
       // _selectedDate and _selectedType are always kept
     });
+    _scrollToTopForContinue();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('저장 완료! 다음 항목을 입력하세요.'),
         duration: Duration(seconds: 1),
       ),
     );
+  }
+
+  /// 저장 & 계속 후에는 폼 최상단으로 돌아가고 금액 입력에 커서를 둔다.
+  /// 저장 버튼은 폼 아래쪽에 있어서, 스크롤을 그대로 두면 다음 항목의 날짜·금액이
+  /// 화면 밖에 남는다 (사용자 요청 3).
+  void _scrollToTopForContinue() {
+    // 편집 모드는 저장 후 목록으로 나가므로 continue 대상이 아니다.
+    final isIncomeTab = _tabController.index == 1;
+    final controller =
+        isIncomeTab ? _incomeScrollController : _expenseScrollController;
+    if (controller.hasClients) {
+      controller.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+    final amountFocus =
+        isIncomeTab ? _incomeAmountFocusNode : _expenseAmountFocusNode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) amountFocus.requestFocus();
+    });
   }
 
   void _onSubmit() {
