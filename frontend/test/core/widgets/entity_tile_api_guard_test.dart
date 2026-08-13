@@ -28,6 +28,7 @@ void main() {
       'final List<EntityMetric> metrics;',
       'final IconData? leadingIcon;',
       'final EntityTileActions? actions;',
+      'final EntityViewAction? viewAction;',
     ];
     for (final slot in valueTypedSlots) {
       expect(source, contains(slot), reason: 'missing sealed slot: $slot');

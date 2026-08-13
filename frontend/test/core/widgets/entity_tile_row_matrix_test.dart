@@ -188,6 +188,51 @@ void main() {
     expect(tapped, 1, reason: '보기 모드에서는 기존 동작대로 이동한다');
   });
 
+  testWidgets('viewAction shows in view mode and yields to the edit lane',
+      (tester) async {
+    var pressed = 0;
+    final controller = AssetEditModeController();
+    Widget build() => MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: AssetEditModeScope(
+              controller: controller,
+              child: SizedBox(
+                width: 320,
+                child: EntityTileRow(
+                  title: '카카오뱅크',
+                  leadingIcon: Icons.account_balance,
+                  trailingMetric: const EntityMetric(value: '1,200,000원'),
+                  viewAction: EntityViewAction(
+                    icon: Icons.tune,
+                    tooltip: '잔액 수정',
+                    onPressed: () => pressed++,
+                  ),
+                  actions: EntityTileActions(
+                    isActive: true,
+                    onActiveChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(build());
+    expect(find.byIcon(Icons.tune), findsOneWidget);
+    expect(tester.getSize(find.byType(IconButton)).width,
+        greaterThanOrEqualTo(40));
+    await tester.tap(find.byIcon(Icons.tune));
+    await tester.pump();
+    expect(pressed, 1);
+
+    controller.toggle();
+    await tester.pump();
+    expect(find.byIcon(Icons.tune), findsNothing,
+        reason: '편집 모드에서는 액션 레인이 우측을 차지한다');
+    expect(find.byType(Switch), findsOneWidget);
+  });
+
   testWidgets('inactive rows are marked in view mode', (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.light,

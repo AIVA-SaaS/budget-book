@@ -70,6 +70,24 @@ class EntityMenuAction {
   final bool destructive;
 }
 
+/// A single always-visible icon action.
+///
+/// Deliberately narrow: one icon, one tooltip, one callback. Screens that have
+/// no edit mode (e.g. the 자산 현황 card in 분석>예산) still need one live
+/// affordance, and this keeps that from becoming a general widget slot.
+@immutable
+class EntityViewAction {
+  const EntityViewAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+}
+
 /// The three edit-mode slots: active toggle, overflow menu, drag handle.
 @immutable
 class EntityTileActions {
@@ -114,6 +132,7 @@ class EntityTileRow extends StatelessWidget {
     this.inactiveLabel = '비활성',
     this.onTap,
     this.actions,
+    this.viewAction,
   });
 
   final String title;
@@ -145,6 +164,9 @@ class EntityTileRow extends StatelessWidget {
   /// Edit-mode actions. Only rendered while [AssetEditModeScope] is on.
   final EntityTileActions? actions;
 
+  /// An always-visible icon action, shown only in view mode.
+  final EntityViewAction? viewAction;
+
   @override
   Widget build(BuildContext context) {
     final editing = AssetEditModeScope.of(context) && actions != null;
@@ -166,6 +188,9 @@ class EntityTileRow extends StatelessWidget {
         var chrome = density.tilePaddingH * 2;
         if (leadingIcon != null) chrome += density.avatarSize + density.gap;
         if (editing) chrome += _actionsWidth(density, actions!) + density.gap;
+        if (!editing && viewAction != null) {
+          chrome += density.actionSlotSize + density.gap;
+        }
         final available = constraints.maxWidth - chrome;
 
         // In edit mode the action lane owns the right side, so the amount
@@ -231,6 +256,19 @@ class EntityTileRow extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: _toneForeground(bb, scheme, trailingMetric!.tone),
                       ),
+                    ),
+                  ),
+                ],
+                if (!editing && viewAction != null) ...[
+                  SizedBox(width: density.gap),
+                  SizedBox(
+                    width: density.actionSlotSize,
+                    height: density.actionSlotSize,
+                    child: IconButton(
+                      icon: Icon(viewAction!.icon, size: density.actionIconSize),
+                      padding: EdgeInsets.zero,
+                      tooltip: viewAction!.tooltip,
+                      onPressed: viewAction!.onPressed,
                     ),
                   ),
                 ],

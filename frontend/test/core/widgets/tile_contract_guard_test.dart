@@ -18,6 +18,7 @@ void main() {
   const targets = <String>[
     'lib/features/settings/presentation/pages/asset_management_page.dart',
     'lib/features/category/presentation/widgets/category_list_tile.dart',
+    'lib/core/widgets/account_balance_card.dart',
   ];
 
   /// `BbDensity` is the sanctioned owner of the width read.
