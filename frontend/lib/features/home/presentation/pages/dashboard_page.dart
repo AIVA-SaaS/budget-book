@@ -795,7 +795,7 @@ class _PaymentMethodStatsCard extends StatelessWidget {
                         Icon(
                           paymentMethodTypeIcon(stat.paymentMethodType!),
                           size: 16,
-                          color: paymentMethodTypeColor(stat.paymentMethodType!),
+                          color: paymentMethodTypeColor(context, stat.paymentMethodType!),
                         ),
                         const SizedBox(width: 6),
                       ],

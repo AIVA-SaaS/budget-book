@@ -45,7 +45,7 @@ void main() {
   });
 
   test('the tile does not fall back to ListTile', () {
-    expect(source.contains('ListTile('), isFalse,
+    expect(RegExp(r'(?<![A-Za-z_])ListTile\(').hasMatch(source), isFalse,
         reason: 'EntityTileRow owns its own padding — ListTile reintroduces '
             'the 32dp contentPadding + 16dp title gap it exists to remove');
   });

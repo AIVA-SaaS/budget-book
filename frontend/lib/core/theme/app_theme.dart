@@ -15,10 +15,13 @@ class AppTheme {
   /// Foreground on [_brandDark].
   static const Color _onBrandDark = Color(0xFF003731);
 
+  /// Foreground on [_brandLight].
+  static const Color _onBrandLight = Color(0xFFFFFFFF);
+
   static final ColorScheme _lightScheme = ColorScheme.fromSeed(
     seedColor: _brandLight,
     brightness: Brightness.light,
-  ).copyWith(primary: _brandLight, onPrimary: Colors.white);
+  ).copyWith(primary: _brandLight, onPrimary: _onBrandLight);
 
   static final ColorScheme _darkScheme = ColorScheme.fromSeed(
     seedColor: _brandLight,

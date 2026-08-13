@@ -13,8 +13,8 @@
   (브랜치 `feat/asset-tab-mobile-theme`). 기획서
   `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md` (§6 커밋 순서 정본)
 - **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마**(타임라인 42) /
-  **커밋 2 공통 타일 + 편집 모드 스코프**(타임라인 43). `flutter test` **1019건 통과**
-- **남은 커밋**: 3 자산 탭 이관(헤더 3카드 + S3·S6 가드 포함) → 4 자산 현황 카드 →
+  **커밋 2 공통 타일**(43) / **커밋 3 자산 탭 이관**(44). `flutter test` **1025건 통과**
+- **남은 커밋**: 4 자산 현황 카드 →
   5 저장&계속 스크롤 → 6 하드코딩 색 래칫 가드 → 로컬 CI 5종 → PR → 배포 → 라이브 검증
 - **직전 회차("합계 ≠ 행")는 종결** — PR #297, 라이브 검증 A1~A11 전부 통과 (타임라인 41)
 - **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
@@ -782,6 +782,28 @@
      readable) 가드는 대상 화면이 아직 이관 전이라 **커밋 3(이관)과 같은 커밋**에 넣는다.
      커밋 2 에 넣으면 그 커밋이 빨간 상태로 남는다
 
+44. **2026-08-13** — **커밋 3(자산 탭 이관) 완료.**
+   - 이관: 결제수단·카테고리·포켓 **3개 탭 타일 전부** `EntityTileRow` 로 /
+     `CategoryListTile` 도 같은 타일로(자산 탭이 유일한 라이브 사용처) /
+     상단 헤더 `_AssetSummaryHeader`·`_CardSettlementCardsView`·`_SettlementCard`·
+     `_SummaryCard` 를 density·토큰으로 / `_SubChip` 은 타일 메트릭으로 흡수돼 **삭제**
+   - AppBar **편집 버튼**(아이콘 + "편집/완료" 텍스트 병기 — R1 어포던스 완화) +
+     `AssetEditModeScope` 배선. 카테고리 **그룹 헤더의 ≡·⋮ 도 편집 모드에서만** 노출
+   - 순서 변경 핸들을 **타일 밖 Row → 타일 안 편집 레인**으로 이동. 예전 구조는 보기
+     모드에서도 40dp 를 영구히 점유했다. **reorder 인덱스 계산은 무변경**(visual index
+     그대로 전달) — R2 회귀 표면을 만들지 않았다
+   - **공통 범위 감사에서 추가 발견 1건**(`feedback_common_scope_audit` 적용):
+     `paymentMethodTypeColor` 가 자산 탭 말고도 **8개 파일**(필터 시트·거래 폼·지출계획·
+     보험·반복거래·대시보드 등)에서 쓰이고 있었다. 자산 탭만 토큰으로 바꾸면 같은 결제수단이
+     화면마다 다른 색이 된다 → **헬퍼 자체의 시그니처를 `(BuildContext, String)` 으로 바꿔
+     `context.bb.paymentType` 에 위임**하고 호출부 8곳 일괄 수정. 하드코딩 5색 제거 +
+     전 화면 다크 쌍 확보
+   - 게이트: **S3 가드**(대상 파일 `ListTile(` 0건 · `MediaQuery...width` 직접 사용 0건,
+     `BbDensity` 가 앱 전체 유일 읽기 지점) + **S6 가드**(`parseColor` 결과는 반드시
+     `readable()` 통과) 신설·통과. `flutter test` **1025건 통과** /
+     `flutter analyze` 신규 지적 **0건**
+   - 대상 파일 하드코딩 팔레트 색 **0건**(`Colors.transparent` 제외 — 테마 중립)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
@@ -795,9 +817,8 @@
    `app_theme` 씨드 교체, 테스트 977건 통과)
 3. ~~**커밋 2 공통 타일**~~ — **완료** (`entity_tile_row.dart` 봉인 API + `AssetEditModeScope` +
    32조합 매트릭스 + S1 가드. S3·S6 가드는 커밋 3 으로 이동)
-4. **커밋 3 자산 탭 이관**: 결제수단·카테고리·포켓 3탭 + **상단 헤더 3카드**(`_AssetSummaryHeader` /
-   `_CardSettlementCardsView` / `_SettlementCard` / `_SummaryCard` / `_SubChip`) +
-   AppBar 편집 버튼 + reorder 편집모드 배선 + `CategoryListTile` 이관
+4. ~~**커밋 3 자산 탭 이관**~~ — **완료** (3탭 + 헤더 카드 + AppBar 편집 버튼 +
+   `CategoryListTile` + S3·S6 가드 + `paymentMethodTypeColor` 8파일 공통 이관)
 5. **커밋 4** `account_balance_card.dart`(분석>예산의 자산 현황) 같은 토큰·타일로
 6. **커밋 5 저장&계속**: 탭별 ScrollController + `animateTo(0)` + 금액 필드 포커스 + offset 0 테스트
 7. **커밋 6** 하드코딩 색 **래칫 가드**(baseline 324건/71파일, 신규 파일 0, 대상 6파일 0)

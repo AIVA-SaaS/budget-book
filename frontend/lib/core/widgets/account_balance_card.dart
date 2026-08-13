@@ -156,7 +156,7 @@ class _AssetItem extends StatelessWidget {
         child: Row(
           children: [
             Icon(paymentMethodTypeIcon(pm.type as String), size: 16,
-                color: paymentMethodTypeColor(pm.type as String)),
+                color: paymentMethodTypeColor(context, pm.type as String)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(pm.name as String,
