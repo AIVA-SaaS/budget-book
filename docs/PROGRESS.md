@@ -9,45 +9,40 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"합계 ≠ 행 불일치"** 회차 — PR #297 머지 → 배포 성공 → **서버 측 검증 완료**
-  (2026-08-13, 타임라인 38)
-- **상태**: **사용자 라이브 검증만 남음.** 체크리스트는
-  `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md` §8 (A1~A11).
-  핵심은 A1 — 기간 `2026-06-15 ~ 2026-08-05` 에서 6·7월 이체 행이 보이고 이체 합계가
-  1,008,648원 → 4,393,787원 수준으로 오르는지
-- ⚠ 머지·배포는 완료가 아니다. 사용자 라이브 검증 통과만 완료다
-- **정본 문서**: 분석 `docs/sessions/2026-08-12_1_summary-row-mismatch_analysis.md` /
-  기획 `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
-- **확정된 판정**: Q1 합계에 **이체 포함**(필터 경로를 고친다) / Q2 **기간 장부**(이체도 범위 로드) /
-  Q3 행 유지 + **"합계 제외" 배지**
-- **하네스 게이트**: `filter_propagation` STRUCTURAL_FIX_REQUIRED → **acknowledge 완료(편집 허용)**.
-  근거 = 기획서 §2 S1~S8
-- ⚠ **착수 지점 전제 정정(측정)**: `StatisticsService.kt:147`(필터 시 `totalTransfer=0`)은
-  **표시되지 않는 죽은 값**이고, 수입/지출 불일치는 실 DB 에 0건인 `EXPENSE_TRANSFER`/
-  `INCOME_TRANSFER` 가 있어야 발현한다 → **현재 발현 중인 결함은 F1**:
-  기간 필터가 월을 넘으면 이체 스트림만 월에 갇혀 **범위 내 이체 금액 77% 누락**
-- **근본 원인**: 행 집합과 합계 집합이 같은 소스에서 나오지 않는다(서버=거래·범위 전체 /
-  클라=이체·포커스 월). `gateLedger` 는 축 누락을 봉인했고 남은 구멍은 **범위·소스 불일치**
-- **이번 회차 교훈(직전)**: 완료 기준은 "경로 추가"가 아니라 **"경쟁 경로 0개"**
-  (메모리 `reference_framework_owned_affordance`)
-- ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
-  `DashboardPage` 는 미라우팅(죽은 코드), 탭 4개(거래·분석·자산·더보기).
-  설정의 "홈 화면 구성" 도 고아 항목이다. **홈 위젯 전제의 계획·후보는 전부 무효**
+- **단계**: **"합계 ≠ 행 불일치" 회차 종결(완료)** — PR #297 → 배포 → **사용자 라이브 검증
+  A1~A11 전부 통과** (2026-08-13, 타임라인 41)
+- **다음 회차**: **자산 탭 모바일 가독성 + 브랜드 색상 체계 개편** — 기획 **승인 완료**,
+  코드 **0줄**, 착수 대기. 기획서
+  `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md` (§6 커밋 순서 정본)
+- ⚠ **착수는 `/clear` 후 새 세션에서** — 회차 경계 규칙(메모리 `feedback_round_boundary_clear`).
+  이 세션에서 다음 회차 코드를 시작하지 않는다
+- **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
+  타일은 **편집 모드 분리**(보기 모드 = 이름+금액만, 편집 모드에서만 토글·⋮·≡) /
+  범위 = 자산 탭 3탭 + 분석>예산의 "자산 현황" 카드 + 테마 토큰(앱 전역) + 저장&계속 스크롤 fix.
+  나머지 68파일 하드코딩 색은 **래칫 가드로 점진 축소**(이번 회차 미수정)
+- **하네스 게이트**: `ui_pattern` **STRUCTURAL_FIX_REQUIRED — LOCKED, acknowledge 미실행**.
+  착수 첫 단계가 `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`.
+  해제 근거는 기획서 §5 S1~S7(타일 API 봉인 / 색 래칫 / ListTile·MediaQuery 직접사용 금지 /
+  32조합 오버플로 매트릭스 / WCAG 명도비 자동측정 / 사용자색 보정 단일지점 / 저장&계속 offset 0)
+- **선행 측정 완료(U1)**: 통계 위젯 9개 중 `colorScheme.primary` 의존은 1건뿐
+  (`period_budget_tab.dart`) → **차트는 이번 회차 미변경**. 씨드를 틸로 바꿔도 차트는 안 깨진다
+- **핵심 측정치**: 360dp 에서 결제수단 한 행의 고정 크롬 **236dp** / 콘텐츠 잔여 **124dp**.
+  `Transform.scale(0.85)` 는 레이아웃 폭을 **줄이지 않는다**(Switch 는 여전히 52dp) —
+  2026-05-04 의 "컴팩트화" 는 무효였다. 하드코딩 팔레트 색 **324건/71파일** vs
+  의미 토큰 실사용 **2건**(둘 다 씨드) — `AppColors.income/expense/budget/savings` 는 **참조 0건**
+- ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect, 탭 4개.
+  `PaymentMethodPage`·`CategoryPage`·`/transfers`(이체 목록) 도 **진입점이 죽어 도달 불가**.
+  카드정산은 거래 탭 신용카드 필터 시 "결제" FAB 로만 도달
   (메모리 `reference_dead_home_dashboard`)
-- **정본 문서**: 종결 회차 = `docs/sessions/2026-08-10_3_month-navigator_plan.md` (v2) /
-  **다음 회차 = 새 기획서를 쓴다** (`docs/sessions/2026-08-11_1_month-picker-unified_plan.md`)
-- **하네스 게이트**: `navigation_state` 는 STRUCTURAL_FIX_REQUIRED 이력이 있다.
-  다음 회차도 같은 태그이므로 `pre-change-audit.sh` 재실행 → 2026-08-11 의 S1~S4 이행
-  (가드 3종 + 위젯 테스트)을 근거로 처리한다
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `027e8f7` · 작업 트리 clean
-- **CI 게이트(4종 + 1)**: analyze 신규 0 / flutter test **894** / `./gradlew test` /
-  `build web --release` + **배포 전 번들 문자열 확인**(신규 UI 가 트리셰이킹되지 않았는지).
-  마지막 항목은 이번 회차에서 추가됐다
+- **라이브 검증 지시 규칙**: 0단계 = **오프라인 배너 없음 확인(있으면 재연결)**.
+  이걸 빼면 오프라인 stale 화면을 "배포 미반영" 으로 오판한다(2026-08-13 실제 발생,
+  메모리 `feedback_live_verification_online_precheck`)
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `027e8f7` 이후 docs 커밋 예정 · 작업 트리에
+  문서 변경 있음(대장·결과 문서·기획서)
+- **CI 게이트(4종 + 1)**: analyze 전체 신규 0 / `flutter test` **936** / `./gradlew test` /
+  `build web --release` + **배포 전 번들 문자열 확인**(한글 `\uXXXX`, Latin-1 `\xNN` 둘 다 고려)
 - **blocker**: 없음
 - **갱신**: 2026-08-13
-- **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
-- 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
-  기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -681,42 +676,110 @@
    - **주의**: 인증이 필요한 API 는 서버에서 직접 호출해 확인하지 않았다. 수치 정확성은
      실 PostgreSQL 계약 테스트(축 조합 15건)가 담보하며, 화면 확인은 사용자 몫이다
 
+39. **2026-08-13** — 다음 회차 **"자산 탭 모바일 가독성 + 브랜드 색상 체계" 기획 완료**(승인 대기).
+   코드 변경 0줄. #297 라이브 검증은 여전히 미완이며 이 회차는 그 검증 통과 후 착수한다.
+   - 산출물: `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`
+   - 하네스 게이트: `ui_pattern` → **STRUCTURAL_FIX_REQUIRED**(과거 인시던트 4건).
+     해제 근거는 기획서 §5 S1~S7. **acknowledge 는 승인 후 실행**(현재 frontend 편집 잠김)
+   - 측정(hard evidence):
+     ① 360dp 에서 결제수단 한 행의 고정 크롬 **236dp** / 콘텐츠 잔여 **124dp**
+     ② `Transform.scale(0.85)` 는 레이아웃 폭을 줄이지 않는다 —
+        Switch 는 여전히 52dp(`switch.dart:2370 switchWidth => 52.0`).
+        2026-05-04 의 "컴팩트화" 는 폭 압박을 전혀 완화하지 못했다
+     ③ 하드코딩 팔레트 색 **324건 / 71파일** vs 의미 토큰(`AppColors`) **3건 / 2파일**
+        → 씨드만 바꿔도 다크는 안 고쳐진다
+     ④ 반응형 헬퍼(`isMobile`/브레이크포인트) **0건**, `textScaler` 취급 0건
+     ⑤ 사용자 지정 색 경로 `UIHelpers.parseColor` **19곳**(다크 명도 보정 단일 지점 후보)
+     ⑥ "저장 & 계속" 은 `_resetFormForContinue()` 가 스크롤을 건드리지 않고 폼
+        `SingleChildScrollView` 에 컨트롤러가 없다 → 하단 위치 유지. 지출/수입 탭이
+        TabBarView 로 동시 생존하므로 컨트롤러는 탭별 1개
+   - 도달성 확인: 자산 탭(`/assets`) + 더보기(`/asset-management`) 가 **같은 페이지** →
+     한 번 수정으로 두 경로 반영. `AccountBalanceCard` 는 분석>예산에서 라이브.
+     ⚠ `PaymentMethodPage`(`/payment-methods`) 와 `CategoryPage`(`/categories`) 는
+     진입점이 죽은 홈 화면뿐이라 **도달 불가 → 작업 대상 제외**
+   - 사용자 판정 3건 확정: 메인 색상 **틸 #0F766E**(다크 #5ED3C4) / 타일 **편집 모드 분리** /
+     범위 **자산 탭 + 자산 현황 카드 + 테마 토큰(전역) + 저장&계속 fix**(나머지 68파일은 래칫)
+
+40. **2026-08-13** — 기획 **승인 확정**. 사용자가 **#297 라이브 검증을 먼저** 수행하기로 →
+   코드 변경은 그 결과 수신 후 착수(현재 0줄, frontend 게이트 LOCKED 유지 · acknowledge 미실행).
+   - 결정: 착수 전제 = #297 A1~A11 검증 결과 수신. 검증 실패 항목이 있으면 그 fix 가 우선이다
+   - **U1 선행 측정 완료(해소)**: 통계 위젯 9개 중 `colorScheme.primary` 의존은
+     `period_budget_tab.dart` **1건**뿐 → 사전 판정 기준대로 **차트는 이번 회차 미변경**.
+     씨드를 틸로 바꿔도 차트 판독성은 흔들리지 않는다
+   - **U1 부수 발견(후속 대기열로 이관)**: 차트는 시리즈 팔레트를 파일마다 복제하고
+     (`_defaultColors` 10색이 3파일 중복 + `payment_method_stats_tab` 은 별도 `_colors`),
+     **차트 수입 = 그린(#4CAF50) vs 장부 수입 = 블루** 불일치가 기존부터 있다.
+     이번 회차에서 만드는 `BbColors` 에 `series` 토큰을 얹는 것이 다음 단계
+   - **근거 정정**: 기획서 §2.3 의 "의미 토큰 3건/2파일" 은 실사용 기준으로 정정 —
+     `AppColors.primary` 2건(둘 다 씨드)만 살아 있고 `income/expense/budget/savings` 4개는
+     **참조 0건**. 의미 색 체계는 선언만 있고 화면에 연결된 적이 없다
+   - 산출물 갱신: 기획서 §3 U1 해소 · §2.3 정정 · **§13 후속 대기열 신설**(차트 색 통일 /
+     하드코딩 래칫 축소 / 죽은 화면 6개 정리)
+
+41. **2026-08-13** — 🎉 **"합계 ≠ 행" 회차 종결 — 사용자 라이브 검증 A1~A11 전부 통과 = 완료.**
+   - 산출물: `docs/sessions/2026-08-13_2_summary-row-mismatch_result.md`(결과 정본) +
+     knowledge 캐시 `ledger-summary-row-single-source.md`(재사용 패턴)
+   - 검증 범위: A1 기간 이체 누락 / A2 합계=행 / A3 결제수단 다중 / A4 금액 / A5 검색어 /
+     A6 카테고리·포켓·확인필요·개인 4축 각각 / A7 이체 단독 / A8 지출+이체 / A9 "합계 제외" 배지 /
+     A10 사이드이펙트 / A11 분석 탭 — **전부 PASS**
+   - **검증 과정 오판 1건(코드 결함 아님)**: 첫 A1 보고는 실패(이체 1,008,648원)였는데
+     스크린샷에 **"오프라인 - 실시간 동기화 중단" 배너**가 떠 있었다. 재연결 후 통과.
+     오프라인이면 이전 데이터가 그대로 보여 **배포 미반영과 증상이 동일**하고,
+     서버 측 검증(번들 last-modified·verify-live)으로는 걸러지지 않는다
+     → **재발 방지: 라이브 검증 체크리스트 0단계에 "오프라인 배너 없음 확인" 고정.**
+     메모리 `feedback_live_verification_online_precheck` 등록
+   - **문서 오류 2건 정정**(검증 지시서를 쓰다 측정으로 발견):
+     ① 기획서 §8 A10 의 "이체 목록 화면"(`/transfers`)은 **도달 불가** — 유일 진입점이 죽은
+     `PaymentMethodPage`. 대체 경로 = 장부에서 이체 행 탭(`transferEditRoute`).
+     카드정산 화면은 **거래 탭 신용카드 1개 필터 시 나타나는 "결제" FAB** 로 도달
+     ② 필터 시트 순서는 유형 → 공개 범위 → 기간 → **금액** → 카테고리 → 결제수단 → 포켓 →
+     확인/입력 필요만이고, 진입 아이콘은 깔때기가 아니라 **`tune`(슬라이더)**
+     → 메모리 `reference_dead_home_dashboard` 에 "죽은 화면이 끌고 내려간 화면들" 절 추가
+   - 후속으로 이관: `/transfers` 진입점 부활 여부 · 차트 수입 그린 vs 장부 수입 블루 불일치 ·
+     죽은 화면 6개 정리(결과 문서 §9)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: "합계 ≠ 행" 회차 **기획 완료 → 승인 대기**(타임라인 36).
-  기획서 `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
-- 선행 작업은 모두 끝났다: 하네스 감사 + 게이트 acknowledge / 판정 3건 확정 /
-  `TransferBloc` 공유 6곳 사이드이펙트 감사 / 금액 표시 26파일 전수 조사 / api-spec drift 2건 확인
+- **직전 회차("합계 ≠ 행")는 종결됐다** — 라이브 검증 전부 통과, 결과 문서
+  `docs/sessions/2026-08-13_2_summary-row-mismatch_result.md`. 이 회차로 되돌아갈 일은 없다
+- **다음 회차 = 자산 탭 모바일 가독성 + 브랜드 색상.** 기획 승인 완료, 남은 착수 조건 없음.
+  ⚠ 단 **`/clear` 후 새 세션에서 시작**한다(회차 경계 규칙)
 
-### 승인 후 순서 (기획서 §7, 고정)
+### 착수 순서 (기획서 §6, 고정)
 
-1. 계약 커밋 0 — `docs/api-spec.md` 갱신(summary 필터 파라미터 12개+ 미문서화 · `:42` 의
-   "필터 시 totalTransfer 항상 0" 규범 정정 · List Transfers 의 범위·필터 파라미터). **구현보다 먼저**
-2. BE 커밋 1 — `LedgerFilter` VO + `LedgerFilterAxis` enum + `TransferGating` + 리플렉션 가드 +
-   컨트롤러 바인딩 슬라이스 테스트(Spring `@ModelAttribute` + Kotlin 기본값 리스크 선검증)
-3. BE 커밋 2 — 합계 `hasContentFilters` 분기 제거(`getMonthlySummary` · `getPeriodSummary`) +
-   이체 목록 필터 파라미터 + "합계 = 행" 계약 통합테스트(Testcontainers, 축 조합 매트릭스)
-4. FE 커밋 3 — 장부 전용 `LedgerTransfersCubit` + 배선(month_sync · sync_event) +
-   `gateLedger` 이체 축 판정 제거 + 가드 재작성(FE 재도입 금지 · 장부의 `TransferBloc` 참조 금지)
-5. FE 커밋 4 — 합계바 서버 단일 소스 + "합계 제외" 배지(단일 헬퍼 경유)
-6. 로컬 CI 5종(analyze 전체 / flutter test / gradlew test / build web / 번들 문자열) → PR →
-   원격 CI → 머지 → 배포 → 기획서 §8 A1~A11 라이브 검증 요청
-- DB 마이그레이션 없음(스키마 변경 0건)
-- **라이브 검증 핵심(A1)**: 기간 `2026-06-15~2026-08-05` → 6·7월 이체 행이 보이고 이체 합계가
-  1,008,648원 → 4,393,787원 수준으로 오른다(수정 전 77% 누락)
+1. `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`
+   — 이걸 하지 않으면 frontend 편집이 훅에 막힌다. (U1 선행 측정은 **이미 완료** — 차트 미변경)
+2. **커밋 1 토큰/테마**: `bb_colors.dart`(틸 씨드 + 라이트·다크 쌍 + 의미 토큰) /
+   `bb_density.dart`(320·400·840 경계) / `one_line_label.dart`(축소 하한 12sp, 금액 축약 금지) /
+   `BbColors.readable()`(사용자 색 HSL 명도 클램프) + 단위 테스트 + **WCAG 명도비 테스트**
+3. **커밋 2 공통 타일**: `entity_tile_row.dart`(`title: String` 봉인) + `AssetEditModeScope`
+   (InheritedNotifier) + **32조합 매트릭스 테스트** + ListTile·MediaQuery 직접사용 금지 가드
+4. **커밋 3 자산 탭 이관**: 결제수단·카테고리·포켓 3탭 + **상단 헤더 3카드**(`_AssetSummaryHeader` /
+   `_CardSettlementCardsView` / `_SettlementCard` / `_SummaryCard` / `_SubChip`) +
+   AppBar 편집 버튼 + reorder 편집모드 배선 + `CategoryListTile` 이관
+5. **커밋 4** `account_balance_card.dart`(분석>예산의 자산 현황) 같은 토큰·타일로
+6. **커밋 5 저장&계속**: 탭별 ScrollController + `animateTo(0)` + 금액 필드 포커스 + offset 0 테스트
+7. **커밋 6** 하드코딩 색 **래칫 가드**(baseline 324건/71파일, 신규 파일 0, 대상 6파일 0)
+8. 로컬 CI 5종 → PR → 원격 CI → 머지 → 배포 → 기획서 §10 **A1~A5 / B1~B7 / C1~C6 / D1~D3**
+   라이브 검증 요청(0단계 = 오프라인 배너 확인)
+- BE·DB·`docs/api-spec.md` 변경 **0건**
 
 ### 그 다음 대기열 (착수 순서 아님)
 
-1. **미기록 200건 초과 달의 추가 페이지 로드 UI** — 안내 문구만 있다
-   (`reconciliation_view.dart:191`). BLoC 주석에 클라 필터링 금지 전제 명시.
-   LoadMore 패턴은 `reference_transaction_pagination_focus`
-2. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
-   고칠 지점은 `ledger_gating.dart` 의 `_transfersExcludedWholesale` 한 곳으로 좁혀져 있다
-3. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라 선행 필요(가장 큼)
-4. **Android 배포(Play Store)** — PWA 설치는 이미 가능
-5. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
-6. ~~홈 대시보드 위젯 고도화~~ — **무효**(홈 화면 미라우팅). 되살리려면 홈 탭 복원 여부부터 결정
+1. **차트 색 체계 통일** — 시리즈 팔레트가 파일마다 복제(`_defaultColors` 3중복 + 별도 `_colors`)
+   되고 **차트는 수입을 그린 / 장부는 수입을 블루**로 그린다. 위 회차의 `BbColors` 에
+   `series` 토큰을 얹는 것이 다음 단계
+2. **미기록 200건 초과 달의 추가 페이지 로드 UI** — 안내 문구만 있다
+   (`reconciliation_view.dart:191`). LoadMore 패턴은 `reference_transaction_pagination_focus`
+3. **개인 자산(ASSET-PRIVATE)** — PaymentMethod visibility/owner + 이체 visibility 파생.
+   고칠 지점은 `ledger_gating.dart` 한 곳으로 좁혀져 있다
+4. **죽은 화면·고아 진입점 정리** — `PaymentMethodPage` · `CategoryPage` · `DashboardPage` ·
+   `home_page` · `monthly_trend_card` · `category_breakdown_card` 는 도달 불가.
+   `/transfers`(이체 목록)는 기능은 살아 있는데 진입점만 없다 → 부활/삭제 결정 필요
+5. **P4 월말 "미기록 N건" 인앱 알림** — 알림 인프라 선행 필요(가장 큼)
+6. **Android 배포(Play Store)** — PWA 설치는 이미 가능
+7. **카카오 비즈니스 앱 전환(KI-007-P2)** — placeholder email 로 본질은 해결됨. 선택 사항
 
 ### 회차 밖 트랙 — 사용자 확인만 필요 (개발 착수 아님)
 
