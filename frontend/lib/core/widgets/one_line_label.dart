@@ -117,6 +117,25 @@ class OneLineLabel extends StatelessWidget {
     return result;
   }
 
+  /// Width [text] would occupy on one line at [fontSize].
+  ///
+  /// Used by layouts that must decide between placing two elements side by
+  /// side or stacking them ([EntityTileRow] does this for the trailing
+  /// amount).
+  static double measureWidth({
+    required String text,
+    required double fontSize,
+    required TextStyle style,
+    required TextScaler textScaler,
+    TextDirection textDirection = TextDirection.ltr,
+  }) =>
+      _measureWidth(
+        text: text,
+        style: style.copyWith(fontSize: fontSize),
+        textScaler: textScaler,
+        textDirection: textDirection,
+      );
+
   static double _measureWidth({
     required String text,
     required TextStyle style,
@@ -145,7 +164,7 @@ class OneLineLabel extends StatelessWidget {
     // Width is bucketed to whole pixels: sub-pixel jitter must not thrash
     // the cache during scroll.
     return '$text|${maxWidth.round()}|$base|$floor'
-        '|${style.fontFamily}|${style.fontWeight?.index}'
+        '|${style.fontFamily}|${style.fontWeight?.value}'
         '|${style.letterSpacing}|${textScaler.scale(100).round()}';
   }
 

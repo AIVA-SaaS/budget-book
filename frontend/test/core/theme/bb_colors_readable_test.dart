@@ -58,8 +58,8 @@ void main() {
         closeTo(0, 0.01),
       );
       // 350° vs 10° is 20° apart, not 340°.
-      final a = HSLColor.fromAHSL(1, 350, 1, 0.5).toColor();
-      final b = HSLColor.fromAHSL(1, 10, 1, 0.5).toColor();
+      final a = const HSLColor.fromAHSL(1, 350, 1, 0.5).toColor();
+      final b = const HSLColor.fromAHSL(1, 10, 1, 0.5).toColor();
       expect(BbColors.hueDistance(a, b), closeTo(20, 1.0));
     });
   });

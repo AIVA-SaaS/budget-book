@@ -17,6 +17,7 @@ class BbDensity {
     required this.avatarIconSize,
     required this.actionIconSize,
     required this.actionSlotSize,
+    required this.toggleSlotWidth,
     required this.gap,
     required this.titleFontSize,
     required this.metricFontSize,
@@ -43,6 +44,11 @@ class BbDensity {
   /// Tap target edge for an action slot. Never below 40dp (guard S4).
   final double actionSlotSize;
 
+  /// Width reserved for the active toggle. A Material 3 [Switch] track is
+  /// 52dp wide and cannot be narrowed by scaling — `Transform.scale` only
+  /// repaints, it does not shrink the reserved width (2026-05-04 오진).
+  final double toggleSlotWidth;
+
   /// Standard gap between tile elements.
   final double gap;
 
@@ -64,6 +70,7 @@ class BbDensity {
     avatarIconSize: 18,
     actionIconSize: 20,
     actionSlotSize: 40,
+    toggleSlotWidth: 52,
     gap: 6,
     titleFontSize: 14,
     metricFontSize: 13,
@@ -82,6 +89,7 @@ class BbDensity {
     avatarIconSize: 20,
     actionIconSize: 22,
     actionSlotSize: 44,
+    toggleSlotWidth: 52,
     gap: 8,
     titleFontSize: 15,
     metricFontSize: 14,
@@ -100,6 +108,7 @@ class BbDensity {
     avatarIconSize: 22,
     actionIconSize: 24,
     actionSlotSize: 48,
+    toggleSlotWidth: 56,
     gap: 10,
     titleFontSize: 16,
     metricFontSize: 15,

@@ -12,10 +12,9 @@
 - **단계**: **자산 탭 모바일 가독성 + 브랜드 색상 회차 — 구현 진행 중**
   (브랜치 `feat/asset-tab-mobile-theme`). 기획서
   `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md` (§6 커밋 순서 정본)
-- **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마 기반**(타임라인 42) —
-  `bb_colors.dart` · `bb_density.dart` · `one_line_label.dart` · `app_theme.dart` 씨드 교체.
-  `flutter test` **977건 통과**
-- **남은 커밋**: 2 공통 타일 → 3 자산 탭 이관(헤더 3카드 포함) → 4 자산 현황 카드 →
+- **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마**(타임라인 42) /
+  **커밋 2 공통 타일 + 편집 모드 스코프**(타임라인 43). `flutter test` **1019건 통과**
+- **남은 커밋**: 3 자산 탭 이관(헤더 3카드 + S3·S6 가드 포함) → 4 자산 현황 카드 →
   5 저장&계속 스크롤 → 6 하드코딩 색 래칫 가드 → 로컬 CI 5종 → PR → 배포 → 라이브 검증
 - **직전 회차("합계 ≠ 행")는 종결** — PR #297, 라이브 검증 A1~A11 전부 통과 (타임라인 41)
 - **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
@@ -764,6 +763,25 @@
    - 판정 근거: `bb_colors_contrast_test.dart` 가 라이트·다크 각각 토큰 전수(본문 4.5 / 아이콘 3.0)
      + 브랜드-수입-지출 hue 거리 + error 충돌을 **자동 측정**. 미달 토큰은 채택 불가
 
+43. **2026-08-13** — **커밋 2(공통 타일 + 편집 모드 스코프) 완료.**
+   - 산출물: `core/widgets/entity_tile_row.dart`(ListTile 을 쓰지 않는 자체 타일 —
+     `title: String` 봉인, 뱃지·메트릭·액션 전부 값 타입) /
+     `core/widgets/asset_edit_mode_scope.dart`(InheritedNotifier — 편집 모드 켜짐이
+     페이지 전체가 아니라 타일만 리빌드) / `bb_density.toggleSlotWidth` 추가
+   - **설계 판정 1건(측정 후 추가)**: 320dp·textScale 1.3 에서는 이름과 금액을 한 줄에 같이 둘 수
+     없다 → 타일이 **폭을 먼저 재고**(`OneLineLabel.measureWidth`) 안 들어가면 **금액을 아래 칩
+     줄로 내린다**. 이름을 자르지도, 금액을 축약하지도 않는 유일한 해법
+     (`feedback_financial_consistency` 준수). 편집 모드에서는 액션 레인이 우측을 차지하므로
+     금액·부제·칩을 감추고 이름+레인만 남긴다
+   - 게이트: **S4 32조합 매트릭스**(320·360·390·768 × 라이트·다크 × 1.0·1.3배 × 보기·편집)
+     통과 — 오버플로 0건 / 보기 모드에서 13자 이름 **ellipsis 0건** / 편집 모드 액션 탭 타깃 ≥40dp.
+     **S1 API 봉인 가드**(Widget 타입 필드·ListTile 사용 0건 소스 스캔) 통과.
+     `EntityTone` 전 값의 칩 배경↔전경 명도비 ≥4.5 자동 측정 통과
+   - `flutter test` **1019건 통과** / `flutter analyze` 신규 지적 **0건**(잔여 3건은 기존 파일)
+   - ⚠ **기획서 §6 대비 순서 조정 1건**: S3(ListTile·MediaQuery 직접사용 금지)·S6(parseColor→
+     readable) 가드는 대상 화면이 아직 이관 전이라 **커밋 3(이관)과 같은 커밋**에 넣는다.
+     커밋 2 에 넣으면 그 커밋이 빨간 상태로 남는다
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
@@ -775,8 +793,8 @@
 1. ~~하네스 게이트 acknowledge~~ — **완료**
 2. ~~**커밋 1 토큰/테마**~~ — **완료** (`bb_colors` / `bb_density` / `one_line_label` /
    `app_theme` 씨드 교체, 테스트 977건 통과)
-3. **커밋 2 공통 타일**: `entity_tile_row.dart`(`title: String` 봉인) + `AssetEditModeScope`
-   (InheritedNotifier) + **32조합 매트릭스 테스트** + ListTile·MediaQuery 직접사용 금지 가드
+3. ~~**커밋 2 공통 타일**~~ — **완료** (`entity_tile_row.dart` 봉인 API + `AssetEditModeScope` +
+   32조합 매트릭스 + S1 가드. S3·S6 가드는 커밋 3 으로 이동)
 4. **커밋 3 자산 탭 이관**: 결제수단·카테고리·포켓 3탭 + **상단 헤더 3카드**(`_AssetSummaryHeader` /
    `_CardSettlementCardsView` / `_SettlementCard` / `_SummaryCard` / `_SubChip`) +
    AppBar 편집 버튼 + reorder 편집모드 배선 + `CategoryListTile` 이관
