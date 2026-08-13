@@ -9,10 +9,13 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"합계 ≠ 행 불일치"** 회차 — **구현 완료 · 로컬 CI 5종 통과**
-  (2026-08-13, 타임라인 37). 커밋/PR 진행 중
-- **상태**: 승인 완료 → 구현 완료. 남은 것은 커밋 → PR → 원격 CI → 머지 → 배포 →
-  **사용자 라이브 검증**(기획서 §8 A1~A11)
+- **단계**: **"합계 ≠ 행 불일치"** 회차 — PR #297 머지 → 배포 성공 → **서버 측 검증 완료**
+  (2026-08-13, 타임라인 38)
+- **상태**: **사용자 라이브 검증만 남음.** 체크리스트는
+  `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md` §8 (A1~A11).
+  핵심은 A1 — 기간 `2026-06-15 ~ 2026-08-05` 에서 6·7월 이체 행이 보이고 이체 합계가
+  1,008,648원 → 4,393,787원 수준으로 오르는지
+- ⚠ 머지·배포는 완료가 아니다. 사용자 라이브 검증 통과만 완료다
 - **정본 문서**: 분석 `docs/sessions/2026-08-12_1_summary-row-mismatch_analysis.md` /
   기획 `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
 - **확정된 판정**: Q1 합계에 **이체 포함**(필터 경로를 고친다) / Q2 **기간 장부**(이체도 범위 로드) /
@@ -36,12 +39,12 @@
 - **하네스 게이트**: `navigation_state` 는 STRUCTURAL_FIX_REQUIRED 이력이 있다.
   다음 회차도 같은 태그이므로 `pre-change-audit.sh` 재실행 → 2026-08-11 의 S1~S4 이행
   (가드 3종 + 위젯 테스트)을 근거로 처리한다
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `7e0b7c6` 이후 · 작업 트리 clean
+- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `027e8f7` · 작업 트리 clean
 - **CI 게이트(4종 + 1)**: analyze 신규 0 / flutter test **894** / `./gradlew test` /
   `build web --release` + **배포 전 번들 문자열 확인**(신규 UI 가 트리셰이킹되지 않았는지).
   마지막 항목은 이번 회차에서 추가됐다
 - **blocker**: 없음
-- **갱신**: 2026-08-11
+- **갱신**: 2026-08-13
 - **`/clear` 안전**: 이 상태에서 컨텍스트를 비워도 §3 "다음 액션" 만 보면 이어서 진행 가능
 - 이력 재작성(2026-08-06, 회사 이메일 제거)은 **푸시 완료** — 전 커밋 SHA 가 바뀌었으므로 다른 기기의
   기존 클론은 pull 이 아니라 **재클론**. 백업 `~/backup/git-email-rewrite-20260806/budget-book.bundle`
@@ -661,6 +664,22 @@
    - **측정 방법 보강**: 번들 문자열 확인에서 한글은 `\uXXXX` 지만 **Latin-1 범위(`·` 등)는
      `\xNN`** 로 인코딩된다. 처음 `·` 포함 문구가 0건으로 나와 대조군 실험으로 방법 결함을 찾았다
      (메모리 `reference_live_bundle_string_verification` 보강 대상)
+
+38. **2026-08-13** — PR #297 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
+   남은 것은 사용자 라이브 검증.**
+   - 원격 CI: `backend-ci` pass(4m23s) / `frontend-ci` pass(3m16s) → squash 머지 + 브랜치 삭제
+   - main `027e8f7` · deploy-nas run **31657145604 success**
+     (changes / deploy-frontend / deploy-backend / **verify-live 전부 success**;
+     nginx 변경 없어 sync-nginx skipped)
+   - **라이브 번들 측정**(`main.dart.js`, 5,495,549 B): escaped 대조 —
+     `합계 제외` 1건 · `잔액 수정은 수입·지출 합계에 포함되지 않습니다` 1건 ·
+     `카드 정산은 원본 지출로 이미 집계되었습니다` 1건. 이 세 문구는 이번 PR 에서 처음
+     생긴 것이라 **번들 신원 자체가 이번 배포임을 증명**한다. `last-modified` 01:18:30 GMT
+   - BE 컨테이너 재기동 확인(`bb_app` StartedAt 01:18:50) · 기동 로그 **에러 0건** ·
+     Flyway "Successfully validated 64 migrations / schema 65 up to date"
+     (이번 회차는 스키마 변경이 없으므로 마이그레이션 없음이 정상)
+   - **주의**: 인증이 필요한 API 는 서버에서 직접 호출해 확인하지 않았다. 수치 정확성은
+     실 PostgreSQL 계약 테스트(축 조합 15건)가 담보하며, 화면 확인은 사용자 몫이다
 
 ## 3. 다음 단계
 
