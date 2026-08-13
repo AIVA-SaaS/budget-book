@@ -1,13 +1,18 @@
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/transaction/data/models/transaction_model.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transfer/data/models/transfer_model.dart';
 
 abstract class TransferRemoteDataSource {
+  /// [filter] 를 주면 장부 필터가 서버에서 적용된다 (2026-08-12).
+  /// 직렬화는 `TransactionFilter.toQueryParams()` **단일 경로**를 재사용한다 —
+  /// 이체용 직렬화를 따로 만들면 그것이 다음 drift 다.
   Future<List<TransferModel>> getTransfers({
     required int year,
     required int month,
     bool? reconciled,
+    TransactionFilter? filter,
   });
   Future<TransferModel> getTransfer(String id);
   Future<TransferModel> createTransfer(Map<String, dynamic> data);
@@ -34,12 +39,15 @@ class TransferRemoteDataSourceImpl implements TransferRemoteDataSource {
     required int year,
     required int month,
     bool? reconciled,
+    TransactionFilter? filter,
   }) async {
     final response = await apiClient.dio.get(
       ApiEndpoints.transfers,
       queryParameters: {
         'year': year,
         'month': month,
+        // 장부 필터 (있으면). dateFrom/dateTo 가 실리면 서버가 year/month 대신 그 범위를 쓴다.
+        ...?filter?.toQueryParams(),
         // V65 — false 도 의미가 있다("미기록만"). null 일 때만 생략.
         if (reconciled != null) 'reconciled': reconciled,
       },

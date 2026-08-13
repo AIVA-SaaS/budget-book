@@ -29,6 +29,13 @@ class TransactionLoaded extends TransactionState {
   final int? serverTotalIncome;
   final int? serverTotalExpense;
 
+  /// 서버가 계산한 이체(GENERIC) 합계. 2026-08-12 — 이전에는 이 값이 없어서 장부의
+  /// "이체" 칸을 클라이언트가 포커스 월의 이체로만 계산했다(기간 필터에서 과소 표시).
+  final int? serverTotalTransfer;
+
+  /// 서버 합계에 포함된 이체 건수. 합계 ↔ 행 대조용 관측 값.
+  final int? serverTransferCount;
+
   final String? scrollToDate;
   final String? dateFrom;
   final String? dateTo;
@@ -46,6 +53,8 @@ class TransactionLoaded extends TransactionState {
     this.scrollToDate,
     this.serverTotalIncome,
     this.serverTotalExpense,
+    this.serverTotalTransfer,
+    this.serverTransferCount,
     this.dateFrom,
     this.dateTo,
   });
@@ -76,7 +85,7 @@ class TransactionLoaded extends TransactionState {
 
   @override
   List<Object?> get props =>
-      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense, dateFrom, dateTo];
+      [transactions, year, month, totalElements, hasMore, currentPage, isLoadingMore, operationError, operationSuccess, scrollToDate, serverTotalIncome, serverTotalExpense, serverTotalTransfer, serverTransferCount, dateFrom, dateTo];
 }
 
 class TransactionError extends TransactionState {

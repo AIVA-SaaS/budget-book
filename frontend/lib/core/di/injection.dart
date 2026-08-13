@@ -61,6 +61,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bl
 import 'package:budget_book/features/transfer/data/datasources/transfer_remote_datasource.dart';
 import 'package:budget_book/features/transfer/data/repositories/transfer_repository_impl.dart';
 import 'package:budget_book/features/transfer/domain/repositories/transfer_repository.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/ledger_transfers_cubit.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/core/websocket/websocket_service.dart';
@@ -350,6 +351,14 @@ Future<void> configureDependencies() async {
     () => TransferBloc(
         transferRepository: getIt<TransferRepository>()),
     dispose: (bloc) => bloc.close(),
+  );
+  // 장부 전용 이체 소스 (2026-08-12). 공유 TransferBloc 에 장부 필터를 주입하면
+  // 이체 목록·카드정산·정산 뷰·거래 폼이 함께 오염되므로 분리했다.
+  // SyncEventHandler·MonthSyncHandler 가 참조하므로 registerLazySingleton (프로젝트 규칙).
+  getIt.registerLazySingleton<LedgerTransfersCubit>(
+    () => LedgerTransfersCubit(
+        transferRepository: getIt<TransferRepository>()),
+    dispose: (cubit) => cubit.close(),
   );
 
   // Reconciliation feature (정산 스냅샷) — V65

@@ -3,7 +3,9 @@ package com.budgetbook.statistics.service
 import com.budgetbook.budget.domain.BudgetPeriod
 import com.budgetbook.budget.repository.MonthlyBudgetRepository
 import com.budgetbook.category.repository.CategoryRepository
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.common.exception.BusinessException
+import com.budgetbook.common.filter.LedgerTypeSelection
 import com.budgetbook.couple.service.CoupleResolver
 import com.budgetbook.common.service.CoupleAwareService
 import com.budgetbook.spendingplan.repository.SpendingPlanRepository
@@ -15,6 +17,7 @@ import com.budgetbook.statistics.dto.MonthlyTrendResponse
 import com.budgetbook.statistics.dto.PaymentMethodSpending
 import com.budgetbook.statistics.dto.PeriodSummaryResponse
 import com.budgetbook.statistics.dto.StatisticsSummaryResponse
+import com.budgetbook.transaction.domain.Transaction
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.dto.CategorySummary
 import com.budgetbook.transaction.repository.TransactionRepository
@@ -49,130 +52,139 @@ class StatisticsService(
     }
 
     @Transactional(readOnly = true)
+    /**
+     * 장부 합계바가 쓰는 월/기간 합계.
+     *
+     * ## 2026-08-12 — `hasContentFilters` 분기를 **제거**했다
+     *
+     * 이전에는 두 갈래였다:
+     *  - 필터 없음 → `ExpenseCalculator` (이체 **포함**)
+     *  - 필터 있음 → 거래만 집계 + `totalTransfer = 0` (이체 **제외**)
+     *
+     * 같은 화면의 합계가 필터 유무에 따라 다른 규칙을 쓴 것이 "합계 ≠ 행" 의 원인이었다.
+     * 이제 경로가 하나다 — 거래는 spec, 이체는 [ExpenseCalculator.transferBuckets]
+     * (= 이체 목록 조회와 **동일한** `TransferGating` 판정).
+     * 분기가 없으므로 한쪽만 규칙을 어기는 재발이 구조적으로 불가능하다.
+     *
+     * 필터는 VO 하나로 받는다 — 필드 수동 나열은 누락 4회 재발의 원인이었다.
+     */
     fun getMonthlySummary(
         userId: UUID,
         year: Int,
         month: Int,
-        visibility: String = "ALL",
-        dateFrom: LocalDate? = null,
-        dateTo: LocalDate? = null,
-        // 회차 8 — 모든 필터 지원 (period-summary 패턴 차용). client-side fold 부정확 회귀 fix.
-        categoryId: UUID? = null,
-        paymentMethodId: UUID? = null,
-        pocketId: UUID? = null,
-        categoryIds: List<UUID> = emptyList(),
-        categoryGroupIds: List<UUID> = emptyList(),
-        paymentMethodIds: List<UUID> = emptyList(),
-        pocketIds: List<UUID> = emptyList(),
-        amountMin: Long? = null,
-        amountMax: Long? = null,
-        keyword: String? = null,
-        transactionTypes: List<String> = emptyList(),
-        // 2026-07-27 — 거래 목록에만 적용되고 summary 에는 누락돼 있던 필터.
-        // 목록은 needs_review 만 보여주는데 합계는 전체였다 → "합계 ≠ 보이는 행".
-        needsReviewOnly: Boolean? = null
+        filter: CommonFilterParams = CommonFilterParams()
     ): StatisticsSummaryResponse {
         val couple = getActiveCouple(userId)
-        val visFilter = validateVisibility(visibility)
+        val visFilter = validateVisibility(filter.visibility ?: "ALL")
         val yearMonth = YearMonth.of(year, month)
-        val startDate = dateFrom ?: yearMonth.atDay(1)
-        val endDate = dateTo ?: yearMonth.atEndOfMonth()
+        // dateFrom/dateTo 가 있으면 월을 덮어쓴다 — 거래 목록·이체 목록과 같은 범위 규칙.
+        val startDate = filter.dateFrom ?: yearMonth.atDay(1)
+        val endDate = filter.dateTo ?: yearMonth.atEndOfMonth()
 
-        // PR-C2 + 회차 8: 단수+복수 병합, 그룹 펼치기
-        val effectiveCategoryIds = categoryIds.toMutableSet().also { set ->
-            categoryId?.let { set.add(it) }
-            if (categoryGroupIds.isNotEmpty()) {
-                set.addAll(categoryRepository.findByGroupIdIn(categoryGroupIds).map { it.id })
-            }
-        }
-        val effectivePaymentMethodIds = paymentMethodIds.toMutableSet().also { set ->
-            paymentMethodId?.let { set.add(it) }
-        }
-        val effectivePocketIds = pocketIds.toMutableSet().also { set ->
-            pocketId?.let { set.add(it) }
-        }
-        val effectiveTypes = transactionTypes.mapNotNull {
-            try { TransactionType.valueOf(it) } catch (_: IllegalArgumentException) { null }
-        }.toSet()
+        val scope = resolveTransactionScope(couple.id, userId, visFilter, filter, startDate, endDate)
+        val buckets = expenseCalculator.transferBuckets(couple.id, startDate, endDate, filter)
 
-        val hasContentFilters = effectiveCategoryIds.isNotEmpty() ||
-            effectivePaymentMethodIds.isNotEmpty() ||
-            effectivePocketIds.isNotEmpty() ||
-            amountMin != null ||
-            amountMax != null ||
-            !keyword.isNullOrBlank() ||
-            effectiveTypes.isNotEmpty() ||
-            needsReviewOnly == true
-
-        val totalIncome: Long
-        val totalExpense: Long
-        val totalTransfer: Long
-        val transactionCount: Int
-
-        if (hasContentFilters) {
-            // 회차 8 — 모든 필터 지원: Specifications-based query 로 정확한 합계 계산.
-            val incomeSpec = TransactionSpecifications.withFilters(
-                coupleId = couple.id, startDate = startDate, endDate = endDate,
-                type = TransactionType.INCOME, categoryId = null, keyword = keyword,
-                paymentMethodId = null, pocketId = null,
-                amountMin = amountMin, amountMax = amountMax, userId = userId,
-                visibility = visFilter,
-                categoryIds = effectiveCategoryIds,
-                paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds,
-                needsReviewOnly = needsReviewOnly
-            )
-            val expenseSpec = TransactionSpecifications.withFilters(
-                coupleId = couple.id, startDate = startDate, endDate = endDate,
-                type = TransactionType.EXPENSE, categoryId = null, keyword = keyword,
-                paymentMethodId = null, pocketId = null,
-                amountMin = amountMin, amountMax = amountMax, userId = userId,
-                visibility = visFilter,
-                categoryIds = effectiveCategoryIds,
-                paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds,
-                needsReviewOnly = needsReviewOnly
-            )
-
-            val incomeTransactions = transactionRepository.findAll(incomeSpec)
-            val expenseTransactions = transactionRepository.findAll(expenseSpec)
-
-            // transactionTypes 필터 — INCOME/EXPENSE 만 받음 (TRANSFER 는 별도, ADJUSTMENT 통계 제외)
-            val includeIncome = effectiveTypes.isEmpty() || effectiveTypes.contains(TransactionType.INCOME)
-            val includeExpense = effectiveTypes.isEmpty() || effectiveTypes.contains(TransactionType.EXPENSE)
-
-            totalIncome = if (includeIncome) incomeTransactions.sumOf { it.amount } else 0L
-            totalExpense = if (includeExpense) expenseTransactions.sumOf { it.amount } else 0L
-            // Transfer 는 카테고리/결제수단/포켓 없으므로 필터 활성 시 제외
-            totalTransfer = 0L
-            transactionCount = (if (includeIncome) incomeTransactions.size else 0) +
-                (if (includeExpense) expenseTransactions.size else 0)
-        } else {
-            // No content filters: ExpenseCalculator 일원화 (Phase 22 S1).
-            val results = transactionRepository.sumByTypeForCouple(couple.id, startDate, endDate, userId, visFilter)
-            var count = 0
-            for (row in results) {
-                val type = row[0] as TransactionType
-                val rowCount = (row[2] as Long).toInt()
-                if (type == TransactionType.INCOME || type == TransactionType.EXPENSE) {
-                    count += rowCount
-                }
-            }
-            transactionCount = count
-            totalIncome = expenseCalculator.totalIncome(couple.id, startDate, endDate, userId, visFilter)
-            totalExpense = expenseCalculator.totalExpense(couple.id, startDate, endDate, userId, visFilter)
-            totalTransfer = expenseCalculator.totalTransfer(couple.id, startDate, endDate)
-        }
+        val totalIncome = scope.incomeTotal + buckets.income
+        val totalExpense = scope.expenseTotal + buckets.expense
 
         return StatisticsSummaryResponse(
             yearMonth = yearMonth.toString(),
             totalIncome = totalIncome,
             totalExpense = totalExpense,
-            totalTransfer = totalTransfer,
+            totalTransfer = buckets.generic,
             balance = totalIncome - totalExpense,
-            transactionCount = transactionCount
+            transactionCount = scope.transactionCount,
+            transferCount = buckets.count
         )
     }
+
+    /**
+     * 거래 쪽 집계 — 타입 선택([LedgerTypeSelection])을 반영한 spec 조회.
+     *
+     * `ADJUSTMENT` 는 통계 범주 밖이므로 INCOME/EXPENSE 만 조회한다(잔액 전용).
+     * 타입 필터가 켜졌는데 거래 타입이 하나도 없으면("이체만 보기") 거래는 0건이 정답이다.
+     */
+    private fun resolveTransactionScope(
+        coupleId: UUID,
+        userId: UUID,
+        visFilter: String?,
+        filter: CommonFilterParams,
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): TransactionScope {
+        val effectiveCategoryIds = filter.categoryIds.toMutableSet().also { set ->
+            filter.categoryId?.let { set.add(it) }
+            if (filter.categoryGroupIds.isNotEmpty()) {
+                set.addAll(categoryRepository.findByGroupIdIn(filter.categoryGroupIds).map { it.id })
+            }
+        }
+        val effectivePaymentMethodIds = filter.paymentMethodIds.toMutableSet().also { set ->
+            filter.paymentMethodId?.let { set.add(it) }
+        }
+        val effectivePocketIds = filter.pocketIds.toMutableSet().also { set ->
+            filter.pocketId?.let { set.add(it) }
+        }
+
+        val selection = LedgerTypeSelection.parse(filter.transactionTypes)
+        // 단수 `type` 은 `transactionTypes` 가 비어 있을 때만 의미가 있다(FE toQueryParams 우선순위와 일치).
+        val singularType = if (!selection.hasSelection) {
+            filter.type?.let {
+                try { TransactionType.valueOf(it) } catch (_: IllegalArgumentException) {
+                    throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: ${filter.type}")
+                }
+            }
+        } else null
+
+        val selectedTypes: Set<TransactionType> = when {
+            selection.hasSelection -> selection.transactionTypes
+            singularType != null -> setOf(singularType)
+            else -> emptySet()
+        }
+        // ADJUSTMENT 는 통계 범주 밖이다(잔액 전용) → 집계 대상은 INCOME/EXPENSE 뿐.
+        val statisticalTypes = setOf(TransactionType.INCOME, TransactionType.EXPENSE)
+        // 주의: "타입 필터 없음"(전체)과 "타입 필터가 거래를 하나도 고르지 않음"(이체만 보기)은
+        // 다르다. 후자를 전체로 착각하면 이체만 보기에서 거래 합계가 그대로 남는다.
+        val hasTypeFilter = selection.hasSelection || singularType != null
+        val queryTypes =
+            if (!hasTypeFilter) statisticalTypes else selectedTypes intersect statisticalTypes
+
+        // "이체만 보기" — 집계 대상 거래 타입이 하나도 없으면 조회 자체를 생략한다.
+        if (queryTypes.isEmpty()) return TransactionScope(0L, 0L, 0)
+
+        // 한 번의 조회로 가져와 타입별로 접는다 (타입마다 쿼리하면 왕복이 2배).
+        val transactions = transactionRepository.findAll(
+            TransactionSpecifications.withFilters(
+                coupleId = coupleId, startDate = startDate, endDate = endDate,
+                type = null, categoryId = null, keyword = filter.keyword,
+                paymentMethodId = null, pocketId = null,
+                amountMin = filter.amountMin, amountMax = filter.amountMax, userId = userId,
+                visibility = visFilter,
+                categoryIds = effectiveCategoryIds,
+                paymentMethodIds = effectivePaymentMethodIds,
+                pocketIds = effectivePocketIds,
+                types = queryTypes,
+                needsReviewOnly = filter.needsReviewOnly
+            )
+        )
+
+        return TransactionScope(
+            incomeTotal = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
+            expenseTotal = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
+            transactionCount = transactions.size,
+            transactions = transactions,
+        )
+    }
+
+    /**
+     * 거래 집계 결과. [transactions] 를 함께 들고 있어 카테고리 분해 같은 파생 계산이
+     * **같은 행 집합**을 쓰도록 한다(다시 조회하면 두 값이 어긋날 수 있다).
+     */
+    private data class TransactionScope(
+        val incomeTotal: Long,
+        val expenseTotal: Long,
+        val transactionCount: Int,
+        val transactions: List<Transaction> = emptyList(),
+    )
 
     @Transactional(readOnly = true)
     fun getCategoryBreakdown(userId: UUID, year: Int, month: Int, type: String?, visibility: String = "ALL", dateFrom: LocalDate? = null, dateTo: LocalDate? = null): List<CategoryStatisticsResponse> {
@@ -338,72 +350,43 @@ class StatisticsService(
         userId: UUID,
         dateFrom: LocalDate,
         dateTo: LocalDate,
-        visibility: String = "ALL",
-        categoryId: UUID? = null,
-        paymentMethodId: UUID? = null,
-        pocketId: UUID? = null,
-        // PR-C2 다중/그룹 필터. 단수 필드와 합쳐 Set 으로 전달됨.
-        categoryIds: List<UUID> = emptyList(),
-        categoryGroupIds: List<UUID> = emptyList(),
-        paymentMethodIds: List<UUID> = emptyList(),
-        pocketIds: List<UUID> = emptyList()
+        filter: CommonFilterParams = CommonFilterParams()
     ): PeriodSummaryResponse {
         val couple = getActiveCouple(userId)
-        val visFilter = validateVisibility(visibility)
+        val visFilter = validateVisibility(filter.visibility ?: "ALL")
 
         // PR-C2: 단수 + 복수 병합, 그룹 펼치기
-        val effectiveCategoryIds = categoryIds.toMutableSet().also { set ->
-            categoryId?.let { set.add(it) }
-            if (categoryGroupIds.isNotEmpty()) {
-                set.addAll(categoryRepository.findByGroupIdIn(categoryGroupIds).map { it.id })
+        val effectiveCategoryIds = filter.categoryIds.toMutableSet().also { set ->
+            filter.categoryId?.let { set.add(it) }
+            if (filter.categoryGroupIds.isNotEmpty()) {
+                set.addAll(categoryRepository.findByGroupIdIn(filter.categoryGroupIds).map { it.id })
             }
         }
-        val effectivePaymentMethodIds = paymentMethodIds.toMutableSet().also { set ->
-            paymentMethodId?.let { set.add(it) }
+        val effectivePaymentMethodIds = filter.paymentMethodIds.toMutableSet().also { set ->
+            filter.paymentMethodId?.let { set.add(it) }
         }
-        val effectivePocketIds = pocketIds.toMutableSet().also { set ->
-            pocketId?.let { set.add(it) }
+        val effectivePocketIds = filter.pocketIds.toMutableSet().also { set ->
+            filter.pocketId?.let { set.add(it) }
         }
         val hasFilters = effectiveCategoryIds.isNotEmpty() ||
             effectivePaymentMethodIds.isNotEmpty() ||
             effectivePocketIds.isNotEmpty()
 
-        var totalIncome: Long
-        var totalExpense: Long
-        var totalTransfer = 0L
+        // 2026-08-12 — 이체는 필터 유무와 무관하게 **같은 판정**으로 집계한다.
+        // (이전: 필터가 켜지면 totalTransfer = 0 → 합계가 목록과 다른 집합을 셌다)
+        val transferBuckets = expenseCalculator.transferBuckets(couple.id, dateFrom, dateTo, filter)
+
+        // 거래 집계는 getMonthlySummary 와 **같은 헬퍼**를 쓴다 — 두 엔드포인트가 다른 기전을
+        // 쓰면 같은 기간의 수치가 갈라진다(회귀 가드: "consistency between ..." 테스트).
+        val scope = resolveTransactionScope(couple.id, userId, visFilter, filter, dateFrom, dateTo)
+        var totalIncome: Long = scope.incomeTotal
+        var totalExpense: Long = scope.expenseTotal
         val byCategory: List<CategorySpending>
 
         if (hasFilters) {
-            // Use Specifications-based query when filters are applied
-            val incomeSpec = TransactionSpecifications.withFilters(
-                coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
-                type = TransactionType.INCOME, categoryId = null, keyword = null,
-                paymentMethodId = null, pocketId = null,
-                amountMin = null, amountMax = null, userId = userId,
-                categoryIds = effectiveCategoryIds,
-                paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds
-            )
-            val expenseSpec = TransactionSpecifications.withFilters(
-                coupleId = couple.id, startDate = dateFrom, endDate = dateTo,
-                type = TransactionType.EXPENSE, categoryId = null, keyword = null,
-                paymentMethodId = null, pocketId = null,
-                amountMin = null, amountMax = null, userId = userId,
-                categoryIds = effectiveCategoryIds,
-                paymentMethodIds = effectivePaymentMethodIds,
-                pocketIds = effectivePocketIds
-            )
-
-            val incomeTransactions = transactionRepository.findAll(incomeSpec)
-            val expenseTransactions = transactionRepository.findAll(expenseSpec)
-
-            totalIncome = incomeTransactions.sumOf { it.amount }
-            totalExpense = expenseTransactions.sumOf { it.amount }
-            // Transfer 는 카테고리/결제수단/포켓 필드가 없으므로 필터 활성 시 집계에서 제외됨.
-            // totalTransfer 도 0 유지.
-
-            // byCategory from filtered expense transactions
-            byCategory = expenseTransactions
+            // byCategory 는 **합계와 같은 행 집합**에서 파생한다(다시 조회하면 어긋날 수 있다).
+            byCategory = scope.transactions
+                .filter { it.type == TransactionType.EXPENSE }
                 .filter { it.category != null }
                 .groupBy { it.category!!.id }
                 .map { (_, txns) ->
@@ -434,11 +417,8 @@ class StatisticsService(
                     }
                 }
         } else {
-            // No filters: ExpenseCalculator 로 일원화 (Phase 22 S1).
-            totalIncome = expenseCalculator.totalIncome(couple.id, dateFrom, dateTo, userId, visFilter)
-            totalExpense = expenseCalculator.totalExpense(couple.id, dateFrom, dateTo, userId, visFilter)
-            totalTransfer = expenseCalculator.totalTransfer(couple.id, dateFrom, dateTo)
-
+            // 합계는 위 scope 가 이미 계산했다. 여기서는 카테고리 분해만 집계 쿼리로 얻는다
+            // (총액을 다시 계산하면 두 값이 갈라진다 — 그것이 이번 회차의 근본 원인이었다).
             val categoryResults = transactionRepository.sumByCategoryForCouple(
                 couple.id, dateFrom, dateTo, TransactionType.EXPENSE, userId, visFilter
             )
@@ -473,6 +453,10 @@ class StatisticsService(
                 }
             }
         }
+
+        // 이체 버킷을 거래 합계에 더한다 — 두 분기 공통(규칙이 갈라지지 않게 여기 한 곳에서).
+        totalIncome += transferBuckets.income
+        totalExpense += transferBuckets.expense
 
         // 3. byBudget — find budgets covering this period
         val yearMonths = generateYearMonths(dateFrom, dateTo)
@@ -597,7 +581,7 @@ class StatisticsService(
             dateTo = dateTo.toString(),
             totalIncome = totalIncome,
             totalExpense = totalExpense,
-            totalTransfer = totalTransfer,
+            totalTransfer = transferBuckets.generic,
             balance = totalIncome - totalExpense,
             byCategory = byCategory,
             byBudget = byBudget,

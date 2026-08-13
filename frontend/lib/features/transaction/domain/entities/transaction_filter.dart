@@ -256,24 +256,27 @@ extension UnifiedFilterStateToTransactionFilter on UnifiedFilterState {
 /// `pocketIds`)도 함께 직렬화한다. Dio ListFormat.multi 기준으로
 /// `?categoryIds=a&categoryIds=b` 형식으로 전달되어 Spring `@RequestParam List<UUID>` 와 호환.
 ///
-/// Phase 22: 'TRANSFER' is a FE-only pseudo-type — it is NOT sent to BE
-/// `/transactions` (which knows only EXPENSE/INCOME/ADJUSTMENT). The FE
-/// merges /transfers results client-side when 'TRANSFER' is in the set.
+/// 2026-08-12 — 'TRANSFER' 는 이제 **서버로 그대로 전송**한다.
+///
+/// 이전에는 FE 전용 의사-타입이라 전송 직전에 잘라냈다. 그러면 서버는 "타입 필터 없음" 으로
+/// 해석해 거래 전체를 세고, FE 가 클라이언트에서 다시 걸렀다 — 판정이 두 곳에 생겨
+/// 합계와 행이 다른 집합을 세는 원인이 됐다. 이제 서버가 두 스트림을 모두 판정한다
+/// (`LedgerTypeSelection`): TRANSFER 단독이면 거래 0건, 이체는 노출.
 extension TransactionFilterQueryParams on TransactionFilter {
   Map<String, dynamic> toQueryParams() {
     final params = <String, dynamic>{};
 
     // Multi-select wins over legacy singular `type`.
-    // Strip TRANSFER (FE-only pseudo-type) before sending.
-    final beTypes = transactionTypes
-        .where((t) => t == 'EXPENSE' || t == 'INCOME' || t == 'ADJUSTMENT')
-        .toList();
-    if (beTypes.isNotEmpty) {
-      params['transactionTypes'] = beTypes;
-      // Also send `type` for single-value backward compatibility with any
-      // BE endpoint not yet updated.
-      if (beTypes.length == 1) {
-        params['type'] = beTypes.first;
+    // TRANSFER 포함해 그대로 보낸다 — 서버가 거래/이체 양쪽 판정에 쓴다.
+    if (transactionTypes.isNotEmpty) {
+      params['transactionTypes'] = transactionTypes.toList();
+      // 단수 `type` 은 **거래 타입 1개**일 때만 함께 보낸다(구 BE 호환).
+      // TRANSFER 는 거래 타입이 아니므로 여기로 보내면 400 이다.
+      final txTypes = transactionTypes
+          .where((t) => t == 'EXPENSE' || t == 'INCOME' || t == 'ADJUSTMENT')
+          .toList();
+      if (transactionTypes.length == 1 && txTypes.length == 1) {
+        params['type'] = txTypes.first;
       }
     } else if (type != null) {
       params['type'] = type;

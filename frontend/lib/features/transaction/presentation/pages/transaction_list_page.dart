@@ -25,9 +25,7 @@ import 'package:budget_book/features/transaction/presentation/widgets/transactio
 import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
 import 'package:budget_book/features/card_settlement/presentation/card_settlement_route.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
-import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
-import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
-import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/ledger_transfers_cubit.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
@@ -272,12 +270,21 @@ class _TransactionListPageState extends State<TransactionListPage> {
         _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
 
     // UI 필터 → 도메인 VO 변환은 toTransactionFilter 단일 경로 (필드 나열 금지).
+    final filter = _filterState.toTransactionFilter(keywordOverride: keyword);
     context.read<TransactionBloc>().add(LoadTransactions.fromFilter(
           year,
           month,
-          _filterState.toTransactionFilter(keywordOverride: keyword),
+          filter,
         ));
-    context.read<TransferBloc>().add(LoadTransfers(year: year, month: month));
+    // 2026-08-12 — 이체도 **같은 필터 VO** 로 서버에서 좁힌다.
+    // 공유 TransferBloc 이 아니라 장부 전용 Cubit 을 쓴다(다른 화면 오염 방지).
+    // 필터에 dateFrom/dateTo 가 있으면 서버가 월 대신 그 범위를 본다 → 기간 필터가
+    // 월을 넘어도 이체 행이 누락되지 않는다.
+    getIt<LedgerTransfersCubit>().load(
+      year: year,
+      month: month,
+      filter: filter,
+    );
   }
 
   /// 회차 1 (2026-05-26) — 거래 추가 진입 URL 단일 조립.
@@ -760,21 +767,19 @@ class _TransactionListPageState extends State<TransactionListPage> {
         ),
         // Summary bar + Transaction list (both need transfers)
         Expanded(
-          child: BlocBuilder<TransferBloc, TransferState>(
+          child: BlocBuilder<LedgerTransfersCubit, LedgerTransfersState>(
             builder: (context, transferState) {
-              final transfers = transferState is TransferLoaded
-                  ? transferState.transfers
-                  : <Transfer>[];
+              final transfers = transferState.transfers;
 
-              // CHANGE 2 / 2026-08-10 구조적 수정 — SINGLE gating step shared by
-              // calendar + list + summary + running-balance so all of them
-              // consume the SAME lists.
+              // 2026-08-12 구조적 수정 — 이체 판정은 **서버**가 한다.
               //
-              // 이체 게이팅을 여기서 인라인으로 나열하지 않는다. 필터 축이 늘 때마다
-              // 이체 스트림에서만 축이 누락되는 사고가 4회 반복됐다(확인 필요/카테고리/
-              // 포켓/금액 누락, 결제수단은 first 1개만 적용). 판정은 전부
-              // `ledger_gating.dart` 의 gateLedger 안에 있고, 필터 VO 에 필드가
-              // 추가되면 필드 수 가드 테스트가 실패해 갱신을 강제한다.
+              // 이전에는 FE `gateLedger` 가 이체 축을 전수 판정했고, BE 합계는 "필터가
+              // 있으면 이체 제외" 라는 **다른 규칙**을 썼다. 판정이 두 곳이면 한쪽만
+              // 고쳐지고 다시 어긋난다(4회 재발). 이제 목록 API·합계 API 가 같은
+              // `TransferGating` 을 쓰고, FE 는 받은 결과를 그대로 소비한다.
+              //
+              // 남은 FE 게이팅은 거래 쪽 타입 표시뿐이다(서버가 이미 좁혔지만,
+              // 응답 대기 중 옛 목록이 잠깐 보이는 것을 막는다).
               final gated = gateLedger(
                 transactions: state.filteredTransactions,
                 transfers: transfers,
@@ -784,42 +789,37 @@ class _TransactionListPageState extends State<TransactionListPage> {
               final visibleTransactions = gated.transactions;
               final visibleTransfers = gated.transfers;
 
-              final types = _filterState.transactionTypes;
               // 결제수단 1개 필터 시에만 의미가 있는 자산 모드 판정용(MODE B).
               final filterPmId = _filterState.paymentMethodIds.length == 1
                   ? _filterState.paymentMethodIds.first
                   : null;
 
-              // S2: single aggregation entry point via LedgerSummary.from
-              // kind/type branching lives inside the factory, including
-              // CARD_SETTLEMENT exclusion (supersedes PR-A heuristic).
-              // Fed the SAME gated lists so the summary matches the rows.
-              final summary = LedgerSummary.from(
+              // 2026-08-12 — 합계바는 **서버 단일 소스**다.
+              //
+              // 이전에는 한 줄 안에서 소스를 섞었다: 수입/지출은 서버값, 이체는 클라
+              // 계산(`LedgerSummary`), 그리고 이체는 포커스 월에만 갇혀 있었다.
+              // 지금은 세 칸 모두 서버가 같은 필터·같은 범위로 계산한 값이고,
+              // 목록 API 도 같은 판정을 쓰므로 합계와 행이 같은 집합을 센다.
+              //
+              // 클라 집계(`LedgerSummary`)는 **러닝밸런스/자산 모드 전용**으로 남는다
+              // (행 순서대로 누적하는 계산은 서버가 대신할 수 없다).
+              final clientSummary = LedgerSummary.from(
                 txs: visibleTransactions,
                 tfs: visibleTransfers,
                 pmFilter: filterPmId,
               );
 
-              // 회차 8 — BE getSummary 가 모든 필터 지원하도록 확장됨.
-              // 모든 케이스에서 BE 가 계산한 정확한 합계(state.totalIncome/Expense) 사용.
-              // server total 미수신 시 (statisticsRepository 미주입) 만 client fallback.
-              //
-              // Gate income/expense display by type: for a TRANSFER-only
-              // selection the BE strips TRANSFER → no type filter is sent → the
-              // server totals still contain all income/expense. Zero them so
-              // the summary matches the (empty) transaction rows.
+              // 서버 총계 미수신(statisticsRepository 미주입 = 테스트 경로) 시에만
+              // 클라 집계로 대체한다.
               final hasServerTotals = state.serverTotalIncome != null;
-              final gateIncome = types.isEmpty || types.contains('INCOME');
-              final gateExpense = types.isEmpty || types.contains('EXPENSE');
-              final displayIncome = !gateIncome
-                  ? 0
-                  : (hasServerTotals ? state.totalIncome : summary.totalIncome);
-              final displayExpense = !gateExpense
-                  ? 0
-                  : (hasServerTotals
-                      ? state.totalExpense
-                      : summary.totalExpense);
-              final displayTransfer = summary.totalTransfer;
+              final displayIncome =
+                  hasServerTotals ? state.totalIncome : clientSummary.totalIncome;
+              final displayExpense = hasServerTotals
+                  ? state.totalExpense
+                  : clientSummary.totalExpense;
+              final displayTransfer = hasServerTotals
+                  ? (state.serverTotalTransfer ?? 0)
+                  : clientSummary.totalTransfer;
 
               // CHANGE 3/4 — MODE B when exactly one non-credit asset is
               // filtered. singleAssetPmId is null otherwise (→ MODE A).

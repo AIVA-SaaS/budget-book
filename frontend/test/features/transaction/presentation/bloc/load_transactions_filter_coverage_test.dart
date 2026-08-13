@@ -205,11 +205,13 @@ void main() {
       );
     });
 
-    test('TRANSFER 의사-타입은 BE 로 보내지 않는다', () {
+    // 2026-08-12 계약 변경 — TRANSFER 는 서버가 이체 스트림을 판정하는 데 필요하다.
+    // 잘라 보내면 서버가 "타입 필터 없음" 으로 해석해 합계와 행이 갈라진다.
+    test('TRANSFER 도 BE 로 전달한다 (서버가 두 스트림을 판정한다)', () {
       final types =
           fullFilter.toQueryParams()['transactionTypes'] as List<dynamic>;
       expect(types, contains('EXPENSE'));
-      expect(types, isNot(contains('TRANSFER')));
+      expect(types, contains('TRANSFER'));
     });
   });
 }

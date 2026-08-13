@@ -3,12 +3,17 @@ package com.budgetbook.transfer.repository
 import com.budgetbook.transfer.domain.Transfer
 import com.budgetbook.transfer.domain.TransferKind
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDate
 import java.util.UUID
 
-interface TransferRepository : JpaRepository<Transfer, UUID> {
+/**
+ * `JpaSpecificationExecutor` — 2026-08-12. 장부 필터를 이체에도 적용하기 위해 추가.
+ * 조건 조립은 반드시 `TransferGating.spec()` 을 거친다(목록·집계 단일 판정).
+ */
+interface TransferRepository : JpaRepository<Transfer, UUID>, JpaSpecificationExecutor<Transfer> {
 
     fun findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
         coupleId: UUID,

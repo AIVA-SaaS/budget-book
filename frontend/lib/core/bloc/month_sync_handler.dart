@@ -19,6 +19,7 @@ import 'package:budget_book/features/statistics/presentation/bloc/statistics_blo
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/ledger_transfers_cubit.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_bloc.dart';
@@ -89,9 +90,20 @@ class MonthSyncHandler extends StatelessWidget {
       ));
     } catch (_) {}
 
-    // Transfer list
+    // Transfer list (공유 싱글톤 — 이체 목록 화면 등)
     try {
       getIt<TransferBloc>().add(LoadTransfers(year: year, month: month));
+    } catch (_) {}
+
+    // 장부 전용 이체 소스 — 장부의 필터를 유지한 채 새 월로 재조회한다.
+    // (공유 TransferBloc 과 달리 필터가 실려 있으므로 반드시 별도로 갱신해야 한다)
+    try {
+      final txnBloc = getIt<TransactionBloc>();
+      getIt<LedgerTransfersCubit>().load(
+        year: year,
+        month: month,
+        filter: txnBloc.currentFilter.copyWith(clearDateRange: true),
+      );
     } catch (_) {}
 
     // Statistics (all tabs)

@@ -1,12 +1,35 @@
 package com.budgetbook.statistics.service
 
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.transaction.domain.TransactionType
 import com.budgetbook.transaction.repository.TransactionRepository
+import com.budgetbook.transfer.domain.Transfer
+import com.budgetbook.transfer.domain.TransferKind
 import com.budgetbook.transfer.domain.TransferKinds
 import com.budgetbook.transfer.repository.TransferRepository
+import com.budgetbook.transfer.service.TransferGating
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.util.UUID
+
+/**
+ * 이체 집계 결과의 kind 별 버킷.
+ *
+ * - [income] : `INCOME_TRANSFER` 합 (수입 총액에 더한다)
+ * - [expense]: `EXPENSE_TRANSFER` 합 (지출 총액에 더한다)
+ * - [generic]: `GENERIC` 합 (합계바의 "이체" 칸 전용, 수입/지출과 disjoint)
+ * - [count]  : 집계에 포함된 이체 건수 (`CARD_SETTLEMENT` 제외)
+ */
+data class TransferBuckets(
+    val income: Long,
+    val expense: Long,
+    val generic: Long,
+    val count: Int,
+) {
+    companion object {
+        val EMPTY = TransferBuckets(income = 0L, expense = 0L, generic = 0L, count = 0)
+    }
+}
 
 /**
  * Phase 22 S1 — 통계 집계의 단일 진입점.
@@ -82,6 +105,67 @@ class ExpenseCalculator(
             .sumAmountBySourceByKind(coupleId, from, to, TransferKinds.TRANSFER_ONLY)
             .sumOf { it[1] as Long }
     }
+
+    /**
+     * 장부 필터를 적용한 이체 집계.
+     *
+     * ## 왜 여기 있는가 (2026-08-12)
+     *
+     * 예전에는 통계 서비스가 "필터가 하나라도 켜지면 이체를 전량 제외"(`totalTransfer = 0`)
+     * 했다. 그런데 목록에는 이체 행이 남아서 합계와 행이 다른 집합을 셌다.
+     * 이제 **이체 목록 조회와 같은 판정**([TransferGating])으로 집계한다 —
+     * `TransferService.listTransfers` 와 이 함수가 같은 spec 을 쓰므로 한쪽만 어긋날 수 없다.
+     *
+     * 주의: `filter.reconciled` 는 여기서 적용하지 않는다(스냅샷 테이블 조회가 필요).
+     * 장부 합계바의 필터 VO 에는 정산 축이 없어 현재 도달하지 않는 경로다 —
+     * 정산 필터를 합계에 쓰려면 `ReconciliationLookup` 을 함께 주입해야 한다.
+     */
+    fun transferBuckets(
+        coupleId: UUID,
+        from: LocalDate,
+        to: LocalDate,
+        filter: CommonFilterParams,
+    ): TransferBuckets {
+        if (TransferGating.excludedWholesale(filter)) return TransferBuckets.EMPTY
+        val transfers = transferRepository.findAll(TransferGating.spec(coupleId, filter, from, to))
+        return bucketsOf(transfers)
+    }
+
+    /**
+     * kind 별 버킷 분류. 집계식은 클래스 KDoc 과 동일하며 FE `LedgerSummary` 규칙과 일치한다.
+     * `CARD_SETTLEMENT` 는 모든 버킷에서 제외된다(원본 EXPENSE 로 이미 집계됨).
+     */
+    fun bucketsOf(transfers: List<Transfer>): TransferBuckets {
+        var income = 0L
+        var expense = 0L
+        var generic = 0L
+        var counted = 0
+        for (transfer in transfers) {
+            when (transfer.kind) {
+                TransferKind.CARD_SETTLEMENT -> continue
+                TransferKind.EXPENSE_TRANSFER -> expense += transfer.amount
+                TransferKind.INCOME_TRANSFER -> income += transfer.amount
+                TransferKind.GENERIC -> generic += transfer.amount
+            }
+            counted++
+        }
+        return TransferBuckets(income = income, expense = expense, generic = generic, count = counted)
+    }
+
+    /**
+     * **거래만** 의 타입별 합계 (이체 미포함).
+     *
+     * 이체를 [transferBuckets] 로 따로 집계하는 호출부는 이 함수를 써야 한다 —
+     * [totalIncome]/[totalExpense] 는 이체를 포함하므로 함께 쓰면 **이중 계산**이 된다.
+     */
+    fun transactionOnlyTotal(
+        coupleId: UUID,
+        from: LocalDate,
+        to: LocalDate,
+        type: TransactionType,
+        userId: UUID,
+        visibility: String = "ALL",
+    ): Long = sumTransactionByType(coupleId, from, to, type, userId, visibility)
 
     // --- 내부 헬퍼 ---
 

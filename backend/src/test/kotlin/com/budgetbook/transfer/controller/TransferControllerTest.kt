@@ -1,5 +1,6 @@
 package com.budgetbook.transfer.controller
 
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.couple.dto.UserSummary
 import com.budgetbook.transfer.dto.CreateTransferRequest
 import com.budgetbook.transfer.dto.PaymentMethodSummary
@@ -57,9 +58,10 @@ class TransferControllerTest : FunSpec({
 
     test("listTransfers returns transfer list") {
         val transfers = listOf(sampleTransferResponse())
-        every { transferService.listTransfers(testUserId, 2026, 3) } returns transfers
+        val filter = CommonFilterParams(year = 2026, month = 3)
+        every { transferService.listTransfers(testUserId, filter) } returns transfers
 
-        val result = controller.listTransfers(testUserId, 2026, 3)
+        val result = controller.listTransfers(testUserId, filter)
 
         result.success shouldBe true
         result.data!!.size shouldBe 1

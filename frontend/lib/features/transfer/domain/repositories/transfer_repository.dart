@@ -1,16 +1,23 @@
 import 'package:dartz/dartz.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 
 abstract class TransferRepository {
   /// [reconciled] — V65 정산 필터. 거래 목록(`reconciled` 쿼리)과 **동일한 의미**:
   /// false=미기록만, true=기록만, null=전체. 장부는 거래+이체 병합 뷰이므로 한쪽 스트림만
   /// 필터를 지원하면 "이체만 계속 남아 보이는" drift 가 난다 → 항상 함께 확장한다.
+  /// 이체 목록.
+  ///
+  /// [filter] 를 주면 장부 필터가 **서버에서** 적용된다(2026-08-12). `dateFrom`/`dateTo` 가
+  /// 있으면 `year`/`month` 를 덮어쓴다 — 거래 목록·합계와 같은 범위 규칙이다.
+  /// 필터를 주지 않는 호출부(이체 목록 화면·카드정산 등)는 기존 월 단위 동작을 유지한다.
   Future<Either<Failure, List<Transfer>>> getTransfers({
     required int year,
     required int month,
     bool? reconciled,
+    TransactionFilter? filter,
   });
 
   Future<Either<Failure, Transfer>> getTransfer(String id);

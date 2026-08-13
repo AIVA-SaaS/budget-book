@@ -62,6 +62,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_ev
 import 'package:budget_book/features/pocket/presentation/pages/pocket_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/distribute_wizard_page.dart';
 import 'package:budget_book/features/pocket/presentation/pages/pocket_transfer_page.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/ledger_transfers_cubit.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
@@ -412,10 +413,25 @@ GoRouter createAppRouter(AuthBloc authBloc) => GoRouter(
                   final tm = int.tryParse(monthParam ?? '') ?? now.month;
                   transferBloc.add(LoadTransfers(year: ty, month: tm));
                 }
+                // 장부 전용 이체 소스 부트스트랩 (2026-08-12). 장부는 공유 TransferBloc 이
+                // 아니라 이 Cubit 을 소비하므로, 첫 진입/새로고침에서 여기서 깨워야 한다
+                // (누락 시 이체 행이 아예 뜨지 않는다).
+                final ledgerTransfers = getIt<LedgerTransfersCubit>();
+                if (ledgerTransfers.state.transfers.isEmpty) {
+                  final now = DateTime.now();
+                  final ty = int.tryParse(yearParam ?? '') ?? now.year;
+                  final tm = int.tryParse(monthParam ?? '') ?? now.month;
+                  ledgerTransfers.load(
+                    year: ty,
+                    month: tm,
+                    filter: bloc.currentFilter,
+                  );
+                }
                 return MultiBlocProvider(
                   providers: [
                     BlocProvider<TransactionBloc>.value(value: getIt<TransactionBloc>()),
                     BlocProvider<TransferBloc>.value(value: transferBloc),
+                    BlocProvider<LedgerTransfersCubit>.value(value: ledgerTransfers),
                   ],
                   child: TransactionListPage(
                     initialPaymentMethodId: paymentMethodId,

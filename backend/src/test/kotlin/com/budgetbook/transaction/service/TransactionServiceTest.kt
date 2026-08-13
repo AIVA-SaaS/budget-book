@@ -29,6 +29,7 @@ import com.budgetbook.transfer.repository.TransferRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.IsolationMode
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -918,21 +919,62 @@ class TransactionServiceTest : BehaviorSpec({
         }
     }
 
-    Given("transactionTypes contains FE-only TRANSFER value") {
+    // 2026-08-12 계약 변경 — `TRANSFER` 는 **유효한 값**이 됐다.
+    //
+    // 이전에는 400 이었고, 그래서 FE 가 전송 직전에 TRANSFER 를 잘라냈다. 그 결과 서버는
+    // "타입 필터 없음" 으로 해석해 거래 전체를 반환하고 FE 가 클라이언트에서 다시 걸렀다 —
+    // 판정이 두 곳에 있어 합계와 행이 다른 집합을 세는 원인이 됐다.
+    // 이제 서버가 두 스트림을 모두 판정한다: TRANSFER 단독이면 거래는 0건.
+    Given("transactionTypes contains the TRANSFER ledger value") {
         every { coupleResolver.getActiveCouple(user1.id) } returns couple
 
         When("listTransactions is called with transactionTypes=[TRANSFER]") {
-            Then("throws BusinessException with VALIDATION_ERROR (TRANSFER 는 FE 의사-타입)") {
-                val ex = shouldThrow<com.budgetbook.common.exception.BusinessException> {
-                    service.listTransactions(
-                        userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
-                        keyword = null, paymentMethodId = null, pocketId = null,
-                        amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
-                        visibility = null, page = 0, size = 20,
-                        transactionTypes = listOf("TRANSFER")
+            Then("returns an empty page instead of throwing (거래 타입이 하나도 선택되지 않음)") {
+                val result = service.listTransactions(
+                    userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                    keyword = null, paymentMethodId = null, pocketId = null,
+                    amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                    visibility = null, page = 0, size = 20,
+                    transactionTypes = listOf("TRANSFER")
+                )
+
+                result.content.shouldBeEmpty()
+                result.totalElements shouldBe 0
+                result.last shouldBe true
+                // 조회 자체를 하지 않는다 (repository 를 태우면 mock 이 예외를 던져 실패).
+                verify(exactly = 0) {
+                    transactionRepository.findAll(
+                        any<org.springframework.data.jpa.domain.Specification<Transaction>>(),
+                        any<org.springframework.data.domain.Pageable>()
                     )
                 }
-                ex.code shouldBe "VALIDATION_ERROR"
+            }
+        }
+
+        When("listTransactions is called with transactionTypes=[EXPENSE, TRANSFER]") {
+            Then("filters transactions to EXPENSE only (이체는 이체 스트림이 담당)") {
+                every {
+                    transactionRepository.findAll(
+                        any<org.springframework.data.jpa.domain.Specification<Transaction>>(),
+                        any<org.springframework.data.domain.Pageable>()
+                    )
+                } returns org.springframework.data.domain.PageImpl(emptyList())
+
+                val result = service.listTransactions(
+                    userId = user1.id, year = 2024, month = 1, type = null, categoryId = null,
+                    keyword = null, paymentMethodId = null, pocketId = null,
+                    amountMin = null, amountMax = null, dateFrom = null, dateTo = null,
+                    visibility = null, page = 0, size = 20,
+                    transactionTypes = listOf("EXPENSE", "TRANSFER")
+                )
+
+                result.content.shouldBeEmpty()
+                verify(exactly = 1) {
+                    transactionRepository.findAll(
+                        any<org.springframework.data.jpa.domain.Specification<Transaction>>(),
+                        any<org.springframework.data.domain.Pageable>()
+                    )
+                }
             }
         }
 
