@@ -39,7 +39,35 @@ Transfers now carry a semantic classification `kind` that controls how they flow
 
 - `totalTransfer: Long` — sum of `TransferKind.GENERIC` transfers for the period. Always present. Disjoint from `totalIncome`/`totalExpense`.
 
-`PeriodSummaryResponse` (period-summary endpoint) also adds `totalTransfer`. When category/payment-method/pocket filters are active, `totalTransfer` is always `0` (transfers are not subject to those filters).
+`PeriodSummaryResponse` (period-summary endpoint) also adds `totalTransfer`.
+
+> **Changed 2026-08-12 — transfers are now aggregated under every filter.**
+> The previous rule ("when category/payment-method/pocket filters are active, `totalTransfer`
+> is always `0`") is **obsolete**. It made the summary count a different set than the rows the
+> client displays ("합계 ≠ 행"): the ledger list keeps transfer rows for amount / payment-method /
+> keyword filters, while the summary dropped them.
+>
+> The rule is now uniform for both the list and the summary (single source: `TransferGating`):
+> - Axes that exist on a transfer (date range, payment method — either leg, amount range,
+>   keyword over description + both payment-method names) are **applied**.
+> - Axes that do not exist on a transfer (category, category group, pocket, `needsReviewOnly`,
+>   `visibility=PRIVATE`, singular `type`, `transactionTypes` without `TRANSFER`) **exclude
+>   transfers entirely** — they cannot match, so both the rows and the summary drop them.
+> - `CARD_SETTLEMENT` is excluded from every bucket (already counted via the original expense);
+>   `ADJUSTMENT` transactions stay out of all statistics.
+
+### transactionTypes and the `TRANSFER` value
+
+`transactionTypes` accepts `EXPENSE | INCOME | ADJUSTMENT | TRANSFER`.
+
+> **Changed 2026-08-12.** `TRANSFER` used to be a client-only pseudo-type that the client
+> stripped before sending, which made the server read "no type filter" and return every
+> transaction while the client re-filtered locally — two places deciding the same thing.
+> Clients now send `TRANSFER` as-is and the server gates both streams:
+> - `transactionTypes=TRANSFER` alone → transactions are **empty**, transfers are returned.
+> - `transactionTypes=EXPENSE&transactionTypes=TRANSFER` → expense transactions + transfers.
+> - The singular `type` parameter stays transaction-only; sending `type=TRANSFER` is a
+>   `VALIDATION_ERROR`.
 
 ### TransactionType.ADJUSTMENT (new)
 
@@ -1780,6 +1808,20 @@ Returns total income, total expense, balance, and transaction count for a given 
 | `year`       | `integer` | Yes      | —       | Target year (e.g., `2026`)                                        |
 | `month`      | `integer` | Yes      | —       | Target month (1–12)                                               |
 | `visibility` | `string`  | No       | `ALL`   | `SHARED`, `PRIVATE`, or `ALL` (SHARED + caller's own PRIVATE). Determines which transactions are included in the summary totals. |
+| `dateFrom`   | `date`    | No       | —       | Overrides the month when present (same rule as `GET /transactions`) |
+| `dateTo`     | `date`    | No       | —       | Overrides the month when present                                   |
+| `categoryId` / `categoryIds` / `categoryGroupIds` | `uuid` | No | — | Category filters. Group ids are expanded to their categories server-side |
+| `paymentMethodId` / `paymentMethodIds` | `uuid` | No | — | Payment-method filters (repeatable) |
+| `pocketId` / `pocketIds` | `uuid` | No | — | Pocket filters (repeatable) |
+| `amountMin` / `amountMax` | `integer` | No | — | Amount range |
+| `keyword`    | `string`  | No       | —       | Description search |
+| `type` / `transactionTypes` | `string` | No | — | `EXPENSE`, `INCOME`, `ADJUSTMENT`, `TRANSFER` (see below) |
+| `needsReviewOnly` | `boolean` | No  | —       | `true` → only transactions flagged as needing review |
+
+> **The summary takes the same filter set as the list.** The client sends one filter object to
+> both endpoints; sending a subset here is what produced the "합계 ≠ 행" defects (documented
+> 2026-07-27 and 2026-08-12). Transfers are aggregated under the rules in
+> [Statistics additions](#statistics-additions).
 
 **Response `200 OK`**: `ApiResponse<StatisticsSummaryResponse>`
 
@@ -3373,7 +3415,7 @@ Records money moved between payment methods (e.g., bank account to cash withdraw
 
 ### 2. List Transfers
 
-Returns transfers for the couple filtered by month.
+Returns transfers for the couple in a date range, optionally narrowed by the ledger filter.
 
 | Item        | Value                    |
 |:------------|:-------------------------|
@@ -3385,8 +3427,23 @@ Returns transfers for the couple filtered by month.
 
 | Parameter | Type      | Required | Description                             |
 |:----------|:----------|:--------:|:----------------------------------------|
-| `year`    | `integer` | Yes      | Year (e.g., `2026`)                     |
-| `month`   | `integer` | Yes      | Month 1–12 (e.g., `3`)                  |
+| `year`    | `integer` | Cond.    | Year (e.g., `2026`). Required unless `dateFrom`/`dateTo` is given |
+| `month`   | `integer` | Cond.    | Month 1–12 (e.g., `3`)                  |
+| `dateFrom` | `date`   | No       | **Overrides `year`/`month`** — same range rule as `GET /transactions` and `GET /statistics/summary` |
+| `dateTo`  | `date`    | No       | Overrides `year`/`month`                |
+| `reconciled` | `boolean` | No    | `false` = unrecorded only, `true` = recorded only, omitted = all |
+| `paymentMethodId` / `paymentMethodIds` | `uuid` | No | Matches a transfer if **either leg** (source or destination) is in the set |
+| `amountMin` / `amountMax` | `integer` | No | Amount range |
+| `keyword` | `string`  | No       | Matches description or either payment-method name |
+| `categoryId` / `categoryIds` / `categoryGroupIds` / `pocketId` / `pocketIds` / `needsReviewOnly` / `visibility=PRIVATE` / `type` / `transactionTypes` without `TRANSFER` | — | No | Axes a transfer does not have → **returns an empty list** (a transfer cannot match them) |
+
+> **Changed 2026-08-12 — the range is no longer locked to one month.** The ledger list merges
+> transactions and transfers; transactions honoured `dateFrom`/`dateTo` while transfers were
+> always a single month, so a range spanning two months silently dropped transfer rows
+> (measured: 77% of the transfer amount in the range). `year`/`month` still work unchanged.
+>
+> Filtering uses the same `TransferGating` rules as the summary endpoint, so
+> `GET /transfers` + `GET /transactions` always sum to `GET /statistics/summary`.
 
 **Response `200 OK`**: `ApiResponse<List<TransferResponse>>`
 

@@ -4,6 +4,7 @@ import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.category.repository.CategoryRepository
 import com.budgetbook.common.entity.Visibility
 import com.budgetbook.common.exception.BusinessException
+import com.budgetbook.common.filter.LedgerTypeSelection
 import com.budgetbook.common.exception.ForbiddenException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.security.OwnershipValidator
@@ -118,17 +119,11 @@ class TransactionService(
             endDate = yearMonth.atEndOfMonth()
         }
 
-        // Phase 22 T10: 다중 타입 우선 파싱.
-        // 각 원소는 EXPENSE/INCOME/ADJUSTMENT 여야 하며, 그 외(예: FE-only TRANSFER) 는 400.
-        val effectiveTransactionTypes: Set<TransactionType> = transactionTypes
-            ?.filter { it.isNotBlank() }
-            ?.map { raw ->
-                try { TransactionType.valueOf(raw) } catch (e: IllegalArgumentException) {
-                    throw BusinessException("VALIDATION_ERROR", "Invalid transaction type: $raw")
-                }
-            }
-            ?.toSet()
-            ?: emptySet()
+        // Phase 22 T10 + 2026-08-12: 타입 파싱은 `LedgerTypeSelection` 단일 진입점.
+        // `TRANSFER` 는 이제 유효한 계약 값이다(이체 스트림 지시자) — 예전처럼 400 이 아니다.
+        // FE 가 전송 직전에 TRANSFER 를 잘라내던 관례를 없애 서버가 두 스트림을 모두 판정한다.
+        val typeSelection = LedgerTypeSelection.parse(transactionTypes)
+        val effectiveTransactionTypes: Set<TransactionType> = typeSelection.transactionTypes
 
         // 단수 `type` 파싱 — `transactionTypes` 가 비어있을 때만 의미 있음.
         val transactionType = type?.let {
@@ -181,6 +176,21 @@ class TransactionService(
             needsReviewOnly == true ||
             // legacy JPQL 경로는 정산 서브쿼리를 모른다 → Spec 경로로 강제.
             reconciled != null
+
+        // "이체만 보기" — 타입 필터가 켜졌는데 거래 타입이 하나도 없으면 거래는 0건이 정답이다.
+        // (예전에는 FE 가 TRANSFER 를 잘라 보내 서버가 "필터 없음" 으로 해석해 거래 전체를
+        //  반환하고, FE 가 클라이언트에서 다시 걸렀다 → 판정 2곳 = "합계 ≠ 행" 의 한 갈래)
+        if (typeSelection.matchesNoTransaction) {
+            return PageResponse(
+                content = emptyList(),
+                page = page,
+                size = pageSize,
+                totalElements = 0,
+                totalPages = 0,
+                first = true,
+                last = true
+            )
+        }
 
         val result = if (hasExtendedFilters) {
             // 단수 categoryId 는 Set 에 이미 합쳐졌으므로 Spec 에는 Set 만 전달 (중복 조건 방지).

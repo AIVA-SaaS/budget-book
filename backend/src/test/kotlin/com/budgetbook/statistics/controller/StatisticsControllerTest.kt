@@ -34,9 +34,9 @@ class StatisticsControllerTest : FunSpec({
             balance = 1800000,
             transactionCount = 45
         )
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "ALL", null, null) } returns summary
-
         val filter = CommonFilterParams()
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) } returns summary
+
         val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
@@ -50,13 +50,13 @@ class StatisticsControllerTest : FunSpec({
     test("getMonthlySummary passes visibility SHARED to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 1000000, 500000, 0, 500000, 10)
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) } returns summary
-
         val filter = CommonFilterParams(visibility = "SHARED")
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) } returns summary
+
         val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "SHARED", null, null) }
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) }
     }
 
     // 2026-07-27 회귀 가드 — 거래 목록에는 needsReviewOnly 가 적용되는데 summary 에는
@@ -65,36 +65,49 @@ class StatisticsControllerTest : FunSpec({
     test("getMonthlySummary passes needsReviewOnly to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 0, 30000, 0, -30000, 2)
-        every {
-            statisticsService.getMonthlySummary(
-                userId = testUserId, year = 2026, month = 3, visibility = "ALL",
-                dateFrom = null, dateTo = null, needsReviewOnly = true
-            )
-        } returns summary
-
         val filter = CommonFilterParams(needsReviewOnly = true)
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) } returns summary
+
         val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
         result.data!!.totalExpense shouldBe 30000
-        verify {
-            statisticsService.getMonthlySummary(
-                userId = testUserId, year = 2026, month = 3, visibility = "ALL",
-                dateFrom = null, dateTo = null, needsReviewOnly = true
-            )
-        }
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) }
     }
 
     test("getMonthlySummary passes visibility PRIVATE to service") {
 
         val summary = StatisticsSummaryResponse("2026-03", 200000, 100000, 0, 100000, 5)
-        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null) } returns summary
-
         val filter = CommonFilterParams(visibility = "PRIVATE")
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) } returns summary
+
         val result = controller.getMonthlySummary(testUserId, 2026, 3, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, "PRIVATE", null, null) }
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) }
+    }
+
+    // 2026-08-12 구조 가드 — 컨트롤러가 필터 VO 를 **통째로** 넘기는지 고정한다.
+    // 필드를 하나씩 나열하던 시절에는 새 축이 추가될 때마다 summary 쪽에서만 조용히
+    // 누락됐다(4회 재발). 아래처럼 여러 축을 채운 VO 가 그대로 전달돼야 한다.
+    test("getMonthlySummary forwards the whole filter VO (no field enumeration)") {
+
+        val summary = StatisticsSummaryResponse("2026-03", 0, 0, 0, 0, 0)
+        val filter = CommonFilterParams(
+            dateFrom = LocalDate.of(2026, 6, 15),
+            dateTo = LocalDate.of(2026, 8, 5),
+            paymentMethodIds = listOf(UUID.randomUUID(), UUID.randomUUID()),
+            amountMin = 10_000,
+            amountMax = 500_000,
+            keyword = "커피",
+            transactionTypes = listOf("EXPENSE", "TRANSFER"),
+            needsReviewOnly = null,
+        )
+        every { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) } returns summary
+
+        controller.getMonthlySummary(testUserId, 2026, 3, filter).success shouldBe true
+
+        verify { statisticsService.getMonthlySummary(testUserId, 2026, 3, filter) }
     }
 
     test("getCategoryBreakdown returns category statistics with default visibility") {
@@ -218,11 +231,10 @@ class StatisticsControllerTest : FunSpec({
             byPaymentMethod = emptyList(),
             byDate = emptyList()
         )
-        every {
-            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", null, null, null)
-        } returns summary
-
         val filter = CommonFilterParams()
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+        } returns summary
         val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
 
         result.success shouldBe true
@@ -246,15 +258,14 @@ class StatisticsControllerTest : FunSpec({
             byPaymentMethod = emptyList(),
             byDate = emptyList()
         )
-        every {
-            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "SHARED", null, null, null)
-        } returns summary
-
         val filter = CommonFilterParams(visibility = "SHARED")
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+        } returns summary
         val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "SHARED", null, null, null) }
+        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, filter) }
     }
 
     test("getPeriodSummary passes categoryId filter to service") {
@@ -273,14 +284,13 @@ class StatisticsControllerTest : FunSpec({
             byPaymentMethod = emptyList(),
             byDate = emptyList()
         )
-        every {
-            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", catId, null, null)
-        } returns summary
-
         val filter = CommonFilterParams(categoryId = catId)
+        every {
+            statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
+        } returns summary
         val result = controller.getPeriodSummary(testUserId, dateFrom, dateTo, filter)
 
         result.success shouldBe true
-        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, "ALL", catId, null, null) }
+        verify { statisticsService.getPeriodSummary(testUserId, dateFrom, dateTo, filter) }
     }
 })

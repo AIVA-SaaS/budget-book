@@ -9,16 +9,24 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"연/월 피커 단일 화면 통합 + 스피너"** 회차 — PR #296 → 배포 →
-  **사용자 라이브 검증 통과 = 완료**(2026-08-11, 타임라인 34)
-- **상태**: **열린 작업 없음.** 다음 회차(합계 ≠ 행 잔존 불일치)는 아래 §3 에 착수 지점까지
-  고정돼 있다 — **분석부터** 시작한다
-- **회차 경계**: 다음 회차는 **`/clear` 후 새 세션**에서 시작한다
-- **이번 회차 교훈**: UI 개선이 프레임워크 위젯 위에 얹히면 어포던스가 둘로 갈라진다.
-  완료 기준은 "경로 추가"가 아니라 **"경쟁 경로 0개"** — 제어 불가하면 위젯을 교체한다
+- **단계**: **"합계 ≠ 행 불일치"** 회차 — **구현 완료 · 로컬 CI 5종 통과**
+  (2026-08-13, 타임라인 37). 커밋/PR 진행 중
+- **상태**: 승인 완료 → 구현 완료. 남은 것은 커밋 → PR → 원격 CI → 머지 → 배포 →
+  **사용자 라이브 검증**(기획서 §8 A1~A11)
+- **정본 문서**: 분석 `docs/sessions/2026-08-12_1_summary-row-mismatch_analysis.md` /
+  기획 `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
+- **확정된 판정**: Q1 합계에 **이체 포함**(필터 경로를 고친다) / Q2 **기간 장부**(이체도 범위 로드) /
+  Q3 행 유지 + **"합계 제외" 배지**
+- **하네스 게이트**: `filter_propagation` STRUCTURAL_FIX_REQUIRED → **acknowledge 완료(편집 허용)**.
+  근거 = 기획서 §2 S1~S8
+- ⚠ **착수 지점 전제 정정(측정)**: `StatisticsService.kt:147`(필터 시 `totalTransfer=0`)은
+  **표시되지 않는 죽은 값**이고, 수입/지출 불일치는 실 DB 에 0건인 `EXPENSE_TRANSFER`/
+  `INCOME_TRANSFER` 가 있어야 발현한다 → **현재 발현 중인 결함은 F1**:
+  기간 필터가 월을 넘으면 이체 스트림만 월에 갇혀 **범위 내 이체 금액 77% 누락**
+- **근본 원인**: 행 집합과 합계 집합이 같은 소스에서 나오지 않는다(서버=거래·범위 전체 /
+  클라=이체·포커스 월). `gateLedger` 는 축 누락을 봉인했고 남은 구멍은 **범위·소스 불일치**
+- **이번 회차 교훈(직전)**: 완료 기준은 "경로 추가"가 아니라 **"경쟁 경로 0개"**
   (메모리 `reference_framework_owned_affordance`)
-- **확정된 설계**: 왼쪽 연도 **휠 스피너** + 오른쪽 12개월 그리드(한 화면, 단계 전환 0회) /
-  일 선택은 **자체 일 그리드**로 교체해 `CalendarDatePicker` 를 피커에서 제거
 - ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect,
   `DashboardPage` 는 미라우팅(죽은 코드), 탭 4개(거래·분석·자산·더보기).
   설정의 "홈 화면 구성" 도 고아 항목이다. **홈 위젯 전제의 계획·후보는 전부 무효**
@@ -559,34 +567,125 @@
    - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 **분석부터** 시작
      (메모리 `feedback_round_boundary_clear`)
 
+35. **2026-08-12** — 새 회차 **"합계 ≠ 행 잔존 불일치" 분석 완료**(기획 전, 코드 변경 0줄).
+   **착수 지점의 전제가 측정으로 정정됐다.**
+   - 산출물: `docs/sessions/2026-08-12_1_summary-row-mismatch_analysis.md`
+   - 하네스 감사: `pre-change-audit.sh . filter_propagation amount_calculation` →
+     `filter_propagation` **STRUCTURAL_FIX_REQUIRED**(과거 3건, 게이트 LOCKED).
+     기획서에 구조적 수정 포함 후 `acknowledge-gate.sh` 로 해제
+   - **전제 정정**: §3 에 적혀 있던 근거 `StatisticsService.kt:147`(필터 활성 시 `totalTransfer=0`)은
+     **FE 어디에서도 표시되지 않는 죽은 값**이었다 — 장부 합계바의 이체 칸은 클라 계산
+     (`LedgerSummary.from`)이고 분석 탭은 이체 칸을 그리지 않는다(grep 측정).
+     수입/지출이 갈라지려면 `EXPENSE_TRANSFER`/`INCOME_TRANSFER` 이체가 필요한데 실 DB **0건**
+   - 실 DB 측정: 이체 kind = `GENERIC` 22 / `CARD_SETTLEMENT` 8 / EXPENSE·INCOME_TRANSFER **0** ·
+     거래 type = EXPENSE 542 / INCOME 31 / **ADJUSTMENT 17** · 월 최대 거래 **119건**(페이지 200 미달)
+   - **실제 발현 중인 결함(F1)**: 기간 필터가 포커스 월을 넘으면 **이체 스트림만 월에 갇힌다** —
+     `LoadTransfers({year, month})` 는 월 단위(`transfer_event.dart:15`)인데 거래 목록과 서버 합계는
+     `dateFrom/dateTo` 가 월을 완전히 덮어쓴다(`TransactionService.kt:109~118`,
+     `StatisticsService.kt:78~79`)며 행 빌더는 월로 다시 자르지 않는다.
+     표본(2026-06-15~08-05, 포커스 8월): 거래 192건 전량 노출 vs 이체는 8월 2건만 →
+     범위 내 이체 금액의 **77%(3,385,139원) 누락**.
+     `reference_transaction_merged_transfer_stream_drift` 의 5번째 변형 —
+     이번엔 축 누락이 아니라 **스트림의 로드 범위 불일치**
+   - 함께 확인된 잠재/표시 결함: F2 필터 경로의 이체 전량 제외(도달 가능, 이체 폼에서 kind 선택 가능) ·
+     F3 ADJUSTMENT 17건·CARD_SETTLEMENT 8건이 행에는 보이나 합계 어느 칸에도 없음
+     (합계바 잔액이 `LedgerSummary.balance` 를 안 쓴다) · F4 페이지네이션(월 단위 미발현, 여유 8건)
+   - 근본 원인 한 문장: **행 집합과 합계 집합이 같은 소스에서 나오지 않는다** — 합계는
+     서버(거래·범위 전체) + 클라(이체·포커스 월)를 한 줄에 섞고, 이체 로드 범위(월)가 필터 범위와 다르다
+   - 구조적 수정 방향(안 A 권장): S1 BE `hasContentFilters` 분기 제거(이체도 필터 축 집계) ·
+     S2 `LoadTransfers({required dateFrom, dateTo})` 로 컴파일 강제 · S3 합계 응답에 집계 건수 ·
+     S4 합계바 혼합 소스 금지 소스검사 가드 · S5 `StatisticsServiceTest` 의 kind×필터 케이스 0건 보강
+   - **다음 단계는 사용자 판정 3건**(분석서 §5): Q1 합계에 이체 포함 여부(포함으로 판정, 반증 조건 명시) ·
+     Q2 기간 필터가 월을 넘을 때 화면 정체성 · Q3 ADJUSTMENT/CARD_SETTLEMENT 행 배지 여부
+
+36. **2026-08-12** — 판정 3건 확정 + **기획 완료**(승인 대기). 코드 변경 0줄.
+   - 사용자 판정: **Q1 = 합계에 이체 포함**(필터 경로를 고친다) / **Q2 = 기간 장부**(이체도 범위 로드) /
+     **Q3 = 행 유지 + "합계 제외" 배지**
+   - 산출물: `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
+   - **게이트 해제 완료**: `acknowledge-gate.sh budget-book <plan>` → 편집 허용
+     (근거 = 기획서 §2 S1~S8 구조적 수정)
+   - 구조적 수정 설계: S1 BE `LedgerFilter` VO + `LedgerFilterAxis` enum(`when` exhaustive =
+     축 추가 시 **컴파일 실패**) + 리플렉션 가드 · S2 `TransferGating` 단일 판정을 **이체 목록
+     쿼리와 이체 집계가 공유** · S3 합계의 `hasContentFilters` 분기 **제거**(`totalTransfer=0`
+     하드코딩 삭제) · S4 장부 전용 `LedgerTransfersCubit` 분리 · S5 합계바 서버 단일 소스 +
+     FE 이체 축 판정 제거 · S6 합계 제외 배지 · S7 api-spec 선행 갱신 · S8 "합계=행" 계약 통합테스트
+   - **사이드이펙트 감사(측정)**: `TransferBloc` 은 **6곳이 공유하는 lazy singleton**
+     (장부 · 이체 목록 · 카드정산 · 정산 뷰 · 거래 폼 · month_sync/sync_event) →
+     장부에 필터를 주입하면 나머지가 오염된다 → **장부 전용 Cubit 분리로 차단**(S4).
+     이 감사 없이 진행했으면 5개 화면이 필터된 이체만 보게 됐다
+   - **금액 표시 위치 전수 조사(측정)**: `totalIncome|totalExpense|totalTransfer` 참조 26파일 확인 →
+     영향 7곳(합계바 계열) / 무영향 확인 근거 병기. 분석 탭·리포트는 **이체 칸을 그리지 않음**
+     (grep 0건) → 분석서 §6 미해결 1건 해소. `reconciliation_view.dart:729` 는 정산 스냅샷 별개 소스
+   - **자체 총괄 검토에서 잡은 누락 2건**: ① `docs/api-spec.md:1773` 이 summary 의 필터 파라미터를
+     3개만 문서화(구현은 12개+) + `:42` 가 이번에 바꿀 규칙("필터 시 totalTransfer 항상 0")을
+     규범으로 못박아 둠 → S7 로 선행 갱신 ② Spring `@ModelAttribute` + Kotlin 기본값 +
+     `List<UUID>` 바인딩 리스크 → 구현 첫 단계에 컨트롤러 슬라이스 테스트로 선검증
+   - DB 마이그레이션 없음(스키마 변경 0건)
+
+37. **2026-08-13** — 승인 후 **구현 완료 · 로컬 CI 5종 전부 통과**. 커밋/PR 전.
+   - 사용자 승인: "기획대로 한 PR" (기획서 §7 순서 그대로)
+   - **BE 구조 수정**:
+     - 신설 `common/filter/LedgerFilterAxis.kt` — 축 20개 enum + `TransferAxisHandling`.
+       `TransferGating.handling` 의 **exhaustive when** 이 축 추가 시 컴파일을 막는다
+     - 신설 `common/filter/LedgerTypeSelection.kt` — `transactionTypes` 파싱 단일 진입점.
+       **`TRANSFER` 가 계약 값으로 승격**(이전엔 400). "필터 없음"과 "거래 타입 0개 선택"을 구분
+     - 신설 `transfer/service/TransferGating.kt` — 이체 판정 단일 지점.
+       `excludedWholesale` + `spec` 을 **목록 조회와 집계가 공유**
+     - `StatisticsService.getMonthlySummary` 의 `hasContentFilters` **분기 제거** →
+       `totalTransfer = 0L` 하드코딩 삭제. `getPeriodSummary` 도 같은 헬퍼(`resolveTransactionScope`)로 통일
+     - `ExpenseCalculator.transferBuckets/bucketsOf` 추가(kind 별 버킷) ·
+       `TransferRepository` 에 `JpaSpecificationExecutor` · 응답에 `transferCount`
+     - 컨트롤러의 **필드 수동 나열 제거** — 필터 VO 통째로 전달
+   - **FE 구조 수정**:
+     - 신설 `LedgerTransfersCubit` — 장부 전용 이체 소스. 공유 `TransferBloc`(소비자 6곳)은
+       손대지 않아 이체 목록·카드정산·정산 뷰·거래 폼 무영향. DI·month_sync·sync_event 배선
+     - `ledger_gating.dart` 에서 **이체 축 판정 삭제**(서버 신뢰) — 판정 2곳이 재발 메커니즘이었다
+     - 합계바 3칸 전부 **서버 단일 소스**(`serverTotalTransfer` 신설). 클라 `LedgerSummary` 는
+       러닝밸런스 전용으로 축소. `toQueryParams` 가 `TRANSFER` 를 그대로 전송
+     - 신설 `ledger_totals_exclusion.dart` + `ExcludedFromTotalsBadge` — ADJUSTMENT·카드정산 행에
+       "합계 제외" 배지(판정은 단일 헬퍼 경유)
+   - **계약 문서 선행 갱신**: `docs/api-spec.md` — summary 필터 파라미터 12개+ 문서화 ·
+     `:42` 의 "필터 시 totalTransfer 항상 0" **규범 폐기 명시** · List Transfers 범위·필터 ·
+     `TRANSFER` 계약 값 절 신설
+   - **구현 중 테스트가 잡은 실제 버그 1건**: "타입 필터 없음"과 "타입 필터가 거래를 하나도
+     고르지 않음"(이체만 보기)을 혼동해 이체만 보기에서 거래 합계가 남았다 →
+     `hasTypeFilter` 로 분리. `LedgerTypeSelectionTest` 가 회귀 가드
+   - **신설 테스트**: `LedgerSummaryRowContractIntegrationTest`(실 PostgreSQL, 축 조합 15건 —
+     **합계 = 행** 대조 + 절대값 고정) · `LedgerFilterAxisGuardTest`(리플렉션 1:1) ·
+     `TransferGatingTest` · `LedgerTypeSelectionTest` · `ledger_transfers_cubit_test.dart` ·
+     `ledger_gating_test.dart` 재작성(FE 이체 판정 재도입 금지 + 장부의 `TransferBloc` 사용 금지 가드)
+   - **로컬 CI 5종**: analyze 신규 0건(잔여 3건은 미변경 테스트 파일 기존 info) /
+     `flutter test` **936건** / `./gradlew clean test` 통과 /
+     `flutter build web --release` 통과 / **번들 문자열 확인** — `합계 제외` 1건,
+     배지 툴팁 2건 존재
+   - **측정 방법 보강**: 번들 문자열 확인에서 한글은 `\uXXXX` 지만 **Latin-1 범위(`·` 등)는
+     `\xNN`** 로 인코딩된다. 처음 `·` 포함 문구가 0건으로 나와 대조군 실험으로 방법 결함을 찾았다
+     (메모리 `reference_live_bundle_string_verification` 보강 대상)
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **현재 상태**: 연/월 피커 통합 회차 **라이브 검증 통과 = 완료**(타임라인 34). **열린 작업 없음.**
-- **회차 경계 규칙**: 회차가 끝나면 종결 기록 + 착수 지점 고정까지만 하고 **멈춘다**.
-  다음 회차는 **반드시 `/clear` 후 새 세션에서 시작**한다 — 같은 세션에서 이어서 착수 금지
-  (메모리 `feedback_round_boundary_clear`)
+- **현재 상태**: "합계 ≠ 행" 회차 **기획 완료 → 승인 대기**(타임라인 36).
+  기획서 `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
+- 선행 작업은 모두 끝났다: 하네스 감사 + 게이트 acknowledge / 판정 3건 확정 /
+  `TransferBloc` 공유 6곳 사이드이펙트 감사 / 금액 표시 26파일 전수 조사 / api-spec drift 2건 확인
 
-### 다음 회차 — **합계 ≠ 행 잔존 불일치** (착수 지점 고정, **분석부터**)
+### 승인 후 순서 (기획서 §7, 고정)
 
-대기열에서 이걸 먼저 잡는 이유: 사용자 눈에 **숫자가 틀려 보이는** 유일한 항목이고
-범위가 작다(BE 위주). 나머지는 기능 추가·인프라라 급하지 않다.
-정본 기획서는 새로 쓴다 → `docs/sessions/YYYY-MM-DD_N_summary-row-mismatch_plan.md`
-
-- **증상**: 금액/기간/결제수단 필터만 켜면 **상단 합계와 아래 행이 서로 다른 집합**을 센다.
-  BE summary 는 이체를 빼는데(`StatisticsService.kt:147`) FE 목록에는 이체 행이 남는다
-- **첫 명령**: `bash ~/.claude/harness/scripts/pre-change-audit.sh . filter_propagation amount_calculation`
-  → 그 다음 `StatisticsService.kt` 의 summary 쿼리와 `ledger_gating.dart` 판정을 **나란히** 읽는다
-- **이미 알려진 지형 (재조사 불필요)**:
-  - 거래 목록은 **거래 + 이체 FE 병합** 스트림이다. 집계/필터를 한쪽에만 넣으면 drift 한다
-    (메모리 `reference_transaction_merged_transfer_stream_drift` — 이 프로젝트 최대 재발원)
-  - 이체 게이팅의 단일 진입점은 `lib/features/transaction/presentation/utils/ledger_gating.dart`.
-    새 판정은 반드시 여기를 먼저 거친다(필드 수 가드가 강제)
-  - 필터는 VO 하나로 관통해야 한다 — 필드 수동 나열은 4회 재발원
-    (메모리 `feedback_filter_vo_single_source`, `reference_month_move_filter_drop`)
-- **분석 시 정할 것**: 정답이 "합계도 이체를 포함" 인지 "목록도 이체를 제외" 인지.
-  **어느 쪽이든 20곳 표시 위치 전수 확인**이 전제다(메모리 `feedback_financial_consistency`).
-  판정 기준을 기획서에 사전에 못 박고 시작한다
+1. 계약 커밋 0 — `docs/api-spec.md` 갱신(summary 필터 파라미터 12개+ 미문서화 · `:42` 의
+   "필터 시 totalTransfer 항상 0" 규범 정정 · List Transfers 의 범위·필터 파라미터). **구현보다 먼저**
+2. BE 커밋 1 — `LedgerFilter` VO + `LedgerFilterAxis` enum + `TransferGating` + 리플렉션 가드 +
+   컨트롤러 바인딩 슬라이스 테스트(Spring `@ModelAttribute` + Kotlin 기본값 리스크 선검증)
+3. BE 커밋 2 — 합계 `hasContentFilters` 분기 제거(`getMonthlySummary` · `getPeriodSummary`) +
+   이체 목록 필터 파라미터 + "합계 = 행" 계약 통합테스트(Testcontainers, 축 조합 매트릭스)
+4. FE 커밋 3 — 장부 전용 `LedgerTransfersCubit` + 배선(month_sync · sync_event) +
+   `gateLedger` 이체 축 판정 제거 + 가드 재작성(FE 재도입 금지 · 장부의 `TransferBloc` 참조 금지)
+5. FE 커밋 4 — 합계바 서버 단일 소스 + "합계 제외" 배지(단일 헬퍼 경유)
+6. 로컬 CI 5종(analyze 전체 / flutter test / gradlew test / build web / 번들 문자열) → PR →
+   원격 CI → 머지 → 배포 → 기획서 §8 A1~A11 라이브 검증 요청
+- DB 마이그레이션 없음(스키마 변경 0건)
+- **라이브 검증 핵심(A1)**: 기간 `2026-06-15~2026-08-05` → 6·7월 이체 행이 보이고 이체 합계가
+  1,008,648원 → 4,393,787원 수준으로 오른다(수정 전 77% 누락)
 
 ### 그 다음 대기열 (착수 순서 아님)
 

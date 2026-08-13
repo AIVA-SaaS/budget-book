@@ -4,6 +4,7 @@ import com.budgetbook.auth.domain.AuthProvider
 import com.budgetbook.auth.domain.User
 import com.budgetbook.auth.repository.UserRepository
 import com.budgetbook.common.dto.PatchValue
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.couple.domain.Couple
@@ -229,13 +230,13 @@ class TransferServiceTest : BehaviorSpec({
             amount = 100000, description = "ATM", transferDate = LocalDate.of(2026, 3, 15)
         )
         every {
-            transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
-                couple.id, LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31)
+            transferRepository.findAll(
+                any<org.springframework.data.jpa.domain.Specification<Transfer>>()
             )
         } returns listOf(transfer)
 
         When("listing transfers for March 2026") {
-            val result = service.listTransfers(user1.id, 2026, 3)
+            val result = service.listTransfers(user1.id, CommonFilterParams(year = 2026, month = 3))
 
             Then("returns the transfer list") {
                 result.size shouldBe 1

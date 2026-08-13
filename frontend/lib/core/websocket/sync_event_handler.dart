@@ -18,6 +18,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bl
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_event.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_event.dart';
+import 'package:budget_book/features/transaction/presentation/bloc/ledger_transfers_cubit.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
@@ -200,6 +201,8 @@ class SyncEventHandler {
       final monthState = _getIt<MonthCubit>().state;
       final bloc = _getIt<TransferBloc>();
       bloc.add(LoadTransfers(year: monthState.year, month: monthState.month));
+      // 장부 전용 이체 소스도 같은 필터로 재조회한다 (분리된 소스라 따로 깨워야 한다).
+      _getIt<LedgerTransfersCubit>().reload();
       _logger.d('Dispatched LoadTransfers refresh');
     } catch (e) {
       _logger.e('Failed to refresh transfers: $e');

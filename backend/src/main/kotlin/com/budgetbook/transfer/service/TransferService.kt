@@ -1,6 +1,7 @@
 package com.budgetbook.transfer.service
 
 import com.budgetbook.auth.repository.UserRepository
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.common.exception.BusinessException
 import com.budgetbook.common.exception.NotFoundException
 import com.budgetbook.common.security.OwnershipValidator
@@ -87,36 +88,44 @@ class TransferService(
         return saved.toResponse()
     }
 
-    @Transactional(readOnly = true)
     /**
-     * 월 이체 목록.
+     * 이체 목록.
      *
-     * [reconciled] 는 거래 목록과 **동일한 의미** 의 정산 필터다 (false=미기록만, true=기록만,
-     * null=전체). 장부 목록은 거래+이체 병합이므로 한쪽 스트림만 필터를 지원하면
-     * "이체만 계속 남아 보이는" drift 가 난다 — 두 엔드포인트를 항상 같이 확장할 것.
+     * `filter.reconciled` 는 거래 목록과 **동일한 의미** 의 정산 필터다
+     * (false=미기록만, true=기록만, null=전체). 장부 목록은 거래+이체 병합이므로
+     * 한쪽 스트림만 필터를 지원하면 "이체만 계속 남아 보이는" drift 가 난다 —
+     * 두 엔드포인트를 항상 같이 확장할 것.
+     *
+     * ## 2026-08-12 — 범위·필터를 장부와 일치시킨다
+     *
+     * 이전에는 `year`/`month` 만 받아 **항상 한 달**을 반환했다. 장부(거래 목록)는
+     * `dateFrom`/`dateTo` 가 월을 덮어쓰는데 이체만 월에 갇혀 있어서, 기간 필터가 월을
+     * 넘으면 **이체 행이 통째로 누락**됐다(측정: 범위 내 이체 금액의 77%).
+     *
+     * 이제 범위는 `CommonFilterParams.getEffectiveDateRange()` 단일 규칙을 따르고,
+     * 나머지 축은 [TransferGating] 이 판정한다 — 이체 **집계**와 같은 함수다.
      */
-    fun listTransfers(
-        userId: UUID,
-        year: Int,
-        month: Int,
-        reconciled: Boolean? = null
-    ): List<TransferResponse> {
+    @Transactional(readOnly = true)
+    fun listTransfers(userId: UUID, filter: CommonFilterParams): List<TransferResponse> {
         val couple = getActiveCouple(userId)
-        val yearMonth = YearMonth.of(year, month)
-        val startDate = yearMonth.atDay(1)
-        val endDate = yearMonth.atEndOfMonth()
+        val (startDate, endDate) = filter.getEffectiveDateRange()
+            ?: throw BusinessException(
+                "VALIDATION_ERROR",
+                "Either dateFrom/dateTo or year/month is required."
+            )
 
-        val transfers = transferRepository.findByCoupleIdAndTransferDateBetweenOrderByTransferDateDesc(
-            couple.id, startDate, endDate
-        )
+        // 이체에 없는 축이 켜져 있으면 이체는 논리적으로 매칭 불가 → 조회 자체를 생략.
+        if (TransferGating.excludedWholesale(filter)) return emptyList()
+
+        val transfers = transferRepository
+            .findAll(TransferGating.spec(couple.id, filter, startDate, endDate))
+            .sortedByDescending { it.transferDate }
+
         // 정산 ref 를 한 번에 벌크 조회 (항목당 조회 = N+1 금지).
         val refs = reconciliationLookup.refsForTransfers(transfers.map { it.id })
-        val filtered = when (reconciled) {
-            null -> transfers
-            true -> transfers.filter { refs.containsKey(it.id) }
-            false -> transfers.filter { !refs.containsKey(it.id) }
-        }
-        return filtered.map { it.toResponse(refs[it.id]) }
+        return transfers
+            .filter { TransferGating.reconciledMatches(filter.reconciled, refs.containsKey(it.id)) }
+            .map { it.toResponse(refs[it.id]) }
     }
 
     @Transactional(readOnly = true)

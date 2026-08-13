@@ -1,5 +1,7 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/widgets/excluded_from_totals_badge.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
+import 'package:budget_book/features/transaction/presentation/utils/ledger_totals_exclusion.dart';
 import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter/material.dart';
@@ -139,6 +141,14 @@ class TransactionListTile extends StatelessWidget {
             // V65 — 정산 완료 배지 (공통 위젯 ReconciledBadge 단일 소스).
             if (transaction.isReconciled) ...[
               ReconciledBadge(seq: transaction.reconciliationSeq),
+              const SizedBox(width: 6),
+            ],
+            // 2026-08-12 — 합계에 안 잡히는 행임을 행에서 바로 보여준다.
+            // 판정은 ledger_totals_exclusion 단일 헬퍼 경유(타일이 직접 판단하지 않는다).
+            if (isTransactionExcludedFromTotals(transaction)) ...[
+              const ExcludedFromTotalsBadge(
+                reason: kAdjustmentExclusionReason,
+              ),
               const SizedBox(width: 6),
             ],
             if (isAdjustment) ...[

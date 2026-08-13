@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:budget_book/core/error/failure.dart';
 import 'package:budget_book/core/error/dio_error_mapper.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
+import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transfer/data/datasources/transfer_remote_datasource.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/domain/repositories/transfer_repository.dart';
@@ -17,12 +18,14 @@ class TransferRepositoryImpl implements TransferRepository {
     required int year,
     required int month,
     bool? reconciled,
+    TransactionFilter? filter,
   }) async {
     try {
       final result = await remoteDataSource.getTransfers(
         year: year,
         month: month,
         reconciled: reconciled,
+        filter: filter,
       );
       return Right(result);
     } on DioException catch (e) {

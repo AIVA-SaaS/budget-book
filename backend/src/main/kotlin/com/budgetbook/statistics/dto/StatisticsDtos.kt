@@ -12,7 +12,15 @@ data class StatisticsSummaryResponse(
      */
     val totalTransfer: Long,
     val balance: Long,
-    val transactionCount: Int
+    val transactionCount: Int,
+    /**
+     * 2026-08-12 신규 — 이 합계에 **집계된 이체 건수** (`CARD_SETTLEMENT` 제외).
+     *
+     * 합계와 목록이 같은 집합을 세는지 대조하기 위한 관측 값이다.
+     * 합계는 서버가 전 범위를 세고 목록은 페이지 단위로 오므로, 클라이언트는 로드가
+     * 끝난 뒤에만 이 값과 행 수를 비교해야 한다.
+     */
+    val transferCount: Int = 0
 )
 
 data class CategoryStatisticsResponse(

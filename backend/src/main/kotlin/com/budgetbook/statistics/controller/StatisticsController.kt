@@ -37,25 +37,9 @@ class StatisticsController(
         @RequestParam @Min(1) @Max(12) month: Int,
         @ModelAttribute filter: CommonFilterParams
     ): ApiResponse<StatisticsSummaryResponse> {
-        // 회차 8 — 모든 필터 전달 (FE client-side fold 제거 / 합계 정확성)
-        return ApiResponse.ok(statisticsService.getMonthlySummary(
-            userId = userId, year = year, month = month,
-            visibility = filter.visibility ?: "ALL",
-            dateFrom = filter.dateFrom, dateTo = filter.dateTo,
-            categoryId = filter.categoryId,
-            paymentMethodId = filter.paymentMethodId,
-            pocketId = filter.pocketId,
-            categoryIds = filter.categoryIds,
-            categoryGroupIds = filter.categoryGroupIds,
-            paymentMethodIds = filter.paymentMethodIds,
-            pocketIds = filter.pocketIds,
-            amountMin = filter.amountMin,
-            amountMax = filter.amountMax,
-            keyword = filter.keyword,
-            transactionTypes = filter.transactionTypes ?: emptyList(),
-            // 2026-07-27 — 목록과 동일 필터로 합계 계산 (합계 ≠ 행 불일치 fix).
-            needsReviewOnly = filter.needsReviewOnly
-        ))
+        // 2026-08-12 — 필터는 VO 를 **통째로** 넘긴다.
+        // 필드를 하나씩 나열하면 새 축이 추가될 때 조용히 누락된다(4회 재발 원인).
+        return ApiResponse.ok(statisticsService.getMonthlySummary(userId, year, month, filter))
     }
 
     @GetMapping("/by-category")
@@ -106,19 +90,7 @@ class StatisticsController(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) dateTo: LocalDate,
         @ModelAttribute filter: CommonFilterParams
     ): ApiResponse<PeriodSummaryResponse> {
-        return ApiResponse.ok(statisticsService.getPeriodSummary(
-            userId = userId,
-            dateFrom = dateFrom,
-            dateTo = dateTo,
-            visibility = filter.visibility ?: "ALL",
-            categoryId = filter.categoryId,
-            paymentMethodId = filter.paymentMethodId,
-            pocketId = filter.pocketId,
-            // PR-C2 다중/그룹 필터 전달 (하위 Service 에서 합집합으로 처리)
-            categoryIds = filter.categoryIds,
-            categoryGroupIds = filter.categoryGroupIds,
-            paymentMethodIds = filter.paymentMethodIds,
-            pocketIds = filter.pocketIds
-        ))
+        // 필터 VO 통째로 전달 (getMonthlySummary 와 동일 규칙).
+        return ApiResponse.ok(statisticsService.getPeriodSummary(userId, dateFrom, dateTo, filter))
     }
 }

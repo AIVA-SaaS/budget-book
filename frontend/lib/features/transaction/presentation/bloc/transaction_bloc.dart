@@ -95,6 +95,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
       int? serverIncome;
       int? serverExpense;
+      int? serverTransfer;
+      int? serverTransferCount;
 
       if (statisticsRepository != null) {
         final results = await Future.wait([
@@ -112,6 +114,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         summaryResult.fold((_) {}, (s) {
           serverIncome = (s as dynamic).totalIncome as int;
           serverExpense = (s as dynamic).totalExpense as int;
+          // 2026-08-12 — 이체 합계도 서버값을 쓴다(클라 계산은 월에 갇혀 있었다).
+          serverTransfer = (s as dynamic).totalTransfer as int;
+          serverTransferCount = (s as dynamic).transferCount as int;
         });
         txnResult.fold(
           (failure) => emit(TransactionError((failure as dynamic).message as String)),
@@ -124,6 +129,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: 0,
             serverTotalIncome: serverIncome,
             serverTotalExpense: serverExpense,
+            serverTotalTransfer: serverTransfer,
+            serverTransferCount: serverTransferCount,
             scrollToDate: event.scrollToDate,
             dateFrom: event.dateFrom,
             dateTo: event.dateTo,
@@ -178,6 +185,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         isLoadingMore: true,
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        serverTotalTransfer: currentState.serverTotalTransfer,
+        serverTransferCount: currentState.serverTransferCount,
         // 포커싱 의도 보존: 추가 페이지를 붙이는 동안에도 scrollToDate 가 살아 있어야
         // UI 가 대상 날짜 등장 시 포커싱하고, 부재 시 다음 페이지를 계속 요청한다.
         scrollToDate: currentState.scrollToDate,
@@ -207,6 +216,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             operationError: failure.message,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            serverTotalTransfer: currentState.serverTotalTransfer,
+            serverTransferCount: currentState.serverTransferCount,
             scrollToDate: currentState.scrollToDate,
             dateFrom: currentState.dateFrom,
             dateTo: currentState.dateTo,
@@ -226,6 +237,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             currentPage: nextPage,
             serverTotalIncome: currentState.serverTotalIncome,
             serverTotalExpense: currentState.serverTotalExpense,
+            serverTotalTransfer: currentState.serverTotalTransfer,
+            serverTransferCount: currentState.serverTransferCount,
             scrollToDate: currentState.scrollToDate,
             dateFrom: currentState.dateFrom,
             dateTo: currentState.dateTo,
@@ -244,6 +257,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         operationError: '예기치 않은 오류가 발생했습니다',
         serverTotalIncome: currentState.serverTotalIncome,
         serverTotalExpense: currentState.serverTotalExpense,
+        serverTotalTransfer: currentState.serverTotalTransfer,
+        serverTransferCount: currentState.serverTransferCount,
         scrollToDate: currentState.scrollToDate,
         dateFrom: currentState.dateFrom,
         dateTo: currentState.dateTo,

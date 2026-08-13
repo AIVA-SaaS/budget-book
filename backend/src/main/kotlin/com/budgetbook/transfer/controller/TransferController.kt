@@ -1,6 +1,7 @@
 package com.budgetbook.transfer.controller
 
 import com.budgetbook.common.dto.ApiResponse
+import com.budgetbook.common.dto.CommonFilterParams
 import com.budgetbook.common.ratelimit.RateLimit
 import com.budgetbook.common.security.AuthUser
 import com.budgetbook.transaction.dto.ConvertToTransactionRequest
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -93,15 +95,20 @@ class TransferController(
         return ApiResponse.ok(result)
     }
 
+    /**
+     * 이체 목록.
+     *
+     * 2026-08-12 — 장부 필터를 그대로 받는다(`@ModelAttribute CommonFilterParams`).
+     * `year`/`month` 는 계속 동작하고(하위호환), `dateFrom`/`dateTo` 가 있으면 그쪽이 우선한다
+     * — 거래 목록·통계 합계와 **같은 범위 규칙**(`getEffectiveDateRange`).
+     * 축별 판정은 `TransferGating` 단일 지점.
+     */
     @GetMapping
     fun listTransfers(
         @AuthUser userId: UUID,
-        @RequestParam year: Int,
-        @RequestParam month: Int,
-        // V65 — 정산 필터. 거래 목록(`GET /transactions?reconciled=`) 과 동일 의미.
-        @RequestParam(required = false) reconciled: Boolean? = null
+        @ModelAttribute filter: CommonFilterParams
     ): ApiResponse<List<TransferResponse>> {
-        return ApiResponse.ok(transferService.listTransfers(userId, year, month, reconciled))
+        return ApiResponse.ok(transferService.listTransfers(userId, filter))
     }
 
     @GetMapping("/{id}")

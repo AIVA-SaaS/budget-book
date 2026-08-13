@@ -80,13 +80,18 @@ void main() {
         expect(params.containsKey('type'), isFalse);
       });
 
-      test('TRANSFER pseudo-type is stripped before hitting BE', () {
+      // 2026-08-12 계약 변경 — TRANSFER 를 **그대로 보낸다**.
+      // 예전에는 잘라 보냈고, 그래서 서버가 "타입 필터 없음" 으로 해석해 거래 전체를
+      // 세고 FE 가 다시 걸렀다(판정 2곳 → "합계 ≠ 행"). 이제 서버가 두 스트림을 판정한다.
+      test('TRANSFER is sent to BE so the server can gate both streams', () {
         const f = TransactionFilter(
           transactionTypes: {'EXPENSE', 'TRANSFER'},
         );
         final params = f.toQueryParams();
         final list = (params['transactionTypes'] as List).cast<String>();
-        expect(list, equals(<String>['EXPENSE']));
+        expect(list, containsAll(<String>['EXPENSE', 'TRANSFER']));
+        // 복수 선택이므로 단수 `type` 은 보내지 않는다.
+        expect(params.containsKey('type'), isFalse);
       });
 
       test('single-value multi sets both `transactionTypes` and legacy `type`',
@@ -100,10 +105,14 @@ void main() {
         );
       });
 
-      test('only TRANSFER (pseudo) → BE gets no type filter', () {
+      test('only TRANSFER → transactionTypes=[TRANSFER], no singular type', () {
         const f = TransactionFilter(transactionTypes: {'TRANSFER'});
         final params = f.toQueryParams();
-        expect(params.containsKey('transactionTypes'), isFalse);
+        expect(
+          (params['transactionTypes'] as List).cast<String>(),
+          equals(<String>['TRANSFER']),
+        );
+        // TRANSFER 는 거래 타입이 아니다 → 단수 `type` 으로 보내면 BE 가 400 을 낸다.
         expect(params.containsKey('type'), isFalse);
       });
 
