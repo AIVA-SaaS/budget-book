@@ -9,21 +9,25 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **"합계 ≠ 행 불일치" 회차 종결(완료)** — PR #297 → 배포 → **사용자 라이브 검증
-  A1~A11 전부 통과** (2026-08-13, 타임라인 41)
-- **다음 회차**: **자산 탭 모바일 가독성 + 브랜드 색상 체계 개편** — 기획 **승인 완료**,
-  코드 **0줄**, 착수 대기. 기획서
+- **단계**: **자산 탭 모바일 가독성 + 브랜드 색상 회차 — 구현 진행 중**
+  (브랜치 `feat/asset-tab-mobile-theme`). 기획서
   `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md` (§6 커밋 순서 정본)
-- ⚠ **착수는 `/clear` 후 새 세션에서** — 회차 경계 규칙(메모리 `feedback_round_boundary_clear`).
-  이 세션에서 다음 회차 코드를 시작하지 않는다
+- **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마 기반**(타임라인 42) —
+  `bb_colors.dart` · `bb_density.dart` · `one_line_label.dart` · `app_theme.dart` 씨드 교체.
+  `flutter test` **977건 통과**
+- **남은 커밋**: 2 공통 타일 → 3 자산 탭 이관(헤더 3카드 포함) → 4 자산 현황 카드 →
+  5 저장&계속 스크롤 → 6 하드코딩 색 래칫 가드 → 로컬 CI 5종 → PR → 배포 → 라이브 검증
+- **직전 회차("합계 ≠ 행")는 종결** — PR #297, 라이브 검증 A1~A11 전부 통과 (타임라인 41)
 - **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
   타일은 **편집 모드 분리**(보기 모드 = 이름+금액만, 편집 모드에서만 토글·⋮·≡) /
   범위 = 자산 탭 3탭 + 분석>예산의 "자산 현황" 카드 + 테마 토큰(앱 전역) + 저장&계속 스크롤 fix.
   나머지 68파일 하드코딩 색은 **래칫 가드로 점진 축소**(이번 회차 미수정)
-- **하네스 게이트**: `ui_pattern` **STRUCTURAL_FIX_REQUIRED — LOCKED, acknowledge 미실행**.
-  착수 첫 단계가 `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`.
-  해제 근거는 기획서 §5 S1~S7(타일 API 봉인 / 색 래칫 / ListTile·MediaQuery 직접사용 금지 /
-  32조합 오버플로 매트릭스 / WCAG 명도비 자동측정 / 사용자색 보정 단일지점 / 저장&계속 offset 0)
+- **하네스 게이트**: `ui_pattern` STRUCTURAL_FIX_REQUIRED — **acknowledge 완료(2026-08-13)**.
+  해제 근거 §5 S1~S7 중 **S5(WCAG 명도비 자동측정) 구현 완료**, 나머지 S1~S4·S6·S7 은
+  커밋 2·3·5·6 에서 구현 예정
+- **색 최종값(측정 확정)**: 브랜드 틸 `#0F766E`/`#5ED3C4` · 수입 `#2563EB`/`#60A5FA` ·
+  지출 **`#D11440`**/`#FB7185`(로즈 — 순수 레드는 M3 error 와 hue 0° 충돌) ·
+  이체 슬레이트 · 예산 앰버 · 저축 바이올렛. **후보 `#E11D48` 은 명도비 4.47 로 자동 반려됨**
 - **선행 측정 완료(U1)**: 통계 위젯 9개 중 `colorScheme.primary` 의존은 1건뿐
   (`period_budget_tab.dart`) → **차트는 이번 회차 미변경**. 씨드를 틸로 바꿔도 차트는 안 깨진다
 - **핵심 측정치**: 360dp 에서 결제수단 한 행의 고정 크롬 **236dp** / 콘텐츠 잔여 **124dp**.
@@ -738,21 +742,39 @@
    - 후속으로 이관: `/transfers` 진입점 부활 여부 · 차트 수입 그린 vs 장부 수입 블루 불일치 ·
      죽은 화면 6개 정리(결과 문서 §9)
 
+42. **2026-08-13** — 자산 탭 회차 **착수**: 하네스 게이트 해제 + **커밋 1(토큰/테마 기반) 완료**.
+   - 게이트: `acknowledge-gate.sh frontend <기획서>` 실행 → `ui_pattern`
+     STRUCTURAL_FIX_REQUIRED **acknowledged**(frontend 편집 허용). 브랜치
+     `feat/asset-tab-mobile-theme`
+   - 산출물: `core/theme/bb_colors.dart`(BbColors ThemeExtension — 브랜드 틸 씨드 `#0F766E` /
+     다크 `#5ED3C4` + 의미 토큰 7종의 `color·container·onContainer` 삼중쌍 + 결제수단 타입색 5종 +
+     `readable()` HSL 명도 클램프 + WCAG 명도비·색상거리 계산) / `core/theme/bb_density.dart`
+     (compact<400 / regular / wide≥840, `MediaQuery.sizeOf` 단일 독점 지점) /
+     `core/widgets/one_line_label.dart`(String 봉인 + TextPainter 이진탐색 4회 + 프레임 메모이즈,
+     **금액 축약 없음**) / `app_theme.dart`(씨드 교체 + `extensions:` 주입, light·dark primary 명시
+     override) / `app_colors.dart` `@Deprecated` 위임
+   - 게이트 결과: 신규 테스트 41건 + 기존 936건 = **`flutter test` 977건 전부 통과**
+     (씨드 변경이 기존 위젯 테스트를 하나도 깨지 않음 — R3 전역 영향 1차 확인)
+   - **측정으로 확정된 값 2건**(사전 판정 기준 §3 U3 적용):
+     ① 수입 블루는 `#2196F3`(hue 206.6°, 틸과 31.3° 차 → 기준 40° 미달)을 버리고 **`#2563EB`**
+     (hue 221.2°, 45.9° 차)로 이동
+     ② 지출 레드는 M3 `error` 와 hue 차가 0°라 **로즈 계열 `#D11440`**(hue 346°, error 와 18° 차).
+     최초 후보 `#E11D48` 은 **M3 라이트 surface 가 순백이 아니라서** 명도비 4.47:1 로
+     4.5 기준 **미달 → 자동 테스트가 반려** → 한 단계 어둡게 재선정(측정이 색을 결정한 사례)
+   - 판정 근거: `bb_colors_contrast_test.dart` 가 라이트·다크 각각 토큰 전수(본문 4.5 / 아이콘 3.0)
+     + 브랜드-수입-지출 hue 거리 + error 충돌을 **자동 측정**. 미달 토큰은 채택 불가
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **직전 회차("합계 ≠ 행")는 종결됐다** — 라이브 검증 전부 통과, 결과 문서
-  `docs/sessions/2026-08-13_2_summary-row-mismatch_result.md`. 이 회차로 되돌아갈 일은 없다
-- **다음 회차 = 자산 탭 모바일 가독성 + 브랜드 색상.** 기획 승인 완료, 남은 착수 조건 없음.
-  ⚠ 단 **`/clear` 후 새 세션에서 시작**한다(회차 경계 규칙)
+- **진행 중 = 자산 탭 모바일 가독성 + 브랜드 색상 회차.** 브랜치 `feat/asset-tab-mobile-theme`,
+  게이트 해제 완료, **커밋 1 완료**. 아래 3번부터 이어서 진행한다
 
 ### 착수 순서 (기획서 §6, 고정)
 
-1. `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`
-   — 이걸 하지 않으면 frontend 편집이 훅에 막힌다. (U1 선행 측정은 **이미 완료** — 차트 미변경)
-2. **커밋 1 토큰/테마**: `bb_colors.dart`(틸 씨드 + 라이트·다크 쌍 + 의미 토큰) /
-   `bb_density.dart`(320·400·840 경계) / `one_line_label.dart`(축소 하한 12sp, 금액 축약 금지) /
-   `BbColors.readable()`(사용자 색 HSL 명도 클램프) + 단위 테스트 + **WCAG 명도비 테스트**
+1. ~~하네스 게이트 acknowledge~~ — **완료**
+2. ~~**커밋 1 토큰/테마**~~ — **완료** (`bb_colors` / `bb_density` / `one_line_label` /
+   `app_theme` 씨드 교체, 테스트 977건 통과)
 3. **커밋 2 공통 타일**: `entity_tile_row.dart`(`title: String` 봉인) + `AssetEditModeScope`
    (InheritedNotifier) + **32조합 매트릭스 테스트** + ListTile·MediaQuery 직접사용 금지 가드
 4. **커밋 3 자산 탭 이관**: 결제수단·카테고리·포켓 3탭 + **상단 헤더 3카드**(`_AssetSummaryHeader` /
