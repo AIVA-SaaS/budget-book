@@ -15,8 +15,8 @@
 - **완료**: 하네스 게이트 acknowledge / **커밋 1 토큰·테마**(타임라인 42) /
   **커밋 2 공통 타일**(43) / **커밋 3 자산 탭 이관**(44) / **커밋 4 자산 현황 카드**(45) /
   **커밋 5 저장&계속 스크롤**(46) / **커밋 6 색 래칫 가드**(47)
-- **남은 것**: PR → 원격 CI → 머지 → 배포 → **사용자 라이브 검증**
-  (구현 커밋 6개 + 로컬 CI 5종 전부 완료)
+- **남은 것**: 원격 CI 재실행 → 머지 → 배포 → **사용자 라이브 검증**
+  (구현 커밋 6개 + 로컬 CI + CI 실패 1건 수정 완료. PR **#298**)
 - **직전 회차("합계 ≠ 행")는 종결** — PR #297, 라이브 검증 A1~A11 전부 통과 (타임라인 41)
 - **확정 판정(사용자)**: 메인 색상 **틸 #0F766E**(다크 primary #5ED3C4) /
   타일은 **편집 모드 분리**(보기 모드 = 이름+금액만, 편집 모드에서만 토글·⋮·≡) /
@@ -859,6 +859,25 @@
      `\uXXXX` 로 이스케이프되므로 원문 grep 은 항상 0건 → ASCII 보존 이스케이프로 대조.
      `편집`·`완료`·`비활성`·`잔액 수정`·`저장 & 계속`·`기본 카테고리`·`전월`·`미결제`·`이번달`
      **전부 존재**
+
+49. **2026-08-13** — **PR #298 원격 CI 실패 → 근본 원인 수정 + 재발 방지.**
+   - backend-ci 통과 / **frontend-ci 실패 — `flutter test` 1031 pass, 3 fail**
+     (전부 신규 `transaction_form_continue_scroll_test.dart`)
+   - **로컬은 통과했는데 CI 만 실패한 이유 = Flutter SDK 스큐**
+     (메모리 `feedback_flutter_sdk_skew_analyze` 재현). 로컬 **3.41.2**(2026-02 리비전),
+     CI 는 `channel: stable` 을 실행 시점에 해석 → 더 최신. 최신 SDK 에만 있는 프레임워크
+     assert 가 터졌다: **"ListTile background color or ink splashes may be invisible"**
+   - **진짜 결함이다(테스트 문제 아님)**: `ListTile` 은 **가장 가까운 Material 조상** 위에
+     배경·잉크를 그리는데, 중간에 색칠된 `Container` 가 있으면 그 뒤에 깔려 안 보인다.
+     내 S7 테스트가 **이 페이지를 처음 렌더한 위젯 테스트**라 잠복해 있던 결함이 드러난 것
+   - **전수 조사 후 일괄 수정**(`feedback_common_scope_audit`): 조상 관계까지 보는 스캐너로
+     `lib` 전체를 훑어 **2건** 확정 → ① `transaction_form_page` 메모 카드의 `SwitchListTile`
+     ② `category_group_selector_sheet` 의 "잔액 조정" 고정 항목.
+     둘 다 `Material(type: MaterialType.transparency)` 로 감쌌다
+   - **재발 방지**: `tool/listtile_ink_scan.dart` + `listtile_ink_guard_test.dart` 신설.
+     **설치된 SDK 버전과 무관하게** 소스에서 잡는다(SDK 스큐로 다시 새는 것을 막는 유일한 방법).
+     역방향 확인 완료 — 색칠된 Container 안에 ListTile 을 넣자 즉시 실패, 되돌리면 통과
+   - `flutter test` **1036건 통과** / `analyze` 신규 지적 0건
 
 ## 3. 다음 단계
 

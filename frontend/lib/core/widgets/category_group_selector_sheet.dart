@@ -823,7 +823,11 @@ class _CategoryGroupSelectorSheetState
           width: isSelected ? 2 : 1,
         ),
       ),
-      child: ListTile(
+      // 카드가 배경색을 칠하고 있어서, 타일을 그대로 두면 ListTile 의 배경·잉크
+      // 스플래시가 그 뒤에 깔려 보이지 않는다(최신 Flutter 는 assert 로 잡는다).
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
         key: const Key('adjustment-pinned-option'),
         dense: true,
         leading: CircleAvatar(
@@ -857,6 +861,7 @@ class _CategoryGroupSelectorSheetState
           widget.onSelectedWithGroupName?.call(sentinelCategory, null);
           Navigator.of(context).pop();
         },
+        ),
       ),
     );
   }

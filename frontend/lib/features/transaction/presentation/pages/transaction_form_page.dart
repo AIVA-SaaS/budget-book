@@ -1632,7 +1632,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             thickness: 1,
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
-          SwitchListTile(
+          // 카드가 배경색을 칠하고 있어서, 타일을 그대로 두면 ListTile 의 배경·잉크
+          // 스플래시가 그 뒤에 깔려 보이지 않는다(최신 Flutter 는 assert 로 잡는다).
+          // 투명 Material 을 하나 끼워 타일이 자기 잉크를 카드 위에 그리게 한다.
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
             value: _needsReview,
             onChanged: (v) => setState(() => _needsReview = v),
             dense: true,
@@ -1665,6 +1670,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             subtitle: const Text(
               '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
               style: TextStyle(fontSize: 12),
+            ),
             ),
           ),
         ],
