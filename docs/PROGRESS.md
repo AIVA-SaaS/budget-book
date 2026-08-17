@@ -9,36 +9,29 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **자산 탭 모바일 가독성 + 브랜드 틸 색상 회차 종결(완료)** — PR #298 → 배포 →
-  **사용자 라이브 검증 통과** (2026-08-14, 타임라인 52).
-  결과 정본 `docs/sessions/2026-08-14_1_asset-tab-mobile-theme_result.md`
+- **단계**: 자산 탭 가독성·브랜드 틸 회차 **종결(라이브 검증 통과, 2026-08-14)**.
+  PR #298 · `main` = `9af3c85`. 결과 정본
+  `docs/sessions/2026-08-14_1_asset-tab-mobile-theme_result.md`
 - **다음 회차**: **분석 탭 UI/UX 전체 개편 + 자산 탭 카드 2줄화** — 사용자 요청 접수,
-  **기획 전 · 코드 0줄**. 요청 원문은 §3 NEXT
-- ⚠ **착수는 `/clear` 후 새 세션에서** — 회차 경계 규칙(메모리 `feedback_round_boundary_clear`)
-- **이번 회차가 남긴 자산(다음 회차가 그대로 쓴다)**:
-  `BbColors`(의미 토큰 + `readable()` + 명도비 계산) / `BbDensity`(폭 읽기 단일 지점) /
-  `OneLineLabel`(금액 축약 없이 축소) / `EntityTileRow`(ListTile 대체, 값 타입 봉인) /
-  `AssetEditModeScope`. **분석 탭 개편은 이 위에 얹으면 된다 — 새로 만들 필요 없다**
-- **가드 8종 가동 중**: S1 타일 API 봉인 / S2 색 래칫(baseline **313건/73파일**) /
-  S3 ListTile·MediaQuery 금지 / S4 32조합 매트릭스 / S5 WCAG 명도비 / S6 `readable()` /
-  S7 저장&계속 offset 0 / **ListTile 잉크 스캐너**.
-  → 새 화면 작업 시 **하드코딩 색을 넣으면 테스트가 막는다**
-- ⚠ **CI 는 로컬보다 Flutter 가 최신이다**(로컬 3.41.2 vs CI `channel: stable`).
-  로컬 통과 ≠ CI 통과 — 실제로 이번 회차에서 ListTile 잉크 assert 로 1회 실패했다.
-  CI 실패 시 `gh run view <id> --log-failed` 부터 본다
-- ⚠ **색은 서버 측 검증으로 판정 불가**. 번들에서 색 상수는 4가지 표기 모두 grep 0건이고
-  **대조군(구 브랜드 그린)도 0건**이었다 → 프로브 무효. 색 반영 여부는 **사용자 눈만**이
-  판정한다. 서버는 `last-modified` + 신규 한글 문자열(`\uXXXX` 이스케이프)까지만 말해 준다
-- **라이브 검증 지시 규칙**: 0단계 = **오프라인 배너 없음 확인**
-  (메모리 `feedback_live_verification_online_precheck`)
-- ⚠ **이 앱에 홈 대시보드 화면은 없다** — `/home` → `/transactions` redirect, 탭 4개.
-  `PaymentMethodPage`·`CategoryPage`·`/transfers` 도 진입점이 죽어 도달 불가
-  (메모리 `reference_dead_home_dashboard`)
-- **repo / 브랜치**: `AIVA-SaaS/budget-book` · `main` = `9af3c85` 이후 docs 커밋
-- **CI 게이트(4종 + 1)**: analyze 전체 신규 0 / `flutter test` **1036** / `./gradlew test` /
-  `build web --release` + **배포 후 `verify-cache-headers.sh`**
-- **blocker**: 없음
-- **갱신**: 2026-08-14
+  **기획 전 · 코드 0줄**. 요청 원문과 착수 유의는 §3 NEXT (그대로 이어서 진행하면 된다)
+- **첫 행동**: §3 NEXT 를 읽고 **기획부터** 시작. 승인 게이트는 기획 단계뿐이다.
+  하네스 `ui_pattern` 은 STRUCTURAL_FIX_REQUIRED —
+  `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend <새 기획서>` 가 편집 전제조건
+- **기반은 이미 있다(새로 만들지 말 것)**: `BbColors`(의미 토큰·`readable()`·명도비 계산) /
+  `BbDensity`(폭 읽기 단일 지점) / `OneLineLabel`(금액 축약 없이 축소) /
+  `EntityTileRow`(ListTile 대체·값 타입 봉인) / `AssetEditModeScope`.
+  상세는 메모리 `reference_asset_tab_tile_contract`
+- **가드 8종 가동**: 타일 API 봉인 / 색 래칫(baseline 313건·73파일) / ListTile·MediaQuery
+  금지 / 32조합 매트릭스 / WCAG 명도비 / `readable()` / 저장&계속 offset 0 / ListTile 잉크.
+  → 하드코딩 색·`ListTile`·`MediaQuery width` 를 넣으면 **테스트가 막는다**
+- ⚠ **CI Flutter 가 로컬보다 최신**(로컬 3.41.2 vs CI `channel: stable`). 로컬 통과 ≠ CI 통과.
+  CI 실패 시 `gh run view <id> --log-failed` 부터 — 메모리
+  `reference_flutter_sdk_skew_listtile_ink`
+- ⚠ **색은 서버로 판정 불가**(번들 grep 은 대조군도 0건 = 프로브 무효). 사용자 눈만이 판정.
+  라이브 검증 0단계는 **오프라인 배너 없음 확인**
+- **CI 게이트(4+1)**: analyze 전체 신규 0 / `flutter test` **1036** / `./gradlew test` /
+  `build web --release` + 배포 후 `verify-cache-headers.sh`
+- **blocker**: 없음 · **갱신**: 2026-08-17
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -898,12 +891,9 @@
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-- **직전 회차(자산 탭 가독성·색상)는 종결됐다** — 라이브 검증 통과, 결과 문서
-  `docs/sessions/2026-08-14_1_asset-tab-mobile-theme_result.md`. 되돌아갈 일 없다
-- **다음 회차 = 아래 요청 2건.** ⚠ **`/clear` 후 새 세션에서 기획부터 시작**한다
-  (회차 경계 규칙). 승인 게이트는 기획 단계뿐이다
+**직전 회차는 종결됐다. 아래 요청 2건으로 새 회차를 시작한다 — 기획부터.**
 
-### 다음 회차 요청 (사용자, 2026-08-14 — 원문 보존)
+### 요청 (사용자, 2026-08-14 — 원문 보존)
 
 > 아쉬운 것, 분석도 자산처럼 UI/UX 전체 개편 필요
 >
@@ -913,33 +903,28 @@
 > 자산에서는 카드의 경우 잔액이 없으므로 마감일, 결제일 정보가 잔액 대신 노출되어
 > 2줄로만 노출되게 개선
 
-**요청 1 — 분석 탭 UI/UX 전체 개편.** "자산처럼" = 이번 회차와 같은 수준의 개편을 원한다.
+**요청 1 — 분석 탭 UI/UX 전체 개편.** "자산처럼" = 직전 회차와 같은 수준을 원한다.
 지목된 공간 낭비 4곳: ① 상단 예산/통계 ② 월말 점검 ③ 월간/주간 버튼 ④ 이번달 예산 영역.
-문제의 본질은 **크롬이 데이터를 밀어낸다**는 것 — 자산 탭과 같은 진단이다.
+본질은 **크롬이 데이터를 밀어낸다** — 자산 탭과 같은 진단이다.
 
-**요청 2 — 자산 탭 카드 항목을 2줄로.** 신용카드는 잔액이 없으므로 지금은
-`이름` / `마감일·결제일` / `전월·미결제·이번달 칩` 3줄이 된다.
-→ **마감일·결제일을 잔액 자리(타일 우측 metric)로 올려** 2줄로 끝낸다.
+**요청 2 — 자산 탭 카드 2줄화.** 신용카드는 잔액이 없어 지금은
+`이름` / `마감일·결제일` / `전월·미결제·이번달 칩` 3줄이다.
+→ **마감일·결제일을 잔액 자리(`trailingMetric`)로 올려** 2줄로 끝낸다.
 고칠 지점은 `asset_management_page.dart` 의 `_buildPaymentMethodTile` 하나
-(현재 `subtitle` 로 넘기는 문자열을 `trailingMetric` 으로 옮기는 문제).
+(지금 `subtitle` 로 넘기는 문자열을 `trailingMetric` 으로 옮기는 문제).
 
-### 착수 시 유의 (이미 측정된 사실 — 재조사 불필요)
+### 착수 유의 (이미 측정됨 — 재조사 불필요)
 
-- **기반은 이미 있다**: `BbColors` / `BbDensity` / `OneLineLabel` / `EntityTileRow` /
-  `AssetEditModeScope`. 분석 탭은 이 위에 얹는다
-- **가드가 이미 막는다**: 대상 파일에 하드코딩 색·`ListTile`·`MediaQuery width` 를 넣으면
-  테스트가 실패한다. 색은 `context.bb`, 밀도는 `context.density`
-- **알려진 진입점**: 분석 탭 → 예산 화면 `budget_list_page.dart`(자산 현황 카드를
-  `AccountBalanceCard(showHeader: false)` 로 렌더) / 통계 하위 탭은
-  `statistics_page` 4개 탭 / `period_budget_tab.dart` 은 통계 위젯 중 유일하게
-  `colorScheme.primary` 를 쓴다
-- **차트는 아직 미이관**: 시리즈 팔레트가 파일마다 복제(`_defaultColors` 3중복 + 별도
-  `_colors`)돼 있고, **차트는 수입을 그린 / 장부는 수입을 블루**로 그린다.
-  분석 탭을 건드리면 이 불일치가 눈에 들어올 것이다 — 범위에 넣을지 기획에서 판정
-- ⚠ **하네스 게이트**: `ui_pattern` 은 STRUCTURAL_FIX_REQUIRED 다. 착수 첫 단계는
-  `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend <새 기획서 경로>`
+- 분석 탭은 기존 기반 위에 얹는다. 색은 `context.bb`, 밀도는 `context.density`
+- 알려진 진입점: `budget_list_page.dart`(자산 현황 카드를 `showHeader: false` 로 렌더) /
+  `statistics_page` 4개 하위 탭 / `period_budget_tab.dart` 은 통계 위젯 중 유일하게
+  `colorScheme.primary` 사용
+- **차트는 미이관**: 시리즈 팔레트가 파일마다 복제되고 **차트는 수입을 그린 / 장부는
+  수입을 블루**로 그린다. 분석 탭을 건드리면 눈에 띈다 → 범위 포함 여부는 기획에서 판정
+- 그 다음 대기열·회차 밖 트랙은 **§3 아래 절**에 있다(주입 예산 절약을 위해 분리)
+<!-- /HNS:NEXT -->
 
-### 그 다음 대기열 (착수 순서 아님)
+### 그 다음 대기열 (착수 순서 아님 — 자동 주입 대상 아님)
 
 1. **차트 색 체계 통일** — `BbColors` 에 `series` 토큰. 위 회차와 합칠 수도 있다
 2. **미기록 200건 초과 달의 추가 페이지 로드 UI** — 안내 문구만 있다
@@ -958,7 +943,7 @@
 
 - 정산 스냅샷 라이브 검증 A1~A10 / B1~B7 / C1~C5 — `docs/sessions/2026-07-27_1_result.md §4.1`
 - KI-006(지출계획 완료 시 거래 자동 등록) 배포 후 확인 — `docs/known-issues.md`
-<!-- /HNS:NEXT -->
+
 
 ## 4. 산출물 지도
 
