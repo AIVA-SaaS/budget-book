@@ -1,0 +1,28 @@
+{
+  "total": 1699,
+  "areas": {
+    "_core": 312,
+    "admin": 23,
+    "auth": 22,
+    "budget": 95,
+    "card_settlement": 20,
+    "category": 18,
+    "category_group": 28,
+    "couple": 61,
+    "feedback": 109,
+    "home": 99,
+    "insurance": 36,
+    "onboarding": 18,
+    "payment_method": 56,
+    "pocket": 64,
+    "reconciliation": 36,
+    "recurring": 24,
+    "report": 69,
+    "settings": 116,
+    "spending_plan": 97,
+    "statistics": 140,
+    "transaction": 175,
+    "transfer": 23,
+    "weekly_budget": 58
+  }
+}

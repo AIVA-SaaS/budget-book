@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/widgets/bb_tab.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
-import 'package:budget_book/features/reconciliation/presentation/bloc/reconciliation_summary_cubit.dart';
-import 'package:budget_book/features/reconciliation/presentation/widgets/reconciliation_summary_card.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/pages/budget_list_page.dart';
@@ -29,11 +27,17 @@ class AnalysisPage extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('분석'),
-          bottom: const TabBar(
+          // 2026-08-18 — 타이틀 '분석' 은 하단 네비 라벨과 중복이다
+          // (`main_shell_page.dart` NavigationDestination(label: '분석')).
+          // TabBar 가 이미 위치를 말하므로 툴바 줄을 통째로 회수한다(−56dp).
+          // 같은 기법을 `statistics_page` 가 이미 쓰고 있다.
+          toolbarHeight: 0,
+          automaticallyImplyLeading: false,
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.account_balance_wallet_outlined), text: '예산'),
-              Tab(icon: Icon(Icons.bar_chart_outlined), text: '통계'),
+              bbTab(context,
+                  icon: Icons.account_balance_wallet_outlined, label: '예산'),
+              bbTab(context, icon: Icons.bar_chart_outlined, label: '통계'),
             ],
           ),
         ),
@@ -45,10 +49,6 @@ class AnalysisPage extends StatelessWidget {
         body: const Column(
           children: [
             MonthNavigator(),
-            // 월말 점검 (2026-08-10) — 예산/통계 두 sub-tab 이 공유하는 위치.
-            // 그 달의 미기록 건수를 한눈에 보여주고, 누르면 거래 탭 정산 뷰로
-            // **보고 있던 달 그대로** 이동한다.
-            _ReconciliationSummarySection(),
             Expanded(
               child: TabBarView(
                 children: [
@@ -59,44 +59,6 @@ class AnalysisPage extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 월말 점검 카드 영역.
-///
-/// 달 이동은 [MonthCubit] 이 단일 소스이므로 그 값을 그대로 따른다(월 변경 시
-/// 재조회는 `MonthSyncHandler` 가 담당). 탭에 들어올 때마다 한 번 더 요청하는 이유는
-/// 사용자가 거래 탭에서 정산을 기록하고 돌아왔을 때 숫자가 옛것으로 남지 않게 하기
-/// 위해서다 — 통계/예산 wrapper 도 같은 방식으로 진입 시 로드한다.
-///
-/// 요약이 없으면(미조회·실패) 아무것도 그리지 않는다. 분석 탭의 다른 내용이
-/// 이 카드 때문에 밀리거나 빈 카드가 남는 일이 없어야 한다.
-class _ReconciliationSummarySection extends StatelessWidget {
-  const _ReconciliationSummarySection();
-
-  @override
-  Widget build(BuildContext context) {
-    final monthState = context.watch<MonthCubit>().state;
-    final cubit = getIt<ReconciliationSummaryCubit>()
-      ..load(year: monthState.year, month: monthState.month);
-
-    return BlocProvider<ReconciliationSummaryCubit>.value(
-      value: cubit,
-      child: BlocBuilder<ReconciliationSummaryCubit, ReconciliationSummaryState>(
-        builder: (context, state) {
-          final summary = state.summary;
-          if (summary == null) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-            child: ReconciliationSummaryCard(
-              summary: summary,
-              year: monthState.year,
-              month: monthState.month,
-            ),
-          );
-        },
       ),
     );
   }

@@ -7,12 +7,7 @@
       "Read",
       "Glob",
       "Grep",
-      "Edit",
-      "Write",
-      "Bash",
-      "WebFetch",
-      "WebSearch",
-      "Task"
+      "WebSearch"
     ],
     "deny": [
       "Bash(rm -rf /)",

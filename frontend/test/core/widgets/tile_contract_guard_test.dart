@@ -23,6 +23,7 @@ void main() {
 
   /// `BbDensity` is the sanctioned owner of the width read.
   const densityOwner = 'lib/core/theme/bb_density.dart';
+  const scaleOwner = 'lib/core/theme/bb_scale.dart';
 
   String read(String path) => File(path).readAsStringSync();
 
@@ -49,21 +50,24 @@ void main() {
     }
   });
 
-  test('S3 — BbDensity is the only place that reads the width', () {
+  test('S3 — bb_scale.dart is the only place that reads the width', () {
     final widthRead = RegExp(r'MediaQuery[^;]*\.width');
     final offenders = <String>[];
     for (final entity in Directory('lib').listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      if (entity.path == densityOwner) continue;
+      if (entity.path == densityOwner || entity.path == scaleOwner) continue;
       if (widthRead.hasMatch(entity.readAsStringSync())) {
         offenders.add(entity.path);
       }
     }
     // Screens outside the asset tab have not been migrated yet; this is a
     // ratchet, so record the current set and fail on any addition.
+    // 2026-08-18: 소유자가 `bb_density.dart` → `bb_scale.dart` 로 옮겨갔다.
+    // `BbDensity` 는 이제 `BbType.of(context).width` 로 폭을 받는다(위임).
+    // `bb_scale.dart` 의 MediaQuery 읽기는 `BbScaleScope` 부재 시 폴백 1곳뿐이다.
     const knownLegacy = <String>[];
     expect(offenders..sort(), knownLegacy,
-        reason: 'new MediaQuery width reads must go through BbDensity');
+        reason: 'new MediaQuery width reads must go through bb_scale.dart');
   });
 
   test('S6 — parseColor results are corrected with readable()', () {

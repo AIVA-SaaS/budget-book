@@ -59,23 +59,40 @@ void main() {
     }
   });
 
-  test('analysis tab hosts the month-end review card', () {
-    // 2026-08-10 — 홈 대시보드는 라우팅되지 않는다(`/home` → `/transactions` redirect).
-    // 이 카드가 다시 죽은 화면으로 옮겨가면 사용자에게 도달하지 못한다.
+  test('analysis tab no longer hosts the month-end review card', () {
+    // 2026-08-18 — 사용자 요청으로 "월말 점검" 카드를 **삭제**했다("정보 자체를
+    // 없애야 할 것 같다"). 분석 탭 크롬이 화면의 70%를 먹던 원인 중 138dp 다.
+    //
+    // 이 단정을 반전시킨 이유를 남긴다: 원래 이 가드는 2026-08-10 인시던트
+    // (카드를 죽은 홈 화면에 얹어 라이브 도달 0) 의 재발 방지였다. 카드가
+    // 사라졌으므로 **지켜야 할 것은 카드의 위치가 아니라 정산 기능의 도달성**이고,
+    // 그 단정은 아래 테스트로 이관했다.
     final analysis =
         read('lib/features/analysis/presentation/pages/analysis_page.dart');
-    expect(analysis.contains('ReconciliationSummaryCard'), isTrue);
-    expect(analysis.contains('ReconciliationSummaryCubit'), isTrue);
+    expect(analysis.contains('ReconciliationSummaryCard'), isFalse);
+    expect(analysis.contains('ReconciliationSummaryCubit'), isFalse);
   });
 
-  test('the card builds its ledger URL through the single source', () {
-    final card = read(
-      'lib/features/reconciliation/presentation/widgets/reconciliation_summary_card.dart',
+  test('정산 뷰는 거래 탭 뷰 토글로 여전히 도달 가능하다', () {
+    // ★도달성 가드 이관처(2026-08-18). 월말 점검 카드가 유일한 진입점이 아니었기에
+    // 삭제할 수 있었다 — 이 세그먼트가 사라지면 정산 기능이 고아가 된다.
+    final ledger = read(
+      'lib/features/transaction/presentation/pages/transaction_list_page.dart',
     );
-    expect(card.contains('ledgerLocation('), isTrue);
-    expect(card.contains("'/transactions"), isFalse,
-        reason: '월 누락(navigation_state, 3회 재발)을 컴파일이 막게 하려면 '
-            'ledgerLocation() 만 써야 한다.');
+    expect(ledger.contains('LedgerView.reconciliation'), isTrue,
+        reason: '정산 뷰로 가는 마지막 진입점이다 — 지우면 기능이 도달 불가가 된다.');
+    expect(ledger.contains('_TxViewMode.reconciliation'), isTrue);
+    expect(ledger.contains('정산 보기'), isTrue,
+        reason: '세그먼트 tooltip 이 사라지면 어포던스가 없다(2026-07-27 인시던트).');
+  });
+
+  test('the ledger URL is built through the single source', () {
+    // 월 누락(navigation_state, 3회 재발)을 컴파일이 막게 하려면 ledgerLocation() 만
+    // 써야 한다. 카드가 사라졌으므로 감시 대상을 정산 뷰 호스트로 옮긴다.
+    final route = read('lib/core/utils/ledger_route.dart');
+    expect(route.contains('required int year'), isTrue,
+        reason: 'year/month 가 required 라야 컴파일이 월 누락을 막는다.');
+    expect(route.contains('required int month'), isTrue);
   });
 
   test('dashboard never assembles a ledger URL by hand', () {

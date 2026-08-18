@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_year_picker_dialog.dart';
 
@@ -65,14 +66,18 @@ class MonthNavigator extends StatelessWidget {
     final now = DateTime.now();
     final isCurrentMonth = displayYear == now.year && displayMonth == now.month;
 
+    final space = context.bbSpace;
+    // 좌우 대칭용 스페이서는 "오늘" 버튼과 **같은 폭**이어야 한다. 버튼 폭은
+    // 이제 테마(`iconButtonTheme.minimumSize`)가 정하므로 여기서 상수로 적으면
+    // 밀도를 바꿀 때마다 어긋난다 → L4 터치 하한 상수를 공유한다.
+    const todayButtonWidth = 44.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: space.symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // "오늘" 버튼이 오른쪽 끝에 붙으므로, 같은 폭을 왼쪽에 비워 가운데 날짜의
-          // 좌우 대칭을 유지한다.
-          const SizedBox(width: 48),
+          const SizedBox(width: todayButtonWidth),
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () {
@@ -83,7 +88,7 @@ class MonthNavigator extends StatelessWidget {
             },
             tooltip: '이전 달',
           ),
-          // 고정 폭 4칸(스페이서 + 화살표 2 + 오늘) 192 를 빼면 좁은 화면·큰 글꼴 배율에서
+          // 고정 폭 4칸(스페이서 + 화살표 2 + 오늘)을 빼면 좁은 화면·큰 글꼴 배율에서
           // 여유가 많지 않다. 넘치면 잘라서 표시한다.
           Flexible(
             child: TextButton(

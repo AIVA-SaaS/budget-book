@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:budget_book/core/theme/bb_scale.dart';
+
 /// Layout density tier derived from the logical screen width.
 enum BbDensityTier { compact, regular, wide }
 
@@ -7,6 +9,10 @@ enum BbDensityTier { compact, regular, wide }
 ///
 /// Screens must not call `MediaQuery...size.width` themselves — guard S3
 /// (`tile_contract_guard_test.dart`) fails the build if they do.
+///
+/// 2026-08-18: 폭 읽기의 단일 지점은 이제 `bb_scale.dart` 다. 이 클래스는 **타일
+/// 밀도(L1 컨테이너 역산)** 를 담당하고, 폭은 [BbScaleScope] 를 경유해 받는다 —
+/// 웹에서 화면 폭(2560)과 콘텐츠 폭(960)이 다르기 때문이다.
 @immutable
 class BbDensity {
   const BbDensity({
@@ -128,9 +134,10 @@ class BbDensity {
     return wide;
   }
 
-  /// Reads the width from [MediaQuery.sizeOf] — the only such read in the app.
+  /// 유효 콘텐츠 폭 기준. 폭 조회는 `bb_scale.dart` 가 단독으로 소유한다 —
+  /// 이 클래스는 그 값을 받아 타일 밀도만 정한다.
   static BbDensity of(BuildContext context) =>
-      forWidth(MediaQuery.sizeOf(context).width);
+      forWidth(BbType.of(context).width);
 }
 
 /// `context.density.titleFontSize`

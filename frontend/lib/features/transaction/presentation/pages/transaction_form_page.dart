@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/widgets/bb_tab.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/utils/category_display_helper.dart';
@@ -784,12 +785,12 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               : TabBar(
                   controller: _tabController,
                   tabs: [
-                    const Tab(icon: Icon(Icons.arrow_downward), text: '지출'),
-                    const Tab(icon: Icon(Icons.arrow_upward), text: '수입'),
+                    bbTab(context, icon: Icons.arrow_downward, label: '지출'),
+                    bbTab(context, icon: Icons.arrow_upward, label: '수입'),
                     // 역변환 모드에서는 목적지가 거래로 고정이라 이체 탭이 없다
                     // (TabController.length 와 반드시 같은 조건이어야 한다).
                     if (!_hidesTransferTab)
-                      const Tab(icon: Icon(Icons.swap_horiz), text: '이체'),
+                      bbTab(context, icon: Icons.swap_horiz, label: '이체'),
                   ],
                 ),
         ),
