@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,6 +10,7 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/auth_interceptor.dart';
 import 'package:budget_book/core/router/app_router.dart';
 import 'package:budget_book/core/theme/app_theme.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
@@ -64,16 +67,44 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                   final wrapped = MonthSyncHandler(child: child!);
                   return LayoutBuilder(
                     builder: (context, constraints) {
+                      final isMobileLayout = constraints.maxWidth <= 768;
+
+                      // ★유효 콘텐츠 폭 — 화면 폭이 아니다. 웹은 아래에서 본문을
+                      // kBbContentMaxWidth 칼럼으로 감싸므로, 2560px 화면에서도
+                      // 본문이 실제로 쓰는 폭은 960 이다. 이 값으로 판정하지 않으면
+                      // 960px 칼럼 안에서 "2560px 데스크톱" 크기로 그린다
+                      // (domains/12-ui-scaling.md ★2 — calynda 가 실측한 결함).
+                      final contentWidth = isMobileLayout
+                          ? constraints.maxWidth
+                          : math.min(constraints.maxWidth, kBbContentMaxWidth);
+
+                      // 폭 → 타이포·아이콘·밀도·크롬. 450곳의 `textTheme.*` 가
+                      // 코드 변경 없이 여기서 반응하게 된다.
+                      final scaled = BbScaleScope(
+                        width: contentWidth,
+                        child: Builder(
+                          builder: (themedContext) => Theme(
+                            data: AppTheme.responsive(
+                              Theme.of(themedContext),
+                              contentWidth,
+                            ),
+                            child: wrapped,
+                          ),
+                        ),
+                      );
+
                       // Mobile: no constraint, Web: centered with max width + background
-                      if (constraints.maxWidth <= 768) {
-                        return wrapped;
+                      if (isMobileLayout) {
+                        return scaled;
                       }
                       final bgColor = Theme.of(context).colorScheme.surfaceContainerLowest;
                       return ColoredBox(
                         color: bgColor,
                         child: Center(
                           child: Container(
-                            constraints: const BoxConstraints(maxWidth: 960),
+                            constraints: const BoxConstraints(
+                              maxWidth: kBbContentMaxWidth,
+                            ),
                             decoration: BoxDecoration(
                               color: Theme.of(context).scaffoldBackgroundColor,
                               boxShadow: [
@@ -84,7 +115,7 @@ class _BudgetBookAppState extends State<BudgetBookApp> {
                                 ),
                               ],
                             ),
-                            child: wrapped,
+                            child: scaled,
                           ),
                         ),
                       );

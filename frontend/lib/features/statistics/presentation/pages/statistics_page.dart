@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/widgets/bb_tab.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/features/statistics/presentation/bloc/statistics_bloc.dart';
@@ -31,11 +32,11 @@ class StatisticsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // 4개 sub-tab. 요약은 다른 항목들과 중복되어 제거 (사용자 요청).
     // 순서는 기존 TabBarView children 과 맞춤 (카테고리 → 추이 → 전년비교 → 결제수단).
-    const tabs = [
-      Tab(icon: Icon(Icons.pie_chart_outline), text: '카테고리별'),
-      Tab(icon: Icon(Icons.show_chart), text: '추이'),
-      Tab(icon: Icon(Icons.compare_arrows), text: '전년 비교'),
-      Tab(icon: Icon(Icons.credit_card), text: '결제수단별'),
+    final tabs = [
+      bbTab(context, icon: Icons.pie_chart_outline, label: '카테고리별'),
+      bbTab(context, icon: Icons.show_chart, label: '추이'),
+      bbTab(context, icon: Icons.compare_arrows, label: '전년 비교'),
+      bbTab(context, icon: Icons.credit_card, label: '결제수단별'),
     ];
     return DefaultTabController(
       length: 4,
@@ -55,7 +56,7 @@ class StatisticsPage extends StatelessWidget {
                   ),
                 ]
               : null,
-          bottom: const TabBar(isScrollable: true, tabs: tabs),
+          bottom: TabBar(isScrollable: true, tabs: tabs),
         ),
         body: BlocBuilder<StatisticsBloc, StatisticsState>(
           builder: (context, state) {

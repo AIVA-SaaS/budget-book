@@ -9,18 +9,18 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 자산 탭 가독성·브랜드 틸 회차 **종결(라이브 검증 통과, 2026-08-14)**.
-  PR #298 · `main` = `9af3c85`. 결과 정본
-  `docs/sessions/2026-08-14_1_asset-tab-mobile-theme_result.md`
-- **다음 회차**: **분석 탭 UI/UX 전체 개편 + 자산 탭 카드 2줄화** — 사용자 요청 접수,
-  **기획 전 · 코드 0줄**. 요청 원문과 착수 유의는 §3 NEXT (그대로 이어서 진행하면 된다)
-- **첫 행동**: §3 NEXT 를 읽고 **기획부터** 시작. 승인 게이트는 기획 단계뿐이다.
-  하네스 `ui_pattern` 은 STRUCTURAL_FIX_REQUIRED —
-  `bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend <새 기획서>` 가 편집 전제조건
-- **기반은 이미 있다(새로 만들지 말 것)**: `BbColors`(의미 토큰·`readable()`·명도비 계산) /
-  `BbDensity`(폭 읽기 단일 지점) / `OneLineLabel`(금액 축약 없이 축소) /
-  `EntityTileRow`(ListTile 대체·값 타입 봉인) / `AssetEditModeScope`.
-  상세는 메모리 `reference_asset_tab_tile_contract`
+- **단계**: **분석 탭 개편 회차 — 구현·로컬 CI 완료. PR/배포/라이브 검증 남음.**
+  기획서 `docs/sessions/2026-08-18_1_analysis-tab-density_plan.md`(§12 = 구현 결과·정정)
+- **한 일**: calynda UI 크기 체계 이식(`bb_scale.dart` 토큰 + `app_theme.responsive()` 배선
+  + ratchet 게이트 + 스윕 30건) · 월말 점검 삭제 · 분석 탭 크롬 이관 · 자산 카드 2줄화
+- **실측 결과** `[측정, 대조군]`: 크롬 **284dp → 160dp**, 콘텐츠 **63.6% → 79.5%**.
+  legacy 는 320~960px 에서 완전히 동일했다 = 폭 반응 0 이 대조군으로 확정
+- **게이트 4+1 통과**: analyze 신규 0 / `flutter test` **1058** / `./gradlew test` /
+  `build web --release` EXIT=0 / UI 크기 게이트(baseline **1699**, 시범 3파일 0)
+- **전 앱 기본값 승격 완료**(회차 밖 영구): `~/.claude/domains/12-ui-scaling.md` +
+  INDEX·CLAUDE.md 라우팅 + 분류 훅 키워드. 앞으로 모든 앱 UI 작업에 자동 적용
+- ⚠ **본문 타이포는 1440px 아래에서 상수**다(가독성 — 의도된 설계). 모바일 개선은
+  큰 글자·아이콘·크롬·밀도에서 온다. "글자가 여전히 크다"면 레버는 `kBbTextSpec.min` 하향 1곳
 - **가드 8종 가동**: 타일 API 봉인 / 색 래칫(baseline 313건·73파일) / ListTile·MediaQuery
   금지 / 32조합 매트릭스 / WCAG 명도비 / `readable()` / 저장&계속 offset 0 / ListTile 잉크.
   → 하드코딩 색·`ListTile`·`MediaQuery width` 를 넣으면 **테스트가 막는다**
@@ -31,7 +31,7 @@
   라이브 검증 0단계는 **오프라인 배너 없음 확인**
 - **CI 게이트(4+1)**: analyze 전체 신규 0 / `flutter test` **1036** / `./gradlew test` /
   `build web --release` + 배포 후 `verify-cache-headers.sh`
-- **blocker**: 없음 · **갱신**: 2026-08-17
+- **blocker**: **사용자 승인 대기**(기획 단계 게이트) · **갱신**: 2026-08-18
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -888,10 +888,125 @@
    - PR #298, `main` = `9af3c85`. BE·DB·api-spec 변경 0건
    - **같은 턴에 다음 회차 요청 2건 접수**(아래 §3 NEXT 에 고정) — 이 세션에서는 착수하지 않는다
 
+53. **2026-08-18** — **auto mode 권한 설정 정비** (개발 회차 아님 · 도구 트랙).
+   - `/auto-mode-setup`. 전 프로젝트 세션 로그 21+개·Bash 1,662건 스캔 `[측정]`
+   - **발견**: `permissions.allow` 의 블랭킷 `Bash`/`Edit`/`Write`/`WebFetch` 가 룰 단계에서
+     먼저 매칭돼 **auto mode 분류기가 사실상 안 돌고 있었다**. 특히 `Bash(git push:*)` 가
+     있어 글로벌 §1.5(main 직접 push 금지)를 `hard_deny` 에 써도 조회조차 되지 않는 구멍
+   - **조치**: `~/.claude/settings.json` 에 `autoMode.environment`(6) / `allow`(7) /
+     `soft_deny`(8) / `hard_deny`(5) 신설 + 블랭킷 룰 제거. 프로젝트
+     `.claude/settings.json` 의 블랭킷도 제거(이게 남으면 이 repo 안에선 전부 무효)
+   - 백업 `~/.claude/settings.json.bak-automode-20260818`
+   - ⚠ **미커밋**: `.claude/settings.json` 1건이 워킹트리에 남아 있다(이번 회차와 무관한 변경)
+
+54. **2026-08-18** — **분석 탭 개편 회차 착수 — 요청 갱신 + 기획서 작성. 코드 0줄.**
+   - **사용자 요청 갱신 2건**: ① 월말 점검은 축소가 아니라 **"정보 자체를 없애야"**
+     (08-14 대비 격상) ② "**아이콘이나 버튼 크기가 너무 커**" → 지목 4곳이 아니라
+     **크롬 전반 전수**로 일반화
+   - **측정 `[1차]`**(로컬 Flutter SDK 직접 확인): `kToolbarHeight=56` /
+     `_kTabHeight=46`·`_kTextAndIconTabHeight=72` / `NavigationBar height=80`
+   - **진단**: 분석>통계 크롬 546dp = 화면의 70%, 콘텐츠 234dp(30%). 예산 sub-tab 은 26.7%.
+     근본 원인은 자산 탭과 동일 — **크롬 치수가 흩어진 리터럴이라 총합을 아무도 안 본다**.
+     `BbDensity` 는 타일 전용이고 크롬 토큰이 0개 `[측정]`
+   - **전수 실측 `[측정]`**: `Tab(icon:+text:)` 9곳/3파일 · `IconButton` 70곳 ·
+     그중 `iconSize`/`visualDensity` 명시는 20곳뿐(**50곳 기본값 방치**)
+   - **도달성 사전 확인 `[측정]`**: 월말 점검 카드 호스팅은 `analysis_page.dart:93` 단 1곳이나,
+     정산 뷰는 거래 탭 `SegmentedButton` 3번째 세그먼트(`transaction_list_page.dart:1438-1440`)로
+     **독립 도달 가능** → 삭제해도 기능이 고아가 되지 않는다
+   - **하네스 Step 1.5**: `ui_pattern`·`navigation_state` 둘 다 🚫 **STRUCTURAL_FIX_REQUIRED**
+     (각 5건). 게이트 LOCKED. 구조적 수정 S1~S4 를 기획서에 포함
+   - **총괄 검토(독립 검증)에서 2건 정정**:
+     ① `Tab(child: Row(...))` 는 `icon == null` 이라 46dp — 아이콘 유지하며 감축 가능하고,
+     `Tab.height` 파라미터가 이미 있어 **토큰 주입이 프레임워크 지원 경로**임을 SDK 소스로 확인
+     ② `NavigationBar` 64dp 는 `SizedBox` 하드 박스라 **오버플로 위험** → §8-6 미해결로 격리 +
+     사전 판정 기준(오버플로 시 72dp, 결론 불변) 명시
+   - 산출물: **`docs/sessions/2026-08-18_1_analysis-tab-density_plan.md`**
+   - **게이트: 사용자 승인 대기.** 승인 전 코드 편집 금지
+
+55. **2026-08-18** — **요구 확대: calynda UI 크기 체계를 budget-book 에 이식 + 전 앱 기본값으로 승격.** 기획서 개정. 코드 0줄.
+   - **사용자 지시**: "calynda 에서 진행했던 모바일과 웹(화면 크기·비율 차이) 기반 사이즈 변동을
+     budget book 에도 적용" / "모바일에서 글씨·버튼이 **웹 그대로**라 사용하기 어려운 수준" /
+     "가독성 고려해 크기별 동적 크기 설정" / **"앞으로 앱 작업, budget book 은 물론 calynda 나
+     다른 추가 앱 작업에는 이게 항상 기본이어야 한다"**
+   - **★근본 진단 정정 `[측정]`**: `core/theme/app_theme.dart` 가 **60줄이고
+     `useMaterial3: true` 하나뿐** — `TextTheme`·밀도·컴포넌트 테마가 **전무**하다.
+     앱 전체가 Material 기본 타이포 한 벌로 320px~2560px 를 똑같이 그린다.
+     **"웹 그대로"가 문자 그대로 맞았다.** 크기 리터럴 **1,458건**
+     (fontSize 115 · EdgeInsets 446 · SizedBox 747 · radius 150 / dart 416파일)
+   - **calynda 측정 `[1차: 코드·문서 직접 확인]`**: 같은 병을 2026-08-14~17 에 이미 해결.
+     `fe/lib/ui/shared/themes/ui_scale.dart`(301줄) + `tool/check_ui_scaling.py` +
+     `test/ui/responsive_sweep_test.dart`(31건). 리터럴 509→405, PR fe#197, 배포 게이트 배선 완료
+   - **★내 원안 폐기**: `BbChrome` 3단 계단 토큰은 calynda 가 **실측으로 틀렸다고 판정한 모양**이었다.
+     ①비율 clamp 는 하한에 닿는 순간 전 축이 굳는다(`sqrt(W/1440).clamp(0.9,1.8)` 이
+     **320~1024px 전 구간 0.900 붙박이** = 폭 3.2배에 반응 0) ②**화면 폭 판정은 틀린다** —
+     최악이 모바일이 아니라 900px 였다(352px 패널에서 데스크톱 폰트 → 22.49자 < 390px 의 27.81자).
+     **`BbDensity.of` 가 정확히 이 안티패턴**(`bb_density.dart:131-133`) ③여백이 폰트를
+     안 따라가면 이름만 바뀐다
+   - **기획서 개정** `docs/sessions/2026-08-18_1_analysis-tab-density_plan.md` (474줄):
+     §2.5·2.6 신설(근본 진단 정정 + calynda 선례) · §4 구조적 수정 **S1~S6 전면 교체**
+     (`BbType`/`BbSpace` 이식 · `app_theme` 배선 · `BbDensity` 흡수 · ratchet · 스윕 · 도달성 이관) ·
+     §5 를 5단계로 재구성 · §8 미해결 7~9 추가
+   - **★전 앱 승격(사용자 지시 이행)** — 이 회차 밖 영구 산출물:
+     · **`~/.claude/domains/12-ui-scaling.md` 신설**(164줄) — 4층 모델 L0~L4 · 핵심 규칙 5종
+       (clamp 는 가독 px / 컨테이너 폭 판정 / 폰트→여백→밀도 순서 / 여백은 제곱근 결합 /
+       작은 화면에서 본문 안 줄임) · 강제 3종 · 체크리스트 · 계측 함정
+     · `~/.claude/domains/INDEX.md` 매핑·트리거·목록 3곳 배선
+     · `~/.claude/CLAUDE.md` §3 라우팅 표 등재
+     · **`~/.claude/harness/scripts/classify-route.py` 키워드 규칙 신설** — 이번 요청이
+       `01-diagnosis` 로 **오분류**됐던 걸 확인하고 등록. 스모크 테스트로 정상 라우팅 검증
+   - **범위 결정**: calynda 가 검증한 스코프(**토큰 + 게이트 + 시범 1영역**)를 따른다.
+     시범 = 분석 탭. 1,458건 전수는 이 회차가 아니고 **ratchet 이 회차마다 낮춘다**
+   - **게이트: 사용자 승인 대기**(개정판 기준). 승인 전 코드 편집 금지
+
+56. **2026-08-18** — **승인("승인") → UI 크기 토큰 + 게이트 + 분석 탭 이관 구현 완료.** 브랜치 `feat/ui-scaling-tokens`.
+   - 하네스 게이트 해제: `acknowledge-gate.sh frontend <기획서>` (지문 `8:2026-08-11`)
+   - **★대조군 실험으로 진단 확정** `[측정]`. 같은 크롬 구성을 이관 전/후 두 벌로 렌더:
+     **legacy 는 320px 과 960px 에서 콘텐츠가 완전히 동일한 496dp(63.6%)** = 폭 반응 0 이
+     추론이 아니라 대조군으로 확정. 토큰 적용 후 **620dp(79.5%)** — 크롬 284 → 160dp(**−43.7%**)
+   - 토큰 실측(360px): `body 14.0`(유지) · `title 18.0`(22 → −18%) · `iconMd 19.0`(24 → −21%) ·
+     `navBar 66`(80 → −18%). 960px 에선 `title 19.9`·`iconMd 21.7` — **계단 아닌 연속 변화**
+   - **산출물**: `bb_scale.dart`(신설, `BbType`/`BbSpace`/`BbScaleScope`) ·
+     `app_theme.responsive()`(Material 15슬롯 TextTheme + visualDensity + 7개 컴포넌트 테마) ·
+     `app.dart` 유효 콘텐츠 폭 주입 · `bb_tab.dart`(신설, 탭 9곳 이관) ·
+     `bb_density` 폭 조회 위임 · `tool/check_ui_scaling.py`+baseline(신설) ·
+     `responsive_sweep_test.dart`(신설 **30건**) · 월말 점검 4파일 삭제 · 자산 카드 2줄화
+   - **★`textTheme.*` 450 호출부가 코드 변경 0으로 반응형이 됐다** — `app_theme` 배선이
+     최고 레버리지였다(raw `fontSize` 는 115곳뿐)
+   - **★웹 960 칼럼 결함 원천 차단**: `app.dart` 가 본문을 `maxWidth: 960` 으로 감싸는데
+     `MediaQuery` 는 2560 을 준다. `BbScaleScope` 가 `min(maxWidth, 960)` 를 단일 소스로
+     심어, calynda 가 실측한 "화면은 넓고 컨테이너는 좁은" 결함을 구조적으로 막았다
+   - **★가드가 실제로 막았다**: 기존 S3(폭 읽기 단일 지점)가 `bb_scale.dart` 를 즉시 잡아
+     실패 → 설계대로 `BbDensity` 를 `BbType` 아래로 흡수하고 소유자 이관. **토큰만 추가하고
+     옛 경로를 남겼다면 여기서 걸렸을 것**이고 그게 이 가드의 목적이다
+   - **기획 대비 정정 4건**(기획서 §12.2): ①§2.1 의 546dp 는 페이지 전체 추정이고 크롬
+     프레임만은 실측 284dp — SDK 상수 산술이 **1.4% 오차**로 맞았다(범위가 다른 것이지 모순 아님)
+     ②ratchet baseline 1,458 → **1,699**(도구 패턴 집합이 더 넓다) ③**§8-6 NavigationBar
+     오버플로 위험 해소** — 66dp 로 21조합 전부 예외 0, 72dp 폴백 불필요 ④가드 임계 55% → **70%** 상향
+   - **게이트 4+1 전부 통과** `[측정]`: analyze **3 issues(전부 기존 테스트 info, 신규 0)** /
+     `flutter test` **1058 pass**(1036 → −8 삭제 +30 스윕) / `./gradlew test` BUILD SUCCESSFUL /
+     `build web --release` **EXIT=0** / UI 크기 게이트 **통과**(total=1699=기준선, 시범 3파일 0)
+   - BE·DB·`api-spec.md` 변경 **0건**. 다음: PR → 머지 → 배포 → **사용자 라이브 검증**
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-**직전 회차는 종결됐다. 아래 요청 2건으로 새 회차를 시작한다 — 기획부터.**
+**기획서가 나왔다 — 사용자 승인만 남았다.**
+정본: **`docs/sessions/2026-08-18_1_analysis-tab-density_plan.md`** (이 문서를 읽고 이어서 진행한다)
+
+승인이 확인되면 첫 명령은 게이트 해제다:
+`bash ~/.claude/harness/scripts/acknowledge-gate.sh frontend docs/sessions/2026-08-18_1_analysis-tab-density_plan.md`
+그 다음 기획서 §5 작업 계획 1~19 순으로 구현 → 로컬 CI 4종 → PR → 머지 → 라이브 검증 요청.
+
+승인이 아직이면 **코드 편집 금지**. 요청이 또 바뀌면 기획서부터 고친다.
+
+### 요청 (사용자, 2026-08-18 추가 — 원문 보존)
+
+> 분석에서 월말 점검 정보 자체를 없애야할 것 같다.
+>
+> 그리고 모바일 화면에 비해 아이콘이나 버튼 크기가 너무 커 콘텐츠가 너무 적게 보인다.
+
+**08-14 대비 변경점 2가지** — 기획서 §1 에 반영 완료:
+① 월말 점검은 **축소가 아니라 삭제**로 격상 ② 아이콘·버튼은 지목 4곳이 아니라 **크롬 전수**
 
 ### 요청 (사용자, 2026-08-14 — 원문 보존)
 

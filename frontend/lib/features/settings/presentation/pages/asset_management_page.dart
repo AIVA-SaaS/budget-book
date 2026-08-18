@@ -1179,7 +1179,6 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             .amount ??
         0;
 
-    String? subtitle;
     EntityMetric? trailingMetric;
     final metrics = <EntityMetric>[];
     final badges = <EntityBadge>[];
@@ -1187,7 +1186,14 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
     if (method.isCredit) {
       final closing =
           method.closingDay == 31 ? '말일' : '${method.closingDay ?? '-'}일';
-      subtitle = '마감일: $closing, 결제일: ${method.settlementDay ?? '-'}일';
+      // 2026-08-18 사용자 요청 — 신용카드는 잔액이 없어 `trailingMetric` 슬롯이
+      // 비어 있었고, 마감일·결제일이 `subtitle` 로 내려가 **3줄**이 됐다
+      // (이름 / 마감·결제 / 전월·미결제·이번달 칩).
+      // 비어 있는 잔액 자리로 끌어올려 **2줄**로 끝낸다. 계좌 타일은 그대로다.
+      trailingMetric = EntityMetric(
+        label: '마감·결제',
+        value: '$closing · ${method.settlementDay ?? '-'}일',
+      );
       if (settlement != null) {
         final unpaid = cardAmount(settlement.unpaidMonth);
         metrics.addAll([
@@ -1219,7 +1225,6 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
 
     return EntityTileRow(
       title: method.name,
-      subtitle: subtitle,
       badges: badges,
       trailingMetric: trailingMetric,
       metrics: metrics,
