@@ -70,23 +70,47 @@ class AppTheme {
   ///
   /// ★`body*`/`label*` 은 `min == ref` — 작은 화면에서 본문을 줄이지 않는다.
   /// 모바일 개선은 큰 글자·아이콘·크롬·밀도에서 온다(`domains/12-ui-scaling.md` ★5).
+  /// Material 슬롯별 `(ref, min, max)`.
+  ///
+  /// ★기준점은 **자산 탭**이다(2026-08-19 사용자 검증: "자산 내 글자 크기가 딱 적절하다").
+  /// `BbDensity` 의 타일 폰트가 유일하게 폭에 반응하던 체계였고 사용자가 그 값을
+  /// 승인했으므로, 그 3단 값을 **연속 곡선이 지나가도록** ref/min/max 를 역산했다.
+  ///
+  /// 역산 근거 — `size = clamp(min, ref × (W/1440)^0.25, max)` 에서
+  /// `(360/1440)^0.25 = 0.7071` · `(768/1440)^0.25 = 0.8409` · `(960/1440)^0.25 = 0.9036`:
+  ///
+  ///   자산 title  14 / 15 / 16  → ref 17.8 · min 14 · max 16
+  ///   자산 metric 13 / 14 / 15  → ref 16.7 · min 13 · max 15
+  ///   자산 chip   10 / 11 / 12  → ref 13.4 · min 10 · max 12
+  ///   자산 hdrL   11 / 12 / 12  → ref 13.3 · min 11 · max 12
+  ///   자산 hdrV   15 / 17 / 19  → ref 21.1 · min 15 · max 19
+  ///                              (21.0 이면 960px 에서 18.98 로 상한에 0.02 미달)
+  ///
+  /// `ref > max` 는 의도된 것이다 — 기준 폭(1440)에서 이미 상한에 닿아 있다는 뜻이고,
+  /// 그래야 좁은 쪽 곡선이 자산 값을 지나간다. 정합은 `responsive_sweep_test.dart`
+  /// 의 "자산 탭 값과 일치" 테스트가 고정한다.
+  ///
+  /// ⚠ 이전 판(Material 기본값을 ref, body 는 min == ref)은 **1440px 아래에서 본문이
+  /// 통째로 상수**였다 — 폭에 반응하지 않았고 자산 탭보다 2px 컸다. 그게 사용자가
+  /// 지적한 "거래/분석/더보기가 크다" 의 실체다.
   static const Map<String, ({double ref, double min, double max})> _slots = {
-    'displayLarge': (ref: 57, min: 40, max: 64),
-    'displayMedium': (ref: 45, min: 32, max: 52),
-    'displaySmall': (ref: 36, min: 27, max: 42),
-    'headlineLarge': (ref: 32, min: 24, max: 37),
-    'headlineMedium': (ref: 28, min: 22, max: 32),
-    'headlineSmall': (ref: 24, min: 19, max: 28),
-    'titleLarge': (ref: 22, min: 18, max: 26),
-    'titleMedium': (ref: 16, min: 15, max: 19),
-    'titleSmall': (ref: 14, min: 13, max: 17),
-    'bodyLarge': (ref: 16, min: 16, max: 19),
-    'bodyMedium': (ref: 14, min: 14, max: 17),
-    'bodySmall': (ref: 12, min: 12, max: 14),
-    'labelLarge': (ref: 14, min: 14, max: 17),
-    'labelMedium': (ref: 12, min: 12, max: 14),
-    'labelSmall': (ref: 11, min: 11, max: 13),
+    'displayLarge': (ref: 60, min: 34, max: 52),
+    'displayMedium': (ref: 48, min: 28, max: 42),
+    'displaySmall': (ref: 38, min: 24, max: 34),
+    'headlineLarge': (ref: 34, min: 21, max: 30),
+    'headlineMedium': (ref: 29, min: 19, max: 26),
+    'headlineSmall': (ref: 25, min: 17, max: 22),
+    'titleLarge': (ref: 21.1, min: 15, max: 19), // 자산 hdrV
+    'titleMedium': (ref: 17.8, min: 14, max: 16), // 자산 title
+    'titleSmall': (ref: 16.7, min: 13, max: 15), // 자산 metric
+    'bodyLarge': (ref: 17.8, min: 14, max: 16), // 자산 title — 목록 행 제목
+    'bodyMedium': (ref: 16.7, min: 13, max: 15), // 자산 metric — 본문 기본
+    'bodySmall': (ref: 13.3, min: 11, max: 12), // 자산 hdrL — 메타·보조
+    'labelLarge': (ref: 16.7, min: 13, max: 15),
+    'labelMedium': (ref: 13.3, min: 11, max: 12),
+    'labelSmall': (ref: 13.4, min: 10, max: 12), // 자산 chip
   };
+
 
   static double _slot(String name, double width) {
     final spec = _slots[name]!;

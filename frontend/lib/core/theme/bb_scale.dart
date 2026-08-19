@@ -76,19 +76,24 @@ enum BbTextRole { display, title, section, body, label, caption }
 /// 역할별 기준값. `ref` 는 1440px 에서의 크기이고 `min`/`max` 는 **가독 기준 px**
 /// 이다(비율이 아니다 — 이게 현행 결함의 직접 처방).
 ///
-/// `ref` 는 Material 3 기본값에 맞췄다 — 1440px 웹에서 지금과 같아 보이고,
-/// 좁아질수록만 줄어든다(회귀 표면적 최소화).
+/// `ref > max` 인 역할이 있다 — 기준 폭(1440)에서 이미 상한에 닿아 있다는 뜻이고,
+/// 그래야 좁은 쪽 곡선이 자산 탭 실측값을 지나간다.
 ///
-/// ★`body`/`label`/`caption` 은 `min == ref` 다 — **작은 화면에서 본문 글자를 줄이지
-/// 않는다**. 좁은 화면의 적응은 구조(L0)·컨테이너 역산(L1)·크롬 축소가 맡는다.
-/// 귀결: 1440px 아래에서 본문 타이포는 상수다. 체감이 다르면 레버는 `min` 하향 하나뿐.
+/// ★기준점은 **자산 탭**이다(2026-08-19 사용자 검증: "자산 내 글자 크기가 딱 적절하다").
+/// `BbDensity` 의 타일 폰트 3단 값(compact/regular/wide)을 **연속 곡선이 지나가도록**
+/// ref/min/max 를 역산했다. 역산 표는 `app_theme.dart` 의 `_slots` 주석에 있다.
+///
+/// ⚠ 이전 판은 `min == ref` 로 두어 "작은 화면에서 본문을 줄이지 않는다"를 지켰으나,
+/// **1440px 아래에서 본문이 통째로 상수**가 되어 폭에 반응하지 않았고 자산 탭보다
+/// 2px 컸다. 사용자가 지적한 "거래/분석/더보기가 크다" 가 그 귀결이다.
+/// 하한은 여전히 **가독 기준 px** 이고(비율 아님), 다만 그 기준을 자산 탭 실측으로 옮겼다.
 const Map<BbTextRole, ({double ref, double min, double max})> kBbTextSpec = {
-  BbTextRole.display: (ref: 24, min: 19, max: 28), // headlineSmall
-  BbTextRole.title: (ref: 22, min: 18, max: 26), // titleLarge
-  BbTextRole.section: (ref: 16, min: 15, max: 19), // titleMedium
-  BbTextRole.body: (ref: 14, min: 14, max: 17), // bodyMedium
-  BbTextRole.label: (ref: 12, min: 12, max: 14), // bodySmall
-  BbTextRole.caption: (ref: 11, min: 11, max: 13), // labelSmall
+  BbTextRole.display: (ref: 25, min: 17, max: 22), // headlineSmall
+  BbTextRole.title: (ref: 21.1, min: 15, max: 19), // titleLarge / 자산 hdrV
+  BbTextRole.section: (ref: 17.8, min: 14, max: 16), // titleMedium / 자산 title
+  BbTextRole.body: (ref: 16.7, min: 13, max: 15), // bodyMedium / 자산 metric
+  BbTextRole.label: (ref: 13.3, min: 11, max: 12), // bodySmall / 자산 hdrL
+  BbTextRole.caption: (ref: 13.4, min: 10, max: 12), // labelSmall / 자산 chip
 };
 
 /// 아이콘 크기 역할.

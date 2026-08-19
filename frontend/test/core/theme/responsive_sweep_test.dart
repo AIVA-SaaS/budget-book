@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:budget_book/core/theme/app_theme.dart';
+import 'package:budget_book/core/theme/bb_density.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/bb_tab.dart';
 
@@ -48,9 +49,66 @@ void main() {
       expect(mobile.display, lessThan(web.display));
       expect(mobile.title, lessThan(web.title));
 
-      // ★본문은 줄이지 않는다(가독성). 이 귀결은 기획서 §8-7 에 사전 보고했다.
-      expect(mobile.body, equals(web.body));
-      expect(mobile.label, equals(web.label));
+      // 2026-08-19 정정: 이전 판은 본문을 상수로 뒀으나(min == ref) 사용자가
+      // "거래/분석/더보기가 크다"고 지적했다. 자산 탭 실측을 기준점으로 옮겨
+      // **본문도 반응**한다. 하한은 여전히 가독 기준 px 다(비율 아님).
+      expect(mobile.body, lessThan(web.body));
+      expect(mobile.label, lessThan(web.label));
+    });
+
+    test('★기준점은 자산 탭이다 — 테마 타이포가 검증된 타일 폰트와 일치한다', () {
+      // 2026-08-19 사용자 검증: "자산 내 글자 크기가 딱 적절하다.
+      // 거래/분석/더보기 등 모든 곳에 반영되어야 한다."
+      //
+      // `BbDensity` 의 타일 폰트는 유일하게 폭에 반응하던 체계이고 사용자가 그 값을
+      // 승인했다. 따라서 그것이 **기준점**이고, 테마 타이포는 그 값을 지나가야 한다.
+      // 이 테스트가 깨지면 둘 중 하나가 표류한 것이다 — 자산 탭 쪽을 정본으로 맞춘다.
+      //
+      // 하한(모바일)과 상한(웹) 양 끝은 **정확히** 같아야 한다. 그 사이는 `BbDensity`
+      // 가 840px 에서 계단으로 뛰는 반면 곡선은 매끄러워 오차를 허용한다.
+      // 320/360 은 전 역할이 하한에 걸려 있어 **정확 일치**해야 한다.
+      for (final w in [320.0, 360.0]) {
+        final d = BbDensity.forWidth(w);
+        final th = AppTheme.responsive(AppTheme.light, w).textTheme;
+        expect(th.bodyLarge!.fontSize, d.titleFontSize,
+            reason: 'w=$w 목록 행 제목이 자산 타일 제목과 달라졌다');
+        expect(th.bodyMedium!.fontSize, d.metricFontSize,
+            reason: 'w=$w 본문이 자산 타일 지표와 달라졌다');
+        expect(th.bodySmall!.fontSize, d.headerLabelFontSize);
+        expect(th.labelSmall!.fontSize, d.chipFontSize);
+        expect(th.titleLarge!.fontSize, d.headerValueFontSize);
+      }
+      // 390 부터는 큰 역할이 하한을 벗어나 오르기 시작한다(계단이 아닌 증거) —
+      // 자산 계단값보다 **작아지지는 않아야** 한다.
+      {
+        const w = 390.0;
+        final d = BbDensity.forWidth(w);
+        final th = AppTheme.responsive(AppTheme.light, w).textTheme;
+        expect(th.bodyLarge!.fontSize, greaterThanOrEqualTo(d.titleFontSize));
+        expect(th.bodyMedium!.fontSize, greaterThanOrEqualTo(d.metricFontSize));
+        expect(th.titleLarge!.fontSize,
+            closeTo(d.headerValueFontSize, 0.5));
+      }
+      for (final w in [960.0, 1440.0]) {
+        final d = BbDensity.forWidth(w);
+        final th = AppTheme.responsive(AppTheme.light, w).textTheme;
+        expect(th.bodyLarge!.fontSize, d.titleFontSize);
+        expect(th.bodyMedium!.fontSize, d.metricFontSize);
+        expect(th.bodySmall!.fontSize, d.headerLabelFontSize);
+        expect(th.labelSmall!.fontSize, d.chipFontSize);
+        expect(th.titleLarge!.fontSize, d.headerValueFontSize);
+      }
+    });
+
+    test('본문도 폭에 반응한다 — 전 구간 상수였던 이전 판의 회귀 방지', () {
+      // 이전 판은 `min == ref` 라 320~1440 에서 bodyLarge 가 16.0 붙박이였다.
+      // "폭 3배에 반응 0" 은 이 체계가 고치려는 바로 그 결함이다.
+      final mobile = AppTheme.responsive(AppTheme.light, 360).textTheme;
+      final web = AppTheme.responsive(AppTheme.light, 1440).textTheme;
+      expect(mobile.bodyLarge!.fontSize, lessThan(web.bodyLarge!.fontSize!));
+      expect(mobile.bodyMedium!.fontSize, lessThan(web.bodyMedium!.fontSize!));
+      expect(mobile.bodySmall!.fontSize, lessThan(web.bodySmall!.fontSize!));
+      expect(mobile.labelSmall!.fontSize, lessThan(web.labelSmall!.fontSize!));
     });
 
     test('아이콘은 텍스트와 같은 곡선을 탄다', () {
@@ -81,10 +139,18 @@ void main() {
     });
 
     test('컨테이너 폭 판정이 화면 폭 판정과 다르다', () {
-      // ★calynda 가 실측한 결함: 2560px 화면의 960px 칼럼 안에서 "데스크톱"으로
-      // 그리면 안 된다. 이 앱은 웹에서 본문을 kBbContentMaxWidth 로 감싼다.
+      // ★calynda 가 실측한 결함: 화면은 넓은데 자기 폭은 좁은 자리(우측 패널·그리드
+      // 셀)에서 `MediaQuery` 로 판정하면 "데스크톱"으로 그린다.
+      // 좁은 컨테이너는 반드시 더 작아야 한다.
+      expect(BbType.forWidth(300).body,
+          lessThan(BbType.forWidth(1440).body));
+      expect(BbType.forWidth(300).title,
+          lessThan(BbType.forWidth(1440).title));
+
+      // 타이포는 kBbContentMaxWidth 부근에서 **포화**한다 — 본문 칼럼이 960 으로
+      // 묶여 있어 그보다 넓은 화면에서 글자가 더 커질 이유가 없다(의도된 상한).
       expect(BbType.forWidth(kBbContentMaxWidth).body,
-          isNot(equals(BbType.forWidth(2560).body)));
+          equals(BbType.forWidth(2560).body));
     });
   });
 
