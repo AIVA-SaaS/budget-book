@@ -9,9 +9,14 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 세로 리듬 통일 — **구현 완료 · 로컬 CI 6종 통과 → 커밋·PR·배포 진입**(2026-08-21).
-  여백·간격 회차 **미종결**(라이브 검증 남음)
-- **기획 정본**: §2 타임라인 **64번**(정정된 실측 + 결정 ①②③ + 가드 갱신 + 미해결)
+- **단계**: 세로 리듬 통일 — **배포 완료 · 사용자 라이브 검증 대기**(2026-08-21).
+  PR #303 머지 · `main`=`8c39b0e` · deploy run 32425283860 success · 회차 **미종결**
+- **첫 행동**: §3 NEXT 의 **라이브 검증 체크리스트**를 사용자에게 확인 요청.
+  0단계(오프라인 배너 없음)부터 — 오프라인이면 수정 전 화면이 그대로 보인다
+- **기획 정본**: `docs/sessions/2026-08-21_vertical-rhythm_plan.md` + §2 타임라인 **64~66번**
+- **이번 회차 영속 자산**: `EntityGroupHeader`(그룹 헤더 단일 소스, API 봉인) ·
+  `vertical_rhythm_guard_test.dart`(7건) · 스캔 패턴 3종(Divider/indent/endIndent) ·
+  ratchet baseline **1488**
 - ⚠ **대장의 옛 진단은 정정됐다**: 타일 내부 여백은 두 화면이 **같았고**(양쪽 `lg`),
   벌어진 것은 분석 쪽 **그룹 테두리 박스의 고정 padding/margin**(32 vs 19)이다
 - **사용자 판정**: "분석의 자산현황 항목 간 위아래 여백과 자산 탭 위아래 여백이 다르다.
@@ -35,7 +40,7 @@
 - ⚠ CI Flutter 최신(로컬 3.41.2 vs CI 3.47.0) · 배포 판정은 **산출물 신선도**
 - **CI 게이트(6)**: analyze 신규 0 / `flutter test` **1065** / `./gradlew test` /
   `build web --release` / `check_ui_scaling.py` / `audit_ui_consistency.py`
-- **blocker**: 없음(배포 후 라이브 검증) · **갱신**: 2026-08-21
+- **blocker**: 사용자 라이브 검증 · **갱신**: 2026-08-21
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -1184,77 +1189,63 @@
      기획서 `docs/sessions/2026-08-21_vertical-rhythm_plan.md` 로 `acknowledge-gate.sh` 통과
    - BE·DB·`api-spec` 변경 **0건**
 
+66. **2026-08-21** — PR #303 머지 → NAS 배포 성공. **라이브 검증 대기**(완료 아님).
+   - CI: `backend-ci` pass · `frontend-ci` pass → `gh pr merge --squash --delete-branch`
+     (개인 계정 자동 진행 범위) · `main` = **`8c39b0e`**
+   - 배포 `deploy-nas` run **32425283860 success**: `changes` success ·
+     `deploy-frontend` success · **`verify-live` success**(캐시 21종 + 아이콘 폰트 해시) ·
+     `deploy-backend`·`sync-nginx` skipped(FE 전용 변경이라 정상)
+   - **산출물 신선도로 판정** `[측정]`(`feedback_deploy_success_by_artifact`):
+     `main.dart.js` `last-modified Thu, 20 Aug 2026 22:41:31 GMT`(= 08-21 07:41 KST) ·
+     `content-length 5514869`(직전 5515085 에서 변화) · `no-cache, must-revalidate` · site 200
+   - 번들 문자열 대조 `[측정]`: escaped `\uc790\uc0b0 \ud604\ud669`(자산 현황) **2건** ·
+     `\uc740\ud589 / \uccb4\ud06c` **1건** — 로컬 빌드와 동일 건수.
+     ⚠ 원문 한글 grep 은 라이브·로컬 **양쪽 0건**(항상 이스케이프된다 —
+     `reference_live_bundle_string_verification`). 크기가 로컬(5454201)과 다른 것은
+     CI Flutter 가 최신(3.47 vs 로컬 3.41)이기 때문
+   - **완료 기준은 사용자 라이브 검증** — §3 체크리스트 통과 전까지 회차 미종결
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-**세로(위아래) 리듬 통일 — 기획부터. 승인 게이트는 기획 단계뿐.**
+**사용자 라이브 검증 요청 — 이것만 남았다. 새 코드 착수 금지.**
 
-### 요청 (사용자, 2026-08-21 — 원문)
+### 0단계 (먼저 확인) `feedback_live_verification_online_precheck`
 
-> 분석에서 자산현황 내 항목 간 위아래 여백과 자산 탭 내 위아래 여백이 다른데?
-> 기준을 자산 탭으로 맞추고 자산도 조금 더 위아래 값들이 가까워질 수 있으면 가깝게 해서
-> 전체 설정을 맞춰라
+화면 상단에 **오프라인 배너가 없는지** 본다. 있으면 재연결 후 다시 본다 — 오프라인이면
+수정 전 화면이 그대로 보여 "배포 미반영"과 구분할 수 없다.
 
-**범위 2건**: ①**분석의 자산현황을 자산 탭 기준에 맞춘다**(불일치 제거)
-②**자산 탭 자체의 세로 리듬을 한 단계 촘촘하게** 한 뒤 그것을 **전체 기준**으로 전파
+### 이번 회차 항목 (세로 리듬)
 
-### 착수 실측 — 재조사 불필요 `[측정 2026-08-21]`
+1. **분석 탭 → 예산 → 목록 맨 아래 "자산 현황"**
+   - 현금/은행·체크/카드를 감싸던 **테두리 박스가 없어졌는가**(자산 탭과 같은 평면 목록)
+   - 항목 간 위아래 여백이 **자산 탭과 같은가**(이번 지적의 본체)
+   - 좌우 들여쓰기가 자산 탭과 같은가(34.2 → 10.2dp)
+2. **자산 탭(더보기 → 자산 관리 → 결제수단)**
+   - 위아래가 **한 단계 촘촘**해졌는가(인접 항목 16.0 → 12.8dp @390)
+   - **너무 빽빽하지 않은가** — 사전 판정: 빽빽하면 `entity_tile_row.dart` 의
+     `vertical: space.md` → `space.lg` **한 줄 되돌림**
+3. **자산 관리 → 카테고리 탭** — 그룹 헤더 위 여백 + 그룹 아래 구분선 좌우 여백
+4. **자산 관리 상단 요약 행**(총자산/부채/순자산 · 카드 정산) 위 여백
 
-**원인은 단일 파일이다.** `EntityTileRow` 를 쓰는 호스트 5개의 리터럴 잔존:
+### 직전 회차에서 **아직 개별 확인 안 된** 항목 (반증 보고만 없었다)
 
-```
-11  lib/core/widgets/account_balance_card.dart      ← 분석>예산 "자산 현황" 카드
- 0  lib/features/settings/presentation/pages/asset_management_page.dart
- 0  lib/features/category/presentation/widgets/category_list_tile.dart
- 0  lib/core/widgets/entity_tile_row.dart
- 0  lib/core/widgets/one_line_label.dart
-```
+5. 거래 탭 **±1일 버튼** — 라벨이 정중앙인가
+6. 폼·카드 여백(입력 필드 · 카드 margin) · 하단 탭/네비 높이
+7. 자산 탭 **편집 모드**를 320px 폭에서 — 토글·⋮·≡ 3열이 안 넘치는가
 
-`account_balance_card.dart` 는 직전 회차 시범 범위에서 **빠져 있었다**. 타일 본체는
-토큰으로 그려지는데 그 호스트가 고정 px 라 같은 타일이 화면마다 다른 리듬으로 보인다.
-잔존 위치(11건):
+### 결과에 따른 사전 판정 기준
 
-```
- 51  SizedBox(height: 8)              75  Padding(EdgeInsets.all(16))
- 54  EdgeInsets.only(bottom: 8)       78  EdgeInsets.fromLTRB(12, 16, 12, 8)
-101  margin EdgeInsets.only(bottom:8) 102 EdgeInsets.all(12)
-114  SizedBox(width: 6)              118  SizedBox(height: 6)
-```
-
-**두 화면의 세로 리듬 대조**(390px 기준) `[추론: 토큰값 계산]`:
-
-```
-                         타일 내부 상하   항목 간      인접 제목 간 합
-자산 탭                  lg = 8.0        md = 6.37    ≈ 22.4
-분석>자산현황            12 (고정)       8  (고정)    ≈ 32
-```
-
-- 자산 탭 세로 리듬 정본: `EntityTileRow` 내부 `padV = lg(8~12)` ·
-  타일 간 `margin bottom = md(6~10)`(`asset_management_page.dart:1428`)
-- 분석 쪽이 **약 10dp 더 벌어져 있다** — 사용자가 본 그대로다
-
-### 착수 유의
-
-- **①은 기계적**이다: `account_balance_card.dart` 를 토큰으로 이관 + `PILOT_FILES` 에 추가
-  (잔존 0 강제). 값 매핑은 직전 회차와 같은 표(4→xs·6→sm·8→md·12→lg·16→xl·24→xxl).
-  ⚠ 단 **호스트의 `all(16)`/`all(12)` 를 그대로 xl/lg 로 옮기면 리듬 차이가 남는다** —
-  ①의 완료 기준은 "토큰을 썼다"가 아니라 **"자산 탭과 같은 토큰을 썼다"** 다.
-- **②는 승인값 변경**이다. 후보: ⓐ`EntityTileRow` 의 `padV` 를 `lg`→`md`
-  ⓑ타일 간 margin `md`→`sm` ⓒ`kBbSpaceSpec` 의 세로 계열 하한 하향(`lg` 8→7 / `md` 6→5).
-  ⓐ·ⓑ는 자산 탭만, ⓒ는 전 화면. **"전체 설정을 맞춰라"는 ⓒ 쪽 요청으로 읽힌다** — 기획에서 판정.
-- ⚠ **가드 갱신 필수**: 세로 리듬을 바꾸면 `responsive_sweep_test.dart` 상단 `anchors`
-  (`tilePaddingV` 8/12 · `gap` 6/10)와 G2 정합 테스트가 깨진다. **의도적으로 갱신**하고
-  새 승인값을 그 표에 적어라(코드에서 읽으면 순환 검증).
-- **검수 도구 공백 2건** `[측정 2026-08-21]`: `check_ui_scaling.py` 의 패턴에
-  `indent:`/`endIndent:`/`Divider(height:` 가 없어 `asset_management_page.dart:742`
-  `Divider(height: 1, indent: 16, endIndent: 16)` 가 **세어지지 않는다**. 시범 파일이
-  "잔존 0" 인데도 고정 px 가 남아 있는 상태다 — 패턴 추가를 이 회차에 함께.
-- 라이브 검증 나머지 항목(±1일 버튼·폼/카드 여백·토글 열·320px 편집 모드)은 **반증 보고 없음**
-  = 개별 확인 미완. 다음 배포 때 함께 확인 요청할 것.
+- "예산 항목과 자산현황의 여백이 다르다" → 다음 회차는 대기열 1번
+  (`ListTile` **87건/39파일** → `EntityTileRow`)을 **분석>예산부터** 착수.
+  분석의 예산 항목은 `ListTile` 이라 프레임워크가 높이 48+ 를 소유한다 `[측정]`
+- "너무 빽빽하다" → 위 2번의 한 줄 되돌림(스윕 앵커 동시 갱신)
+- "잘 됐다" → **회차 종결**. 같은 세션에서 다음 단계 착수 금지
+  (`feedback_round_boundary_clear`) — 착수 지점만 고정하고 `/clear`
 
 ### 그 다음 대기열 (착수 순서 아님)
 
-1. `ListTile` 계열 **87건/39파일** → `EntityTileRow` 교체 (`reference_framework_owned_affordance`)
+1. `ListTile` 계열 **87건/39파일** → `EntityTileRow` 교체
 2. 좌우 비대칭 여백 32건 개별 판정 · 하드코딩 색 474건(래칫 하향)
 3. 차트 색 체계 통일(`BbColors.series`)
 4. 미기록 200건 초과 달의 추가 페이지 로드 UI (`reconciliation_view.dart:191`)
