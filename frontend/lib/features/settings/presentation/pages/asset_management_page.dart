@@ -28,6 +28,7 @@ import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_she
 import 'package:budget_book/core/theme/bb_colors.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/asset_edit_mode_scope.dart';
+import 'package:budget_book/core/widgets/entity_group_header.dart';
 import 'package:budget_book/core/widgets/entity_tile_row.dart';
 import 'package:budget_book/core/widgets/one_line_label.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
@@ -234,7 +235,11 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
       ),
       builder: (sheetCtx) => SafeArea(
         child: Padding(
-          padding: context.bbSpace.only(left: BbSpaceToken.xl, top: BbSpaceToken.lg, right: BbSpaceToken.xl, bottom: BbSpaceToken.xl),
+          padding: context.bbSpace.only(
+              left: BbSpaceToken.xl,
+              top: BbSpaceToken.lg,
+              right: BbSpaceToken.xl,
+              bottom: BbSpaceToken.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +617,11 @@ class _CategoryTabState extends State<_CategoryTab> {
       children: [
         // Group header with drag handle and edit/delete
         Padding(
-          padding: context.bbSpace.only(left: BbSpaceToken.xs, top: BbSpaceToken.lg, right: BbSpaceToken.md, bottom: BbSpaceToken.xs),
+          padding: context.bbSpace.only(
+              left: BbSpaceToken.xs,
+              top: BbSpaceToken.md,
+              right: BbSpaceToken.md,
+              bottom: BbSpaceToken.xs),
           child: Row(
             children: [
               // Drag handle for group reorder — 편집 모드에서만.
@@ -739,7 +748,11 @@ class _CategoryTabState extends State<_CategoryTab> {
           )
         else
           _buildReorderableCategoryList(context, sortedCategories),
-        const Divider(height: 1, indent: 16, endIndent: 16),
+        Divider(
+          height: 1,
+          indent: context.bbSpace.xl,
+          endIndent: context.bbSpace.xl,
+        ),
       ],
     );
   }
@@ -1142,25 +1155,14 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
               final typeLabel =
                   paymentMethodGroupLabels[listItem.type] ?? listItem.type!;
               final typeColor = context.bb.paymentType(listItem.type!);
-              return Container(
+              // ★헤더는 [EntityGroupHeader] 하나만 쓴다 — 분석>예산의 자산현황이
+              // 같은 헤더를 손수 조립해 리듬이 갈렸던 자리다(2026-08-21).
+              return KeyedSubtree(
                 key: ValueKey('header_${listItem.type}'),
-                padding: context.bbSpace.only(left: BbSpaceToken.xl, top: BbSpaceToken.lg, right: BbSpaceToken.xl, bottom: BbSpaceToken.xs),
-                child: Row(
-                  children: [
-                    Icon(
-                      paymentMethodTypeIcon(listItem.type!),
-                      size: context.bbType.iconSm,
-                      color: typeColor,
-                    ),
-                    context.bbSpace.gapH(BbSpaceToken.md),
-                    Text(
-                      typeLabel,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: typeColor,
-                          ),
-                    ),
-                  ],
+                child: EntityGroupHeader(
+                  label: typeLabel,
+                  icon: paymentMethodTypeIcon(listItem.type!),
+                  color: typeColor,
                 ),
               );
             }
@@ -1666,7 +1668,11 @@ class _CardSettlementCardsView extends StatelessWidget {
     final theme = Theme.of(context);
     final unpaid = summary.unpaidMonth?.totalAmount ?? 0;
     return Padding(
-      padding: context.bbSpace.only(left: BbSpaceToken.lg, top: BbSpaceToken.lg, right: BbSpaceToken.lg, bottom: BbSpaceToken.xs),
+      padding: context.bbSpace.only(
+          left: BbSpaceToken.lg,
+          top: BbSpaceToken.md,
+          right: BbSpaceToken.lg,
+          bottom: BbSpaceToken.xs),
       child: Row(
         children: [
           Expanded(
@@ -1728,7 +1734,11 @@ class _AssetSummaryHeader extends StatelessWidget {
 
         final bb = context.bb;
         return Padding(
-          padding: context.bbSpace.only(left: BbSpaceToken.lg, top: BbSpaceToken.lg, right: BbSpaceToken.lg, bottom: BbSpaceToken.xs),
+          padding: context.bbSpace.only(
+              left: BbSpaceToken.lg,
+              top: BbSpaceToken.md,
+              right: BbSpaceToken.lg,
+              bottom: BbSpaceToken.xs),
           child: Row(
             children: [
               Expanded(

@@ -72,6 +72,12 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "radius": re.compile(r"\bBorderRadius\.circular\(\s*" + _NUM),
     # Icon(size: 18)
     "iconSize": re.compile(r"\bsize:\s*" + _NUM),
+    # Divider(height: 1, thickness: 2) — 목록의 **세로 리듬**을 만드는데 안 세어졌다
+    # `[측정 2026-08-21]`: `asset_management_page.dart:742` 의 고정 `indent: 16` 이
+    # 시범 파일("잔존 0")에서 살아 있었다. 패턴이 없으면 게이트는 통과를 보고한다.
+    "divider": re.compile(r"\bDivider\([^)]*?\b(?:height|thickness):\s*" + _NUM),
+    # indent: 16 / endIndent: 16
+    "indent": re.compile(r"\b(?:indent|endIndent):\s*" + _NUM),
 }
 
 # ★시범 이관 완료 파일 — 리터럴 잔존이 0 이어야 한다(구조적 수정 S2).
@@ -89,6 +95,9 @@ PILOT_FILES = [
     "lib/features/transaction/presentation/widgets/transaction_list_tile.dart",
     "lib/features/statistics/presentation/widgets/category_breakdown_tab.dart",
     "lib/features/statistics/presentation/widgets/summary_tab.dart",
+    # 2026-08-21 회차 — 세로 리듬. 분석>예산 자산현황이 자산 탭과 갈렸던 자리 + 공통 헤더.
+    "lib/core/widgets/account_balance_card.dart",
+    "lib/core/widgets/entity_group_header.dart",
 ]
 
 
