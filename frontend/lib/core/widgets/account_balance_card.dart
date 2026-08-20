@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/theme/bb_colors.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/entity_group_header.dart';
 import 'package:budget_book/core/widgets/entity_tile_row.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/utils/payment_method_helpers.dart';
@@ -32,94 +34,84 @@ class AccountBalanceCard extends StatelessWidget {
     if (methods.isEmpty) return const SizedBox.shrink();
 
     final cashMethods = methods.where((pm) => pm.isCash).toList();
-    final bankDebitMethods = methods.where((pm) => pm.isBank || pm.isDebit).toList();
+    final bankDebitMethods =
+        methods.where((pm) => pm.isBank || pm.isDebit).toList();
     final creditMethods = methods.where((pm) => pm.isCredit).toList();
     final settlement = pmState.cardSettlementSummary;
     final theme = Theme.of(context);
+    final space = context.bbSpace;
+
+    // ★자산 탭과 **같은 구조**다 (2026-08-21): 평면 목록 + [EntityGroupHeader] +
+    // `EntityTileRow` 직접. 예전에는 그룹마다 테두리 `Container`(padding 12 / margin 8)를
+    // 직접 조립해 그룹 경계가 32dp 였고 자산 탭은 19dp 였다 — 같은 타일이 화면마다 다른
+    // 리듬으로 보이던 원인이다. 좌우 여백도 헤더·타일이 소유하므로 여기서 감싸지 않는다.
+    Iterable<Widget> group(
+      String label,
+      IconData icon,
+      String typeKey,
+      List<dynamic> items,
+    ) =>
+        items.isEmpty
+            ? const <Widget>[]
+            : <Widget>[
+                EntityGroupHeader(
+                  label: label,
+                  icon: icon,
+                  color: context.bb.paymentType(typeKey),
+                ),
+                ...items
+                    .map((pm) => _AssetItem(pm: pm, settlement: settlement)),
+              ];
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showHeader) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('자산 현황', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              TextButton(onPressed: () => context.push('/payment-methods'), child: const Text('관리')),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ] else ...[
+        if (showHeader)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text('자산 현황', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            padding: space.only(
+              left: BbSpaceToken.xl,
+              right: BbSpaceToken.xl,
+              bottom: BbSpaceToken.xs,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('자산 현황',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                TextButton(
+                    onPressed: () => context.push('/payment-methods'),
+                    child: const Text('관리')),
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: space.only(
+              left: BbSpaceToken.xl,
+              top: BbSpaceToken.md,
+              right: BbSpaceToken.xl,
+              bottom: BbSpaceToken.xs,
+            ),
+            child: Text('자산 현황',
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
           ),
-        ],
-        if (cashMethods.isNotEmpty)
-          _AssetGroup(label: '현금', icon: Icons.money,
-              color: context.bb.paymentType('CASH'),
-              methods: cashMethods, settlement: settlement),
-        if (bankDebitMethods.isNotEmpty)
-          _AssetGroup(label: '은행 / 체크', icon: Icons.account_balance,
-              color: context.bb.paymentType('BANK'),
-              methods: bankDebitMethods, settlement: settlement),
-        if (creditMethods.isNotEmpty)
-          _AssetGroup(label: '카드', icon: Icons.credit_card,
-              color: context.bb.paymentType('CREDIT'),
-              methods: creditMethods, settlement: settlement),
+        ...group('현금', Icons.money, 'CASH', cashMethods),
+        ...group('은행 / 체크', Icons.account_balance, 'BANK', bankDebitMethods),
+        ...group('카드', Icons.credit_card, 'CREDIT', creditMethods),
       ],
     );
 
     if (showHeader) {
       return Card(
-        child: Padding(padding: const EdgeInsets.all(16), child: content),
+        child: Padding(
+          padding: space.symmetric(v: BbSpaceToken.md),
+          child: content,
+        ),
       );
     }
-    return Padding(padding: const EdgeInsets.fromLTRB(12, 16, 12, 8), child: content);
-  }
-}
-
-class _AssetGroup extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final List<dynamic> methods;
-  final dynamic settlement;
-
-  const _AssetGroup({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.methods,
-    this.settlement,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ...methods.map((pm) => _AssetItem(pm: pm, settlement: settlement)),
-        ],
-      ),
-    );
+    return content;
   }
 }
 
@@ -138,14 +130,19 @@ class _AssetItem extends StatelessWidget {
     int unpaidAmount = 0;
     if (isCredit && settlement != null) {
       try {
-        final prevCard = settlement.previousMonth.cards.where((c) => c.paymentMethodId == pm.id);
+        final prevCard = settlement.previousMonth.cards
+            .where((c) => c.paymentMethodId == pm.id);
         if (prevCard.isNotEmpty) prevAmount = prevCard.first.amount as int;
-        final currCard = settlement.currentMonth.cards.where((c) => c.paymentMethodId == pm.id);
+        final currCard = settlement.currentMonth.cards
+            .where((c) => c.paymentMethodId == pm.id);
         if (currCard.isNotEmpty) currAmount = currCard.first.amount as int;
         // 미결제: buildMonthBySettlementDate (paid_at IS NULL 필터 적용됨)
         if (settlement.unpaidMonth != null) {
-          final unpaidCard = settlement.unpaidMonth.cards.where((c) => c.paymentMethodId == pm.id);
-          if (unpaidCard.isNotEmpty) unpaidAmount = unpaidCard.first.amount as int;
+          final unpaidCard = settlement.unpaidMonth.cards
+              .where((c) => c.paymentMethodId == pm.id);
+          if (unpaidCard.isNotEmpty) {
+            unpaidAmount = unpaidCard.first.amount as int;
+          }
         }
       } catch (_) {}
     }
@@ -174,7 +171,8 @@ class _AssetItem extends StatelessWidget {
               EntityMetric(
                 label: '미결제',
                 value: '${CurrencyFormatter.format(unpaidAmount)}원',
-                tone: unpaidAmount > 0 ? EntityTone.expense : EntityTone.neutral,
+                tone:
+                    unpaidAmount > 0 ? EntityTone.expense : EntityTone.neutral,
               ),
               EntityMetric(
                 label: '이번달',

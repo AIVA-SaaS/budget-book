@@ -9,8 +9,11 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 여백·간격 회차 **배포 완료 → 라이브 검증에서 불일치 1건 발견**(2026-08-21).
-  PR #301 머지 · `main`=`138ae47` · 회차 **미종결**
+- **단계**: 세로 리듬 통일 — **구현 완료 · 로컬 CI 6종 통과 → 커밋·PR·배포 진입**(2026-08-21).
+  여백·간격 회차 **미종결**(라이브 검증 남음)
+- **기획 정본**: §2 타임라인 **64번**(정정된 실측 + 결정 ①②③ + 가드 갱신 + 미해결)
+- ⚠ **대장의 옛 진단은 정정됐다**: 타일 내부 여백은 두 화면이 **같았고**(양쪽 `lg`),
+  벌어진 것은 분석 쪽 **그룹 테두리 박스의 고정 padding/margin**(32 vs 19)이다
 - **사용자 판정**: "분석의 자산현황 항목 간 위아래 여백과 자산 탭 위아래 여백이 다르다.
   기준을 자산 탭으로 맞추고, 자산도 위아래 값들을 조금 더 가깝게 해서 전체 설정을 맞춰라"
 - **첫 행동**: §3 NEXT 의 **착수 실측(재조사 불필요)** 을 읽고 **기획부터**.
@@ -32,7 +35,7 @@
 - ⚠ CI Flutter 최신(로컬 3.41.2 vs CI 3.47.0) · 배포 판정은 **산출물 신선도**
 - **CI 게이트(6)**: analyze 신규 0 / `flutter test` **1065** / `./gradlew test` /
   `build web --release` / `check_ui_scaling.py` / `audit_ui_consistency.py`
-- **blocker**: 없음 · **갱신**: 2026-08-21
+- **blocker**: 없음(배포 후 라이브 검증) · **갱신**: 2026-08-21
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -1105,6 +1108,81 @@
    - ±1일 버튼·전역 통로 등 다른 항목에 대한 반증 보고는 없었다(개별 확인은 미완).
    - **착수 실측을 §3 NEXT 에 고정**(재조사 불필요). `/clear` 후 새 세션에서 기획부터.
    - **이 세션에서는 착수하지 않는다**(회차 경계 — `feedback_round_boundary_clear`).
+
+64. **2026-08-21** — 세로 리듬 통일 회차 **기획 완료(승인 대기)**. 코드 변경 0줄.
+   - **§3 NEXT 의 `[추론]` 표를 정정한다** `[측정 2026-08-21]`: "분석 타일 내부 상하 12 고정"은
+     사실이 아니었다. 두 화면 **모두** 항목은 `EntityTileRow`(padV=`lg`)로 그려지고 인접 항목
+     간격은 **양쪽 다 16.0dp @390** 으로 같다. 벌어진 것은 **그룹 박스**다.
+     - 자산 탭(정본) = 평면 목록. 그룹 헤더 `only(l:xl, t:lg, r:xl, b:xs)`(1147) ·
+       항목은 `EntityTileRow` **직접**(Card·margin 없음, 1256) · 리스트 `only(top: md, bottom: 88)`(1056).
+       그룹 경계 = lg+lg+xs ≈ **19dp**
+     - 분석>예산 자산현황(`showHeader:false`) = 외곽 `fromLTRB(12,16,12,8)` → 제목 `bottom 8`
+       → 그룹마다 `Container(margin b:8, padding all(12), border, radius 10)` → 헤더 Row
+       (`Icon 16` + `SizedBox 6` + `fontSize 13`) → `SizedBox(6)` → 항목들.
+       그룹 경계 = 12+8+12 = **32dp**
+     - 좌우도 어긋난다: 들여쓰기 12(외곽)+12(그룹박스)+xl(10.2) = **34.2** vs 자산 탭 **10.2**
+     - 호스트는 `budget_list_page.dart:593·665` 두 곳(둘 다 `showHeader:false`).
+       `showHeader:true` 경로는 `dashboard_page.dart:89` = **미라우팅 죽은 화면**
+   - **결정 ①** — `account_balance_card.dart` 를 **자산 탭과 같은 평면 목록**으로 재작성:
+     그룹 테두리 박스 제거 · 헤더를 자산 탭과 **동일 토큰·동일 스타일**(`iconSm`/`labelMedium w600`)
+     · 항목은 `EntityTileRow` 직접. 완료 기준은 "토큰을 썼다"가 아니라 **"자산 탭과 같은 토큰"**.
+     `PILOT_FILES` 등재로 잔존 0 강제(현재 리터럴 11건)
+   - **결정 ②** — 세로 한 단계 촘촘: **`EntityTileRow` padV `lg`→`md`** + 그룹 헤더 `top: lg`→`md`.
+     후보 ⓒ(`kBbSpaceSpec` 의 `lg` 하한 하향)를 **버린 근거** `[측정]`: `lg` 는 `radiusMd`(카드·
+     입력·다이얼로그 반지름) · `dividerTheme.space` · `tabBar.labelPadding` · `TextButton` 수평 ·
+     필터바 수평 등 **세로가 아닌 자리에서 12곳** 쓰인다 → 세로만 좁히라는 요청을 넘어서고
+     승인 앵커(`lg` 8/12)를 무효화한다. ⓐ 는 타일 1곳 수정으로 **전 앱 타일**에 퍼진다
+     (호스트: 자산 탭 결제수단·포켓 · 카테고리 타일 · 분석 자산현황).
+     귀결 @390: 인접 항목 16 → **12.8** · 그룹 경계 19 → **15.8** / @960: 24 → **20** · 28 → **24**
+   - **결정 ③** — 검수 공백 메움: `check_ui_scaling.py` 패턴에 `indent:`/`endIndent:`/`Divider(height:`
+     추가(지금은 `asset_management_page.dart:742` 의 고정 `16/16` 이 **안 세어진다** — 시범 파일이
+     "잔존 0" 인데 고정 px 가 살아 있는 상태). 검출분 토큰화 + **패턴 확장으로 총계가 오르므로
+     baseline 1회 재생성**(상승은 의도 — 기록 없이는 ratchet 의 의미가 깨진다)
+   - **가드 갱신**: 스윕 `anchors` 의 `tilePaddingV` 를 **md(6/10)** 로 재배선(주석에 2026-08-21
+     승인값과 이유를 적는다 — 코드에서 읽으면 순환 검증) + `EntityTileRow` 세로 padding ==
+     `space.md` 위젯 단정 신설 + 두 화면 그룹 헤더가 같은 토큰을 쓰는 소스 가드
+   - **미해결**: 분석>예산의 **예산 항목은 `ListTile`** 이라 프레임워크가 높이(48+)를 소유한다 —
+     자산현황보다 여전히 헐렁하다. **사전 판정 기준**: 사용자가 "예산 항목과 자산현황이 다르다"고
+     하면 다음 회차는 대기열 1번(`ListTile`→`EntityTileRow`)을 **분석>예산부터** 착수한다
+   - **리스크**: 그룹 테두리 제거는 여백이 아니라 **시각적 변경**이다(되돌리기 = `Container`
+     decoration 블록 복원 한 곳). 아바타 있는 행은 32+12.8 = **44.8dp** 로 터치 하한 유지,
+     아바타 없는 한 줄 행은 **이전에도** 44 미만이라 새 위반은 아니다
+
+65. **2026-08-21** — 승인 → 구현 → **로컬 CI 6종 통과**. 세로 리듬 단일 소스화.
+   - **구조적 수정**(하네스 게이트 필수 조항): `EntityGroupHeader` 신설
+     (`lib/core/widgets/entity_group_header.dart`) — `label`/`icon`/`color` 만 받고
+     `padding`·`fontSize`·`Widget` 슬롯을 **노출하지 않는다**. 자산 탭(`asset_management_page`)과
+     분석>예산 자산현황(`account_balance_card`)이 **같은 위젯**을 지난다 = 경쟁 경로 0개.
+   - **① 불일치 제거**: 분석 자산현황의 그룹 테두리 `Container`(padding 12 / margin 8 / border)
+     **제거** → 자산 탭과 같은 평면 목록. 좌우 여백도 헤더·타일이 소유하게 해 들여쓰기
+     **34.2 → 10.2dp**(자산 탭과 동일). 리터럴 11 → **0**, `PILOT_FILES` 등재.
+   - **② 세로 한 단계 촘촘**: `EntityTileRow` 세로 padding `lg`→`md`(1곳 = 전 앱 타일 전파) +
+     자산 탭 리스트 레벨 `top: lg`→`md` **3곳**(카테고리 그룹 헤더 · 총자산/부채 요약 행 ·
+     카드정산 요약 행 — `feedback_common_scope_audit` 전수 적용).
+     귀결 `[측정]` @390: 인접 항목 16.0 → **12.8dp** · 그룹 경계 19 → **15.8** /
+     @960: 24 → **20** · 28 → **24**. 아바타 행 높이 **44.8dp** 로 터치 하한 유지.
+   - **③ 검수 공백 메움**: `check_ui_scaling.py` 에 `Divider(height|thickness:` · `indent:` ·
+     `endIndent:` 패턴 추가 → `asset_management_page.dart:748` 의 고정 `indent/endIndent 16` 을
+     토큰화. **baseline 1481 → 1488 재생성**: 신규 패턴 검출 **+18**(feedback 5 · home 2 ·
+     payment_method 1 · reconciliation 1 · statistics 1 · transaction 8), 이관분 **−11**(_core).
+     증가분이 신규 패턴 검출분과 **정확히 일치**함을 별도 스캔으로 확인 = 회귀 아님 `[측정]`.
+   - **가드 신설** `test/core/widgets/vertical_rhythm_guard_test.dart` **7건**:
+     V1 타일 세로 padding == `md`(320/390/960) + 아바타 행 44dp 하한 ·
+     V2 두 호스트가 `EntityGroupHeader` 를 지난다 / 자산현황에 `EdgeInsets`·`fontSize:`·
+     `BoxDecoration` 재유입 금지 / 헤더 API 봉인 / `vertical: space.lg` 복귀 금지 ·
+     V3 헤더 위 `md`·아래 `xs`·좌 `xl`.
+   - **승인값 표 갱신**: 스윕 `anchors` 의 `tilePaddingV` = **md(6/10)** 로 재배선하고
+     `lg`(8/12) 곡선 검증은 `radiusMd` 키로 이름만 옮겼다(카드·입력 반지름 ·
+     `dividerTheme.space` · `tabBar.labelPadding` 이 여전히 쓰므로 곡선 검증은 유지해야 한다).
+   - **게이트 6종** `[측정]`: `flutter analyze` **12건 = 변경 전과 동일(신규 0)** ·
+     `flutter test` **1072**(1065 + 신규 7) · `./gradlew test` BUILD SUCCESSFUL ·
+     `flutter build web --release` ✓ · `check_ui_scaling.py` exit 0 · `audit_ui_consistency.py` exit 0
+   - **자기 인시던트 1건**: `dart format` 이 단행 `if` 를 두 줄로 접어
+     `curly_braces_in_flow_control_structures` **신규 1건**을 만들었다(12 → 13).
+     중괄호를 넣어 12로 복귀. 교훈: 포맷 후 analyze 를 **다시** 돌린다(포맷이 린트를 만든다).
+   - 하네스: `pre-change-audit.sh . "ui_pattern"` → **STRUCTURAL_FIX_REQUIRED** →
+     기획서 `docs/sessions/2026-08-21_vertical-rhythm_plan.md` 로 `acknowledge-gate.sh` 통과
+   - BE·DB·`api-spec` 변경 **0건**
 
 ## 3. 다음 단계
 
