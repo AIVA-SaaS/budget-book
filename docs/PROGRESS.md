@@ -9,7 +9,8 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **여백·간격 체계 회차 — 구현·로컬 CI 통과. 커밋/PR 진입 직전** (2026-08-20)
+- **단계**: **여백·간격 체계 회차 — 배포 완료. 사용자 라이브 검증만 남음** (2026-08-20)
+  PR **#301** 머지 · `main`=`6159efa` · deploy run `32325049876` success
   기획서 `docs/sessions/2026-08-20_1_spacing-absorption_plan.md`(승인 완료, §9 = UI 검수 확장)
 - **이번 회차가 한 것**: ①`BbDensity` **삭제** = 경쟁 경로 0개 ②여백이 폭에 반응(7% → 60%)
   ③테마 여백 전역 통로 신설 ④가시 표면 7파일 이관 ⑤**UI 불일치 전수 검수**(사용자 지시)
@@ -26,6 +27,8 @@
   ⚠ 직전 회차는 도구만 있고 CI 에 없었다 — **강제는 문서가 아니라 게이트**
 - **로컬 CI 5종 전부 통과**: analyze 0 · `flutter test` **1065** · `./gradlew test` ·
   `build web --release` · 래칫 2종
+- **배포 판정**: 산출물 신선도로 확인 — `main.dart.js` `last-modified 02:35:35Z` ·
+  `content-length 5515085` · 번들에 `1\uc77c \uc804`(1일 전)·`BbSpaceToken` 존재
 - **blocker**: 없음 · **갱신**: 2026-08-20
 <!-- /HNS:STATE -->
 
@@ -1081,6 +1084,16 @@
    - **정본 문서 개정**: `~/.claude/domains/12-ui-scaling.md` ★4 재작성 + ★4-b(ref 유도) 신설
      + 강제 장치에 일관성 래칫·계단 금지 가드 추가 + ★5 의 `min == ref` 처방 무효화 기록
      (기준점이 있으면 기준점이 이긴다).
+
+62. **2026-08-20** — PR #301 머지 → NAS 배포 성공. **라이브 검증 대기**.
+   - CI: `backend-ci` pass(8s) · `frontend-ci` pass(래칫 2종 신규 포함)
+   - 머지: squash + branch 삭제 (개인 계정 자동 진행 범위) · `main`=`6159efa`
+   - 배포: `deploy-nas` run 32325049876 **success**
+   - **산출물 신선도로 판정** `[측정]`: `main.dart.js` `last-modified Thu, 20 Aug 2026 02:35:35 GMT` ·
+     `content-length 5515085` · `cache-control no-cache, must-revalidate`.
+     번들에 escaped 한글 `1\uc77c \uc804` 와 `BbSpaceToken` 존재.
+     ⚠ 로컬 빌드(5454417B)와 크기가 다른 것은 CI Flutter 가 최신(3.47 vs 로컬 3.41)이기 때문.
+   - **완료 아님** — §3 의 라이브 검증 6항목 통과가 완료 기준
 
 ## 3. 다음 단계
 
