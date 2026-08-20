@@ -1,4 +1,5 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/excluded_from_totals_badge.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/transaction/presentation/utils/ledger_totals_exclusion.dart';
@@ -23,7 +24,6 @@ class TransactionListTile extends StatelessWidget {
     this.onDelete,
     this.runningTotal,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +54,7 @@ class TransactionListTile extends StatelessWidget {
           : DismissDirection.none,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: context.bbSpace.only(right: BbSpaceToken.xxl),
         color: Colors.red,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
@@ -81,18 +81,18 @@ class TransactionListTile extends StatelessWidget {
                 child: Icon(
                   UIHelpers.resolveIcon(category?.icon),
                   color: iconColor,
-                  size: 16,
+                  size: context.bbType.iconSm,
                 ),
               ),
               if (transaction.paymentMethodName != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                  padding: context.bbSpace.only(top: BbSpaceToken.xs),
                   child: Text(
                     transaction.paymentMethodName!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: context.bbType.caption,
                       color: Theme.of(context)
                           .colorScheme
                           .onSurface
@@ -108,10 +108,13 @@ class TransactionListTile extends StatelessWidget {
             if (transaction.isPrivate && isCoupleMode()) ...[
               Icon(
                 Icons.visibility_off,
-                size: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                size: context.bbType.iconSm,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.6),
               ),
-              const SizedBox(width: 4),
+              context.bbSpace.gapH(BbSpaceToken.xs),
             ],
             // V61 (2026-05-06) — needs_review 뱃지. 사용자가 "확인/입력 필요" 로 마킹한 거래.
             if (transaction.needsReview) ...[
@@ -125,23 +128,23 @@ class TransactionListTile extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child: Text(
                     '!',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.bold,
                       height: 1.0,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              context.bbSpace.gapH(BbSpaceToken.sm),
             ],
             // V65 — 정산 완료 배지 (공통 위젯 ReconciledBadge 단일 소스).
             if (transaction.isReconciled) ...[
               ReconciledBadge(seq: transaction.reconciliationSeq),
-              const SizedBox(width: 6),
+              context.bbSpace.gapH(BbSpaceToken.sm),
             ],
             // 2026-08-12 — 합계에 안 잡히는 행임을 행에서 바로 보여준다.
             // 판정은 ledger_totals_exclusion 단일 헬퍼 경유(타일이 직접 판단하지 않는다).
@@ -149,29 +152,29 @@ class TransactionListTile extends StatelessWidget {
               const ExcludedFromTotalsBadge(
                 reason: kAdjustmentExclusionReason,
               ),
-              const SizedBox(width: 6),
+              context.bbSpace.gapH(BbSpaceToken.sm),
             ],
             if (isAdjustment) ...[
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: context.bbSpace
+                    .symmetric(h: BbSpaceToken.sm, v: BbSpaceToken.xs),
                 decoration: BoxDecoration(
                   color: Theme.of(context)
                       .colorScheme
                       .tertiaryContainer
                       .withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
                 ),
                 child: Text(
                   '조정',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: context.bbType.caption,
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onTertiaryContainer,
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              context.bbSpace.gapH(BbSpaceToken.sm),
             ],
             Expanded(
               child: Text(
@@ -191,12 +194,12 @@ class TransactionListTile extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.5),
-                fontSize: 12,
+                fontSize: context.bbType.label,
               ),
             ),
             if (transaction.paymentMethodName != null) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: context.bbSpace.symmetric(h: BbSpaceToken.xs),
                 child: Text(
                   '·',
                   style: TextStyle(
@@ -204,7 +207,7 @@ class TransactionListTile extends StatelessWidget {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.3),
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),
@@ -218,27 +221,27 @@ class TransactionListTile extends StatelessWidget {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.5),
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),
             ],
             if (transaction.pocketName != null) ...[
-              const SizedBox(width: 6),
+              context.bbSpace.gapH(BbSpaceToken.sm),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: context.bbSpace
+                    .symmetric(h: BbSpaceToken.sm, v: BbSpaceToken.xs),
                 decoration: BoxDecoration(
                   color: Theme.of(context)
                       .colorScheme
                       .primaryContainer
                       .withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
                 ),
                 child: Text(
                   transaction.pocketName!,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: context.bbType.caption,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
                   ),
                 ),
@@ -262,7 +265,7 @@ class TransactionListTile extends StatelessWidget {
               Text(
                 '${CurrencyFormatter.format(runningTotal!)}원',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: context.bbType.caption,
                   color: Theme.of(context)
                       .colorScheme
                       .onSurface
@@ -284,5 +287,4 @@ class TransactionListTile extends StatelessWidget {
       ),
     );
   }
-
 }

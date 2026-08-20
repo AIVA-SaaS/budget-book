@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// S3 — the migrated screens must not reach around the tile/density contract:
 ///   * no `ListTile(`  — it re-introduces the 32dp contentPadding + 16dp title
 ///     gap that squeezed the name to 124dp on a 360dp phone.
-///   * no direct `MediaQuery...width` — `BbDensity` is the single place the
+///   * no direct `MediaQuery...width` — `bb_scale.dart` is the single place the
 ///     app reads screen width, otherwise per-screen breakpoints drift apart.
 ///
 /// S6 — a user-chosen color read with `UIHelpers.parseColor` must pass through
@@ -21,8 +21,8 @@ void main() {
     'lib/core/widgets/account_balance_card.dart',
   ];
 
-  /// `BbDensity` is the sanctioned owner of the width read.
-  const densityOwner = 'lib/core/theme/bb_density.dart';
+  /// `bb_scale.dart` is the sanctioned owner of the width read (`BbDensity` was
+  /// deleted 2026-08-20 — its 3-step ladder was the competing path).
   const scaleOwner = 'lib/core/theme/bb_scale.dart';
 
   String read(String path) => File(path).readAsStringSync();
@@ -46,7 +46,7 @@ void main() {
     final widthRead = RegExp(r'MediaQuery[^;]*\.width');
     for (final path in targets) {
       expect(widthRead.hasMatch(read(path)), isFalse,
-          reason: '$path reads MediaQuery width — use context.density');
+          reason: '\$path reads MediaQuery width — use context.bbBox/bbSpace');
     }
   });
 
@@ -55,7 +55,7 @@ void main() {
     final offenders = <String>[];
     for (final entity in Directory('lib').listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      if (entity.path == densityOwner || entity.path == scaleOwner) continue;
+      if (entity.path == scaleOwner) continue;
       if (widthRead.hasMatch(entity.readAsStringSync())) {
         offenders.add(entity.path);
       }
@@ -63,7 +63,7 @@ void main() {
     // Screens outside the asset tab have not been migrated yet; this is a
     // ratchet, so record the current set and fail on any addition.
     // 2026-08-18: 소유자가 `bb_density.dart` → `bb_scale.dart` 로 옮겨갔다.
-    // `BbDensity` 는 이제 `BbType.of(context).width` 로 폭을 받는다(위임).
+    // 폭 조회는 `bb_scale.dart` 가 단독으로 소유한다.
     // `bb_scale.dart` 의 MediaQuery 읽기는 `BbScaleScope` 부재 시 폴백 1곳뿐이다.
     const knownLegacy = <String>[];
     expect(offenders..sort(), knownLegacy,

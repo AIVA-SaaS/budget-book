@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/category_group/domain/entities/category_group.dart';
 
 class CategoryGroupFormSheet extends StatefulWidget {
@@ -77,8 +78,7 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.group?.name ?? '');
+    _nameController = TextEditingController(text: widget.group?.name ?? '');
     _selectedBudgetType = widget.group?.budgetType ?? 'MONTHLY';
     _selectedIcon = widget.group?.icon;
     _selectedColor = widget.group?.color;
@@ -241,8 +241,7 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                         shape: BoxShape.circle,
                         border: isSelected
                             ? Border.all(
-                                color:
-                                    Theme.of(context).colorScheme.onSurface,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 width: 3,
                               )
                             : null,
@@ -262,7 +261,8 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
               FilledButton(
                 onPressed: _onSubmit,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: context.bbSpace
+                      .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
                 ),
                 child: Text(isEditing ? '수정' : '추가'),
               ),
@@ -284,5 +284,4 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
       Navigator.of(context).pop();
     }
   }
-
 }

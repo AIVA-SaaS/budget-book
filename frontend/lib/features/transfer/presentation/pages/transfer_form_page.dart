@@ -65,9 +65,8 @@ class _TransferFormPageState extends State<TransferFormPage> {
     final bloc = context.read<TransferBloc>();
     final state = bloc.state;
     if (state is TransferLoaded) {
-      final transfer = state.transfers
-          .where((t) => t.id == widget.transferId)
-          .firstOrNull;
+      final transfer =
+          state.transfers.where((t) => t.id == widget.transferId).firstOrNull;
       if (transfer != null) {
         _populateForm(transfer);
       }
@@ -150,7 +149,9 @@ class _TransferFormPageState extends State<TransferFormPage> {
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              context.read<TransferBloc>().add(DeleteTransfer(widget.transferId!));
+              context
+                  .read<TransferBloc>()
+                  .add(DeleteTransfer(widget.transferId!));
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
@@ -216,8 +217,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
 
     if (isEditing) {
       final oldDescription = _existingTransfer?.description;
-      final clearDescription =
-          description == null && oldDescription != null;
+      final clearDescription = description == null && oldDescription != null;
       final oldMemo = _existingTransfer?.memo;
       final clearMemo = memo == null && oldMemo != null;
 
@@ -254,8 +254,12 @@ class _TransferFormPageState extends State<TransferFormPage> {
           if (state.operationSuccess != null) {
             // Delete success
             final dashState = getIt<DashboardBloc>().state;
-            final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
-            final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
+            final year = dashState is DashboardLoaded
+                ? dashState.year
+                : DateTime.now().year;
+            final month = dashState is DashboardLoaded
+                ? dashState.month
+                : DateTime.now().month;
             getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
             getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
             ScaffoldMessenger.of(context).showSnackBar(
@@ -275,9 +279,14 @@ class _TransferFormPageState extends State<TransferFormPage> {
               );
             } else {
               final dashState = getIt<DashboardBloc>().state;
-              final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
-              final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
-              getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
+              final year = dashState is DashboardLoaded
+                  ? dashState.year
+                  : DateTime.now().year;
+              final month = dashState is DashboardLoaded
+                  ? dashState.month
+                  : DateTime.now().month;
+              getIt<DashboardBloc>()
+                  .add(LoadDashboard(year: year, month: month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
               context.pop();
             }
@@ -349,7 +358,6 @@ class _TransferFormPageState extends State<TransferFormPage> {
             const SizedBox(width: 8),
             SegmentedButton<String>(
               style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               segments: const [
@@ -399,19 +407,16 @@ class _TransferFormPageState extends State<TransferFormPage> {
         : <PaymentMethod>[];
 
     // Determine if selected payment methods are CREDIT
-    final selectedDest = methods
-        .where((pm) => pm.id == _destinationPaymentMethodId)
-        .firstOrNull;
-    final selectedSource = methods
-        .where((pm) => pm.id == _sourcePaymentMethodId)
-        .firstOrNull;
+    final selectedDest =
+        methods.where((pm) => pm.id == _destinationPaymentMethodId).firstOrNull;
+    final selectedSource =
+        methods.where((pm) => pm.id == _sourcePaymentMethodId).firstOrNull;
     final destIsCredit = selectedDest?.isCredit ?? false;
     final sourceIsCredit = selectedSource?.isCredit ?? false;
 
     // Filter source list: exclude CREDIT if destination is CREDIT
-    final sourceMethods = destIsCredit
-        ? methods.where((pm) => !pm.isCredit).toList()
-        : methods;
+    final sourceMethods =
+        destIsCredit ? methods.where((pm) => !pm.isCredit).toList() : methods;
     // Filter dest list: exclude source + exclude CREDIT if source is CREDIT
     final destMethods = methods
         .where((pm) => pm.id != _sourcePaymentMethodId)
@@ -469,23 +474,20 @@ class _TransferFormPageState extends State<TransferFormPage> {
             onChanged: (value) {
               setState(() {
                 _sourcePaymentMethodId = value;
-                final newSource = methods
-                    .where((pm) => pm.id == value)
-                    .firstOrNull;
-                if (newSource?.isCredit == true && selectedDest?.isCredit == true) {
+                final newSource =
+                    methods.where((pm) => pm.id == value).firstOrNull;
+                if (newSource?.isCredit == true &&
+                    selectedDest?.isCredit == true) {
                   _destinationPaymentMethodId = null;
                 }
               });
               _maybeAutoRecommendKind(
-                sourceType: methods
-                    .where((pm) => pm.id == value)
-                    .firstOrNull
-                    ?.type,
+                sourceType:
+                    methods.where((pm) => pm.id == value).firstOrNull?.type,
                 destType: selectedDest?.type,
               );
             },
-            validator: (value) =>
-                value == null ? '출금 결제수단을 선택하세요' : null,
+            validator: (value) => value == null ? '출금 결제수단을 선택하세요' : null,
           ),
           const SizedBox(height: 8),
           // Swap button
@@ -525,24 +527,21 @@ class _TransferFormPageState extends State<TransferFormPage> {
             onChanged: (value) {
               setState(() {
                 _destinationPaymentMethodId = value;
-                final newDest = methods
-                    .where((pm) => pm.id == value)
-                    .firstOrNull;
-                if (newDest?.isCredit == true && selectedSource?.isCredit == true) {
+                final newDest =
+                    methods.where((pm) => pm.id == value).firstOrNull;
+                if (newDest?.isCredit == true &&
+                    selectedSource?.isCredit == true) {
                   _sourcePaymentMethodId = null;
                   _swapCounter++;
                 }
               });
               _maybeAutoRecommendKind(
                 sourceType: selectedSource?.type,
-                destType: methods
-                    .where((pm) => pm.id == value)
-                    .firstOrNull
-                    ?.type,
+                destType:
+                    methods.where((pm) => pm.id == value).firstOrNull?.type,
               );
             },
-            validator: (value) =>
-                value == null ? '입금 결제수단을 선택하세요' : null,
+            validator: (value) => value == null ? '입금 결제수단을 선택하세요' : null,
           ),
           const SizedBox(height: 16),
           // Transfer kind (Phase 22 §2.1) — user can override the default.

@@ -23,7 +23,7 @@ Tab bbTab(
 }) {
   final type = context.bbType;
   return Tab(
-    height: type.tabHeight,
+    height: context.bbBox.tab,
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
@@ -55,7 +56,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
       children: [
         // Type toggle (지출/수입)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding:
+              context.bbSpace.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.md),
           child: SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'EXPENSE', label: Text('지출')),
@@ -67,13 +69,13 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
         ),
         // View mode toggle
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: context.bbSpace.symmetric(h: BbSpaceToken.xl),
           child: Row(
             children: [
               if (_selectedGroupId != null) ...[
                 // Back button when viewing a specific group
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 20),
+                  icon: Icon(Icons.arrow_back, size: context.bbType.iconMd),
                   onPressed: () => setState(() {
                     _selectedGroupId = null;
                     _selectedGroupName = null;
@@ -82,7 +84,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
-                const SizedBox(width: 8),
+                context.bbSpace.gapH(BbSpaceToken.md),
                 Text(
                   _selectedGroupName ?? '',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -112,7 +114,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.md),
         Expanded(child: _buildContent(context)),
       ],
     );
@@ -127,8 +129,9 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline,
+                size: context.bbType.iconLg * 1.5, color: Colors.red),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(widget.error!, textAlign: TextAlign.center),
           ],
         ),
@@ -139,12 +142,19 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.pie_chart_outline, size: 64,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            Icon(Icons.pie_chart_outline,
+                size: context.bbType.iconLg * 2,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.3)),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text('이 달에 기록된 거래가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5))),
           ],
         ),
       );
@@ -183,7 +193,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: context.bbSpace.all(BbSpaceToken.xl),
       child: Column(
         children: [
           SizedBox(
@@ -194,17 +204,22 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                 final g = entry.value;
                 return PieChartSectionData(
                   value: g.amount.toDouble(),
-                  title: g.percentage >= 5 ? '${g.percentage.toStringAsFixed(0)}%' : '',
+                  title: g.percentage >= 5
+                      ? '${g.percentage.toStringAsFixed(0)}%'
+                      : '',
                   color: color,
                   radius: 60,
-                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  titleStyle: TextStyle(
+                      fontSize: context.bbType.label,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 );
               }).toList(),
               centerSpaceRadius: 40,
               sectionsSpace: 2,
             )),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           ...groups.asMap().entries.map((entry) {
             final index = entry.key;
             final g = entry.value;
@@ -242,7 +257,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
     final totalAmount = filtered.fold(0, (sum, s) => sum + s.amount);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: context.bbSpace.all(BbSpaceToken.xl),
       child: Column(
         children: [
           SizedBox(
@@ -251,20 +266,24 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               sections: filtered.asMap().entries.map((entry) {
                 final stat = entry.value;
                 final color = _getStatColor(stat, entry.key);
-                final pct = totalAmount > 0 ? stat.amount / totalAmount * 100 : 0.0;
+                final pct =
+                    totalAmount > 0 ? stat.amount / totalAmount * 100 : 0.0;
                 return PieChartSectionData(
                   value: stat.amount.toDouble(),
                   title: pct >= 5 ? '${pct.toStringAsFixed(0)}%' : '',
                   color: color,
                   radius: 60,
-                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  titleStyle: TextStyle(
+                      fontSize: context.bbType.label,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 );
               }).toList(),
               centerSpaceRadius: 40,
               sectionsSpace: 2,
             )),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           ...filtered.asMap().entries.map((entry) {
             final stat = entry.value;
             final color = _getStatColor(stat, entry.key);
@@ -278,7 +297,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               count: stat.transactionCount,
               onTap: () {
                 final catName = Uri.encodeComponent(stat.category.name);
-                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+                context.go(
+                    '/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
           }),
@@ -293,7 +313,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
       ..sort((a, b) => b.amount.compareTo(a.amount));
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: context.bbSpace.all(BbSpaceToken.xl),
       child: Column(
         children: [
           SizedBox(
@@ -309,14 +329,17 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                       : '',
                   color: color,
                   radius: 60,
-                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  titleStyle: TextStyle(
+                      fontSize: context.bbType.label,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 );
               }).toList(),
               centerSpaceRadius: 40,
               sectionsSpace: 2,
             )),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           ...sorted.asMap().entries.map((entry) {
             final stat = entry.value;
             final color = _getStatColor(stat, entry.key);
@@ -329,7 +352,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
               count: stat.transactionCount,
               onTap: () {
                 final catName = Uri.encodeComponent(stat.category.name);
-                context.go('/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
+                context.go(
+                    '/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
           }),
@@ -356,29 +380,30 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
     VoidCallback? onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: context.bbSpace.symmetric(v: BbSpaceToken.xs),
       child: Card(
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: context.bbSpace.all(BbSpaceToken.lg),
             child: Row(
               children: [
                 Container(
                   width: 12,
                   height: 12,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration:
+                      BoxDecoration(color: color, shape: BoxShape.circle),
                 ),
-                const SizedBox(width: 12),
+                context.bbSpace.gapH(BbSpaceToken.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(name, style: Theme.of(context).textTheme.bodyLarge),
-                      const SizedBox(height: 4),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
                         child: LinearProgressIndicator(
                           value: (percentage / 100).clamp(0.0, 1.0),
                           backgroundColor: color.withValues(alpha: 0.1),
@@ -389,26 +414,36 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                context.bbSpace.gapH(BbSpaceToken.lg),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '${CurrencyFormatter.format(amount)}원',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Text(
                       '${percentage.toStringAsFixed(1)}% ($count건)',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5),
                           ),
                     ),
                   ],
                 ),
                 if (onTap != null) ...[
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right, size: 18,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+                  context.bbSpace.gapH(BbSpaceToken.xs),
+                  Icon(Icons.chevron_right,
+                      size: context.bbType.iconSm,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.3)),
                 ],
               ],
             ),

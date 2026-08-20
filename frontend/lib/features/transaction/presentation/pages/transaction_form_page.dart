@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/widgets/bb_tab.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_wide_button.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/utils/category_display_helper.dart';
@@ -131,11 +133,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool _isSubmitting = false;
   bool _continueMode = false;
   bool _keepSameItems = false;
+
   /// 이 폼 세션에서 마지막으로 저장 성공한 거래의 달.
   /// continue 모드로 등록 후 뒤로가기로 폼을 나갈 때, stale URL 로 복귀해
   /// 목록이 이전 달로 돌아가는 drift 를 막기 위해 등록한 달로 이동한다.
   int? _savedYear;
   int? _savedMonth;
+
   /// V61 (2026-05-06) — 사용자가 "확인/입력 필요" 로 마킹한 거래 여부.
   bool _needsReview = false;
   String? _categoryError;
@@ -204,7 +208,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   bool get isEditing => widget.transactionId != null;
 
   /// 수정 모드에서 이체로 바꾸는 중인가 (본문/저장 경로가 갈린다).
-  bool get _isConvertingToTransfer => isEditing && _editTargetType == 'TRANSFER';
+  bool get _isConvertingToTransfer =>
+      isEditing && _editTargetType == 'TRANSFER';
 
   /// 이체 → 거래 역변환 모드인가 (저장 경로가 갈린다. 정방향의 거울상).
   bool get _isConvertingFromTransfer => widget.convertFromTransferId != null;
@@ -241,8 +246,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _tabController = TabController(
       length: _hidesTransferTab ? 2 : 3,
       vsync: this,
-      initialIndex:
-          _hidesTransferTab ? initialIndex.clamp(0, 1) : initialIndex,
+      initialIndex: _hidesTransferTab ? initialIndex.clamp(0, 1) : initialIndex,
     );
     _tabController.addListener(_onTabChanged);
 
@@ -413,7 +417,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   Future<void> _loadDefaultPaymentMethod() async {
     // If initial payment method is specified (e.g., from filtered view), use it
-    if (widget.initialPaymentMethodId != null && _selectedPaymentMethodId == null) {
+    if (widget.initialPaymentMethodId != null &&
+        _selectedPaymentMethodId == null) {
       setState(() => _selectedPaymentMethodId = widget.initialPaymentMethodId);
       return;
     }
@@ -421,7 +426,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     _coupleId ??= _resolveCoupleId();
     if (_coupleId == null) return;
 
-    final defaultId = await CouplePrefs.getString(_coupleId!, 'default_payment_method_id');
+    final defaultId =
+        await CouplePrefs.getString(_coupleId!, 'default_payment_method_id');
     if (defaultId == null || !mounted) return;
 
     // Validate against current payment methods from server
@@ -549,7 +555,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
   }
 
-  void _applySuggestionPattern(SuggestionGroup group, SuggestionPattern? pattern) {
+  void _applySuggestionPattern(
+      SuggestionGroup group, SuggestionPattern? pattern) {
     _suppressSuggestions = true;
     _debounceTimer?.cancel();
     setState(() {
@@ -561,7 +568,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         // 회차 12 P3 + follow-up — 자동 선택도 picker 직접 선택과 동일한 "그룹 > 하위" 형식.
         // BE 응답의 categoryGroupName 우선 사용. fallback 으로 helper (group lookup).
         _selectedCategoryDisplayName = pattern.categoryName != null
-            ? (pattern.categoryGroupName != null && pattern.categoryGroupName!.isNotEmpty
+            ? (pattern.categoryGroupName != null &&
+                    pattern.categoryGroupName!.isNotEmpty
                 ? '${pattern.categoryGroupName} > ${pattern.categoryName}'
                 : formatCategoryDisplay(
                     pattern.categoryId,
@@ -691,7 +699,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               // "달력 6월 / 내역 5월" 불일치(버그2)를 함께 해소.
               // 같은 달이면 changeMonth 는 no-op 이므로 아래 명시 reload 유지.
               getIt<MonthCubit>().changeMonth(state.year, state.month);
-              getIt<DashboardBloc>().add(LoadDashboard(year: state.year, month: state.month));
+              getIt<DashboardBloc>()
+                  .add(LoadDashboard(year: state.year, month: state.month));
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
               // 등록/수정한 거래의 달을 기록 → continue 모드 뒤로가기 시 이 달로 복귀.
               _savedYear = state.year;
@@ -701,11 +710,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               } else if (isEditing) {
                 // After editing, go directly to transactions list
                 // to avoid stale edit page in browser history
-                context.go('/transactions?year=${state.year}&month=${state.month}');
+                context.go(
+                    '/transactions?year=${state.year}&month=${state.month}');
               } else {
                 // 등록 월을 URL 에 실어 복귀 → 라우터가 목록/달력을 모두 그 달로
                 // 동기화 (pop 으로 stale URL 복귀 시 발생하던 drift 방지).
-                context.go('/transactions?year=${state.year}&month=${state.month}');
+                context.go(
+                    '/transactions?year=${state.year}&month=${state.month}');
               }
             } else if (state is TransactionError) {
               _submitTimeoutTimer?.cancel();
@@ -721,7 +732,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         ),
         BlocListener<TransferBloc, TransferState>(
           listener: (context, state) {
-            debugPrint('[TransferForm] BlocListener state=$state, submitting=$_isTransferSubmitting');
+            debugPrint(
+                '[TransferForm] BlocListener state=$state, submitting=$_isTransferSubmitting');
             if (!_isTransferSubmitting) return;
             if (state is TransferLoaded) {
               if (state.operationError != null) {
@@ -735,9 +747,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               } else {
                 setState(() => _isTransferSubmitting = false);
                 final dashState = getIt<DashboardBloc>().state;
-                final year = dashState is DashboardLoaded ? dashState.year : DateTime.now().year;
-                final month = dashState is DashboardLoaded ? dashState.month : DateTime.now().month;
-                getIt<DashboardBloc>().add(LoadDashboard(year: year, month: month));
+                final year = dashState is DashboardLoaded
+                    ? dashState.year
+                    : DateTime.now().year;
+                final month = dashState is DashboardLoaded
+                    ? dashState.month
+                    : DateTime.now().month;
+                getIt<DashboardBloc>()
+                    .add(LoadDashboard(year: year, month: month));
                 getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('이체가 등록되었습니다')),
@@ -770,63 +787,66 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             title: Text(isEditing
                 ? '거래 수정'
                 : (_isConvertingFromTransfer ? '거래로 변경' : '거래 추가')),
-          actions: [
-            if (isEditing)
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: _isSubmitting ? null : () => _confirmDelete(context),
-              ),
-          ],
-          bottom: isEditing
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(48),
-                  child: _buildEditTypeSelector(context),
-                )
-              : TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    bbTab(context, icon: Icons.arrow_downward, label: '지출'),
-                    bbTab(context, icon: Icons.arrow_upward, label: '수입'),
-                    // 역변환 모드에서는 목적지가 거래로 고정이라 이체 탭이 없다
-                    // (TabController.length 와 반드시 같은 조건이어야 한다).
-                    if (!_hidesTransferTab)
-                      bbTab(context, icon: Icons.swap_horiz, label: '이체'),
+            actions: [
+              if (isEditing)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed:
+                      _isSubmitting ? null : () => _confirmDelete(context),
+                ),
+            ],
+            bottom: isEditing
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(48),
+                    child: _buildEditTypeSelector(context),
+                  )
+                : TabBar(
+                    controller: _tabController,
+                    tabs: [
+                      bbTab(context, icon: Icons.arrow_downward, label: '지출'),
+                      bbTab(context, icon: Icons.arrow_upward, label: '수입'),
+                      // 역변환 모드에서는 목적지가 거래로 고정이라 이체 탭이 없다
+                      // (TabController.length 와 반드시 같은 조건이어야 한다).
+                      if (!_hidesTransferTab)
+                        bbTab(context, icon: Icons.swap_horiz, label: '이체'),
+                    ],
+                  ),
+          ),
+          body: isEditing
+              ? (_isConvertingToTransfer
+                  ? _buildTransferFormContent(context)
+                  : _buildTransactionFormBody(context))
+              : Column(
+                  children: [
+                    if (_isConvertingFromTransfer) _buildConvertBanner(context),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // Tab 0: Expense form
+                          _buildTransactionFormBody(context,
+                              formKey: _expenseFormKey,
+                              scrollController: _expenseScrollController,
+                              amountFocusNode: _expenseAmountFocusNode),
+                          // Tab 1: Income form
+                          _buildTransactionFormBody(
+                            context,
+                            formKey: _incomeFormKey,
+                            categoryFocusNode: _incomeCategoryFocusNode,
+                            pmFocusNode: _incomePmFocusNode,
+                            pocketFocusNode: _incomePocketFocusNode,
+                            scrollController: _incomeScrollController,
+                            amountFocusNode: _incomeAmountFocusNode,
+                          ),
+                          // Tab 2: Transfer form (embedded)
+                          if (!_hidesTransferTab)
+                            _buildTransferFormBody(context),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
         ),
-        body: isEditing
-            ? (_isConvertingToTransfer
-                ? _buildTransferFormContent(context)
-                : _buildTransactionFormBody(context))
-            : Column(
-                children: [
-                  if (_isConvertingFromTransfer) _buildConvertBanner(context),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Tab 0: Expense form
-                        _buildTransactionFormBody(context,
-                            formKey: _expenseFormKey,
-                            scrollController: _expenseScrollController,
-                            amountFocusNode: _expenseAmountFocusNode),
-                        // Tab 1: Income form
-                        _buildTransactionFormBody(context,
-                          formKey: _incomeFormKey,
-                          categoryFocusNode: _incomeCategoryFocusNode,
-                          pmFocusNode: _incomePmFocusNode,
-                          pocketFocusNode: _incomePocketFocusNode,
-                          scrollController: _incomeScrollController,
-                          amountFocusNode: _incomeAmountFocusNode,
-                        ),
-                        // Tab 2: Transfer form (embedded)
-                        if (!_hidesTransferTab) _buildTransferFormBody(context),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-      ),
       ),
     );
   }
@@ -870,8 +890,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           child: Row(
             children: [
               Icon(Icons.tune,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.tertiary),
+                  size: 16, color: Theme.of(context).colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 '잔액 수정 (유형 변경 불가)',
@@ -907,7 +926,6 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             const SizedBox(width: 8),
             SegmentedButton<String>(
               style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               segments: const [
@@ -957,14 +975,16 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     if (next != 'TRANSFER') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${next == 'INCOME' ? '수입' : '지출'}으로 변경 — 카테고리를 다시 선택하세요'),
+          content:
+              Text('${next == 'INCOME' ? '수입' : '지출'}으로 변경 — 카테고리를 다시 선택하세요'),
           duration: const Duration(seconds: 2),
         ),
       );
     }
   }
 
-  Widget _buildTransactionFormBody(BuildContext context, {
+  Widget _buildTransactionFormBody(
+    BuildContext context, {
     GlobalKey<FormState>? formKey,
     FocusNode? categoryFocusNode,
     FocusNode? pmFocusNode,
@@ -977,211 +997,224 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     final pocketFn = pocketFocusNode ?? _pocketFocusNode;
     // BlocListener is now in the top-level MultiBlocListener in build()
     return SingleChildScrollView(
-        controller: scrollController ?? _editScrollController,
-        padding: const EdgeInsets.all(24),
-        child: FocusTraversalGroup(
-          policy: OrderedTraversalPolicy(),
-          child: Form(
-            key: formKey ?? _expenseFormKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                  // Date picker
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(0),
-                    child: _buildDatePicker(context),
+      controller: scrollController ?? _editScrollController,
+      padding: const EdgeInsets.all(24),
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Form(
+          key: formKey ?? _expenseFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Date picker
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(0),
+                child: _buildDatePicker(context),
+              ),
+              const SizedBox(height: 16),
+              // Amount
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(1),
+                child: CalculatorAmountField(
+                  controller: _amountController,
+                  focusNode: amountFocusNode,
+                  decoration: const InputDecoration(
+                    labelText: '금액',
+                    suffixText: '원',
+                    prefixIcon: Icon(Icons.payments),
                   ),
-                  const SizedBox(height: 16),
-                  // Amount
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(1),
-                    child: CalculatorAmountField(
-                      controller: _amountController,
-                      focusNode: amountFocusNode,
-                      decoration: const InputDecoration(
-                        labelText: '금액',
-                        suffixText: '원',
-                        prefixIcon: Icon(Icons.payments),
+                  helperText: _amountHint.isNotEmpty ? _amountHint : null,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '금액을 입력하세요';
+                    }
+                    final amount = CurrencyFormatter.parse(value);
+                    if (amount == null || amount < 0) {
+                      return '금액을 입력하세요';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Description with suggestion chips
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(2),
+                child: TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: '내용',
+                    hintText: '예: 점심 식사',
+                    prefixIcon: Icon(Icons.description),
+                  ),
+                  maxLength: 255,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '내용을 입력하세요';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              // Suggestion chips (rich - with category/payment method patterns)
+              if (_suggestions.isNotEmpty) _buildSuggestionArea(context),
+              // AI classification recommendation
+              if (_aiResult != null &&
+                  _selectedCategoryId != _aiResult!.categoryId)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: ActionChip(
+                    avatar: const Icon(Icons.auto_awesome, size: 16),
+                    // 회차 12 P3 + follow-up — AI 추천 chip 도 "그룹 > 하위" 형식.
+                    // result.groupName 직접 사용.
+                    label: Text(_aiResult!.groupName.isNotEmpty
+                        ? 'AI 추천: ${_aiResult!.groupName} > ${_aiResult!.categoryName}'
+                        : 'AI 추천: ${_aiResult!.categoryName}'),
+                    onPressed: () => _applyAiCategory(_aiResult!),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              // Category picker with keyboard support
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(3),
+                child: _buildKeyboardActivatableField(
+                  focusNode: catFn,
+                  onActivate: () => _activateCategoryPicker(context),
+                  child: _buildCategoryPicker(context),
+                ),
+              ),
+              // 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 radio.
+              if (_isAdjustmentSelected) ...[
+                const SizedBox(height: 12),
+                _buildAdjustmentBanner(context),
+              ],
+              const SizedBox(height: 16),
+              // Payment method picker with keyboard support
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(4),
+                child: _buildKeyboardActivatableField(
+                  focusNode: pmFn,
+                  onActivate: () => _activatePaymentMethodPicker(context),
+                  child: _buildPaymentMethodPicker(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Pocket picker with keyboard support
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(5),
+                child: _buildKeyboardActivatableField(
+                  focusNode: pocketFn,
+                  onActivate: () => _activatePocketPicker(context),
+                  child: _buildPocketPicker(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // V61 (2026-05-06) — 메모 카드 + needs_review 토글.
+              // 이전: prefixIcon 있는 좌측정렬 단행 입력 + maxLines:2.
+              // 변경: 카드 컨테이너 안에 [멀티라인 가운데정렬 메모] + [확인/입력 필요 토글].
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(6),
+                child: _buildMemoCard(context),
+              ),
+              const SizedBox(height: 24),
+              // Continue mode options (new transactions only)
+              if (!isEditing) ...[
+                GestureDetector(
+                  onTap: () => setState(() => _keepSameItems = !_keepSameItems),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Checkbox(
+                          value: _keepSameItems,
+                          onChanged: (v) =>
+                              setState(() => _keepSameItems = v ?? false),
+                        ),
                       ),
-                      helperText: _amountHint.isNotEmpty ? _amountHint : null,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '금액을 입력하세요';
-                        }
-                        final amount = CurrencyFormatter.parse(value);
-                        if (amount == null || amount < 0) {
-                          return '금액을 입력하세요';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Description with suggestion chips
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(2),
-                    child: TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: '내용',
-                        hintText: '예: 점심 식사',
-                        prefixIcon: Icon(Icons.description),
+                      const SizedBox(width: 8),
+                      Text(
+                        '동일 항목 유지 (날짜/카테고리/결제수단)',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      maxLength: 255,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '내용을 입력하세요';
-                        }
-                        return null;
-                      },
-                    ),
+                    ],
                   ),
-                  // Suggestion chips (rich - with category/payment method patterns)
-                  if (_suggestions.isNotEmpty)
-                    _buildSuggestionArea(context),
-                  // AI classification recommendation
-                  if (_aiResult != null && _selectedCategoryId != _aiResult!.categoryId)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 4),
-                      child: ActionChip(
-                        avatar: const Icon(Icons.auto_awesome, size: 16),
-                        // 회차 12 P3 + follow-up — AI 추천 chip 도 "그룹 > 하위" 형식.
-                        // result.groupName 직접 사용.
-                        label: Text(_aiResult!.groupName.isNotEmpty
-                            ? 'AI 추천: ${_aiResult!.groupName} > ${_aiResult!.categoryName}'
-                            : 'AI 추천: ${_aiResult!.categoryName}'),
-                        onPressed: () => _applyAiCategory(_aiResult!),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  // Category picker with keyboard support
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(3),
-                    child: _buildKeyboardActivatableField(
-                      focusNode: catFn,
-                      onActivate: () => _activateCategoryPicker(context),
-                      child: _buildCategoryPicker(context),
-                    ),
-                  ),
-                  // 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 radio.
-                  if (_isAdjustmentSelected) ...[
-                    const SizedBox(height: 12),
-                    _buildAdjustmentBanner(context),
-                  ],
-                  const SizedBox(height: 16),
-                  // Payment method picker with keyboard support
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(4),
-                    child: _buildKeyboardActivatableField(
-                      focusNode: pmFn,
-                      onActivate: () => _activatePaymentMethodPicker(context),
-                      child: _buildPaymentMethodPicker(context),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Pocket picker with keyboard support
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(5),
-                    child: _buildKeyboardActivatableField(
-                      focusNode: pocketFn,
-                      onActivate: () => _activatePocketPicker(context),
-                      child: _buildPocketPicker(context),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // V61 (2026-05-06) — 메모 카드 + needs_review 토글.
-                  // 이전: prefixIcon 있는 좌측정렬 단행 입력 + maxLines:2.
-                  // 변경: 카드 컨테이너 안에 [멀티라인 가운데정렬 메모] + [확인/입력 필요 토글].
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(6),
-                    child: _buildMemoCard(context),
-                  ),
-                  const SizedBox(height: 24),
-                  // Continue mode options (new transactions only)
-                  if (!isEditing) ...[
-                    GestureDetector(
-                      onTap: () => setState(() => _keepSameItems = !_keepSameItems),
-                      child: Row(
+                ),
+                const SizedBox(height: 12),
+              ],
+              // Submit buttons
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(7),
+                child: isEditing
+                    ? FilledButton(
+                        onPressed: _isSubmitting ? null : _onSubmit,
+                        style: FilledButton.styleFrom(
+                          padding: context.bbSpace.symmetric(
+                              h: BbSpaceToken.md, v: BbSpaceToken.xl),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('수정'),
+                      )
+                    : Row(
                         children: [
-                          SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: Checkbox(
-                              value: _keepSameItems,
-                              onChanged: (v) => setState(() => _keepSameItems = v ?? false),
-                              visualDensity: VisualDensity.compact,
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      _continueMode = true;
+                                      _onSubmit();
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                padding: context.bbSpace.symmetric(
+                                    h: BbSpaceToken.md, v: BbSpaceToken.xl),
+                              ),
+                              child: _isSubmitting && _continueMode
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('저장 & 계속'),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '동일 항목 유지 (날짜/카테고리/결제수단)',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      _continueMode = false;
+                                      _onSubmit();
+                                    },
+                              style: FilledButton.styleFrom(
+                                padding: context.bbSpace.symmetric(
+                                    h: BbSpaceToken.md, v: BbSpaceToken.xl),
+                              ),
+                              child: _isSubmitting && !_continueMode
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('저장'),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  // Submit buttons
-                  FocusTraversalOrder(
-                    order: const NumericFocusOrder(7),
-                    child: isEditing
-                        ? FilledButton(
-                            onPressed: _isSubmitting ? null : _onSubmit,
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: _isSubmitting
-                                ? const SizedBox(
-                                    height: 20, width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text('수정'),
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: _isSubmitting ? null : () {
-                                    _continueMode = true;
-                                    _onSubmit();
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                  ),
-                                  child: _isSubmitting && _continueMode
-                                      ? const SizedBox(
-                                          height: 20, width: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Text('저장 & 계속'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: _isSubmitting ? null : () {
-                                    _continueMode = false;
-                                    _onSubmit();
-                                  },
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                  ),
-                                  child: _isSubmitting && !_continueMode
-                                      ? const SizedBox(
-                                          height: 20, width: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Text('저장'),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ],
               ),
-            ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -1264,7 +1297,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       return;
     }
 
-    debugPrint('[TransferForm] _submitTransfer: amount=$amount, source=$_transferSourcePaymentMethodId, dest=$_transferDestinationPaymentMethodId, date=$dateStr');
+    debugPrint(
+        '[TransferForm] _submitTransfer: amount=$amount, source=$_transferSourcePaymentMethodId, dest=$_transferDestinationPaymentMethodId, date=$dateStr');
     final bloc = context.read<TransferBloc>();
     bloc.add(CreateTransfer(
       sourcePaymentMethodId: _transferSourcePaymentMethodId!,
@@ -1403,9 +1437,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     final destIsCredit = selectedDest?.isCredit ?? false;
     final sourceIsCredit = selectedSource?.isCredit ?? false;
 
-    final sourceMethods = destIsCredit
-        ? methods.where((pm) => !pm.isCredit).toList()
-        : methods;
+    final sourceMethods =
+        destIsCredit ? methods.where((pm) => !pm.isCredit).toList() : methods;
     final destMethods = methods
         .where((pm) => pm.id != _transferSourcePaymentMethodId)
         .where((pm) => !sourceIsCredit || !pm.isCredit)
@@ -1427,8 +1460,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   prefixIcon: Icon(Icons.calendar_today),
                 ),
                 child: Text(
-                  DateFormat('yyyy년 M월 d일 (E)', 'ko')
-                      .format(_transferDate),
+                  DateFormat('yyyy년 M월 d일 (E)', 'ko').format(_transferDate),
                 ),
               ),
             ),
@@ -1480,8 +1512,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   }
                 });
               },
-              validator: (value) =>
-                  value == null ? '출금 결제수단을 선택하세요' : null,
+              validator: (value) => value == null ? '출금 결제수단을 선택하세요' : null,
             ),
             const SizedBox(height: 8),
             // Swap button
@@ -1533,8 +1564,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   }
                 });
               },
-              validator: (value) =>
-                  value == null ? '입금 결제수단을 선택하세요' : null,
+              validator: (value) => value == null ? '입금 결제수단을 선택하세요' : null,
             ),
             const SizedBox(height: 16),
             // Description — 회차 12 P5: 공통 controller 사용
@@ -1639,39 +1669,39 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           Material(
             type: MaterialType.transparency,
             child: SwitchListTile(
-            value: _needsReview,
-            onChanged: (v) => setState(() => _needsReview = v),
-            dense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-            title: Row(
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade700,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    '!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
+              value: _needsReview,
+              onChanged: (v) => setState(() => _needsReview = v),
+              dense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              title: Row(
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade700,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        height: 1.0,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                const Text('확인/입력 필요로 표시'),
-              ],
-            ),
-            subtitle: const Text(
-              '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
-              style: TextStyle(fontSize: 12),
-            ),
+                  const SizedBox(width: 8),
+                  const Text('확인/입력 필요로 표시'),
+                ],
+              ),
+              subtitle: const Text(
+                '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
           ),
         ],
@@ -1694,9 +1724,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               final isExpanded = _expandedSuggestion == sg;
               return ActionChip(
                 label: Text(sg.description),
-                avatar: isExpanded
-                    ? const Icon(Icons.expand_less, size: 18)
-                    : null,
+                avatar:
+                    isExpanded ? const Icon(Icons.expand_less, size: 18) : null,
                 onPressed: () {
                   if (isExpanded) {
                     // Collapse: apply description only (empty pattern)
@@ -1717,7 +1746,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               onTap: () => _applySuggestionPattern(_expandedSuggestion!, null),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: theme.colorScheme.outline.withValues(alpha: 0.3),
@@ -1739,9 +1769,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               // BE 응답의 categoryGroupName 우선 사용.
               final categoryLabel = p.categoryName == null
                   ? null
-                  : (p.categoryGroupName != null && p.categoryGroupName!.isNotEmpty
+                  : (p.categoryGroupName != null &&
+                          p.categoryGroupName!.isNotEmpty
                       ? '${p.categoryGroupName} > ${p.categoryName}'
-                      : formatCategoryDisplay(p.categoryId, categoryName: p.categoryName!));
+                      : formatCategoryDisplay(p.categoryId,
+                          categoryName: p.categoryName!));
               final label = [
                 categoryLabel,
                 p.paymentMethodName,
@@ -1753,9 +1785,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   onTap: () => _applySuggestionPattern(_expandedSuggestion!, p),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                      color: theme.colorScheme.primaryContainer
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1771,7 +1805,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                         Text(
                           '${p.count}회',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
                           ),
                         ),
                       ],
@@ -1799,7 +1834,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.enter ||
-             event.logicalKey == LogicalKeyboardKey.space)) {
+                event.logicalKey == LogicalKeyboardKey.space)) {
           onActivate();
           return KeyEventResult.handled;
         }
@@ -1841,12 +1876,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
   void _activatePocketPicker(BuildContext context) {
     final pocketState = context.read<PocketBloc>().state;
-    final pockets = pocketState is PocketLoaded
-        ? pocketState.pockets
-        : <MoneyPocket>[];
+    final pockets =
+        pocketState is PocketLoaded ? pocketState.pockets : <MoneyPocket>[];
     _showPocketSelectorSheet(context, pockets);
   }
-
 
   /// 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 ChoiceChip.
   /// 잔액 조정 카테고리 선택 시 노출. 부호는 submit 시 helper 가 처리.
@@ -1933,7 +1966,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           children: [
             ItemSelectorField(
               label: '카테고리 *',
-              selectedLabel: _selectedCategoryDisplayName ?? (_selectedCategoryId != null ? '(삭제됨)' : null),
+              selectedLabel: _selectedCategoryDisplayName ??
+                  (_selectedCategoryId != null ? '(삭제됨)' : null),
               prefixIcon: Icons.category,
               placeholder: '카테고리를 선택하세요',
               onTap: () {
@@ -2005,9 +2039,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
   Widget _buildPocketPicker(BuildContext context) {
     return BlocBuilder<PocketBloc, PocketState>(
       builder: (context, pocketState) {
-        final pockets = pocketState is PocketLoaded
-            ? pocketState.pockets
-            : <MoneyPocket>[];
+        final pockets =
+            pocketState is PocketLoaded ? pocketState.pockets : <MoneyPocket>[];
 
         final selectedName = _selectedPocketId != null
             ? pockets
@@ -2027,7 +2060,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
   }
 
-  void _showCategorySelectorSheet(BuildContext context, List<Category> categories) {
+  void _showCategorySelectorSheet(
+      BuildContext context, List<Category> categories) {
     // 회차 4 — sheet 진입 정책:
     // - 거래 등록 (create) + non-ADJUSTMENT: showAdjustmentOption=true (sentinel 핀 카드)
     // - 거래 수정 (edit) 의 ADJUSTMENT: adjustmentOnly=true (잔액 조정 1개만)
@@ -2084,7 +2118,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     });
   }
 
-  void _showPaymentMethodSelectorSheet(BuildContext context, List<PaymentMethod> methods) {
+  void _showPaymentMethodSelectorSheet(
+      BuildContext context, List<PaymentMethod> methods) {
     final pmBloc = context.read<PaymentMethodBloc>();
     showDialog(
       context: context,
@@ -2097,13 +2132,13 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 : methods;
             return ItemSelectorSheet(
               title: '결제수단 선택',
-              items: liveMethods
-                  .indexed
+              items: liveMethods.indexed
                   .map((e) => SelectorItem(
                         id: e.$2.id,
                         label: e.$2.name,
                         leadingIcon: paymentMethodTypeIcon(e.$2.type),
-                        leadingColor: paymentMethodTypeColor(context, e.$2.type),
+                        leadingColor:
+                            paymentMethodTypeColor(context, e.$2.type),
                         isDeletable: true,
                         displayOrder: e.$1,
                         group: e.$2.type,
@@ -2120,7 +2155,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 });
               },
               onEdit: (item) {
-                final pm = liveMethods.where((m) => m.id == item.id).firstOrNull;
+                final pm =
+                    liveMethods.where((m) => m.id == item.id).firstOrNull;
                 if (pm != null) {
                   _showEditPaymentMethodSheet(context, pm);
                 }
@@ -2140,7 +2176,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     );
   }
 
-  void _showPocketSelectorSheet(BuildContext context, List<MoneyPocket> pockets) {
+  void _showPocketSelectorSheet(
+      BuildContext context, List<MoneyPocket> pockets) {
     final pocketBloc = context.read<PocketBloc>();
     showDialog(
       context: context,
@@ -2148,9 +2185,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         value: pocketBloc,
         child: BlocBuilder<PocketBloc, PocketState>(
           builder: (sheetContext, pocketState) {
-            final livePockets = pocketState is PocketLoaded
-                ? pocketState.pockets
-                : pockets;
+            final livePockets =
+                pocketState is PocketLoaded ? pocketState.pockets : pockets;
             return ItemSelectorSheet(
               title: '포켓 선택',
               items: livePockets
@@ -2200,6 +2236,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       if (next.isBefore(firstDate) || next.isAfter(lastDate)) return;
       setState(() => _selectedDate = next);
     }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2224,29 +2261,30 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           ),
         ),
         const SizedBox(height: 6),
+        // ★라벨은 버튼 **정중앙**, 아이콘은 바깥쪽 끝(전 ←, 후 →)에 고정한다.
+        // `OutlinedButton.icon` 은 아이콘+라벨을 한 덩어리로 중앙 정렬해서 라벨이
+        // 24dp 오른쪽으로 밀렸다(2026-08-20 사용자 지적 → 기하 실측으로 확정).
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: BbWideButton(
+                label: '1일 전',
+                icon: Icons.remove,
+                iconEdge: BbIconEdge.start,
+                variant: BbButtonVariant.outlined,
+                dense: true,
                 onPressed: canDec ? () => shiftDays(-1) : null,
-                icon: const Icon(Icons.remove, size: 16),
-                label: const Text('1일 전'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  visualDensity: VisualDensity.compact,
-                ),
               ),
             ),
-            const SizedBox(width: 8),
+            context.bbSpace.gapH(BbSpaceToken.md),
             Expanded(
-              child: OutlinedButton.icon(
+              child: BbWideButton(
+                label: '1일 후',
+                icon: Icons.add,
+                iconEdge: BbIconEdge.end,
+                variant: BbButtonVariant.outlined,
+                dense: true,
                 onPressed: canInc ? () => shiftDays(1) : null,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('1일 후'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  visualDensity: VisualDensity.compact,
-                ),
               ),
             ),
           ],
@@ -2330,8 +2368,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       context: context,
       isScrollControlled: true,
       builder: (_) => PocketFormSheet(
-        onSubmit: (name, type, allocatedAmount, icon, color, goalAmount,
-            targetDate) {
+        onSubmit:
+            (name, type, allocatedAmount, icon, color, goalAmount, targetDate) {
           bloc.add(CreatePocket(
             name: name,
             type: type,
@@ -2348,9 +2386,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     if (!mounted) return;
     await _autoSelectNewItem<PocketBloc, PocketState>(
       bloc: bloc,
-      getIds: (s) => s is PocketLoaded
-          ? s.pockets.map((p) => p.id).toSet()
-          : <String>{},
+      getIds: (s) =>
+          s is PocketLoaded ? s.pockets.map((p) => p.id).toSet() : <String>{},
       oldIds: oldIds,
       onSelect: (newId) => setState(() {
         _selectedPocketId = newId;
@@ -2374,7 +2411,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
 
     // Wait for next state with new item
     try {
-      await for (final state in bloc.stream.timeout(const Duration(seconds: 10))) {
+      await for (final state
+          in bloc.stream.timeout(const Duration(seconds: 10))) {
         final newIds = getIds(state);
         final newDiff = newIds.difference(oldIds);
         if (newDiff.isNotEmpty) {
@@ -2472,7 +2510,8 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       setState(() => _paymentMethodError = null);
     }
 
-    final activeFormKey = _tabController.index == 1 ? _incomeFormKey : _expenseFormKey;
+    final activeFormKey =
+        _tabController.index == 1 ? _incomeFormKey : _expenseFormKey;
     if (hasPickerError || !(activeFormKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -2493,8 +2532,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
     final rawAmount = CurrencyFormatter.parse(_amountController.text.trim())!;
     final description = _descriptionController.text.trim();
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final memo =
-        _memoController.text.trim().isEmpty ? null : _memoController.text.trim();
+    final memo = _memoController.text.trim().isEmpty
+        ? null
+        : _memoController.text.trim();
     final bloc = context.read<TransactionBloc>();
 
     // 회차 4 — sentinel/ADJUSTMENT 처리: type/categoryId/amount 변환.

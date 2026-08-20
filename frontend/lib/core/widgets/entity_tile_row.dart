@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:budget_book/core/theme/bb_colors.dart';
-import 'package:budget_book/core/theme/bb_density.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/asset_edit_mode_scope.dart';
 import 'package:budget_book/core/widgets/one_line_label.dart';
 
@@ -170,7 +170,9 @@ class EntityTileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final editing = AssetEditModeScope.of(context) && actions != null;
-    final density = context.density;
+    final space = context.bbSpace;
+    final box = context.bbBox;
+    final type = context.bbType;
     final bb = context.bb;
     final scheme = Theme.of(context).colorScheme;
     final textScaler = MediaQuery.textScalerOf(context);
@@ -178,18 +180,17 @@ class EntityTileRow extends StatelessWidget {
 
     final effectiveBadges = <EntityBadge>[
       ...badges,
-      if (dimmed)
-        EntityBadge(label: inactiveLabel, tone: EntityTone.warn),
+      if (dimmed) EntityBadge(label: inactiveLabel, tone: EntityTone.warn),
     ];
 
     final content = LayoutBuilder(
       builder: (context, constraints) {
         // Chrome the title row cannot use: padding, avatar, gaps, actions.
-        var chrome = density.tilePaddingH * 2;
-        if (leadingIcon != null) chrome += density.avatarSize + density.gap;
-        if (editing) chrome += _actionsWidth(density, actions!) + density.gap;
+        var chrome = space.xl * 2;
+        if (leadingIcon != null) chrome += box.avatar + space.md;
+        if (editing) chrome += _actionsWidth(box, actions!) + space.md;
         if (!editing && viewAction != null) {
-          chrome += density.actionSlotSize + density.gap;
+          chrome += box.actionSlot + space.md;
         }
         final available = constraints.maxWidth - chrome;
 
@@ -200,7 +201,7 @@ class EntityTileRow extends StatelessWidget {
         if (inlineMetric) {
           metricWidth = OneLineLabel.measureWidth(
             text: trailingMetric!.display,
-            fontSize: density.metricFontSize,
+            fontSize: type.body,
             style: baseStyle.copyWith(fontWeight: FontWeight.w700),
             textScaler: textScaler,
           );
@@ -212,7 +213,7 @@ class EntityTileRow extends StatelessWidget {
           );
           // Squeezing both would truncate the name — the name wins and the
           // amount drops to the chip strip (still exact, never abbreviated).
-          if (titleFloor + density.gap + metricWidth > available) {
+          if (titleFloor + space.md + metricWidth > available) {
             inlineMetric = false;
             metricWidth = 0;
           }
@@ -233,39 +234,39 @@ class EntityTileRow extends StatelessWidget {
                   _Avatar(
                     icon: leadingIcon!,
                     color: leadingColor ?? scheme.primary,
-                    density: density,
                   ),
-                  SizedBox(width: density.gap),
+                  SizedBox(width: space.md),
                 ],
                 Expanded(
                   child: OneLineLabel(
                     title,
-                    baseFontSize: density.titleFontSize,
+                    baseFontSize: type.section,
                     style: baseStyle.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
                 if (inlineMetric) ...[
-                  SizedBox(width: density.gap),
+                  SizedBox(width: space.md),
                   SizedBox(
                     width: metricWidth,
                     child: OneLineLabel(
                       trailingMetric!.display,
-                      baseFontSize: density.metricFontSize,
+                      baseFontSize: type.body,
                       textAlign: TextAlign.right,
                       style: baseStyle.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: _toneForeground(bb, scheme, trailingMetric!.tone),
+                        color:
+                            _toneForeground(bb, scheme, trailingMetric!.tone),
                       ),
                     ),
                   ),
                 ],
                 if (!editing && viewAction != null) ...[
-                  SizedBox(width: density.gap),
+                  SizedBox(width: space.md),
                   SizedBox(
-                    width: density.actionSlotSize,
-                    height: density.actionSlotSize,
+                    width: box.actionSlot,
+                    height: box.actionSlot,
                     child: IconButton(
-                      icon: Icon(viewAction!.icon, size: density.actionIconSize),
+                      icon: Icon(viewAction!.icon, size: box.actionIcon),
                       padding: EdgeInsets.zero,
                       tooltip: viewAction!.tooltip,
                       onPressed: viewAction!.onPressed,
@@ -273,27 +274,27 @@ class EntityTileRow extends StatelessWidget {
                   ),
                 ],
                 if (editing) ...[
-                  SizedBox(width: density.gap),
-                  _ActionLane(actions: actions!, density: density),
+                  SizedBox(width: space.md),
+                  _ActionLane(actions: actions!),
                 ],
               ],
             ),
             if (!editing && subtitle != null) ...[
-              SizedBox(height: density.gap / 2),
+              SizedBox(height: space.md / 2),
               OneLineLabel(
                 subtitle!,
-                baseFontSize: density.chipFontSize + 1,
+                baseFontSize: type.caption + 1,
                 style: baseStyle.copyWith(
                   color: scheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
-            if (!editing && (effectiveBadges.isNotEmpty || stackedMetrics.isNotEmpty)) ...[
-              SizedBox(height: density.gap / 2),
+            if (!editing &&
+                (effectiveBadges.isNotEmpty || stackedMetrics.isNotEmpty)) ...[
+              SizedBox(height: space.md / 2),
               _ChipStrip(
                 badges: effectiveBadges,
                 metrics: stackedMetrics,
-                density: density,
               ),
             ],
           ],
@@ -303,8 +304,8 @@ class EntityTileRow extends StatelessWidget {
 
     final padded = Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: density.tilePaddingH,
-        vertical: density.tilePaddingV,
+        horizontal: space.xl,
+        vertical: space.lg,
       ),
       child: dimmed ? Opacity(opacity: 0.55, child: content) : content,
     );
@@ -317,16 +318,17 @@ class EntityTileRow extends StatelessWidget {
     );
   }
 
-  static double _actionsWidth(BbDensity density, EntityTileActions actions) {
+  static double _actionsWidth(BbBox box, EntityTileActions actions) {
     var width = 0.0;
-    if (actions.onActiveChanged != null) width += density.toggleSlotWidth;
-    if (actions.menu.isNotEmpty) width += density.actionSlotSize;
-    if (actions.reorderIndex != null) width += density.actionSlotSize;
+    if (actions.onActiveChanged != null) width += box.toggleSlot;
+    if (actions.menu.isNotEmpty) width += box.actionSlot;
+    if (actions.reorderIndex != null) width += box.actionSlot;
     return width;
   }
 
   /// Foreground color for a tone painted directly on the surface.
-  static Color toneForeground(BbColors bb, ColorScheme scheme, EntityTone tone) =>
+  static Color toneForeground(
+          BbColors bb, ColorScheme scheme, EntityTone tone) =>
       _toneForeground(bb, scheme, tone);
 
   /// Chip background / foreground pair for a tone.
@@ -371,45 +373,37 @@ Color _toneForeground(BbColors bb, ColorScheme scheme, EntityTone tone) =>
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({
-    required this.icon,
-    required this.color,
-    required this.density,
-  });
+  const _Avatar({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
-  final BbDensity density;
 
   @override
   Widget build(BuildContext context) {
+    final box = context.bbBox;
     return Container(
-      width: density.avatarSize,
-      height: density.avatarSize,
+      width: box.avatar,
+      height: box.avatar,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
-      child: Icon(icon, size: density.avatarIconSize, color: color),
+      child: Icon(icon, size: box.avatarIcon, color: color),
     );
   }
 }
 
 class _ChipStrip extends StatelessWidget {
-  const _ChipStrip({
-    required this.badges,
-    required this.metrics,
-    required this.density,
-  });
+  const _ChipStrip({required this.badges, required this.metrics});
 
   final List<EntityBadge> badges;
   final List<EntityMetric> metrics;
-  final BbDensity density;
 
   @override
   Widget build(BuildContext context) {
     final bb = context.bb;
+    final space = context.bbSpace;
     final children = <Widget>[];
 
     for (final badge in badges) {
@@ -419,7 +413,6 @@ class _ChipStrip extends StatelessWidget {
         background: (badge.color ?? pair.background)
             .withValues(alpha: badge.color != null ? 0.15 : 1.0),
         foreground: badge.color ?? pair.foreground,
-        density: density,
       ));
     }
     for (final metric in metrics) {
@@ -428,7 +421,6 @@ class _ChipStrip extends StatelessWidget {
         text: metric.display,
         background: pair.background,
         foreground: pair.foreground,
-        density: density,
       ));
     }
 
@@ -437,7 +429,7 @@ class _ChipStrip extends StatelessWidget {
     return Row(
       children: [
         for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) SizedBox(width: density.gap / 2),
+          if (i > 0) SizedBox(width: space.md / 2),
           Flexible(child: children[i]),
         ],
       ],
@@ -450,28 +442,24 @@ class _Chip extends StatelessWidget {
     required this.text,
     required this.background,
     required this.foreground,
-    required this.density,
   });
 
   final String text;
   final Color background;
   final Color foreground;
-  final BbDensity density;
 
   @override
   Widget build(BuildContext context) {
+    final space = context.bbSpace;
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: density.chipPaddingH,
-        vertical: 2,
-      ),
+      padding: space.symmetric(h: BbSpaceToken.sm, v: BbSpaceToken.xs),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: space.radius(BbSpaceToken.sm),
       ),
       child: OneLineLabel(
         text,
-        baseFontSize: density.chipFontSize,
+        baseFontSize: context.bbType.caption,
         minFontSize: 10,
         style: TextStyle(fontWeight: FontWeight.w600, color: foreground),
       ),
@@ -480,21 +468,21 @@ class _Chip extends StatelessWidget {
 }
 
 class _ActionLane extends StatelessWidget {
-  const _ActionLane({required this.actions, required this.density});
+  const _ActionLane({required this.actions});
 
   final EntityTileActions actions;
-  final BbDensity density;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final box = context.bbBox;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (actions.onActiveChanged != null)
           SizedBox(
-            width: density.toggleSlotWidth,
-            height: density.actionSlotSize,
+            width: box.toggleSlot,
+            height: box.actionSlot,
             child: Center(
               child: Switch(
                 value: actions.isActive ?? true,
@@ -505,12 +493,12 @@ class _ActionLane extends StatelessWidget {
           ),
         if (actions.menu.isNotEmpty)
           SizedBox(
-            width: density.actionSlotSize,
-            height: density.actionSlotSize,
+            width: box.actionSlot,
+            height: box.actionSlot,
             child: PopupMenuButton<String>(
               tooltip: '설정',
               padding: EdgeInsets.zero,
-              icon: Icon(Icons.more_vert, size: density.actionIconSize),
+              icon: Icon(Icons.more_vert, size: box.actionIcon),
               onSelected: actions.onMenuSelected,
               itemBuilder: (_) => [
                 for (final item in actions.menu)
@@ -521,10 +509,10 @@ class _ActionLane extends StatelessWidget {
                         if (item.icon != null) ...[
                           Icon(
                             item.icon,
-                            size: 20,
+                            size: context.bbType.iconMd,
                             color: item.destructive ? scheme.error : null,
                           ),
-                          const SizedBox(width: 8),
+                          context.bbSpace.gapH(BbSpaceToken.md),
                         ],
                         Text(
                           item.label,
@@ -542,11 +530,11 @@ class _ActionLane extends StatelessWidget {
           ReorderableDragStartListener(
             index: actions.reorderIndex!,
             child: SizedBox(
-              width: density.actionSlotSize,
-              height: density.actionSlotSize,
+              width: box.actionSlot,
+              height: box.actionSlot,
               child: Icon(
                 Icons.drag_handle,
-                size: density.actionIconSize,
+                size: box.actionIcon,
                 color: scheme.onSurface.withValues(alpha: 0.5),
               ),
             ),

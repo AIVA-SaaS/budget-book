@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:budget_book/core/theme/app_theme.dart';
-import 'package:budget_book/core/theme/bb_density.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/bb_tab.dart';
 
@@ -10,6 +9,28 @@ import 'package:budget_book/core/widgets/bb_tab.dart';
 ///
 /// 편향 제거 조건을 항목과 동급으로 둔다: **320px 최악 폭**과 **배율 1.3/1.6** 을
 /// 반드시 포함한다. 최상 조건(390 × 1.0)만 재면 낙관 편향이다.
+/// ★사용자가 승인한 **자산 탭** 실측값(2026-08-19 · 2026-08-20).
+///
+/// 이 표는 **테스트가 소유한다** — 코드(`kBbSpaceSpec` 등)에서 읽어 오면 순환 검증이 되고
+/// "곡선을 바꿨더니 기준점도 같이 움직였다"를 잡을 수 없다. `BbDensity`(3단 계단)가
+/// 정본이던 시절의 값이며, 그 클래스는 2026-08-20 에 삭제됐다(경쟁 경로 0개).
+///
+/// `(compact = <400dp, wide = >=840dp)`
+const anchors = <String, ({double compact, double wide})>{
+  'tilePaddingH': (compact: 10, wide: 16), // → BbSpaceToken.xl
+  'tilePaddingV': (compact: 8, wide: 12), //  → BbSpaceToken.lg
+  'gap': (compact: 6, wide: 10), //           → BbSpaceToken.md
+  'chipPaddingH': (compact: 5, wide: 8), //   → BbSpaceToken.sm
+  'avatar': (compact: 32, wide: 40),
+  'avatarIcon': (compact: 18, wide: 22),
+  'actionIcon': (compact: 20, wide: 24),
+  'titleFontSize': (compact: 14, wide: 16), // → bodyLarge / BbType.section
+  'metricFontSize': (compact: 13, wide: 15), //→ bodyMedium / BbType.body
+  'chipFontSize': (compact: 10, wide: 12), //  → labelSmall / BbType.caption
+  'headerLabel': (compact: 11, wide: 12), //   → bodySmall / BbType.label
+  'headerValue': (compact: 15, wide: 19), //   → titleLarge / BbType.title
+};
+
 void main() {
   const widths = <double>[320, 360, 390, 768, 1024, 1440, 2560];
   const scales = <double>[1.0, 1.3, 1.6];
@@ -56,47 +77,39 @@ void main() {
       expect(mobile.label, lessThan(web.label));
     });
 
-    test('★기준점은 자산 탭이다 — 테마 타이포가 검증된 타일 폰트와 일치한다', () {
+    test('★기준점은 자산 탭이다 — 테마 타이포가 승인값을 지나간다', () {
       // 2026-08-19 사용자 검증: "자산 내 글자 크기가 딱 적절하다.
       // 거래/분석/더보기 등 모든 곳에 반영되어야 한다."
       //
-      // `BbDensity` 의 타일 폰트는 유일하게 폭에 반응하던 체계이고 사용자가 그 값을
-      // 승인했다. 따라서 그것이 **기준점**이고, 테마 타이포는 그 값을 지나가야 한다.
-      // 이 테스트가 깨지면 둘 중 하나가 표류한 것이다 — 자산 탭 쪽을 정본으로 맞춘다.
-      //
-      // 하한(모바일)과 상한(웹) 양 끝은 **정확히** 같아야 한다. 그 사이는 `BbDensity`
-      // 가 840px 에서 계단으로 뛰는 반면 곡선은 매끄러워 오차를 허용한다.
-      // 320/360 은 전 역할이 하한에 걸려 있어 **정확 일치**해야 한다.
+      // 앵커는 이 파일이 소유한다(위 [anchors]). 하한(모바일)과 상한(웹) 양 끝은
+      // **정확히** 같아야 하고, 그 사이는 곡선이므로 오차를 허용한다.
       for (final w in [320.0, 360.0]) {
-        final d = BbDensity.forWidth(w);
         final th = AppTheme.responsive(AppTheme.light, w).textTheme;
-        expect(th.bodyLarge!.fontSize, d.titleFontSize,
+        expect(th.bodyLarge!.fontSize, anchors['titleFontSize']!.compact,
             reason: 'w=$w 목록 행 제목이 자산 타일 제목과 달라졌다');
-        expect(th.bodyMedium!.fontSize, d.metricFontSize,
+        expect(th.bodyMedium!.fontSize, anchors['metricFontSize']!.compact,
             reason: 'w=$w 본문이 자산 타일 지표와 달라졌다');
-        expect(th.bodySmall!.fontSize, d.headerLabelFontSize);
-        expect(th.labelSmall!.fontSize, d.chipFontSize);
-        expect(th.titleLarge!.fontSize, d.headerValueFontSize);
+        expect(th.bodySmall!.fontSize, anchors['headerLabel']!.compact);
+        expect(th.labelSmall!.fontSize, anchors['chipFontSize']!.compact);
+        expect(th.titleLarge!.fontSize, anchors['headerValue']!.compact);
       }
-      // 390 부터는 큰 역할이 하한을 벗어나 오르기 시작한다(계단이 아닌 증거) —
-      // 자산 계단값보다 **작아지지는 않아야** 한다.
+      // 390 부터는 큰 역할이 하한을 벗어나 오르기 시작한다(계단이 아닌 증거).
       {
-        const w = 390.0;
-        final d = BbDensity.forWidth(w);
-        final th = AppTheme.responsive(AppTheme.light, w).textTheme;
-        expect(th.bodyLarge!.fontSize, greaterThanOrEqualTo(d.titleFontSize));
-        expect(th.bodyMedium!.fontSize, greaterThanOrEqualTo(d.metricFontSize));
+        final th = AppTheme.responsive(AppTheme.light, 390).textTheme;
+        expect(th.bodyLarge!.fontSize,
+            greaterThanOrEqualTo(anchors['titleFontSize']!.compact));
+        expect(th.bodyMedium!.fontSize,
+            greaterThanOrEqualTo(anchors['metricFontSize']!.compact));
         expect(th.titleLarge!.fontSize,
-            closeTo(d.headerValueFontSize, 0.5));
+            closeTo(anchors['headerValue']!.compact, 0.5));
       }
       for (final w in [960.0, 1440.0]) {
-        final d = BbDensity.forWidth(w);
         final th = AppTheme.responsive(AppTheme.light, w).textTheme;
-        expect(th.bodyLarge!.fontSize, d.titleFontSize);
-        expect(th.bodyMedium!.fontSize, d.metricFontSize);
-        expect(th.bodySmall!.fontSize, d.headerLabelFontSize);
-        expect(th.labelSmall!.fontSize, d.chipFontSize);
-        expect(th.titleLarge!.fontSize, d.headerValueFontSize);
+        expect(th.bodyLarge!.fontSize, anchors['titleFontSize']!.wide);
+        expect(th.bodyMedium!.fontSize, anchors['metricFontSize']!.wide);
+        expect(th.bodySmall!.fontSize, anchors['headerLabel']!.wide);
+        expect(th.labelSmall!.fontSize, anchors['chipFontSize']!.wide);
+        expect(th.titleLarge!.fontSize, anchors['headerValue']!.wide);
       }
     });
 
@@ -120,22 +133,137 @@ void main() {
       }
     });
 
-    test('여백은 폰트를 따라가되 제곱근으로 완만하다', () {
-      final small = BbSpace.forWidth(360);
-      final big = BbSpace.forWidth(2560);
-      expect(big.md, greaterThan(small.md), reason: '큰 화면에서 여백이 커져야 한다');
+    test('★여백은 폭에 반응한다 — 7% 상수였던 이전 판의 회귀 방지', () {
+      // ⚠ 이 테스트는 2026-08-20 에 **의도적으로 갱신**됐다. 이전 판은
+      // "여백은 폰트를 따라가되 제곱근" 이었고, 그 결합(순 폭지수 0.125)이
+      // 폰트 clamp(13~15)에 묶여 계수 범위가 0.964~1.035(7%) 뿐이었다
+      // = 폭 8배에 여백 0.57dp. 지금은 여백이 **자기 폭 곡선(0.5)** 과
+      // **자기 px clamp** 를 갖는다. 무심코 되돌리지 말 것.
+      final small = BbSpace.forWidth(320);
+      final big = BbSpace.forWidth(960);
+      expect(big.xl / small.xl, closeTo(1.6, 0.01),
+          reason: '자산 탭 승인 스팬(padH 10→16 = 1.6배)을 지나가야 한다');
+      expect(big.md / small.md, closeTo(10 / 6, 0.02));
 
-      // textScaler 를 분자에 포함한다 → 배율을 올리면 여백도 커진다.
+      // textScaler 는 **clamp 밖**에서 곱해진다 → 상한에 잘리지 않는다.
       final plain = BbSpace.forWidth(390);
       final scaled =
           BbSpace.forWidth(390, scaler: const TextScaler.linear(1.6));
-      expect(scaled.md, greaterThan(plain.md));
       expect(scaled.md / plain.md, closeTo(1.265, 0.02)); // sqrt(1.6)
+      // 상한에 붙은 폭(웹)에서도 배율 결합이 살아 있어야 한다 — clamp 안에 넣으면 죽는다.
+      final webPlain = BbSpace.forWidth(1440);
+      final webScaled =
+          BbSpace.forWidth(1440, scaler: const TextScaler.linear(1.6));
+      expect(webScaled.xl / webPlain.xl, closeTo(1.265, 0.02),
+          reason: '배율 결합이 상한에 잘렸다 — clamp 밖에서 곱해야 한다');
+    });
+
+    test('★여백 토큰이 자산 탭 승인값을 지나간다', () {
+      const map = <BbSpaceToken, String>{
+        BbSpaceToken.xl: 'tilePaddingH',
+        BbSpaceToken.lg: 'tilePaddingV',
+        BbSpaceToken.md: 'gap',
+        BbSpaceToken.sm: 'chipPaddingH',
+      };
+      map.forEach((token, key) {
+        final a = anchors[key]!;
+        // 320px 은 전 토큰이 하한 clamp 구간 → 정확 일치.
+        // (부동소수 마지막 비트만 허용 — 11.999999999999998 은 12 이다)
+        expect(BbSpace.forWidth(320).value(token), closeTo(a.compact, 1e-9),
+            reason: '$token 의 모바일 하한이 승인값 ${a.compact} 과 달라졌다');
+        // 960 이상은 상한 → 정확 일치.
+        for (final w in [960.0, 1440.0, 2560.0]) {
+          expect(BbSpace.forWidth(w).value(token), closeTo(a.wide, 1e-9),
+              reason: 'w=$w 에서 $token 이 승인값 ${a.wide} 과 달라졌다');
+        }
+        // 360/390 은 하한 근방 — 승인값 이상, 0.5dp 이내.
+        for (final w in [360.0, 390.0]) {
+          final v = BbSpace.forWidth(w).value(token);
+          expect(v, greaterThanOrEqualTo(a.compact - 0.001));
+          expect(v, lessThanOrEqualTo(a.compact + 0.5));
+        }
+        // 중간 대역은 두 승인값 사이(계단↔곡선 허용 오차).
+        for (final w in [400.0, 500.0, 600.0, 768.0, 839.0]) {
+          final v = BbSpace.forWidth(w).value(token);
+          expect(v, greaterThanOrEqualTo(a.compact - 0.001));
+          expect(v, lessThanOrEqualTo(a.wide + 0.001));
+        }
+      });
+    });
+
+    test('★박스·크롬 토큰이 승인값을 지나간다 + 터치 하한을 지킨다', () {
+      const map = <BbBoxRole, String>{
+        BbBoxRole.avatar: 'avatar',
+        BbBoxRole.avatarIcon: 'avatarIcon',
+        BbBoxRole.actionIcon: 'actionIcon',
+      };
+      map.forEach((role, key) {
+        final a = anchors[key]!;
+        expect(BbBox.forWidth(320).size(role), closeTo(a.compact, 1e-9));
+        expect(BbBox.forWidth(960).size(role), closeTo(a.wide, 1e-9));
+      });
+      // L4-2: 액션 슬롯은 어떤 폭에서도 44dp 아래로 내려가지 않는다.
+      for (final w in widths) {
+        expect(BbBox.forWidth(w).actionSlot, greaterThanOrEqualTo(44.0),
+            reason: 'w=$w 에서 액션 탭 타깃이 44dp 아래다');
+      }
+      // L4-3: M3 Switch 트랙은 고정 치수다 — 곡선을 타지 않는다.
+      expect(BbBox.forWidth(320).toggleSlot, 52);
+      expect(BbBox.forWidth(2560).toggleSlot, 52);
+    });
+
+    test('★계단이 아니다 — 옛 브레이크포인트에서 불연속이 없다', () {
+      // `BbDensity` 는 400/840 에서 값이 점프했다. 곡선은 그 지점에서 매끄럽다.
+      for (final edge in [400.0, 600.0, 840.0, 960.0]) {
+        for (final token in BbSpaceToken.values) {
+          final lo = BbSpace.forWidth(edge - 0.1).value(token);
+          final hi = BbSpace.forWidth(edge + 0.1).value(token);
+          expect((hi - lo).abs(), lessThan(0.05),
+              reason: 'w=$edge 에서 $token 이 ${(hi - lo).abs()} 만큼 점프했다 = 계단');
+        }
+        for (final role in BbBoxRole.values) {
+          final lo = BbBox.forWidth(edge - 0.1).size(role);
+          final hi = BbBox.forWidth(edge + 0.1).size(role);
+          expect((hi - lo).abs(), lessThan(0.05),
+              reason: 'w=$edge 에서 $role 이 점프했다 = 계단');
+        }
+      }
+    });
+
+    test('★단조 증가 — 폭이 커질 때 어떤 축도 줄지 않는다', () {
+      for (var w = 300.0; w < 2560; w += 20) {
+        for (final token in BbSpaceToken.values) {
+          expect(BbSpace.forWidth(w + 20).value(token),
+              greaterThanOrEqualTo(BbSpace.forWidth(w).value(token) - 1e-9),
+              reason: 'w=$w → ${w + 20} 에서 $token 이 줄었다');
+        }
+        for (final role in BbBoxRole.values) {
+          expect(BbBox.forWidth(w + 20).size(role),
+              greaterThanOrEqualTo(BbBox.forWidth(w).size(role) - 1e-9));
+        }
+      }
+    });
+
+    test('★테마 여백이 폭에 반응한다 — 하드코딩 16/12 회귀 방지', () {
+      final mobile = AppTheme.responsive(AppTheme.light, 360);
+      final web = AppTheme.responsive(AppTheme.light, 1440);
+      EdgeInsets pad(ThemeData t) =>
+          t.inputDecorationTheme.contentPadding! as EdgeInsets;
+      expect(pad(mobile).left, lessThan(pad(web).left),
+          reason: '입력 필드 여백이 폭에 반응하지 않는다 (테마 하드코딩 회귀)');
+      expect(mobile.listTileTheme.contentPadding, isNot(web.listTileTheme.contentPadding));
+      expect(mobile.cardTheme.margin, isNot(web.cardTheme.margin));
+      // 밀도도 계단이 아니라 연속이다.
+      final mid = AppTheme.responsive(AppTheme.light, 600).visualDensity;
+      expect(mid.horizontal, greaterThan(mobile.visualDensity.horizontal));
+      expect(mid.horizontal, lessThan(web.visualDensity.horizontal));
     });
 
     test('hairline 은 결합하지 않는다 — 0.5/1.0 은 토큰 사다리에 없다', () {
-      expect(kBbSpaceBase.values, isNot(contains(0.5)));
-      expect(kBbSpaceBase.values, isNot(contains(1.0)));
+      for (final spec in kBbSpaceSpec.values) {
+        expect(spec.min, greaterThan(1.0));
+        expect(spec.max, greaterThan(1.0));
+      }
     });
 
     test('컨테이너 폭 판정이 화면 폭 판정과 다르다', () {

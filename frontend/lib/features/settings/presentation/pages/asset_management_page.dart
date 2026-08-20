@@ -26,7 +26,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart'
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/theme/bb_colors.dart';
-import 'package:budget_book/core/theme/bb_density.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/asset_edit_mode_scope.dart';
 import 'package:budget_book/core/widgets/entity_tile_row.dart';
 import 'package:budget_book/core/widgets/one_line_label.dart';
@@ -166,7 +166,8 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
       builder: (context, editing, _) {
         return TextButton.icon(
           onPressed: _editMode.toggle,
-          icon: Icon(editing ? Icons.check : Icons.edit_outlined, size: 18),
+          icon: Icon(editing ? Icons.check : Icons.edit_outlined,
+              size: context.bbType.iconSm),
           label: Text(editing ? '완료' : '편집'),
         );
       },
@@ -233,7 +234,7 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
       ),
       builder: (sheetCtx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          padding: context.bbSpace.only(left: BbSpaceToken.xl, top: BbSpaceToken.lg, right: BbSpaceToken.xl, bottom: BbSpaceToken.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,18 +243,18 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: context.bbSpace.only(bottom: BbSpaceToken.lg),
                   decoration: BoxDecoration(
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: context.bbSpace.only(bottom: BbSpaceToken.lg),
                 child: Row(
                   children: [
                     Container(
@@ -261,18 +262,18 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: typeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
                       ),
                       child: Text(
                         typeLabel,
                         style: TextStyle(
                           color: typeColor,
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: context.bbType.body,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    context.bbSpace.gapH(BbSpaceToken.md),
                     Text(
                       '추가하기',
                       style: Theme.of(context)
@@ -302,7 +303,7 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  context.bbSpace.gapH(BbSpaceToken.md),
                   Expanded(
                     child: _AddOptionCard(
                       icon: Icons.label_outline,
@@ -315,7 +316,7 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                     ),
                   ),
                   if (coupled) ...[
-                    const SizedBox(width: 8),
+                    context.bbSpace.gapH(BbSpaceToken.md),
                     Expanded(
                       child: _AddOptionCard(
                         icon: Icons.lock_outline,
@@ -418,7 +419,7 @@ class _CategoryTabState extends State<_CategoryTab> {
         },
         builder: (context, state) {
           if (state is! CategoryGroupLoaded) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: const CircularProgressIndicator());
           }
           final coupled = isCoupleMode();
           // type 별 필터링 — 사용자가 선택한 EXPENSE/INCOME 만 노출.
@@ -442,18 +443,26 @@ class _CategoryTabState extends State<_CategoryTab> {
               }
             },
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: context.bbSpace.symmetric(v: BbSpaceToken.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // EXPENSE / INCOME 토글
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding: context.bbSpace
+                        .symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.md),
                     child: SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'EXPENSE', label: Text('지출'), icon: Icon(Icons.shopping_cart_outlined, size: 16)),
-                        ButtonSegment(value: 'INCOME', label: Text('수입'), icon: Icon(Icons.trending_up, size: 16)),
+                      segments: [
+                        ButtonSegment(
+                            value: 'EXPENSE',
+                            label: const Text('지출'),
+                            icon: Icon(Icons.shopping_cart_outlined,
+                                size: context.bbType.iconSm)),
+                        ButtonSegment(
+                            value: 'INCOME',
+                            label: const Text('수입'),
+                            icon: Icon(Icons.trending_up,
+                                size: context.bbType.iconSm)),
                       ],
                       selected: {_selectedType},
                       onSelectionChanged: (s) {
@@ -464,7 +473,7 @@ class _CategoryTabState extends State<_CategoryTab> {
                   ),
                   if (allTypeFiltered.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      padding: context.bbSpace.symmetric(v: BbSpaceToken.xxl),
                       child: EmptyStateWidget(
                         icon: Icons.category,
                         title: _selectedType == 'EXPENSE'
@@ -484,7 +493,7 @@ class _CategoryTabState extends State<_CategoryTab> {
                   // (그룹/카테고리 추가는 화면 우하단 + 버튼의 modal sheet 로)
                   // Private section (couple mode only)
                   if (coupled) ...[
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.md),
                     _buildPrivateSectionHeader(context),
                     // Private groups - reorderable
                     _buildReorderableGroupSection(
@@ -492,7 +501,7 @@ class _CategoryTabState extends State<_CategoryTab> {
                       groups: privateGroups,
                     ),
                   ],
-                  const SizedBox(height: 88),
+                  const SizedBox(height: 88), // ui-fixed: FAB(56) + 여백 가림 방지
                 ],
               ),
             ),
@@ -522,7 +531,7 @@ class _CategoryTabState extends State<_CategoryTab> {
               elevation: elevation,
               color: Theme.of(context).colorScheme.surfaceContainerLow,
               shadowColor: Theme.of(context).shadowColor,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: context.bbSpace.radius(BbSpaceToken.md),
               child: child,
             );
           },
@@ -540,28 +549,32 @@ class _CategoryTabState extends State<_CategoryTab> {
       },
       children: [
         for (int i = 0; i < groups.length; i++)
-          _buildGroupSection(context, groups[i], groupIndex: i,
-              key: ValueKey(groups[i].id)),
+          _buildGroupSection(context, groups[i],
+              groupIndex: i, key: ValueKey(groups[i].id)),
       ],
     );
   }
 
   Widget _buildPrivateSectionHeader(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: context.bbSpace.symmetric(h: BbSpaceToken.xl),
+      padding:
+          context.bbSpace.symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.5),
+        borderRadius: context.bbSpace.radius(BbSpaceToken.md),
       ),
       child: Row(
         children: [
           Icon(
             Icons.visibility_off_outlined,
-            size: 16,
+            size: context.bbType.iconSm,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 8),
+          context.bbSpace.gapH(BbSpaceToken.md),
           Text(
             '나만 보임',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -573,7 +586,10 @@ class _CategoryTabState extends State<_CategoryTab> {
           Text(
             '상대방에게 보이지 않습니다',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.7),
                 ),
           ),
         ],
@@ -596,7 +612,7 @@ class _CategoryTabState extends State<_CategoryTab> {
       children: [
         // Group header with drag handle and edit/delete
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
+          padding: context.bbSpace.only(left: BbSpaceToken.xs, top: BbSpaceToken.lg, right: BbSpaceToken.md, bottom: BbSpaceToken.xs),
           child: Row(
             children: [
               // Drag handle for group reorder — 편집 모드에서만.
@@ -604,11 +620,11 @@ class _CategoryTabState extends State<_CategoryTab> {
                 ReorderableDragStartListener(
                   index: groupIndex,
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    padding: context.bbSpace
+                        .symmetric(h: BbSpaceToken.xs, v: BbSpaceToken.xs),
                     child: Icon(
                       Icons.drag_handle,
-                      size: 20,
+                      size: context.bbType.iconMd,
                       color: Theme.of(context)
                           .colorScheme
                           .onSurface
@@ -616,18 +632,20 @@ class _CategoryTabState extends State<_CategoryTab> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                context.bbSpace.gapH(BbSpaceToken.xs),
               ],
               CircleAvatar(
                 radius: 14,
                 backgroundColor: color.withValues(alpha: 0.15),
                 child: Icon(
-                  (group.isPrivate && isCoupleMode()) ? Icons.visibility_off : Icons.folder,
+                  (group.isPrivate && isCoupleMode())
+                      ? Icons.visibility_off
+                      : Icons.folder,
                   color: color,
-                  size: 16,
+                  size: context.bbType.iconSm,
                 ),
               ),
-              const SizedBox(width: 8),
+              context.bbSpace.gapH(BbSpaceToken.md),
               Expanded(
                 child: Text(
                   group.name,
@@ -660,23 +678,24 @@ class _CategoryTabState extends State<_CategoryTab> {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'add_category',
                       child: Row(
                         children: [
-                          Icon(Icons.add, size: 18),
-                          SizedBox(width: 8),
-                          Text('카테고리 추가'),
+                          Icon(Icons.add, size: context.bbType.iconSm),
+                          context.bbSpace.gapH(BbSpaceToken.md),
+                          const Text('카테고리 추가'),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('그룹 수정'),
+                          Icon(Icons.edit_outlined,
+                              size: context.bbType.iconSm),
+                          context.bbSpace.gapH(BbSpaceToken.md),
+                          const Text('그룹 수정'),
                         ],
                       ),
                     ),
@@ -685,9 +704,9 @@ class _CategoryTabState extends State<_CategoryTab> {
                       child: Row(
                         children: [
                           Icon(Icons.delete_outline,
-                              size: 18,
+                              size: context.bbType.iconSm,
                               color: Theme.of(context).colorScheme.error),
-                          const SizedBox(width: 8),
+                          context.bbSpace.gapH(BbSpaceToken.md),
                           Text('그룹 삭제',
                               style: TextStyle(
                                   color: Theme.of(context).colorScheme.error)),
@@ -702,7 +721,12 @@ class _CategoryTabState extends State<_CategoryTab> {
         // Sub-categories (with drag handle reorder)
         if (sortedCategories.isEmpty)
           Padding(
-            padding: const EdgeInsets.only(left: 52, bottom: 8),
+            // 아바타 폭 + 간격 = 타일 제목이 시작하는 x. 리터럴 52 는
+            // 아바타가 32→40 으로 반응하면 어긋난다(구조적으로 유도한다).
+            padding: EdgeInsets.only(
+              left: context.bbBox.avatar + context.bbSpace.md,
+              bottom: context.bbSpace.md,
+            ),
             child: Text(
               '하위 카테고리 없음',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -760,7 +784,7 @@ class _CategoryTabState extends State<_CategoryTab> {
         final c = sortedCategories[index];
         return Padding(
           key: ValueKey(c.id),
-          padding: const EdgeInsets.only(left: 20),
+          padding: context.bbSpace.only(left: BbSpaceToken.xxl),
           // 순서 변경 핸들은 타일 안 편집 모드 레인으로 들어갔다 — 보기 모드에서
           // 이름이 쓸 수 있는 폭이 그만큼 돌아온다.
           child: CategoryListTile(
@@ -919,7 +943,6 @@ class _CategoryTabState extends State<_CategoryTab> {
       ),
     );
   }
-
 }
 
 class _PaymentMethodTab extends StatefulWidget {
@@ -1020,7 +1043,10 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
         // For reorder we need original method indices
         // The ReorderableListView operates on the full list including headers
         return ReorderableListView.builder(
-          padding: const EdgeInsets.only(top: 8, bottom: 88),
+          padding: EdgeInsets.only(
+            top: context.bbSpace.md,
+            bottom: 88, // ui-fixed: FAB 가림 방지
+          ),
           itemCount: itemsWithHeaders.length,
           buildDefaultDragHandles: false,
           onReorder: (oldIndex, newIndex) {
@@ -1033,8 +1059,7 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             if (adjustedNewIndex > oldIndex) adjustedNewIndex -= 1;
 
             // 같은 type 내에서만 재정렬 허용 (type 경계 이동 금지).
-            final draggedType =
-                itemsWithHeaders[oldIndex].paymentMethod!.type;
+            final draggedType = itemsWithHeaders[oldIndex].paymentMethod!.type;
 
             // 드롭 위치(adjustedNewIndex)의 type 을 결정.
             // - 리스트 끝(adjustedNewIndex == length): 마지막 item 의 type
@@ -1090,19 +1115,20 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             });
 
             context.read<PaymentMethodBloc>().add(
-              ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
-            );
+                  ReorderPaymentMethods(reordered.map((m) => m.id).toList()),
+                );
           },
           proxyDecorator: (child, index, animation) {
             return AnimatedBuilder(
               animation: animation,
               builder: (context, child) {
-                final elevation = Tween<double>(begin: 0, end: 4).evaluate(animation);
+                final elevation =
+                    Tween<double>(begin: 0, end: 4).evaluate(animation);
                 return Material(
                   elevation: elevation,
                   color: Colors.transparent,
                   shadowColor: Theme.of(context).shadowColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
                   child: child,
                 );
               },
@@ -1113,19 +1139,20 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             final listItem = itemsWithHeaders[index];
 
             if (listItem.isHeader) {
-              final typeLabel = paymentMethodGroupLabels[listItem.type] ?? listItem.type!;
+              final typeLabel =
+                  paymentMethodGroupLabels[listItem.type] ?? listItem.type!;
               final typeColor = context.bb.paymentType(listItem.type!);
               return Container(
                 key: ValueKey('header_${listItem.type}'),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                padding: context.bbSpace.only(left: BbSpaceToken.xl, top: BbSpaceToken.lg, right: BbSpaceToken.xl, bottom: BbSpaceToken.xs),
                 child: Row(
                   children: [
                     Icon(
                       paymentMethodTypeIcon(listItem.type!),
-                      size: 16,
+                      size: context.bbType.iconSm,
                       color: typeColor,
                     ),
-                    const SizedBox(width: 8),
+                    context.bbSpace.gapH(BbSpaceToken.md),
                     Text(
                       typeLabel,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1143,7 +1170,8 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
             // 타일 밖 Row 로 빼면 보기 모드에서도 40dp 를 영구히 잡아먹는다.
             return KeyedSubtree(
               key: ValueKey(method.id),
-              child: _buildPaymentMethodTile(context, method, settlement, index),
+              child:
+                  _buildPaymentMethodTile(context, method, settlement, index),
             );
           },
         );
@@ -1199,7 +1227,8 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
         metrics.addAll([
           EntityMetric(
             label: '전월',
-            value: '${CurrencyFormatter.format(cardAmount(settlement.previousMonth))}원',
+            value:
+                '${CurrencyFormatter.format(cardAmount(settlement.previousMonth))}원',
           ),
           EntityMetric(
             label: '미결제',
@@ -1208,7 +1237,8 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
           ),
           EntityMetric(
             label: '이번달',
-            value: '${CurrencyFormatter.format(cardAmount(settlement.currentMonth))}원',
+            value:
+                '${CurrencyFormatter.format(cardAmount(settlement.currentMonth))}원',
             tone: EntityTone.income,
           ),
         ]);
@@ -1296,7 +1326,8 @@ class _PaymentMethodTabState extends State<_PaymentMethodTab> {
               settlementDay: settlementDay,
               closingDay: closingDay,
               linkedBankId: linkedBankId,
-              clearLinkedBank: linkedBankId == null && method.linkedBankId != null,
+              clearLinkedBank:
+                  linkedBankId == null && method.linkedBankId != null,
             ));
           },
         ),
@@ -1366,7 +1397,12 @@ class _PocketTab extends StatelessWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+          padding: EdgeInsets.fromLTRB(
+            context.bbSpace.xl,
+            context.bbSpace.xl,
+            context.bbSpace.xl,
+            88, // ui-fixed: FAB 가림 방지
+          ),
           itemCount: pockets.length,
           itemBuilder: (context, index) =>
               _buildPocketTile(context, pockets[index]),
@@ -1389,7 +1425,7 @@ class _PocketTab extends StatelessWidget {
     };
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: context.bbSpace.only(bottom: BbSpaceToken.md),
       child: EntityTileRow(
         title: pocket.name,
         leadingIcon: UIHelpers.resolveIcon(pocket.icon,
@@ -1478,7 +1514,6 @@ class _PocketTab extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// Helper class for mixed list of headers and payment methods.
@@ -1497,7 +1532,8 @@ class _PaymentMethodListItem {
       _PaymentMethodListItem._(isHeader: true, type: type);
 
   factory _PaymentMethodListItem.method(PaymentMethod method) =>
-      _PaymentMethodListItem._(isHeader: false, paymentMethod: method, type: method.type);
+      _PaymentMethodListItem._(
+          isHeader: false, paymentMethod: method, type: method.type);
 }
 
 /// 회차 12 follow-up Phase 2 (2026-05-04) — 자산 / 사용 금액 PageView 스와핑.
@@ -1533,8 +1569,9 @@ class _AssetPagerHeaderState extends State<_AssetPagerHeader> {
             final isPaymentTab = tabController.index == 0;
             final hasCredit = state is PaymentMethodLoaded &&
                 state.paymentMethods.any((pm) => pm.isCredit && pm.isActive);
-            final summary =
-                state is PaymentMethodLoaded ? state.cardSettlementSummary : null;
+            final summary = state is PaymentMethodLoaded
+                ? state.cardSettlementSummary
+                : null;
             final showCardPage = isPaymentTab && hasCredit && summary != null;
 
             if (!showCardPage) {
@@ -1549,8 +1586,7 @@ class _AssetPagerHeaderState extends State<_AssetPagerHeader> {
                   height: 96,
                   child: PageView(
                     controller: _pageController,
-                    onPageChanged: (i) =>
-                        setState(() => _currentPage = i),
+                    onPageChanged: (i) => setState(() => _currentPage = i),
                     children: [
                       const _AssetSummaryHeader(),
                       _CardSettlementCardsView(summary: summary),
@@ -1592,7 +1628,7 @@ class _PageDotIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: context.bbSpace.symmetric(v: BbSpaceToken.xs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(count, (i) {
@@ -1600,14 +1636,14 @@ class _PageDotIndicator extends StatelessWidget {
           return GestureDetector(
             onTap: () => onDotTap(i),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
+              margin: context.bbSpace.symmetric(h: BbSpaceToken.xs),
               width: active ? 16 : 6,
               height: 6,
               decoration: BoxDecoration(
                 color: active
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurface.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
               ),
             ),
           );
@@ -1630,7 +1666,7 @@ class _CardSettlementCardsView extends StatelessWidget {
     final theme = Theme.of(context);
     final unpaid = summary.unpaidMonth?.totalAmount ?? 0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: context.bbSpace.only(left: BbSpaceToken.lg, top: BbSpaceToken.lg, right: BbSpaceToken.lg, bottom: BbSpaceToken.xs),
       child: Row(
         children: [
           Expanded(
@@ -1641,7 +1677,7 @@ class _CardSettlementCardsView extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(width: 8),
+          context.bbSpace.gapH(BbSpaceToken.md),
           Expanded(
             child: _SettlementCard(
               label: '미결제',
@@ -1651,7 +1687,7 @@ class _CardSettlementCardsView extends StatelessWidget {
               highlight: unpaid > 0,
             ),
           ),
-          const SizedBox(width: 8),
+          context.bbSpace.gapH(BbSpaceToken.md),
           Expanded(
             child: _SettlementCard(
               label: '이번달 사용',
@@ -1692,7 +1728,7 @@ class _AssetSummaryHeader extends StatelessWidget {
 
         final bb = context.bb;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          padding: context.bbSpace.only(left: BbSpaceToken.lg, top: BbSpaceToken.lg, right: BbSpaceToken.lg, bottom: BbSpaceToken.xs),
           child: Row(
             children: [
               Expanded(
@@ -1703,7 +1739,7 @@ class _AssetSummaryHeader extends StatelessWidget {
                   icon: Icons.account_balance_wallet,
                 ),
               ),
-              const SizedBox(width: 8),
+              context.bbSpace.gapH(BbSpaceToken.md),
               Expanded(
                 child: _SummaryCard(
                   label: '부채',
@@ -1713,7 +1749,7 @@ class _AssetSummaryHeader extends StatelessWidget {
                   signed: false,
                 ),
               ),
-              const SizedBox(width: 8),
+              context.bbSpace.gapH(BbSpaceToken.md),
               Expanded(
                 child: _SummaryCard(
                   label: '순자산',
@@ -1752,25 +1788,25 @@ class _SettlementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final density = context.density;
+    final type = context.bbType;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: context.bbSpace.all(BbSpaceToken.md),
       decoration: BoxDecoration(
         color: highlight
             ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
             : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: context.bbSpace.radius(BbSpaceToken.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           OneLineLabel(
             label,
-            baseFontSize: density.headerLabelFontSize,
+            baseFontSize: type.label,
             minFontSize: 10,
             style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           // 금액은 FittedBox 로 줄인다 — 카드 폭이 화면의 1/3 뿐이라 축소 하한을
           // 두면 잘릴 수 있고, 금액은 **잘리는 것보다 작아지는 쪽**이 맞다
           // (금액 축약·절단 금지).
@@ -1786,9 +1822,8 @@ class _SettlementCard extends StatelessWidget {
           if (count > 0)
             Text('$count건',
                 style: TextStyle(
-                    fontSize: 10,
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                    fontSize: context.bbType.caption,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
         ],
       ),
     );
@@ -1812,43 +1847,44 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final density = context.density;
+    final type = context.bbType;
     final formatted = signed
         ? CurrencyFormatter.formatWithSign(value)
         : CurrencyFormatter.format(value);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding:
+          context.bbSpace.symmetric(h: BbSpaceToken.md, v: BbSpaceToken.md),
       decoration: BoxDecoration(
         // 배경은 전경색의 옅은 틴트다. 색 자체가 라이트·다크 쌍으로 정의돼
         // 있으므로 두 모드 모두에서 대비가 유지된다.
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: context.bbSpace.radius(BbSpaceToken.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
+              Icon(icon, size: context.bbType.iconSm, color: color),
+              context.bbSpace.gapH(BbSpaceToken.xs),
               Expanded(
                 child: OneLineLabel(
                   label,
-                  baseFontSize: density.headerLabelFontSize,
+                  baseFontSize: type.label,
                   minFontSize: 10,
                   style: TextStyle(fontWeight: FontWeight.w600, color: color),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          context.bbSpace.gapV(BbSpaceToken.sm),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               formatted,
               style: TextStyle(
-                fontSize: density.headerValueFontSize,
+                fontSize: type.title,
                 fontWeight: FontWeight.w800,
                 color: color,
               ),
@@ -1878,23 +1914,24 @@ class _AddOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          padding:
+              context.bbSpace.symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 8),
+              Icon(icon, color: color, size: context.bbType.iconLg),
+              context.bbSpace.gapV(BbSpaceToken.md),
               Text(
                 label,
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: context.bbType.body,
                 ),
                 textAlign: TextAlign.center,
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/category/domain/entities/category.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_bloc.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_event.dart';
 import 'package:budget_book/features/category_group/presentation/bloc/category_group_state.dart';
@@ -10,11 +11,12 @@ import 'package:budget_book/core/widgets/color_picker.dart';
 
 class CategoryFormSheet extends StatefulWidget {
   final Category? category;
+
   /// Phase 25 후속 — 신규 추가 시 초기 type (EXPENSE/INCOME).
   /// 자산 탭 [수입] 토글 상태에서 FAB 누르면 'INCOME' 전달.
   final String initialType;
-  final void Function(String name, String type, String? icon, String? color, String? groupId)
-      onSubmit;
+  final void Function(String name, String type, String? icon, String? color,
+      String? groupId) onSubmit;
 
   const CategoryFormSheet({
     super.key,
@@ -245,7 +247,8 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: context.bbSpace
+                      .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(

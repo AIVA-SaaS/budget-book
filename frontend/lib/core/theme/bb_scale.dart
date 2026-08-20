@@ -37,11 +37,28 @@ const double kBbContentMaxWidth = 960;
 /// 타이포 기준 폭 — 이 폭에서 `ref` 가 그대로 나온다.
 const double kBbTypeReferenceWidth = 1440;
 
-/// 폭비의 로그 압축 지수(4제곱근).
+/// 타이포의 폭비 압축 지수(4제곱근).
 ///
 /// 1440 → 2560 에서 1.155배, 1440 → 360 에서 0.707배. `sqrt`(0.5)보다 완만해
 /// 큰 화면에서 글자만 비대해지지 않는다.
 const double kBbTypeExponent = 0.25;
+
+/// 공간의 폭비 압축 지수(제곱근) — **타이포보다 탄성이 크다**.
+///
+/// ★왜 타이포(0.25)와 다른가 `[측정 2026-08-20]`: 사용자가 승인한 자산 탭의
+/// 320→960 스팬은 여백이 `padH 10→16 = 1.60배` 인데 본문 폰트는 `13→15 = 1.15배` 다.
+/// 종전 결합식(`space ∝ body^0.5`, 순 폭지수 0.125)의 최대 스팬은 1.15배라
+/// **어떤 ref/clamp 로도 승인값을 지나갈 수 없었다**(폭지수 0.125 로 상한 16 을 960 에서
+/// 맞추면 390px 에서 14.3dp — 승인값 10). 필요한 지수는 `ln(0.625)/ln(1/3) = 0.428` 이상.
+///
+/// 즉 "여백은 폰트보다 탄성이 커야 한다"는 도그마가 아니라 승인된 표면의 실측이다.
+///
+/// ⚠ 지수는 이 둘(0.25 · 0.5)뿐이다. 토큰마다 자기 지수를 갖게 되면 축이 다시 늘어난다.
+const double kBbSpaceExponent = 0.5;
+
+/// 폭비 → 배율. 모든 크기 축이 이 함수 하나를 지난다(계단 없음).
+double bbProgress(double width, double exponent) =>
+    math.pow(width / kBbTypeReferenceWidth, exponent).toDouble();
 
 /// 유효 폭을 나르는 스코프. `app.dart` 의 `LayoutBuilder` 가 심는다.
 ///
@@ -58,9 +75,8 @@ class BbScaleScope extends InheritedWidget {
   /// 이 서브트리가 실제로 쓸 수 있는 폭.
   final double width;
 
-  static double? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<BbScaleScope>()
-      ?.width;
+  static double? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<BbScaleScope>()?.width;
 
   @override
   bool updateShouldNotify(BbScaleScope oldWidget) => oldWidget.width != width;
@@ -147,11 +163,8 @@ class BbType {
   /// 아이콘 크기(px) — 텍스트와 **같은 곡선**을 탄다.
   double icon(BbIconRole role) => _clamped(kBbIconSpec[role]!);
 
-  double _clamped(({double ref, double min, double max}) spec) {
-    final raw = spec.ref *
-        math.pow(width / kBbTypeReferenceWidth, kBbTypeExponent).toDouble();
-    return raw.clamp(spec.min, spec.max);
-  }
+  double _clamped(({double ref, double min, double max}) spec) =>
+      bbClamped(spec, width, kBbTypeExponent);
 
   /// 역할의 `TextStyle`. ★호출부가 `fontSize:` 를 적을 이유 자체를 없앤다
   /// (리터럴이 다시 새려면 이 API 를 우회해야 하고 그건
@@ -180,20 +193,6 @@ class BbType {
   double get label => size(BbTextRole.label);
   double get caption => size(BbTextRole.caption);
 
-  // ── 크롬 높이 ──────────────────────────────────────────────────────────
-  //
-  // 프레임워크 기본값(AppBar 56 · Tab icon+text 72 · NavigationBar 80)은 중첩되면
-  // 모바일에서 콘텐츠를 밀어낸다. 분석 탭은 icon+text TabBar 가 2단이라 그것만
-  // 144dp 였다(2026-08-18 실측).
-
-  /// 탭 한 줄 높이. **아이콘을 가로 배치**하는 전제의 값이다 —
-  /// `Tab(icon:, text:)` 는 세로 배치라 SDK 가 72 를 강제한다(`tabs.dart:205`).
-  double get tabHeight => width < 600 ? 44 : 48;
-
-  /// 하단 네비 높이. ⚠ `NavigationBar` 는 `SizedBox` 하드 박스라 과하게 낮추면
-  /// 오버플로한다 — 스윕 테스트가 배율 1.6 까지 검사한다.
-  double get navBarHeight => width < 600 ? 66 : 80;
-
   double get iconSm => icon(BbIconRole.sm);
   double get iconMd => icon(BbIconRole.md);
   double get iconLg => icon(BbIconRole.lg);
@@ -212,39 +211,85 @@ class BbType {
 /// 여백·간격 역할.
 enum BbSpaceToken { xs, sm, md, lg, xl, xxl }
 
-/// 기준값(1440px · 배율 1.0).
-const Map<BbSpaceToken, double> kBbSpaceBase = {
-  BbSpaceToken.xs: 4,
-  BbSpaceToken.sm: 6,
-  BbSpaceToken.md: 8,
-  BbSpaceToken.lg: 12,
-  BbSpaceToken.xl: 16,
-  BbSpaceToken.xxl: 24,
+/// 역할별 `(ref, min, max)`. `min`/`max` 는 **가독·기하 기준 px** 이다(비율이 아니다).
+///
+/// ★기준점은 **자산 탭**이다 — 폰트 회차(2026-08-19)와 같은 방법으로, 사용자가 승인한
+/// `BbDensity` 3단 값을 **연속 곡선이 지나가도록** 역산했다. `ref = max / (960/1440)^0.5`
+/// 이므로 상한을 콘텐츠 최대폭 960 에서 정확히 찍는다.
+///
+/// ```
+/// 토큰(자산 앵커)      min max │  320   360   390   768   960  1440
+/// xl  ← tilePaddingH   10  16 │ 10.0  10.0  10.2  14.3  16.0  16.0
+/// lg  ← tilePaddingV    8  12 │  8.0   8.0   8.0  10.7  12.0  12.0
+/// md  ← gap             6  10 │  6.0   6.1   6.4   8.9  10.0  10.0
+/// sm  ← chipPaddingH    5   8 │  5.0   5.0   5.1   7.2   8.0   8.0
+/// xs  (앵커 없음)        3   4 │  3.0   3.0   3.0   3.6   4.0   4.0
+/// xxl (앵커 없음)       15  24 │ 15.0  15.0  15.3  21.5  24.0  24.0
+/// ```
+///
+/// ⚠ 종전 판은 `base × sqrt(body(W)/14)` 였고 `body` 가 `13~15` 로 clamp 돼 있어
+/// 계수 범위가 `0.964~1.035`(7%) 뿐이었다 — **폭 8배에 여백 0.57dp** = 사실상 상수.
+/// 원인은 아래 층(폰트)의 clamp 가 위 층(여백)을 묶는 **층 의존 부작용**이고, 폰트에서
+/// 한 번 겪은 것과 같은 구도였다(2회). 그래서 이제 **각 토큰이 자기 px clamp** 를 갖는다.
+const Map<BbSpaceToken, ({double min, double max})> kBbSpaceSpec = {
+  BbSpaceToken.xs: (min: 3, max: 4),
+  BbSpaceToken.sm: (min: 5, max: 8),
+  BbSpaceToken.md: (min: 6, max: 10),
+  BbSpaceToken.lg: (min: 8, max: 12),
+  BbSpaceToken.xl: (min: 10, max: 16),
+  BbSpaceToken.xxl: (min: 15, max: 24),
 };
 
 /// 폰트↔여백 결합 지수 — **부분 결합 = 제곱근**(calynda 2026-08-14 사용자 결정).
 ///
-/// 글자가 2배가 되면 여백은 1.41배. **계수 조정 레버는 여기 하나뿐이다** —
-/// "빽빽하다"면 0.6~0.7 로, "허전하다"면 0.35~0.4 로 바꾸면 전 화면에 반영된다.
+/// 이 지수는 이제 **접근성 배율(textScaler)** 에만 걸린다. 폭 결합은
+/// [kBbSpaceExponent] 가 담당한다 — 폰트의 **클램프된 출력**에 묶으면 상한/하한이
+/// 여백까지 굳혀 버린다(위 ⚠ 참조).
 const double kBbSpaceCouplingExponent = 0.5;
 
-/// 결합 기준 본문 폰트(이 값에서 계수가 1.0).
+/// 결합 기준 본문 폰트(이 값에서 배율 계수가 1.0).
 const double kBbSpaceReferenceBody = 14;
 
-/// 여백 토큰 — **폰트 비율의 제곱근**으로 결합한다.
+/// `(ref, min, max)` spec → px. 타이포·아이콘이 쓴다(`ref` 는 1440px 기준값).
+double bbClamped(
+  ({double ref, double min, double max}) spec,
+  double width,
+  double exponent,
+) =>
+    (spec.ref * bbProgress(width, exponent)).clamp(spec.min, spec.max);
+
+/// `(min, max)` spec → px. 공간·박스가 쓴다.
+///
+/// ★`ref` 를 적지 않는다. 상한은 **콘텐츠 최대폭([kBbContentMaxWidth])에서 정확히**
+/// 찍히도록 유도한다 — `ref` 를 손으로 적으면(`max / 0.8165` 를 반올림) 960px 에서
+/// `9.9996` 같은 값이 나와 승인값과 미세하게 어긋난다(2026-08-20 실측).
+/// 단일 소스는 **두 개의 px 경계**이고 곡선은 거기서 파생된다.
+double bbSaturating(
+  ({double min, double max}) spec,
+  double width,
+  double exponent,
+) {
+  final raw = spec.max *
+      bbProgress(width, exponent) /
+      bbProgress(kBbContentMaxWidth, exponent);
+  return raw.clamp(spec.min, spec.max);
+}
+
+/// 여백 토큰.
 ///
 /// ```
-/// space(token)  = base[token] × sqrt( effectiveBody / 14 )
-/// effectiveBody = textScaler.scale( body(W) )
+/// space(token, W, scaler)
+///   = clamp( min_px, ref × (W/1440)^0.5 , max_px ) × ( scaler(14)/14 )^0.5
 /// ```
 ///
-/// `textScaler`(접근성 확대)를 **분자에 포함**한다 → 배율을 올리면 여백도 따라
-/// 커진다. 넣지 않으면 글자만 커지고 숨 쉴 공간은 그대로라 빽빽해진다.
+/// ★배율 결합은 **clamp 밖**이다. 안에 넣으면 상한에 잘려 배율을 올릴수록
+/// "글자만 커지고 숨 쉴 공간은 그대로"가 된다(도메인 ★4 의 실질).
 ///
-/// ★`EdgeInsets` 를 직접 만들 수 있는 경로를 노출하지 않는다.
+/// ★`EdgeInsets` 를 직접 만들 수 있는 경로를 노출하지 않는다 — 리터럴이 새려면 이 API 를
+/// 우회해야 하고 그건 `tool/check_ui_scaling.py` 가 잡는다.
 @immutable
 class BbSpace {
-  const BbSpace._(this.factor);
+  const BbSpace._(this.width, this.scaleFactor);
 
   factory BbSpace.of(BuildContext context) => BbSpace.forWidth(
         BbScaleScope.maybeOf(context) ?? MediaQuery.sizeOf(context).width,
@@ -253,19 +298,23 @@ class BbSpace {
 
   /// 컨테이너 폭 기준. [scaler] 를 주지 않으면 배율 1.0.
   factory BbSpace.forWidth(double width, {TextScaler? scaler}) {
-    final body = BbType.forWidth(width).body;
-    final effective = (scaler ?? TextScaler.noScaling).scale(body);
+    final ratio =
+        (scaler ?? TextScaler.noScaling).scale(kBbSpaceReferenceBody) /
+            kBbSpaceReferenceBody;
     return BbSpace._(
-      math
-          .pow(effective / kBbSpaceReferenceBody, kBbSpaceCouplingExponent)
-          .toDouble(),
+      width,
+      math.pow(ratio, kBbSpaceCouplingExponent).toDouble(),
     );
   }
 
-  /// 기준값에 곱해지는 계수.
-  final double factor;
+  /// 이 토큰이 기준으로 삼는 폭.
+  final double width;
 
-  double value(BbSpaceToken token) => kBbSpaceBase[token]! * factor;
+  /// 접근성 배율에서 온 계수(clamp 밖에서 곱해진다).
+  final double scaleFactor;
+
+  double value(BbSpaceToken token) =>
+      bbSaturating(kBbSpaceSpec[token]!, width, kBbSpaceExponent) * scaleFactor;
 
   double get xs => value(BbSpaceToken.xs);
   double get sm => value(BbSpaceToken.sm);
@@ -301,19 +350,117 @@ class BbSpace {
   /// 세로 간격.
   Widget gapV(BbSpaceToken token) => SizedBox(height: value(token));
 
-  /// 반지름도 같은 계수를 탄다. **hairline(0.5/1.0)은 결합하지 않는다**(L4).
+  /// 반지름도 같은 곡선을 탄다. **hairline(0.5/1.0)은 결합하지 않는다**(L4).
   BorderRadius radius(BbSpaceToken token) =>
       BorderRadius.circular(value(token));
 
   @override
-  bool operator ==(Object other) => other is BbSpace && other.factor == factor;
+  bool operator ==(Object other) =>
+      other is BbSpace &&
+      other.width == width &&
+      other.scaleFactor == scaleFactor;
 
   @override
-  int get hashCode => factor.hashCode;
+  int get hashCode => Object.hash(width, scaleFactor);
 }
 
-/// `context.bbType.body` · `context.bbSpace.md`
+// ─────────────────────────────────────────────────────────────────────────────
+// 박스·크롬 토큰
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 슬롯 기하 역할 — 아바타·액션 슬롯·크롬 높이.
+///
+/// 왜 공간 곡선(0.5)을 타나: 이들은 **텍스트 줄이 아니라 슬롯 기하**에 묶인다.
+/// 타이포 곡선(0.25)으로 계산하면 승인값과의 768 대역 오차가 커진다
+/// (`avatarIcon` −0.32 → +0.81) `[측정 2026-08-20]`.
+///
+/// 접근성 배율은 곱하지 않는다 — `Icon` 은 `textScaler` 를 타지 않으므로 슬롯만 커지면
+/// 아이콘이 슬롯 안에서 떠 버린다.
+enum BbBoxRole {
+  /// 타일 선두 아바타 지름.
+  avatar,
+
+  /// 아바타 안 아이콘.
+  avatarIcon,
+
+  /// 액션 아이콘(토글·메뉴·드래그 핸들).
+  actionIcon,
+
+  /// 액션 탭 타깃 한 변. **L4-2: 44dp 하한을 넘지 않는다.**
+  actionSlot,
+
+  /// M3 `Switch` 트랙 폭. **L4-3: 시스템 위젯 고정 치수**라 곡선을 타지 않는다
+  /// (`Transform.scale` 은 예약 폭을 줄이지 못한다 — 2026-05-04 오진).
+  toggleSlot,
+
+  /// 탭 한 줄 높이. `Tab(icon:, text:)` 는 세로 배치라 SDK 가 72 를 강제한다
+  /// (`tabs.dart:205`) — `bb_tab.dart` 가 가로 배치로 이 값을 쓴다.
+  tab,
+
+  /// 하단 네비 높이. ⚠ `NavigationBar` 는 `SizedBox` 하드 박스라 과하게 낮추면
+  /// 오버플로한다 — 스윕이 배율 1.6 까지 검사한다.
+  navBar,
+}
+
+/// 자산 탭 승인값(compact = 하한 / wide = 상한). 상한은 960px 에서 찍힌다.
+///
+/// ```
+/// 역할        min max │  320   390   768   960  1440
+/// avatar       32  40 │ 32.0  32.0  35.8  40.0  40.0
+/// avatarIcon   18  22 │ 18.0  18.0  19.7  22.0  22.0
+/// actionIcon   20  24 │ 20.0  20.0  21.5  24.0  24.0
+/// actionSlot   44  48 │ 44.0  44.0  44.0  48.0  48.0
+/// tab          44  48 │ 44.0  44.0  44.0  48.0  48.0
+/// navBar       66  80 │ 66.0  66.0  71.6  80.0  80.0
+/// ```
+///
+/// `actionSlot` 하한은 승인 표면의 40 이 아니라 **44**(L4-2 터치 하한)다. 320px 편집
+/// 모드에서 액션 레인이 8dp 넓어지지만 접근성 규격이 이긴다 — 되돌리려면 `min` 을 40 으로.
+const Map<BbBoxRole, ({double min, double max})> kBbBoxSpec = {
+  BbBoxRole.avatar: (min: 32, max: 40),
+  BbBoxRole.avatarIcon: (min: 18, max: 22),
+  BbBoxRole.actionIcon: (min: 20, max: 24),
+  BbBoxRole.actionSlot: (min: 44, max: 48),
+  BbBoxRole.toggleSlot: (min: 52, max: 52),
+  BbBoxRole.tab: (min: 44, max: 48),
+  BbBoxRole.navBar: (min: 66, max: 80),
+};
+
+/// 슬롯·크롬 치수. 계단(`width < 600 ? … : …`)을 대체한다 — 새 폭 분기는
+/// `no_step_ladder_guard_test.dart` 가 막는다.
+@immutable
+class BbBox {
+  const BbBox._(this.width);
+
+  factory BbBox.of(BuildContext context) => BbBox._(
+        BbScaleScope.maybeOf(context) ?? MediaQuery.sizeOf(context).width,
+      );
+
+  factory BbBox.forWidth(double width) => BbBox._(width);
+
+  final double width;
+
+  double size(BbBoxRole role) =>
+      bbSaturating(kBbBoxSpec[role]!, width, kBbSpaceExponent);
+
+  double get avatar => size(BbBoxRole.avatar);
+  double get avatarIcon => size(BbBoxRole.avatarIcon);
+  double get actionIcon => size(BbBoxRole.actionIcon);
+  double get actionSlot => size(BbBoxRole.actionSlot);
+  double get toggleSlot => size(BbBoxRole.toggleSlot);
+  double get tab => size(BbBoxRole.tab);
+  double get navBar => size(BbBoxRole.navBar);
+
+  @override
+  bool operator ==(Object other) => other is BbBox && other.width == width;
+
+  @override
+  int get hashCode => width.hashCode;
+}
+
+/// `context.bbType.body` · `context.bbSpace.md` · `context.bbBox.avatar`
 extension BbScaleContext on BuildContext {
   BbType get bbType => BbType.of(this);
   BbSpace get bbSpace => BbSpace.of(this);
+  BbBox get bbBox => BbBox.of(this);
 }
