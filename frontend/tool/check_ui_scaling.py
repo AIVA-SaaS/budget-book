@@ -80,6 +80,15 @@ PILOT_FILES = [
     "lib/features/analysis/presentation/pages/analysis_page.dart",
     "lib/core/widgets/bb_tab.dart",
     "lib/core/widgets/month_navigator.dart",
+    # 2026-08-20 회차 — 여백·간격. 사용자가 지목한 탭(거래·분석·자산)의 가시 표면.
+    "lib/core/widgets/entity_tile_row.dart",
+    "lib/core/widgets/bb_wide_button.dart",
+    "lib/core/widgets/filters/unified_filter_bar.dart",
+    "lib/features/settings/presentation/pages/asset_management_page.dart",
+    "lib/features/transaction/presentation/pages/transaction_list_page.dart",
+    "lib/features/transaction/presentation/widgets/transaction_list_tile.dart",
+    "lib/features/statistics/presentation/widgets/category_breakdown_tab.dart",
+    "lib/features/statistics/presentation/widgets/summary_tab.dart",
 ]
 
 

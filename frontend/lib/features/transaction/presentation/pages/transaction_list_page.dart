@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/bloc/month_cubit.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
@@ -53,6 +54,7 @@ class TransactionListPage extends StatefulWidget {
   final String? initialPaymentMethodName;
   final String? initialCategoryId;
   final String? initialCategoryName;
+
   /// Phase 25 후속 — 예산/분석에서 그룹 단위로 거래 필터.
   final String? initialCategoryGroupId;
 
@@ -104,27 +106,37 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
   // Unified filter state
   late UnifiedFilterState _filterState = UnifiedFilterState(
-    categoryIds: widget.initialCategoryId != null ? {widget.initialCategoryId!} : const {},
+    categoryIds: widget.initialCategoryId != null
+        ? {widget.initialCategoryId!}
+        : const {},
     categoryGroupIds: widget.initialCategoryGroupId != null
         ? {widget.initialCategoryGroupId!}
         : const {},
     categoryName: widget.initialCategoryName,
-    paymentMethodIds: widget.initialPaymentMethodId != null ? {widget.initialPaymentMethodId!} : const {},
+    paymentMethodIds: widget.initialPaymentMethodId != null
+        ? {widget.initialPaymentMethodId!}
+        : const {},
     paymentMethodName: widget.initialPaymentMethodName,
   );
 
   String get _appBarTitle {
     if (!_filterState.hasActiveFilters) return '거래 (전체)';
-    if (_filterState.categoryName != null) return '거래 (${_filterState.categoryName})';
-    if (_filterState.paymentMethodName != null) return '거래 (${_filterState.paymentMethodName})';
+    if (_filterState.categoryName != null) {
+      return '거래 (${_filterState.categoryName})';
+    }
+    if (_filterState.paymentMethodName != null) {
+      return '거래 (${_filterState.paymentMethodName})';
+    }
     return '거래 (필터)';
   }
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialPaymentMethodId != null && _filterState.paymentMethodName == null) {
-      final name = PaymentMethodFilter.resolveName(widget.initialPaymentMethodId!);
+    if (widget.initialPaymentMethodId != null &&
+        _filterState.paymentMethodName == null) {
+      final name =
+          PaymentMethodFilter.resolveName(widget.initialPaymentMethodId!);
       if (name != null) {
         setState(() {
           _filterState = _filterState.copyWith(paymentMethodName: name);
@@ -170,15 +182,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
     // 명시적 reset 신호가 아니라 "URL 에 nav key 가 더 이상 없음" 일 뿐.
     // 후자 케이스는 router builder 의 carry 로직 + _syncFilterStateFromBloc 가
     // BLoC.currentFilter 기준으로 _filterState 를 sync → drift 자체를 self-heal.
-    final pmChanged = widget.initialPaymentMethodId !=
-            oldWidget.initialPaymentMethodId &&
-        widget.initialPaymentMethodId != null;
-    final catChanged = widget.initialCategoryId !=
-            oldWidget.initialCategoryId &&
-        widget.initialCategoryId != null;
-    final groupChanged = widget.initialCategoryGroupId !=
-            oldWidget.initialCategoryGroupId &&
-        widget.initialCategoryGroupId != null;
+    final pmChanged =
+        widget.initialPaymentMethodId != oldWidget.initialPaymentMethodId &&
+            widget.initialPaymentMethodId != null;
+    final catChanged =
+        widget.initialCategoryId != oldWidget.initialCategoryId &&
+            widget.initialCategoryId != null;
+    final groupChanged =
+        widget.initialCategoryGroupId != oldWidget.initialCategoryGroupId &&
+            widget.initialCategoryGroupId != null;
     if (pmChanged || catChanged || groupChanged) {
       setState(() {
         _filterState = _filterState.copyWith(
@@ -266,8 +278,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final month =
         state is TransactionLoaded ? state.month : DateTime.now().month;
 
-    final keyword =
-        _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+    final keyword = _searchController.text.trim().isEmpty
+        ? null
+        : _searchController.text.trim();
 
     // UI 필터 → 도메인 VO 변환은 toTransactionFilter 단일 경로 (필드 나열 금지).
     final filter = _filterState.toTransactionFilter(keywordOverride: keyword);
@@ -315,10 +328,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
 
     try {
       final response = await getIt<ApiClient>().dio.get(
-        ApiEndpoints.transactionsExportCsv,
-        queryParameters: {'year': year, 'month': month},
-        options: Options(responseType: ResponseType.bytes),
-      );
+            ApiEndpoints.transactionsExportCsv,
+            queryParameters: {'year': year, 'month': month},
+            options: Options(responseType: ResponseType.bytes),
+          );
 
       final bytes = response.data as List<int>;
       final filename = 'transactions_${year}_$month.csv';
@@ -345,8 +358,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     // Resolve payment method name if ID changed
     if (newState.paymentMethodIds.isNotEmpty &&
         newState.paymentMethodName == null) {
-      final name = PaymentMethodFilter.resolveName(
-          newState.paymentMethodIds.first);
+      final name =
+          PaymentMethodFilter.resolveName(newState.paymentMethodIds.first);
       if (name != null) {
         newState = newState.copyWith(paymentMethodName: name);
       }
@@ -374,9 +387,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final oldCat = _filterState.categoryIds.length == 1
         ? _filterState.categoryIds.first
         : null;
-    final newCat = newState.categoryIds.length == 1
-        ? newState.categoryIds.first
-        : null;
+    final newCat =
+        newState.categoryIds.length == 1 ? newState.categoryIds.first : null;
     final oldGroup = _filterState.categoryGroupIds.length == 1
         ? _filterState.categoryGroupIds.first
         : null;
@@ -389,7 +401,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
     final newIsSingleOrNone = newState.paymentMethodIds.length <= 1 &&
         newState.categoryIds.length <= 1 &&
         newState.categoryGroupIds.length <= 1;
-    final navTransition = oldPm != newPm || oldCat != newCat || oldGroup != newGroup;
+    final navTransition =
+        oldPm != newPm || oldCat != newCat || oldGroup != newGroup;
     final shouldSyncUrl =
         navTransition && oldWasSingleOrNone && newIsSingleOrNone;
 
@@ -496,79 +509,85 @@ class _TransactionListPageState extends State<TransactionListPage> {
       listenWhen: (previous, current) => current is TransactionLoaded,
       listener: (context, state) => _syncFilterStateFromBloc(),
       child: Scaffold(
-      appBar: AppBar(
-        title: Builder(
-          builder: (context) {
-            final bloc = context.watch<TransactionBloc>();
-            final state = bloc.state;
-            final count = state is TransactionLoaded ? state.totalElements : null;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_appBarTitle, style: const TextStyle(fontSize: 18)),
-                if (count != null)
-                  Text(
-                    '$count건',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        appBar: AppBar(
+          title: Builder(
+            builder: (context) {
+              final bloc = context.watch<TransactionBloc>();
+              final state = bloc.state;
+              final count =
+                  state is TransactionLoaded ? state.totalElements : null;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_appBarTitle,
+                      style: TextStyle(fontSize: context.bbType.title)),
+                  if (count != null)
+                    Text(
+                      '$count건',
+                      style: TextStyle(
+                        fontSize: context.bbType.label,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6),
+                      ),
                     ),
-                  ),
-              ],
-            );
+                ],
+              );
+            },
+          ),
+          actions: [
+            _buildBalanceAdjustAction(context),
+            IconButton(
+              icon: const Icon(Icons.file_upload),
+              tooltip: '가져오기',
+              onPressed: () => context.push('/transactions/import'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.file_download),
+              tooltip: '내보내기',
+              onPressed: () => _exportCsv(context),
+            ),
+          ],
+        ),
+        body: BlocConsumer<TransactionBloc, TransactionState>(
+          listener: (context, state) {
+            if (state is TransactionError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else if (state is TransactionLoaded &&
+                state.operationError != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.operationError!),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else if (state is TransactionLoaded &&
+                state.operationSuccess != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.operationSuccess!),
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            return switch (state) {
+              TransactionInitial() ||
+              TransactionLoading() =>
+                const SkeletonLoader(itemCount: 5),
+              TransactionLoaded() => _buildLoaded(context, state),
+              TransactionError() => _buildError(context),
+            };
           },
         ),
-        actions: [
-          _buildBalanceAdjustAction(context),
-          IconButton(
-            icon: const Icon(Icons.file_upload),
-            tooltip: '가져오기',
-            onPressed: () => context.push('/transactions/import'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_download),
-            tooltip: '내보내기',
-            onPressed: () => _exportCsv(context),
-          ),
-        ],
+        floatingActionButton: _buildFab(context),
       ),
-      body: BlocConsumer<TransactionBloc, TransactionState>(
-        listener: (context, state) {
-          if (state is TransactionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else if (state is TransactionLoaded &&
-              state.operationError != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.operationError!),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else if (state is TransactionLoaded &&
-              state.operationSuccess != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.operationSuccess!),
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          return switch (state) {
-            TransactionInitial() || TransactionLoading() =>
-              const SkeletonLoader(itemCount: 5),
-            TransactionLoaded() => _buildLoaded(context, state),
-            TransactionError() => _buildError(context),
-          };
-        },
-      ),
-      floatingActionButton: _buildFab(context),
-    ),
     );
   }
 
@@ -646,19 +665,22 @@ class _TransactionListPageState extends State<TransactionListPage> {
           ? _filterState.paymentMethodIds.first
           : null;
       final state = context.read<TransactionBloc>().state;
-      final year = state is TransactionLoaded ? state.year : DateTime.now().year;
-      final month = state is TransactionLoaded ? state.month : DateTime.now().month;
+      final year =
+          state is TransactionLoaded ? state.year : DateTime.now().year;
+      final month =
+          state is TransactionLoaded ? state.month : DateTime.now().month;
 
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton.extended(
             heroTag: 'settle',
-            onPressed: () => context.push('/card-settlement?cardId=$pmId&year=$year&month=$month'),
+            onPressed: () => context
+                .push('/card-settlement?cardId=$pmId&year=$year&month=$month'),
             icon: const Icon(Icons.credit_score),
             label: const Text('결제'),
           ),
-          const SizedBox(width: 12),
+          context.bbSpace.gapH(BbSpaceToken.lg),
           FloatingActionButton(
             heroTag: 'add',
             onPressed: () =>
@@ -671,8 +693,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
     }
 
     return FloatingActionButton(
-      onPressed: () =>
-          context.push(_buildCreateTransactionUrl(tab: 'expense')),
+      onPressed: () => context.push(_buildCreateTransactionUrl(tab: 'expense')),
       tooltip: '거래 추가',
       child: const Icon(Icons.add),
     );
@@ -687,7 +708,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
             // Store the target date for scroll-after-load
             final day = picked.day;
             if (day > 1) {
-              final dateStr = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+              final dateStr =
+                  '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
               setState(() => _pendingScrollToDate = dateStr);
             }
           },
@@ -715,7 +737,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         ),
         // Search bar
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding:
+              context.bbSpace.symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.xs),
           child: TextField(
             controller: _searchController,
             focusNode: _searchFocusNode,
@@ -734,10 +757,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     )
                   : null,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
+              contentPadding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.md),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
               ),
             ),
           ),
@@ -812,8 +835,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
               // 서버 총계 미수신(statisticsRepository 미주입 = 테스트 경로) 시에만
               // 클라 집계로 대체한다.
               final hasServerTotals = state.serverTotalIncome != null;
-              final displayIncome =
-                  hasServerTotals ? state.totalIncome : clientSummary.totalIncome;
+              final displayIncome = hasServerTotals
+                  ? state.totalIncome
+                  : clientSummary.totalIncome;
               final displayExpense = hasServerTotals
                   ? state.totalExpense
                   : clientSummary.totalExpense;
@@ -892,8 +916,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
                     )
                   else
                     Expanded(
-                      child: _buildGroupedList(
-                          context, state, visibleTransactions, visibleTransfers),
+                      child: _buildGroupedList(context, state,
+                          visibleTransactions, visibleTransfers),
                     ),
                 ],
               );
@@ -915,7 +939,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
         if (bal == null) return const SizedBox.shrink();
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding:
+              context.bbSpace.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.sm),
           color: Theme.of(context)
               .colorScheme
               .primaryContainer
@@ -960,13 +985,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
     // Add transfers
     for (final transfer in transfers) {
       groupedItems.putIfAbsent(transfer.transferDate, () => []);
-      groupedItems[transfer.transferDate]!.add(LedgerItem.fromTransfer(transfer));
+      groupedItems[transfer.transferDate]!
+          .add(LedgerItem.fromTransfer(transfer));
     }
 
     // NEWEST-FIRST: dates sorted descending. Within a day, transactions are
     // inserted before transfers (matches iteration order below). The running
     // balance / total is accumulated in this exact newest-first order.
-    final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sortedDates = groupedItems.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     // 회차 (2026-06-23) — 포커싱-구동 점진 로드.
     // 포커싱 대상: MonthNavigator 날짜 선택(_pendingScrollToDate, 명시적)이
@@ -1060,12 +1087,15 @@ class _TransactionListPageState extends State<TransactionListPage> {
         itemCount: itemCount + 1, // +1 for FAB padding
         itemBuilder: (context, index) {
           // Last item is FAB bottom padding
-          if (index == itemCount) return const SizedBox(height: 88);
+          // 목록 마지막 스페이서
+          if (index == itemCount) {
+            return const SizedBox(height: 88); // ui-fixed: FAB 가림 방지
+          }
           // Loading indicator
           if (index >= sortedDates.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
+            return Padding(
+              padding: context.bbSpace.symmetric(v: BbSpaceToken.xl),
+              child: const Center(child: const CircularProgressIndicator()),
             );
           }
           final date = sortedDates[index];
@@ -1073,7 +1103,8 @@ class _TransactionListPageState extends State<TransactionListPage> {
           final dateKey = _dateKeys.putIfAbsent(date, () => GlobalKey());
 
           // Calculate day income/expense from transactions only
-          final dayTransactions = items.where((i) => i.isTransaction).map((i) => i.transaction!);
+          final dayTransactions =
+              items.where((i) => i.isTransaction).map((i) => i.transaction!);
           final dayTransferCount = items.where((i) => i.isTransfer).length;
 
           return Column(
@@ -1082,13 +1113,17 @@ class _TransactionListPageState extends State<TransactionListPage> {
             children: [
               _DateHeader(
                 dateStr: date,
-                dayIncome: dayTransactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount),
-                dayExpense: dayTransactions.where((t) => t.isExpense).fold(0, (s, t) => s + t.amount),
+                dayIncome: dayTransactions
+                    .where((t) => t.isIncome)
+                    .fold(0, (s, t) => s + t.amount),
+                dayExpense: dayTransactions
+                    .where((t) => t.isExpense)
+                    .fold(0, (s, t) => s + t.amount),
                 dayTransferCount: dayTransferCount,
                 // 회차 1 (2026-05-26) — 필터된 결제수단 자동 prefill 을 위해
                 // URL 조립을 상위에서 위임. 헬퍼 미경유 진입 경로 차단.
-                onAddTap: () => context.push(
-                    _buildCreateTransactionUrl(date: date)),
+                onAddTap: () =>
+                    context.push(_buildCreateTransactionUrl(date: date)),
               ),
               ...items.map((item) {
                 if (item.isTransfer) {
@@ -1160,19 +1195,23 @@ class _TransactionListPageState extends State<TransactionListPage> {
             Container(
               width: 32,
               height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
+              margin: context.bbSpace.symmetric(v: BbSpaceToken.lg),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.3),
+                borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.xs),
               child: Text(
                 transaction.description,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                      fontWeight: FontWeight.w600,
+                    ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1200,28 +1239,33 @@ class _TransactionListPageState extends State<TransactionListPage> {
               onTap: () {
                 Navigator.pop(ctx);
                 // 배치 4 D-4 (2026-04-26): copyFromId query param — 새로고침 유실 fix
-                context.push('/transactions/create?copyFromId=${transaction.id}');
+                context
+                    .push('/transactions/create?copyFromId=${transaction.id}');
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-              title: Text('삭제', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              leading: Icon(Icons.delete,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text('삭제',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () {
                 Navigator.pop(ctx);
                 _confirmDeleteTransaction(context, transaction);
               },
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.md),
           ],
         ),
       ),
     );
   }
 
-  void _showDateMoveDialog(BuildContext context, Transaction transaction) async {
+  void _showDateMoveDialog(
+      BuildContext context, Transaction transaction) async {
     final bloc = context.read<TransactionBloc>();
     final messenger = ScaffoldMessenger.of(context);
-    final initialDate = DateTime.tryParse(transaction.transactionDate) ?? DateTime.now();
+    final initialDate =
+        DateTime.tryParse(transaction.transactionDate) ?? DateTime.now();
     final pickedDate = await showCalendarPickerDialog(
       context: context,
       initialDate: initialDate,
@@ -1237,14 +1281,16 @@ class _TransactionListPageState extends State<TransactionListPage> {
         );
         messenger.showSnackBar(
           SnackBar(
-            content: Text('거래가 ${DateFormat('M월 d일').format(pickedDate)}로 이동되었습니다'),
+            content:
+                Text('거래가 ${DateFormat('M월 d일').format(pickedDate)}로 이동되었습니다'),
           ),
         );
       }
     }
   }
 
-  void _confirmDeleteTransaction(BuildContext context, Transaction transaction) {
+  void _confirmDeleteTransaction(
+      BuildContext context, Transaction transaction) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1258,7 +1304,9 @@ class _TransactionListPageState extends State<TransactionListPage> {
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              context.read<TransactionBloc>().add(DeleteTransaction(transaction.id));
+              context
+                  .read<TransactionBloc>()
+                  .add(DeleteTransaction(transaction.id));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('거래가 삭제되었습니다')),
               );
@@ -1332,6 +1380,7 @@ class _DateHeader extends StatelessWidget {
   final int dayIncome;
   final int dayExpense;
   final int dayTransferCount;
+
   /// 회차 1 (2026-05-26) — 거래 추가 진입 콜백.
   /// 상위 페이지가 `_buildCreateTransactionUrl(date: ...)` 로 URL 을 조립해 inject.
   /// _DateHeader 가 _filterState 에 접근하지 않게 하여 필터 propagation 강제.
@@ -1350,45 +1399,51 @@ class _DateHeader extends StatelessWidget {
     // 날짜 표기(포맷·배경·여백)는 LedgerDateHeader 단일 소스. 정산 뷰가 같은 표기를 쓴다.
     return LedgerDateHeader(
       dateStr: dateStr,
-      onTap: onAddTap ??
-          () => context.push('/transactions/create?date=$dateStr'),
+      onTap:
+          onAddTap ?? () => context.push('/transactions/create?date=$dateStr'),
       trailing: [
-            if (dayIncome > 0)
-              Text(
-                '+${CurrencyFormatter.format(dayIncome)}',
-                style: TextStyle(fontSize: 11, color: Colors.blue.shade600, fontWeight: FontWeight.w500),
-              ),
-            if (dayIncome > 0 && dayExpense > 0)
-              const SizedBox(width: 6),
-            if (dayExpense > 0)
-              Text(
-                '-${CurrencyFormatter.format(dayExpense)}',
-                style: TextStyle(fontSize: 11, color: Colors.red.shade600, fontWeight: FontWeight.w500),
-              ),
-            if (dayTransferCount > 0) ...[
-              if (dayIncome > 0 || dayExpense > 0)
-                const SizedBox(width: 6),
-              Icon(Icons.swap_horiz, size: 12, color: Colors.teal.shade600),
-              const SizedBox(width: 1),
-              Text(
-                '$dayTransferCount',
-                style: TextStyle(fontSize: 11, color: Colors.teal.shade600, fontWeight: FontWeight.w500),
-              ),
-            ],
-            const SizedBox(width: 8),
-            Icon(
-              Icons.add_circle_outline,
-              size: 16,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.4),
-            ),
+        if (dayIncome > 0)
+          Text(
+            '+${CurrencyFormatter.format(dayIncome)}',
+            style: TextStyle(
+                fontSize: context.bbType.label,
+                color: Colors.blue.shade600,
+                fontWeight: FontWeight.w500),
+          ),
+        if (dayIncome > 0 && dayExpense > 0)
+          context.bbSpace.gapH(BbSpaceToken.sm),
+        if (dayExpense > 0)
+          Text(
+            '-${CurrencyFormatter.format(dayExpense)}',
+            style: TextStyle(
+                fontSize: context.bbType.label,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500),
+          ),
+        if (dayTransferCount > 0) ...[
+          if (dayIncome > 0 || dayExpense > 0)
+            context.bbSpace.gapH(BbSpaceToken.sm),
+          Icon(Icons.swap_horiz,
+              size: context.bbType.iconSm, color: Colors.teal.shade600),
+          context.bbSpace.gapH(BbSpaceToken.xs),
+          Text(
+            '$dayTransferCount',
+            style: TextStyle(
+                fontSize: context.bbType.label,
+                color: Colors.teal.shade600,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+        context.bbSpace.gapH(BbSpaceToken.md),
+        Icon(
+          Icons.add_circle_outline,
+          size: context.bbType.iconSm,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+        ),
       ],
     );
   }
 }
-
 
 /// Phase 25 Step 7 — 리스트/달력 toggle. V65 에서 정산 세그먼트 추가.
 class _ViewModeToggle extends StatelessWidget {
@@ -1416,27 +1471,26 @@ class _ViewModeToggle extends StatelessWidget {
     // 아이콘 전용이므로 각 세그먼트는 tooltip(= 접근성 라벨)을 반드시 갖는다
     // — `view_mode_toggle_guard_test.dart` 가 고정한다.
     return SegmentedButton<_TxViewMode>(
-      style: const ButtonStyle(
-        visualDensity: VisualDensity.compact,
+      style: ButtonStyle(
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+          context.bbSpace.symmetric(h: BbSpaceToken.md),
         ),
       ),
-      segments: const [
+      segments: [
         ButtonSegment(
           value: _TxViewMode.list,
-          icon: Icon(Icons.list, size: 18),
+          icon: Icon(Icons.list, size: context.bbType.iconSm),
           tooltip: '목록 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.calendar,
-          icon: Icon(Icons.calendar_month, size: 18),
+          icon: Icon(Icons.calendar_month, size: context.bbType.iconSm),
           tooltip: '달력 보기',
         ),
         ButtonSegment(
           value: _TxViewMode.reconciliation,
-          icon: Icon(Icons.fact_check, size: 18),
+          icon: Icon(Icons.fact_check, size: context.bbType.iconSm),
           tooltip: '정산 보기 — 미기록 항목 확인/기록',
         ),
       ],
@@ -1448,4 +1502,3 @@ class _ViewModeToggle extends StatelessWidget {
     );
   }
 }
-

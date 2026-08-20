@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
@@ -241,8 +242,8 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                 onTap: () async {
                   final picked = await showCalendarPickerDialog(
                     context: context,
-                    initialDate:
-                        _selectedTargetDate ?? DateTime.now().add(const Duration(days: 30)),
+                    initialDate: _selectedTargetDate ??
+                        DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime(2030, 12, 31),
                   );
@@ -265,7 +266,8 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   return ChoiceChip(
                     selected: isSelected,
                     label: Icon(
-                      UIHelpers.resolveIcon(iconName, fallback: Icons.account_balance_wallet),
+                      UIHelpers.resolveIcon(iconName,
+                          fallback: Icons.account_balance_wallet),
                       size: 20,
                       color: isSelected
                           ? Theme.of(context).colorScheme.onPrimary
@@ -305,8 +307,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                         shape: BoxShape.circle,
                         border: isSelected
                             ? Border.all(
-                                color:
-                                    Theme.of(context).colorScheme.onSurface,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 width: 3,
                               )
                             : null,
@@ -319,7 +320,8 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: context.bbSpace
+                      .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
@@ -341,8 +343,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
       setState(() => _isSubmitting = true);
       final amount = int.parse(_amountController.text.trim());
       final goalText = _goalAmountController.text.trim();
-      final goalAmount =
-          goalText.isNotEmpty ? int.tryParse(goalText) : null;
+      final goalAmount = goalText.isNotEmpty ? int.tryParse(goalText) : null;
       final targetDate = _selectedTargetDate != null
           ? DateFormat('yyyy-MM-dd').format(_selectedTargetDate!)
           : null;
@@ -358,5 +359,4 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
       Navigator.of(context).pop();
     }
   }
-
 }

@@ -123,25 +123,26 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-          Container(
-            width: 20,
-            height: 18,
-            alignment: Alignment.center,
-            decoration: isToday
-                ? BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  )
-                : null,
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 12,
-                color: numberColor,
-                fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
+              Container(
+                width: 20,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: isToday
+                    ? BoxDecoration(
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      )
+                    : null,
+                child: Text(
+                  '${day.day}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: numberColor,
+                    fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
-            ),
-          ),
               if (!isOutside && summary != null && summary.isFullyReconciled)
                 const Padding(
                   padding: EdgeInsets.only(left: 2),
@@ -279,8 +280,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -321,7 +321,6 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                           onPressed: () => _addForDay(ctx, day),
                           icon: const Icon(Icons.add),
                           iconSize: 20,
-                          visualDensity: VisualDensity.compact,
                           tooltip: '이 날짜에 거래 추가',
                         ),
                       ],
@@ -360,16 +359,16 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                           controller: scrollController,
                           padding: const EdgeInsets.only(bottom: 16),
                           children: [
-                            ...summary.transactions.map((tx) =>
-                                TransactionListTile(
-                                  transaction: tx,
-                                  onTap: widget.onTransactionTap == null
-                                      ? null
-                                      : () {
-                                          Navigator.of(ctx).pop();
-                                          widget.onTransactionTap!(tx);
-                                        },
-                                )),
+                            ...summary.transactions
+                                .map((tx) => TransactionListTile(
+                                      transaction: tx,
+                                      onTap: widget.onTransactionTap == null
+                                          ? null
+                                          : () {
+                                              Navigator.of(ctx).pop();
+                                              widget.onTransactionTap!(tx);
+                                            },
+                                    )),
                             ...summary.transfers.map((tr) => TransferListTile(
                                   transfer: tr,
                                   onTap: widget.onTransferTap == null

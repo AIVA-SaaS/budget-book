@@ -44,21 +44,11 @@ class AppTheme {
           centerTitle: true,
           elevation: 0,
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
+        // ⚠ 여백·반지름은 여기서 정하지 않는다. 하드코딩(`16/12`)이면 폭에 반응하지
+        // 않아 `MaterialApp.theme` 자리의 고정 px 가 전 화면 기본값이 된다
+        // (2026-08-20 실측: `contentPadding` 16/12 · `radius` 12/16 이 그랬다).
+        // 채우는 곳은 [responsive] 한 곳이다.
+        cardTheme: const CardThemeData(elevation: 0),
       );
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -111,7 +101,6 @@ class AppTheme {
     'labelSmall': (ref: 13.4, min: 10, max: 12), // 자산 chip
   };
 
-
   static double _slot(String name, double width) {
     final spec = _slots[name]!;
     final raw = spec.ref *
@@ -123,12 +112,18 @@ class AppTheme {
   /// 컴포넌트마다 손대지 않고 한 번에 줄인다("버튼 크기가 너무 커" 의 직접 처방).
   ///
   /// 판정은 **유효 콘텐츠 폭**으로 한다 — 화면 폭이 아니다(`bb_scale.dart` 참조).
+  ///
+  /// ★2026-08-20: 3단 계단(`<600` / `<960` / else)을 **연속 보간**으로 바꿨다.
+  /// `VisualDensity` 는 `double` 을 받으므로 계단일 이유가 없었고, 계단은 그 자체로
+  /// 경쟁 축이다(같은 폭에서 밀도만 점프). `-2`(≤390) → `0`(≥960) 선형.
+  ///
+  /// 국소 `visualDensity: VisualDensity.compact` override 는 전건 제거했다(17곳) —
+  /// 그것이 이 단일 소스와 경쟁하던 경로다(`tool/audit_ui_consistency.py` 클래스 D).
   static VisualDensity _densityFor(double width) {
-    if (width < 600) return const VisualDensity(horizontal: -2, vertical: -2);
-    if (width < kBbContentMaxWidth) {
-      return const VisualDensity(horizontal: -1, vertical: -1);
-    }
-    return VisualDensity.standard;
+    const from = 390.0;
+    final t = ((width - from) / (kBbContentMaxWidth - from)).clamp(0.0, 1.0);
+    final v = -2 + 2 * t;
+    return VisualDensity(horizontal: v, vertical: v);
   }
 
   /// 기존 [light]/[dark] 위에 **유효 폭**에 따른 타이포·아이콘·밀도·크롬을 얹는다.
@@ -140,27 +135,98 @@ class AppTheme {
     final type = BbType.forWidth(width);
     final t = base.textTheme;
     final text = t.copyWith(
-      displayLarge: t.displayLarge?.copyWith(fontSize: _slot('displayLarge', width)),
-      displayMedium: t.displayMedium?.copyWith(fontSize: _slot('displayMedium', width)),
-      displaySmall: t.displaySmall?.copyWith(fontSize: _slot('displaySmall', width)),
-      headlineLarge: t.headlineLarge?.copyWith(fontSize: _slot('headlineLarge', width)),
-      headlineMedium: t.headlineMedium?.copyWith(fontSize: _slot('headlineMedium', width)),
-      headlineSmall: t.headlineSmall?.copyWith(fontSize: _slot('headlineSmall', width)),
+      displayLarge:
+          t.displayLarge?.copyWith(fontSize: _slot('displayLarge', width)),
+      displayMedium:
+          t.displayMedium?.copyWith(fontSize: _slot('displayMedium', width)),
+      displaySmall:
+          t.displaySmall?.copyWith(fontSize: _slot('displaySmall', width)),
+      headlineLarge:
+          t.headlineLarge?.copyWith(fontSize: _slot('headlineLarge', width)),
+      headlineMedium:
+          t.headlineMedium?.copyWith(fontSize: _slot('headlineMedium', width)),
+      headlineSmall:
+          t.headlineSmall?.copyWith(fontSize: _slot('headlineSmall', width)),
       titleLarge: t.titleLarge?.copyWith(fontSize: _slot('titleLarge', width)),
-      titleMedium: t.titleMedium?.copyWith(fontSize: _slot('titleMedium', width)),
+      titleMedium:
+          t.titleMedium?.copyWith(fontSize: _slot('titleMedium', width)),
       titleSmall: t.titleSmall?.copyWith(fontSize: _slot('titleSmall', width)),
       bodyLarge: t.bodyLarge?.copyWith(fontSize: _slot('bodyLarge', width)),
       bodyMedium: t.bodyMedium?.copyWith(fontSize: _slot('bodyMedium', width)),
       bodySmall: t.bodySmall?.copyWith(fontSize: _slot('bodySmall', width)),
       labelLarge: t.labelLarge?.copyWith(fontSize: _slot('labelLarge', width)),
-      labelMedium: t.labelMedium?.copyWith(fontSize: _slot('labelMedium', width)),
+      labelMedium:
+          t.labelMedium?.copyWith(fontSize: _slot('labelMedium', width)),
       labelSmall: t.labelSmall?.copyWith(fontSize: _slot('labelSmall', width)),
     );
+
+    // 여백·반지름의 **전역 통로**. 폰트는 `TextTheme` 이 전역이라 토큰 수정만으로 전 화면에
+    // 퍼졌지만 여백에는 그 통로가 없었다 — 2026-08-20 실측: `BbSpace` 를 쓰는 `lib` 파일이
+    // **3개**뿐이고 리터럴은 1,699건이었다. 그래서 컴포넌트 테마를 곡선으로 채운다.
+    final space = BbSpace.forWidth(width);
+    final radiusSm = BorderRadius.circular(space.md);
+    final radiusMd = BorderRadius.circular(space.lg);
 
     return base.copyWith(
       textTheme: text,
       primaryTextTheme: text,
       visualDensity: _densityFor(width),
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        border: OutlineInputBorder(borderRadius: radiusMd),
+        contentPadding: space.symmetric(
+          h: BbSpaceToken.xl,
+          v: BbSpaceToken.lg,
+        ),
+      ),
+      cardTheme: base.cardTheme.copyWith(
+        shape: RoundedRectangleBorder(borderRadius: radiusMd),
+        margin: space.symmetric(h: BbSpaceToken.md, v: BbSpaceToken.sm),
+      ),
+      dividerTheme: base.dividerTheme.copyWith(space: space.lg),
+      dialogTheme: base.dialogTheme.copyWith(
+        insetPadding: space.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.xxl),
+        shape: RoundedRectangleBorder(borderRadius: radiusMd),
+      ),
+      bottomSheetTheme: base.bottomSheetTheme.copyWith(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(space.xl)),
+        ),
+      ),
+      listTileTheme: base.listTileTheme.copyWith(
+        titleTextStyle: text.bodyLarge,
+        subtitleTextStyle: text.bodySmall,
+        contentPadding: space.symmetric(h: BbSpaceToken.xl),
+        minVerticalPadding: space.sm,
+      ),
+      tabBarTheme: base.tabBarTheme.copyWith(
+        labelStyle: text.titleSmall,
+        unselectedLabelStyle: text.titleSmall,
+        labelPadding: space.symmetric(h: BbSpaceToken.lg),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          padding: space.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.md),
+          shape: RoundedRectangleBorder(borderRadius: radiusSm),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          padding: space.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.md),
+          shape: RoundedRectangleBorder(borderRadius: radiusSm),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: space.symmetric(h: BbSpaceToken.xl, v: BbSpaceToken.md),
+          shape: RoundedRectangleBorder(borderRadius: radiusSm),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: space.symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.md),
+          shape: RoundedRectangleBorder(borderRadius: radiusSm),
+        ),
+      ),
       iconTheme: base.iconTheme.copyWith(size: type.iconMd),
       primaryIconTheme: base.primaryIconTheme.copyWith(size: type.iconMd),
       iconButtonTheme: IconButtonThemeData(
@@ -176,12 +242,8 @@ class AppTheme {
         iconTheme: IconThemeData(size: type.iconMd),
         actionsIconTheme: IconThemeData(size: type.iconMd),
       ),
-      tabBarTheme: base.tabBarTheme.copyWith(
-        labelStyle: text.titleSmall,
-        unselectedLabelStyle: text.titleSmall,
-      ),
       navigationBarTheme: base.navigationBarTheme.copyWith(
-        height: type.navBarHeight,
+        height: BbBox.forWidth(width).navBar,
         labelTextStyle: WidgetStatePropertyAll(text.labelMedium),
         iconTheme: WidgetStatePropertyAll(IconThemeData(size: type.iconSm)),
       ),
@@ -192,10 +254,6 @@ class AppTheme {
         ),
       ),
       chipTheme: base.chipTheme.copyWith(labelStyle: text.labelMedium),
-      listTileTheme: base.listTileTheme.copyWith(
-        titleTextStyle: text.bodyLarge,
-        subtitleTextStyle: text.bodySmall,
-      ),
     );
   }
 }

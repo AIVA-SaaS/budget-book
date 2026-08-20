@@ -22,7 +22,6 @@ void main() {
   const migratedToTokens = <String>[
     'lib/core/theme/app_theme.dart',
     'lib/core/theme/bb_colors.dart',
-    'lib/core/theme/bb_density.dart',
     'lib/core/utils/payment_method_helpers.dart',
     'lib/core/widgets/account_balance_card.dart',
     'lib/core/widgets/asset_edit_mode_scope.dart',

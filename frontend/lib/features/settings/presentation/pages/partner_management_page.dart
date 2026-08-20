@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
@@ -95,7 +96,8 @@ class PartnerManagementPage extends StatelessWidget {
             icon: const Icon(Icons.person_add),
             label: const Text('파트너 초대하기'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
           ),
           const SizedBox(height: 12),
@@ -105,7 +107,8 @@ class PartnerManagementPage extends StatelessWidget {
             icon: const Icon(Icons.vpn_key),
             label: const Text('초대코드 입력'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
           ),
         ],
@@ -204,7 +207,8 @@ class PartnerManagementPage extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
               side: BorderSide(color: Theme.of(context).colorScheme.error),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
           ),
         ],

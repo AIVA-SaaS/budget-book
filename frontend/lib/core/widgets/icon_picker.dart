@@ -227,15 +227,13 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                 _CategoryChip(
                   label: '전체',
                   isSelected: _selectedCategory == null,
-                  onTap: () =>
-                      setState(() => _selectedCategory = null),
+                  onTap: () => setState(() => _selectedCategory = null),
                 ),
                 ...categorizedIcons.keys.map((category) {
                   return _CategoryChip(
                     label: category,
                     isSelected: _selectedCategory == category,
-                    onTap: () => setState(
-                        () => _selectedCategory = category),
+                    onTap: () => setState(() => _selectedCategory = category),
                   );
                 }),
               ],
@@ -272,20 +270,17 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final entry = filtered[index];
-                      final isSelected =
-                          widget.selectedIcon == entry.key;
+                      final isSelected = widget.selectedIcon == entry.key;
 
                       return InkWell(
-                        onTap: () =>
-                            Navigator.of(context).pop(entry.key),
+                        onTap: () => Navigator.of(context).pop(entry.key),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? theme.colorScheme.primary
                                     .withValues(alpha: 0.15)
-                                : theme.colorScheme
-                                    .surfaceContainerHighest,
+                                : theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
                                 ? Border.all(
@@ -295,8 +290,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                                 : null,
                           ),
                           child: Column(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 entry.value,
@@ -308,8 +302,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                               const SizedBox(height: 4),
                               Text(
                                 entry.key.replaceAll('_', '\n'),
-                                style: theme.textTheme.labelSmall
-                                    ?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   fontSize: 8,
                                   color: isSelected
                                       ? theme.colorScheme.primary
@@ -352,7 +345,6 @@ class _CategoryChip extends StatelessWidget {
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => onTap(),
-        visualDensity: VisualDensity.compact,
         labelStyle: Theme.of(context).textTheme.labelSmall,
       ),
     );

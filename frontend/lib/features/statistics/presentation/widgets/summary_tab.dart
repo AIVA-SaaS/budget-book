@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
 class SummaryTab extends StatelessWidget {
@@ -24,8 +25,9 @@ class SummaryTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline,
+                size: context.bbType.iconLg * 1.5, color: Colors.red),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(error!, textAlign: TextAlign.center),
           ],
         ),
@@ -38,13 +40,13 @@ class SummaryTab extends StatelessWidget {
           children: [
             Icon(
               Icons.bar_chart_outlined,
-              size: 64,
+              size: context.bbType.iconLg * 2,
               color: Theme.of(context)
                   .colorScheme
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(
               '이 달에 기록된 거래가 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -54,7 +56,7 @@ class SummaryTab extends StatelessWidget {
                         .withValues(alpha: 0.5),
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.md),
             Text(
               '거래를 추가하면 통계를 확인할 수 있습니다',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -70,7 +72,7 @@ class SummaryTab extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: context.bbSpace.all(BbSpaceToken.xl),
       child: Column(
         children: [
           _SummaryCard(
@@ -79,29 +81,29 @@ class SummaryTab extends StatelessWidget {
             color: const Color(0xFF4CAF50),
             icon: Icons.arrow_downward,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           _SummaryCard(
             title: '지출',
             amount: summary!.totalExpense,
             color: const Color(0xFFF44336),
             icon: Icons.arrow_upward,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           _SummaryCard(
             title: '잔액',
             amount: summary!.balance,
             color: const Color(0xFF2196F3),
             icon: Icons.account_balance_wallet,
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: context.bbSpace.all(BbSpaceToken.xl),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.receipt_long, size: 20),
-                  const SizedBox(width: 8),
+                  Icon(Icons.receipt_long, size: context.bbType.iconMd),
+                  context.bbSpace.gapH(BbSpaceToken.md),
                   Text(
                     '총 ${summary!.transactionCount}건의 거래',
                     style: Theme.of(context).textTheme.bodyLarge,
@@ -138,18 +140,18 @@ class _SummaryCard extends StatelessWidget {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: context.bbSpace.all(BbSpaceToken.xxl),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: context.bbSpace.all(BbSpaceToken.lg),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: context.bbType.iconLg),
             ),
-            const SizedBox(width: 16),
+            context.bbSpace.gapH(BbSpaceToken.xl),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +165,7 @@ class _SummaryCard extends StatelessWidget {
                               .withValues(alpha: 0.6),
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     '$prefix${CurrencyFormatter.format(displayAmount)}원',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(

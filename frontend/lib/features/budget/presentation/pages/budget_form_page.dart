@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/widgets/calculator_amount_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -85,8 +86,9 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
     if (_initialized) return;
     _initialized = true;
     _amountController.text = CurrencyFormatter.format(budget.amount);
-    _weeklyAmountController.text =
-        budget.weeklyAmount != null ? CurrencyFormatter.format(budget.weeklyAmount!) : '';
+    _weeklyAmountController.text = budget.weeklyAmount != null
+        ? CurrencyFormatter.format(budget.weeklyAmount!)
+        : '';
     _selectedCategoryId = budget.category?.id;
     _selectedCategoryName = budget.category != null && budget.groupName != null
         ? '${budget.groupName} > ${budget.category!.name}'
@@ -145,7 +147,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         actions: [
           if (isEditing)
             IconButton(
-              icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              icon: Icon(Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error),
               tooltip: '삭제',
               onPressed: () => _confirmDelete(context),
             ),
@@ -289,7 +292,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   suffixText: '원',
                   prefixIcon: Icon(Icons.date_range),
                 ),
-                helperText: _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
+                helperText:
+                    _weeklyAmountHint.isNotEmpty ? _weeklyAmountHint : null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '주간 예산 금액을 입력하세요';
@@ -341,7 +345,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             FilledButton(
               onPressed: _isSubmitting ? null : _onSubmit,
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: context.bbSpace
+                    .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
               ),
               child: _isSubmitting
                   ? const SizedBox(
@@ -448,8 +453,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 });
               },
               onAddGroup: () => _showAddGroupDialog(sheetContext),
-              onAddItem: (group) =>
-                  _showAddCategoryDialog(sheetContext, group),
+              onAddItem: (group) => _showAddCategoryDialog(sheetContext, group),
               onDeleteItem: (category) =>
                   _confirmDeleteCategory(sheetContext, category),
               title: '카테고리 선택',
@@ -606,7 +610,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 dense: true,
                 title: const Text('이후 모든 일정에 반영'),
                 value: applyToFutureInDialog,
-                onChanged: (v) => setStateDialog(() => applyToFutureInDialog = v ?? false),
+                onChanged: (v) =>
+                    setStateDialog(() => applyToFutureInDialog = v ?? false),
               ),
             ],
           ),
@@ -624,7 +629,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                           applyToFuture: applyToFutureInDialog),
                     );
               },
-              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+              style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error),
               child: const Text('삭제'),
             ),
           ],
@@ -639,7 +645,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
       final int amount;
       final int? weeklyAmount;
       if (_budgetPeriod == 'WEEKLY') {
-        final weekly = CurrencyFormatter.parse(_weeklyAmountController.text.trim())!;
+        final weekly =
+            CurrencyFormatter.parse(_weeklyAmountController.text.trim())!;
         weeklyAmount = weekly;
         // Monthly amount = weekly * daysInMonth / 7 — the canonical inverse the BE/display
         // use (NOT weekly * 4). Keeps the optimistic local value in sync with the server.
@@ -662,8 +669,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         case PeriodType.monthly:
           if (_periodSelection.startDate != null) {
             final sd = _periodSelection.startDate!;
-            yearMonth =
-                '${sd.year}-${sd.month.toString().padLeft(2, '0')}';
+            yearMonth = '${sd.year}-${sd.month.toString().padLeft(2, '0')}';
           } else {
             yearMonth =
                 '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';

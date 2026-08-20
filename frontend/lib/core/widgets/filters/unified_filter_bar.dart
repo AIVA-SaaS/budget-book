@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/di/injection.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/models/unified_filter_state.dart';
 import 'package:budget_book/core/widgets/filters/date_range_filter.dart';
 import 'package:budget_book/core/widgets/filters/category_filter.dart';
@@ -24,6 +25,7 @@ class UnifiedFilterBar extends StatelessWidget {
   final Set<FilterType> enabledFilters;
   final UnifiedFilterState state;
   final ValueChanged<UnifiedFilterState> onFilterChanged;
+
   /// Optional: category type for category filter ('EXPENSE', 'INCOME')
   final String categoryType;
 
@@ -43,17 +45,25 @@ class UnifiedFilterBar extends StatelessWidget {
 
   int get _activeFilterCount {
     int count = 0;
-    if (enabledFilters.contains(FilterType.transactionType) && state.transactionTypes.isNotEmpty) count++;
-    if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') count++;
+    if (enabledFilters.contains(FilterType.transactionType) &&
+        state.transactionTypes.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.visibility) &&
+        state.visibility != null &&
+        state.visibility != 'ALL') count++;
     if (enabledFilters.contains(FilterType.category) &&
         (state.categoryIds.isNotEmpty || state.categoryGroupIds.isNotEmpty)) {
       count++;
     }
-    if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) count++;
-    if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) count++;
-    if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) count++;
-    if (enabledFilters.contains(FilterType.dateRange) && state.hasDateRange) count++;
-    if (enabledFilters.contains(FilterType.needsReview) && state.needsReviewOnly) count++;
+    if (enabledFilters.contains(FilterType.paymentMethod) &&
+        state.paymentMethodIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.pocket) &&
+        state.pocketIds.isNotEmpty) count++;
+    if (enabledFilters.contains(FilterType.amountRange) &&
+        (state.amountMin != null || state.amountMax != null)) count++;
+    if (enabledFilters.contains(FilterType.dateRange) && state.hasDateRange)
+      count++;
+    if (enabledFilters.contains(FilterType.needsReview) &&
+        state.needsReviewOnly) count++;
     return count;
   }
 
@@ -66,10 +76,13 @@ class UnifiedFilterBar extends StatelessWidget {
           .join('/');
       chips.add(_ChipData(
         label: labels,
-        onRemove: () => onFilterChanged(state.copyWith(clearTransactionType: true)),
+        onRemove: () =>
+            onFilterChanged(state.copyWith(clearTransactionType: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.visibility) && state.visibility != null && state.visibility != 'ALL') {
+    if (enabledFilters.contains(FilterType.visibility) &&
+        state.visibility != null &&
+        state.visibility != 'ALL') {
       chips.add(_ChipData(
         label: state.visibility == 'SHARED' ? '공유' : '개인',
         onRemove: () => onFilterChanged(state.copyWith(clearVisibility: true)),
@@ -88,24 +101,28 @@ class UnifiedFilterBar extends StatelessWidget {
         onRemove: () => onFilterChanged(state.copyWith(clearCategory: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.paymentMethod) && state.paymentMethodIds.isNotEmpty) {
+    if (enabledFilters.contains(FilterType.paymentMethod) &&
+        state.paymentMethodIds.isNotEmpty) {
       final label = buildPaymentMethodDisplayLabel(
         state.paymentMethodIds,
         fallbackName: state.paymentMethodName,
       );
       chips.add(_ChipData(
         label: '결제수단: $label',
-        onRemove: () => onFilterChanged(state.copyWith(clearPaymentMethod: true)),
+        onRemove: () =>
+            onFilterChanged(state.copyWith(clearPaymentMethod: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.pocket) && state.pocketIds.isNotEmpty) {
+    if (enabledFilters.contains(FilterType.pocket) &&
+        state.pocketIds.isNotEmpty) {
       final label = buildPocketDisplayLabel(state.pocketIds);
       chips.add(_ChipData(
         label: '포켓: $label',
         onRemove: () => onFilterChanged(state.copyWith(clearPocket: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.amountRange) && (state.amountMin != null || state.amountMax != null)) {
+    if (enabledFilters.contains(FilterType.amountRange) &&
+        (state.amountMin != null || state.amountMax != null)) {
       chips.add(_ChipData(
         label: '금액: ${state.amountMin ?? 0}~${state.amountMax ?? "\u221E"}원',
         onRemove: () => onFilterChanged(state.copyWith(clearAmount: true)),
@@ -117,11 +134,11 @@ class UnifiedFilterBar extends StatelessWidget {
         onRemove: () => onFilterChanged(state.copyWith(clearDateRange: true)),
       ));
     }
-    if (enabledFilters.contains(FilterType.needsReview) && state.needsReviewOnly) {
+    if (enabledFilters.contains(FilterType.needsReview) &&
+        state.needsReviewOnly) {
       chips.add(_ChipData(
         label: '확인 필요만',
-        onRemove: () =>
-            onFilterChanged(state.copyWith(clearNeedsReview: true)),
+        onRemove: () => onFilterChanged(state.copyWith(clearNeedsReview: true)),
       ));
     }
     return chips;
@@ -133,7 +150,8 @@ class UnifiedFilterBar extends StatelessWidget {
       // trailing 만 있는 경우(필터 disabled) 도 trailing 은 노출.
       if (trailing == null) return const SizedBox.shrink();
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding:
+            context.bbSpace.symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.xs),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [trailing!],
@@ -144,12 +162,14 @@ class UnifiedFilterBar extends StatelessWidget {
     final chips = _allChips;
     const maxVisible = 3;
     final visibleChips = chips.take(maxVisible).toList();
-    final overflowCount = chips.length > maxVisible ? chips.length - maxVisible : 0;
+    final overflowCount =
+        chips.length > maxVisible ? chips.length - maxVisible : 0;
 
     // chip 영역을 Expanded(SingleChildScrollView) 로 감싸 trailing 위치 고정.
     // (chip 길이에 따라 trailing toggle 이 좌우로 이동하던 버그 fix)
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding:
+          context.bbSpace.symmetric(h: BbSpaceToken.lg, v: BbSpaceToken.xs),
       child: Row(
         children: [
           Badge(
@@ -167,7 +187,7 @@ class UnifiedFilterBar extends StatelessWidget {
               child: Row(
                 children: [
                   ...visibleChips.map((chip) => Padding(
-                        padding: const EdgeInsets.only(left: 4),
+                        padding: context.bbSpace.only(left: BbSpaceToken.xs),
                         child: _ActiveFilterChip(
                           label: chip.label,
                           onRemove: chip.onRemove,
@@ -175,12 +195,11 @@ class UnifiedFilterBar extends StatelessWidget {
                       )),
                   if (overflowCount > 0)
                     Padding(
-                      padding: const EdgeInsets.only(left: 4),
+                      padding: context.bbSpace.only(left: BbSpaceToken.xs),
                       child: Chip(
                         label: Text('+$overflowCount',
-                            style: const TextStyle(fontSize: 12)),
+                            style: TextStyle(fontSize: context.bbType.label)),
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                       ),
                     ),
@@ -189,7 +208,7 @@ class UnifiedFilterBar extends StatelessWidget {
             ),
           ),
           if (trailing != null) ...[
-            const SizedBox(width: 4),
+            context.bbSpace.gapH(BbSpaceToken.xs),
             trailing!,
           ],
         ],
@@ -245,7 +264,7 @@ class UnifiedFilterBar extends StatelessWidget {
                 ),
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    padding: context.bbSpace.only(left: BbSpaceToken.xxl, top: BbSpaceToken.xxl, right: BbSpaceToken.xxl, bottom: BbSpaceToken.xxl),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -259,11 +278,12 @@ class UnifiedFilterBar extends StatelessWidget {
                                   .colorScheme
                                   .onSurface
                                   .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius:
+                                  context.bbSpace.radius(BbSpaceToken.xs),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        context.bbSpace.gapV(BbSpaceToken.xl),
                         Text(
                           '필터',
                           style: Theme.of(context)
@@ -271,13 +291,13 @@ class UnifiedFilterBar extends StatelessWidget {
                               .titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 24),
+                        context.bbSpace.gapV(BbSpaceToken.xxl),
                         // Transaction type selector (multi-select)
                         if (enabledFilters
                             .contains(FilterType.transactionType)) ...[
                           Text('거래 유형 (중복 선택 가능)',
                               style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.md),
                           SelectableChipGroup<String>.multi(
                             items: const [
                               ChipItem(value: 'EXPENSE', label: '지출'),
@@ -294,14 +314,13 @@ class UnifiedFilterBar extends StatelessWidget {
                             },
                             direction: ChipGroupDirection.wrap,
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Visibility selector (single-select with "전체" chip)
-                        if (enabledFilters
-                            .contains(FilterType.visibility)) ...[
+                        if (enabledFilters.contains(FilterType.visibility)) ...[
                           Text('공개 범위',
                               style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.md),
                           SelectableChipGroup<String>.single(
                             items: const [
                               ChipItem(value: 'SHARED', label: '공유'),
@@ -316,14 +335,13 @@ class UnifiedFilterBar extends StatelessWidget {
                             },
                             direction: ChipGroupDirection.wrap,
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Date range
-                        if (enabledFilters
-                            .contains(FilterType.dateRange)) ...[
+                        if (enabledFilters.contains(FilterType.dateRange)) ...[
                           Text('기간',
                               style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.md),
                           Row(
                             children: [
                               Expanded(
@@ -331,12 +349,12 @@ class UnifiedFilterBar extends StatelessWidget {
                                   tempHasDateRange
                                       ? (tempDateRangeLabel ?? '기간 설정됨')
                                       : '전체 기간',
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               ),
                               TextButton.icon(
-                                icon: const Icon(Icons.date_range, size: 18),
+                                icon: Icon(Icons.date_range,
+                                    size: context.bbType.iconSm),
                                 label: const Text('기간 변경'),
                                 onPressed: () {
                                   // 기간 프리셋 시트를 외부 필터 시트 위에 쌓기만 하고,
@@ -367,9 +385,8 @@ class UnifiedFilterBar extends StatelessWidget {
                                 IconButton(
                                   icon: Icon(
                                     Icons.clear,
-                                    size: 18,
-                                    color:
-                                        Theme.of(context).colorScheme.error,
+                                    size: context.bbType.iconSm,
+                                    color: Theme.of(context).colorScheme.error,
                                   ),
                                   onPressed: () {
                                     setSheetState(() {
@@ -377,11 +394,10 @@ class UnifiedFilterBar extends StatelessWidget {
                                     });
                                   },
                                   tooltip: '기간 초기화',
-                                  visualDensity: VisualDensity.compact,
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Amount range
                         if (enabledFilters
@@ -390,7 +406,7 @@ class UnifiedFilterBar extends StatelessWidget {
                             minController: amountMinController,
                             maxController: amountMaxController,
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Category selector (multi + group)
                         if (enabledFilters.contains(FilterType.category)) ...[
@@ -409,7 +425,7 @@ class UnifiedFilterBar extends StatelessWidget {
                               });
                             },
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Payment method multi-selector
                         if (enabledFilters
@@ -418,10 +434,10 @@ class UnifiedFilterBar extends StatelessWidget {
                             selectedIds: tempPaymentMethodIds,
                             displayLabel: buildPaymentMethodDisplayLabel(
                                 tempPaymentMethodIds),
-                            onChanged: (ids) => setSheetState(
-                                () => tempPaymentMethodIds = ids),
+                            onChanged: (ids) =>
+                                setSheetState(() => tempPaymentMethodIds = ids),
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // Pocket multi-selector
                         if (enabledFilters.contains(FilterType.pocket)) ...[
@@ -432,7 +448,7 @@ class UnifiedFilterBar extends StatelessWidget {
                             onChanged: (ids) =>
                                 setSheetState(() => tempPocketIds = ids),
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                         ],
                         // V61 (2026-05-06) — 확인/입력 필요만 보기 토글
                         if (enabledFilters
@@ -440,17 +456,17 @@ class UnifiedFilterBar extends StatelessWidget {
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('확인/입력 필요만 보기'),
-                            subtitle: const Text(
+                            subtitle: Text(
                               '느낌표 표시한 거래만 표시합니다',
-                              style: TextStyle(fontSize: 12),
+                              style: TextStyle(fontSize: context.bbType.label),
                             ),
                             value: tempNeedsReviewOnly,
                             onChanged: (v) =>
                                 setSheetState(() => tempNeedsReviewOnly = v),
                           ),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.md),
                         ],
-                        const SizedBox(height: 8),
+                        context.bbSpace.gapV(BbSpaceToken.md),
                         Row(
                           children: [
                             Expanded(
@@ -471,7 +487,7 @@ class UnifiedFilterBar extends StatelessWidget {
                                 child: const Text('초기화'),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            context.bbSpace.gapH(BbSpaceToken.lg),
                             Expanded(
                               child: FilledButton(
                                 onPressed: () {
@@ -481,11 +497,9 @@ class UnifiedFilterBar extends StatelessWidget {
                                       amountMaxController.text.trim();
                                   Navigator.of(ctx).pop();
                                   onFilterChanged(UnifiedFilterState(
-                                    dateFrom: tempDateCleared
-                                        ? null
-                                        : tempDateFrom,
-                                    dateTo:
-                                        tempDateCleared ? null : tempDateTo,
+                                    dateFrom:
+                                        tempDateCleared ? null : tempDateFrom,
+                                    dateTo: tempDateCleared ? null : tempDateTo,
                                     dateRangeLabel: tempDateCleared
                                         ? null
                                         : tempDateRangeLabel,
@@ -585,9 +599,8 @@ String buildCategoryDisplayLabel(
     if (firstName == null) return '선택됨';
     return fromGroup ? '$firstName 그룹 전체' : firstName;
   }
-  final base = firstName != null
-      ? (fromGroup ? '$firstName 그룹' : firstName)
-      : '선택됨';
+  final base =
+      firstName != null ? (fromGroup ? '$firstName 그룹' : firstName) : '선택됨';
   return '$base 외 ${total - 1}개';
 }
 
@@ -600,8 +613,9 @@ String buildPaymentMethodDisplayLabel(
   String? firstName;
   final pmState = _safeBlocState<PaymentMethodBloc>();
   if (pmState is PaymentMethodLoaded) {
-    final first =
-        pmState.activePaymentMethods.where((pm) => pm.id == ids.first).firstOrNull;
+    final first = pmState.activePaymentMethods
+        .where((pm) => pm.id == ids.first)
+        .firstOrNull;
     firstName = first?.name;
   }
   firstName ??= fallbackName;
@@ -617,7 +631,9 @@ String buildPocketDisplayLabel(Set<String> ids) {
     final first =
         pState.activePockets.where((p) => p.id == ids.first).firstOrNull;
     if (first != null) {
-      return ids.length == 1 ? first.name : '${first.name} 외 ${ids.length - 1}개';
+      return ids.length == 1
+          ? first.name
+          : '${first.name} 외 ${ids.length - 1}개';
     }
   }
   return ids.length == 1 ? '선택됨' : '${ids.length}개';
@@ -649,12 +665,13 @@ class _ActiveFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputChip(
-      label: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+      label: Text(label,
+          style: TextStyle(fontSize: context.bbType.label),
+          overflow: TextOverflow.ellipsis),
       onDeleted: onRemove,
-      deleteIcon: const Icon(Icons.close, size: 14),
+      deleteIcon: Icon(Icons.close, size: context.bbType.iconSm),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: context.bbSpace.symmetric(h: BbSpaceToken.xs),
     );
   }
 }

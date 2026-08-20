@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/pocket/domain/entities/money_pocket.dart';
 
 class PocketTransferFormSheet extends StatefulWidget {
@@ -180,15 +181,15 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                     labelText: '날짜',
                     prefixIcon: Icon(Icons.calendar_today),
                   ),
-                  child: Text(
-                      DateFormat('yyyy-MM-dd').format(_selectedDate)),
+                  child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
                 ),
               ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: context.bbSpace
+                      .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
                 ),
                 child: _isSubmitting
                     ? const SizedBox(

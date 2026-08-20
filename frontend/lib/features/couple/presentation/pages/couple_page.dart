@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_wide_button.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
@@ -89,10 +91,9 @@ class _CouplePageState extends State<CouplePage> {
                 _buildInvitationPending(context, inv),
               CoupleInvitationExpired(invitation: final inv) =>
                 _buildInvitationExpired(context, inv),
-              CoupleLinked(couple: final couple) =>
-                couple.isCouple
-                    ? _buildLinked(context, couple)
-                    : _buildSelfCouple(context),
+              CoupleLinked(couple: final couple) => couple.isCouple
+                  ? _buildLinked(context, couple)
+                  : _buildSelfCouple(context),
               CoupleError() => _buildNotLinked(context),
             };
           },
@@ -135,15 +136,12 @@ class _CouplePageState extends State<CouplePage> {
           ),
           const SizedBox(height: 40),
           // Generate invitation
-          FilledButton.icon(
+          BbWideButton(
+            label: '파트너 초대하기',
+            icon: Icons.add_link,
             onPressed: () {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
-            icon: const Icon(Icons.add_link),
-            label: const Text('파트너 초대하기'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
           const SizedBox(height: 32),
           const Divider(),
@@ -174,7 +172,8 @@ class _CouplePageState extends State<CouplePage> {
               }
             },
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
             child: const Text('코드로 연결'),
           ),
@@ -224,15 +223,12 @@ class _CouplePageState extends State<CouplePage> {
           ),
           const SizedBox(height: 40),
           // Generate invitation
-          FilledButton.icon(
+          BbWideButton(
+            label: '초대 코드 생성',
+            icon: Icons.add_link,
             onPressed: () {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
-            icon: const Icon(Icons.add_link),
-            label: const Text('초대 코드 생성'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
           const SizedBox(height: 32),
           const Divider(),
@@ -263,7 +259,8 @@ class _CouplePageState extends State<CouplePage> {
               }
             },
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
             child: const Text('코드로 연결'),
           ),
@@ -272,8 +269,7 @@ class _CouplePageState extends State<CouplePage> {
     );
   }
 
-  Widget _buildInvitationPending(
-      BuildContext context, dynamic invitation) {
+  Widget _buildInvitationPending(BuildContext context, dynamic invitation) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -293,15 +289,12 @@ class _CouplePageState extends State<CouplePage> {
                 ),
           ),
           const SizedBox(height: 32),
-          FilledButton.icon(
+          BbWideButton(
+            label: '연결 상태 확인',
+            icon: Icons.refresh,
             onPressed: () {
               context.read<CoupleBloc>().add(const CheckInvitationStatus());
             },
-            icon: const Icon(Icons.refresh),
-            label: const Text('연결 상태 확인'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
           const SizedBox(height: 12),
           TextButton(
@@ -325,10 +318,7 @@ class _CouplePageState extends State<CouplePage> {
           Icon(
             Icons.timer_off,
             size: 80,
-            color: Theme.of(context)
-                .colorScheme
-                .error
-                .withValues(alpha: 0.7),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7),
           ),
           const SizedBox(height: 24),
           Text(
@@ -342,8 +332,7 @@ class _CouplePageState extends State<CouplePage> {
           // Show expired code (dimmed, strikethrough)
           Center(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .colorScheme
@@ -366,15 +355,12 @@ class _CouplePageState extends State<CouplePage> {
             ),
           ),
           const SizedBox(height: 32),
-          FilledButton.icon(
+          BbWideButton(
+            label: '새 코드 발급',
+            icon: Icons.add_link,
             onPressed: () {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
-            icon: const Icon(Icons.add_link),
-            label: const Text('새 코드 발급'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
           const SizedBox(height: 32),
           const Divider(),
@@ -405,7 +391,8 @@ class _CouplePageState extends State<CouplePage> {
               }
             },
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: context.bbSpace
+                  .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
             child: const Text('코드로 연결'),
           ),
@@ -437,17 +424,14 @@ class _CouplePageState extends State<CouplePage> {
           CoupleInfoWidget(partner: couple.partner),
           const SizedBox(height: 32),
           // Navigate to home
-          FilledButton.icon(
+          BbWideButton(
+            label: '홈으로 이동',
+            icon: Icons.home,
             onPressed: () {
               // Ensure auth state is fresh, then navigate
               context.read<AuthBloc>().add(const AuthRefreshUser());
               context.go('/home');
             },
-            icon: const Icon(Icons.home),
-            label: const Text('홈으로 이동'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(

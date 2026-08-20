@@ -96,8 +96,7 @@ class _WeeklySettlementPageState extends State<WeeklySettlementPage> {
           // MonthNavigator는 MonthCubit.state 자동 watch
           MonthNavigator(onMonthChanged: _onMonthChanged),
           Expanded(
-            child:
-                BlocBuilder<WeeklySettlementBloc, WeeklySettlementState>(
+            child: BlocBuilder<WeeklySettlementBloc, WeeklySettlementState>(
               builder: (context, state) {
                 return switch (state) {
                   SettlementInitial() ||
@@ -105,12 +104,12 @@ class _WeeklySettlementPageState extends State<WeeklySettlementPage> {
                     const Center(child: CircularProgressIndicator()),
                   SettlementLoaded(overview: final overview) =>
                     _buildContent(context, overview),
-                  SettlementError(message: final message) =>
-                    AppErrorWidget(
+                  SettlementError(message: final message) => AppErrorWidget(
                       message: message,
                       onRetry: () {
-                        context.read<WeeklySettlementBloc>().add(
-                            LoadSettlements(year: _year, month: _month));
+                        context
+                            .read<WeeklySettlementBloc>()
+                            .add(LoadSettlements(year: _year, month: _month));
                       },
                       showHomeButton: true,
                     ),
@@ -276,8 +275,7 @@ class _WeekSettlementCardState extends State<_WeekSettlementCard> {
           if (_isExpanded) ...[
             const Divider(height: 1),
             ...week.items.map((item) {
-              final isSelected =
-                  widget.selectedIds.contains(item.budgetId);
+              final isSelected = widget.selectedIds.contains(item.budgetId);
               return _SettlementItemTile(
                 item: item,
                 isSelected: isSelected,
@@ -295,8 +293,7 @@ class _WeekSettlementCardState extends State<_WeekSettlementCard> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            widget.onSelectAllPending(week),
+                        onPressed: () => widget.onSelectAllPending(week),
                         child: const Text('전체 선택'),
                       ),
                     ),
@@ -355,7 +352,6 @@ class _SettlementItemTile extends StatelessWidget {
                   value: isSelected,
                   onChanged: (_) => onToggle(),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
                 ),
               ),
             const SizedBox(width: 12),
@@ -364,7 +360,8 @@ class _SettlementItemTile extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: parseHexColor(item.categoryColor).withValues(alpha: 0.15),
+                color:
+                    parseHexColor(item.categoryColor).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -383,19 +380,17 @@ class _SettlementItemTile extends StatelessWidget {
                     item.displayName,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: isSettled
-                          ? theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5)
+                          ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
                           : null,
-                      decoration:
-                          isSettled ? TextDecoration.lineThrough : null,
+                      decoration: isSettled ? TextDecoration.lineThrough : null,
                     ),
                   ),
                   if (isSettled && item.settledAt != null)
                     Text(
                       '정산일: ${item.settledAt}',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.4),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                     ),
                 ],
@@ -418,7 +413,6 @@ class _SettlementItemTile extends StatelessWidget {
                 icon: const Icon(Icons.undo, size: 18),
                 onPressed: onUnsettle,
                 tooltip: '정산 취소',
-                visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
                   minWidth: 32,

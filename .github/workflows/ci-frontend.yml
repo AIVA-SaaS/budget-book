@@ -47,6 +47,16 @@ jobs:
         if: steps.filter.outputs.frontend == 'true'
         run: flutter analyze --no-fatal-infos --no-congratulate
 
+      # ★크기·일관성 래칫. 직전 회차(2026-08-19)에 도구는 만들었지만 CI 배선이
+      # 빠져 있었다 — 강제는 문서가 아니라 게이트여야 한다(2026-08-20 발견).
+      - name: UI size literal ratchet
+        if: steps.filter.outputs.frontend == 'true'
+        run: python3 tool/check_ui_scaling.py
+
+      - name: UI consistency ratchet
+        if: steps.filter.outputs.frontend == 'true'
+        run: python3 tool/audit_ui_consistency.py
+
       - name: Test
         if: steps.filter.outputs.frontend == 'true'
         run: |

@@ -301,7 +301,6 @@ class _ReconciliationViewState extends State<ReconciliationView> {
         child: Checkbox(
           tristate: true,
           value: value,
-          visualDensity: VisualDensity.compact,
           onChanged: (_) => _setSelection(dayItems, value != true),
         ),
       ),
@@ -309,8 +308,10 @@ class _ReconciliationViewState extends State<ReconciliationView> {
         Text(
           '${dayItems.length}건',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color:
-                    Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
         ),
       ],
@@ -350,7 +351,8 @@ class _ReconciliationViewState extends State<ReconciliationView> {
   Widget _buildActionBar(BuildContext context, ReconciliationLoaded state) {
     final unrecordedCount =
         state.unrecordedTransactions.length + state.unrecordedTransfers.length;
-    final canSelectAll = unrecordedCount > 0 && _selectedCount < unrecordedCount;
+    final canSelectAll =
+        unrecordedCount > 0 && _selectedCount < unrecordedCount;
 
     return Material(
       elevation: 8,
@@ -370,7 +372,8 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                                 state.unrecordedTransactions.map((t) => t.id));
                           _selectedTransferIds
                             ..clear()
-                            ..addAll(state.unrecordedTransfers.map((t) => t.id));
+                            ..addAll(
+                                state.unrecordedTransfers.map((t) => t.id));
                         } else {
                           _clearSelection();
                         }
@@ -432,8 +435,8 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                   Expanded(
                     child: Text(
                       '"확인/입력 필요" $needsReviewCount건이 포함됩니다',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.amber.shade900),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.amber.shade900),
                     ),
                   ),
                 ],
@@ -465,8 +468,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
     );
 
     if (confirmed != true) return;
-    final ym =
-        '${widget.year}-${widget.month.toString().padLeft(2, '0')}';
+    final ym = '${widget.year}-${widget.month.toString().padLeft(2, '0')}';
     bloc.add(CreateReconciliation(
       yearMonth: ym,
       label: controller.text.trim().isEmpty ? null : controller.text.trim(),
@@ -501,7 +503,8 @@ class _ReconciliationViewState extends State<ReconciliationView> {
       ),
     );
     if (confirmed != true) return;
-    bloc.add(RenameReconciliation(id: snapshot.id, label: controller.text.trim()));
+    bloc.add(
+        RenameReconciliation(id: snapshot.id, label: controller.text.trim()));
   }
 
   /// 스냅샷 항목 일부만 정산 취소 (다중 선택). 남은 항목이 없으면 BE 가 스냅샷 자체를 지운다.
@@ -613,8 +616,8 @@ class _UnrecordedHeader extends StatelessWidget {
                       size: 14, color: Colors.amber.shade800),
                   Text(
                     '${summary.needsReviewCount}',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.amber.shade900),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.amber.shade900),
                   ),
                 ],
               ),
@@ -647,8 +650,10 @@ class _FullyReconciledBanner extends StatelessWidget {
           Text(
             '미기록 항목이 없습니다',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.6),
                 ),
           ),
         ],
@@ -717,7 +722,8 @@ class _SnapshotTileState extends State<_SnapshotTile> {
     final snapshot = widget.snapshot;
     final items = widget.items;
     final theme = Theme.of(context);
-    final when = DateFormat('M/d HH:mm').format(snapshot.reconciledAt.toLocal());
+    final when =
+        DateFormat('M/d HH:mm').format(snapshot.reconciledAt.toLocal());
     final subtitle = [
       when,
       snapshot.reconciledBy.nickname,
@@ -874,7 +880,6 @@ class _SnapshotItemRow extends StatelessWidget {
         children: [
           Checkbox(
             value: selected,
-            visualDensity: VisualDensity.compact,
             onChanged: (v) => onSelectedChanged(v == true),
           ),
           Icon(
@@ -903,7 +908,8 @@ class _SnapshotItemRow extends StatelessWidget {
             )
           else if (item.changedAfterReconcile)
             Tooltip(
-              message: '정산 당시 ${CurrencyFormatter.format(item.snapshotAmount)}원 → '
+              message:
+                  '정산 당시 ${CurrencyFormatter.format(item.snapshotAmount)}원 → '
                   '현재 ${CurrencyFormatter.format(item.currentAmount ?? 0)}원',
               child: Icon(Icons.error_outline,
                   size: 14, color: Colors.orange.shade900),
