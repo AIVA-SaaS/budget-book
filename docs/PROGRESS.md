@@ -9,27 +9,30 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: **여백·간격 체계 회차 — 배포 완료. 사용자 라이브 검증만 남음** (2026-08-20)
-  PR **#301** 머지 · `main`=`6159efa` · deploy run `32325049876` success
-  기획서 `docs/sessions/2026-08-20_1_spacing-absorption_plan.md`(승인 완료, §9 = UI 검수 확장)
-- **이번 회차가 한 것**: ①`BbDensity` **삭제** = 경쟁 경로 0개 ②여백이 폭에 반응(7% → 60%)
-  ③테마 여백 전역 통로 신설 ④가시 표면 7파일 이관 ⑤**UI 불일치 전수 검수**(사용자 지시)
-- **핵심 결정**: 여백은 폰트의 **클램프된 출력에 결합하지 않는다**. 자기 폭 곡선(지수 **0.5**,
-  타이포는 0.25) + 자기 px clamp, `sqrt(textScaler)` 는 **clamp 밖**.
-  근거: 승인된 자산 탭 스팬이 여백 1.60배 / 폰트 1.15배 — 폭지수 0.125 로는 도달 불가
-- **`ref` 는 이제 손으로 적지 않는다** — `(min, max)` + 포화 폭(960)에서 유도. 반올림 오차 제거
-- ⚠ **타이포·여백 기준점 = 자산 탭**. 승인값 표는 **테스트가 소유**(`responsive_sweep_test.dart`
-  상단 `anchors`) — 코드에서 읽으면 순환 검증
-- **가드**: 스윕 **37건**(기준점 정합·불연속 0·단조·배율 결합·터치 44·크롬 70%) +
-  `no_step_ladder_guard_test.dart` **4종**(BbDensity 부재·폭 분기 금지·국소 밀도 0·전폭 Button.icon 0)
-  + 타일 8종 + 리터럴 ratchet(**1481**, 시범 잔존 0 = **11파일**) + **UI 일관성 래칫 신설**
-- **CI 배선 추가**: `ci-frontend.yml` 에 리터럴·일관성 래칫 2단계.
-  ⚠ 직전 회차는 도구만 있고 CI 에 없었다 — **강제는 문서가 아니라 게이트**
-- **로컬 CI 5종 전부 통과**: analyze 0 · `flutter test` **1065** · `./gradlew test` ·
-  `build web --release` · 래칫 2종
-- **배포 판정**: 산출물 신선도로 확인 — `main.dart.js` `last-modified 02:35:35Z` ·
-  `content-length 5515085` · 번들에 `1\uc77c \uc804`(1일 전)·`BbSpaceToken` 존재
-- **blocker**: 없음 · **갱신**: 2026-08-20
+- **단계**: 여백·간격 회차 **배포 완료 → 라이브 검증에서 불일치 1건 발견**(2026-08-21).
+  PR #301 머지 · `main`=`138ae47` · 회차 **미종결**
+- **사용자 판정**: "분석의 자산현황 항목 간 위아래 여백과 자산 탭 위아래 여백이 다르다.
+  기준을 자산 탭으로 맞추고, 자산도 위아래 값들을 조금 더 가깝게 해서 전체 설정을 맞춰라"
+- **첫 행동**: §3 NEXT 의 **착수 실측(재조사 불필요)** 을 읽고 **기획부터**.
+  범위가 1파일 + 토큰 1~2개라 소규모지만 §1.13 검증은 생략 금지
+- **원인 후보 1순위** `[측정 2026-08-21]`: `EntityTileRow` 호스트 5개 중
+  **`account_balance_card.dart` 만 리터럴 11건**(나머지 4개는 0).
+  타일은 토큰, 호스트는 고정 px → 같은 타일이 화면마다 다른 리듬으로 보인다
+- **규칙 정본**: `~/.claude/domains/12-ui-scaling.md` (★4 는 2026-08-20 개정판 —
+  여백은 폰트의 클램프된 출력에 결합하지 않는다 · 폭지수 공간 0.5 / 타이포 0.25 ·
+  `sqrt(textScaler)` 는 clamp 밖 · `ref` 는 `(min,max)`+포화폭에서 유도)
+- **기반(새로 만들지 말 것)**: `bb_scale.dart`(`BbType`·`BbSpace`·`BbBox`·`bbSaturating`) ·
+  `app_theme.responsive()`(타이포 15슬롯 + 여백 9슬롯 + 연속 밀도) · `EntityTileRow` ·
+  `BbWideButton` · `bb_tab.dart` · `BbColors`
+- **가드**: 스윕 **37건** · `no_step_ladder_guard_test.dart` **4종** · 타일 8종 ·
+  리터럴 ratchet(**1481**, 시범 잔존 0 = 11파일) · UI 일관성 래칫(A0/C0/D0/G0, B32·E87·F474 동결)
+  — 래칫 2종은 이제 **`ci-frontend.yml` 에 배선돼 있다**
+- ⚠ 승인값(자산 탭) 표는 **테스트가 소유**(`responsive_sweep_test.dart` 상단 `anchors`).
+  세로 리듬을 바꾸면 이 표와 G2 정합 가드를 **의도적으로 갱신**할 것
+- ⚠ CI Flutter 최신(로컬 3.41.2 vs CI 3.47.0) · 배포 판정은 **산출물 신선도**
+- **CI 게이트(6)**: analyze 신규 0 / `flutter test` **1065** / `./gradlew test` /
+  `build web --release` / `check_ui_scaling.py` / `audit_ui_consistency.py`
+- **blocker**: 없음 · **갱신**: 2026-08-21
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -1095,31 +1098,96 @@
      ⚠ 로컬 빌드(5454417B)와 크기가 다른 것은 CI Flutter 가 최신(3.47 vs 로컬 3.41)이기 때문.
    - **완료 아님** — §3 의 라이브 검증 6항목 통과가 완료 기준
 
+63. **2026-08-21** — 라이브 검증 결과: **부분 통과**. 세로 여백 불일치 1건으로 회차 미종결.
+   - 사용자 판정 원문: "분석에서 자산현황 내 항목 간 위아래 여백과 자산 탭 내 위아래 여백이
+     다른데? 기준을 자산 탭으로 맞추고 자산도 조금 더 위아래 값들이 가까워질 수 있으면
+     가깝게 해서 전체 설정을 맞춰라"
+   - ±1일 버튼·전역 통로 등 다른 항목에 대한 반증 보고는 없었다(개별 확인은 미완).
+   - **착수 실측을 §3 NEXT 에 고정**(재조사 불필요). `/clear` 후 새 세션에서 기획부터.
+   - **이 세션에서는 착수하지 않는다**(회차 경계 — `feedback_round_boundary_clear`).
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-**커밋 → PR → 머지 → 배포 → 라이브 검증 요청** 순으로 진행 중(개인 계정 자동 진행 범위).
+**세로(위아래) 리듬 통일 — 기획부터. 승인 게이트는 기획 단계뿐.**
 
-### 배포 후 사용자 라이브 검증 항목
+### 요청 (사용자, 2026-08-21 — 원문)
 
-1. **±1일 버튼** — `거래 추가` 화면. 문구가 버튼 **정중앙**에 오고 아이콘이 좌/우 끝에 붙는지.
-2. **여백 체감** — 거래·분석·자산·더보기. 모바일이 답답하지 않은지, 웹이 허전하지 않은지.
-   ⚠ **320~390px 은 여백이 종전과 동일**하다(padH 10 / padV 8). 모바일이 답답하면
-   레버는 `kBbSpaceSpec` 의 `min` 하향 하나다.
-3. **폼·카드** — 입력 필드 내부 여백과 카드 모서리가 폭에 따라 달라지는지(전역 통로 확인).
-4. **자산 탭 회귀** — 타일 크기·색·정렬이 종전과 같은지. 다르면 원인은 페이지 크롬 리터럴
-   제거(의도된 변화)이지 토큰 곡선이 아니다(가드가 양 끝 정확 일치를 고정).
-5. **토글 열** — 웹 자산 타일의 스위치 열이 4dp 좁아졌다(56→52).
-6. **320px 편집 모드** — 액션 슬롯이 40→44 로 커져 이름 칸이 8dp 줄었다. 이름이 과하게
-   잘리면 `kBbBoxSpec[actionSlot].min` 을 40 으로.
+> 분석에서 자산현황 내 항목 간 위아래 여백과 자산 탭 내 위아래 여백이 다른데?
+> 기준을 자산 탭으로 맞추고 자산도 조금 더 위아래 값들이 가까워질 수 있으면 가깝게 해서
+> 전체 설정을 맞춰라
 
-### 이 회차에서 **의도적으로 남긴** 것 (래칫으로 동결)
+**범위 2건**: ①**분석의 자산현황을 자산 탭 기준에 맞춘다**(불일치 제거)
+②**자산 탭 자체의 세로 리듬을 한 단계 촘촘하게** 한 뒤 그것을 **전체 기준**으로 전파
 
-- B 좌우 비대칭 여백 **32건** — 다수가 정당한 보정(들여쓰기·아바타 정렬)이라 일괄 대칭화 금지
-- E `ListTile` 계열 **87건/39파일** — `reference_framework_owned_affordance` 성질.
-  별도 회차에서 `EntityTileRow` 로 교체
-- F 하드코딩 색 **474건** — 대기열 5번
-- 리터럴 **1481건** — 회차마다 ratchet 으로 하향
+### 착수 실측 — 재조사 불필요 `[측정 2026-08-21]`
+
+**원인은 단일 파일이다.** `EntityTileRow` 를 쓰는 호스트 5개의 리터럴 잔존:
+
+```
+11  lib/core/widgets/account_balance_card.dart      ← 분석>예산 "자산 현황" 카드
+ 0  lib/features/settings/presentation/pages/asset_management_page.dart
+ 0  lib/features/category/presentation/widgets/category_list_tile.dart
+ 0  lib/core/widgets/entity_tile_row.dart
+ 0  lib/core/widgets/one_line_label.dart
+```
+
+`account_balance_card.dart` 는 직전 회차 시범 범위에서 **빠져 있었다**. 타일 본체는
+토큰으로 그려지는데 그 호스트가 고정 px 라 같은 타일이 화면마다 다른 리듬으로 보인다.
+잔존 위치(11건):
+
+```
+ 51  SizedBox(height: 8)              75  Padding(EdgeInsets.all(16))
+ 54  EdgeInsets.only(bottom: 8)       78  EdgeInsets.fromLTRB(12, 16, 12, 8)
+101  margin EdgeInsets.only(bottom:8) 102 EdgeInsets.all(12)
+114  SizedBox(width: 6)              118  SizedBox(height: 6)
+```
+
+**두 화면의 세로 리듬 대조**(390px 기준) `[추론: 토큰값 계산]`:
+
+```
+                         타일 내부 상하   항목 간      인접 제목 간 합
+자산 탭                  lg = 8.0        md = 6.37    ≈ 22.4
+분석>자산현황            12 (고정)       8  (고정)    ≈ 32
+```
+
+- 자산 탭 세로 리듬 정본: `EntityTileRow` 내부 `padV = lg(8~12)` ·
+  타일 간 `margin bottom = md(6~10)`(`asset_management_page.dart:1428`)
+- 분석 쪽이 **약 10dp 더 벌어져 있다** — 사용자가 본 그대로다
+
+### 착수 유의
+
+- **①은 기계적**이다: `account_balance_card.dart` 를 토큰으로 이관 + `PILOT_FILES` 에 추가
+  (잔존 0 강제). 값 매핑은 직전 회차와 같은 표(4→xs·6→sm·8→md·12→lg·16→xl·24→xxl).
+  ⚠ 단 **호스트의 `all(16)`/`all(12)` 를 그대로 xl/lg 로 옮기면 리듬 차이가 남는다** —
+  ①의 완료 기준은 "토큰을 썼다"가 아니라 **"자산 탭과 같은 토큰을 썼다"** 다.
+- **②는 승인값 변경**이다. 후보: ⓐ`EntityTileRow` 의 `padV` 를 `lg`→`md`
+  ⓑ타일 간 margin `md`→`sm` ⓒ`kBbSpaceSpec` 의 세로 계열 하한 하향(`lg` 8→7 / `md` 6→5).
+  ⓐ·ⓑ는 자산 탭만, ⓒ는 전 화면. **"전체 설정을 맞춰라"는 ⓒ 쪽 요청으로 읽힌다** — 기획에서 판정.
+- ⚠ **가드 갱신 필수**: 세로 리듬을 바꾸면 `responsive_sweep_test.dart` 상단 `anchors`
+  (`tilePaddingV` 8/12 · `gap` 6/10)와 G2 정합 테스트가 깨진다. **의도적으로 갱신**하고
+  새 승인값을 그 표에 적어라(코드에서 읽으면 순환 검증).
+- **검수 도구 공백 2건** `[측정 2026-08-21]`: `check_ui_scaling.py` 의 패턴에
+  `indent:`/`endIndent:`/`Divider(height:` 가 없어 `asset_management_page.dart:742`
+  `Divider(height: 1, indent: 16, endIndent: 16)` 가 **세어지지 않는다**. 시범 파일이
+  "잔존 0" 인데도 고정 px 가 남아 있는 상태다 — 패턴 추가를 이 회차에 함께.
+- 라이브 검증 나머지 항목(±1일 버튼·폼/카드 여백·토글 열·320px 편집 모드)은 **반증 보고 없음**
+  = 개별 확인 미완. 다음 배포 때 함께 확인 요청할 것.
+
+### 그 다음 대기열 (착수 순서 아님)
+
+1. `ListTile` 계열 **87건/39파일** → `EntityTileRow` 교체 (`reference_framework_owned_affordance`)
+2. 좌우 비대칭 여백 32건 개별 판정 · 하드코딩 색 474건(래칫 하향)
+3. 차트 색 체계 통일(`BbColors.series`)
+4. 미기록 200건 초과 달의 추가 페이지 로드 UI (`reconciliation_view.dart:191`)
+5. 개인 자산(ASSET-PRIVATE) — `ledger_gating.dart` 한 곳
+6. 죽은 화면·고아 진입점 정리(`DashboardPage`·`PaymentMethodPage`·`CategoryPage`·`/transfers`)
+7. P4 월말 "미기록 N건" 인앱 알림(알림 인프라 선행) · Android 배포 · 카카오 비즈앱 전환
+
+### 회차 밖 트랙 — 사용자 확인만 필요
+
+- 정산 스냅샷 라이브 검증 A1~A10 / B1~B7 / C1~C5 — `docs/sessions/2026-07-27_1_result.md §4.1`
+- KI-006(지출계획 완료 시 거래 자동 등록) 배포 후 확인 — `docs/known-issues.md`
 <!-- /HNS:NEXT -->
 
 ### 그 다음 대기열 (착수 순서 아님 — 자동 주입 대상 아님)
