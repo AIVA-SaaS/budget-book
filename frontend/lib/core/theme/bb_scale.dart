@@ -231,8 +231,13 @@ enum BbSpaceToken { xs, sm, md, lg, xl, xxl }
 /// 계수 범위가 `0.964~1.035`(7%) 뿐이었다 — **폭 8배에 여백 0.57dp** = 사실상 상수.
 /// 원인은 아래 층(폰트)의 clamp 가 위 층(여백)을 묶는 **층 의존 부작용**이고, 폰트에서
 /// 한 번 겪은 것과 같은 구도였다(2회). 그래서 이제 **각 토큰이 자기 px clamp** 를 갖는다.
+///
+/// ★`xs` 는 **폭에 대해 상수(4.0)** 다. 원래 (3,4) 였는데 사용자 승인값 조정
+/// (항목 사이 18.0 → **20.0dp @390**, 2026-08-21)으로 하한이 상한과 같아졌다.
+/// 이 크기에서 "곡선"은 폭 8배에 **1dp** = 지각 불가능한 노이즈라 축을 없애는 편이 맞다.
+/// 항목 사이 계산: `사이 = 2 × padV + (아바타 − 텍스트줄)` = `2×4 + 12` = 20.0 @390.
 const Map<BbSpaceToken, ({double min, double max})> kBbSpaceSpec = {
-  BbSpaceToken.xs: (min: 3, max: 4),
+  BbSpaceToken.xs: (min: 4, max: 4),
   BbSpaceToken.sm: (min: 5, max: 8),
   BbSpaceToken.md: (min: 6, max: 10),
   BbSpaceToken.lg: (min: 8, max: 12),
@@ -400,6 +405,22 @@ enum BbBoxRole {
   /// 하단 네비 높이. ⚠ `NavigationBar` 는 `SizedBox` 하드 박스라 과하게 낮추면
   /// 오버플로한다 — 스윕이 배율 1.6 까지 검사한다.
   navBar,
+
+  /// **프레임워크 `ListTile` 의 세로 여백**(`ListTileThemeData.minVerticalPadding`).
+  ///
+  /// 왜 별도 역할인가 `[측정 2026-08-21]`: `ListTile` 은 높이를 **SDK 가 소유**한다
+  /// (M3 기본 1줄 56 · 2줄 72 + `visualDensity`). 그래서 우리 타일(`EntityTileRow`,
+  /// 사이 20.0dp)과 나란히 두면 **사이 34.8dp** 로 훨씬 헐렁했다.
+  /// `minTileHeight` 를 지정하면 SDK 기본 높이 경로가 꺼지고 높이가 내용 기반이 되며
+  /// **2줄 항목 사이 = 2 × 이 값**이 된다 — 그래서 목표 사이의 절반을 넣는다.
+  listRowPadV,
+
+  /// **프레임워크 `ListTile` 의 최소 높이**(`ListTileThemeData.minTileHeight`).
+  ///
+  /// **1줄 항목 사이 = 이 값 − 제목 줄 높이**(14 @390 · 16 @960) `[측정]`.
+  /// ⚠ 34dp 는 44dp 터치 하한을 밑돈다 — 사용자가 승인한 "항목 사이 20dp" 를 1줄
+  /// 항목에도 적용한 결과다. 되돌리려면 `min` 을 44 로 올린다(사이 30dp).
+  listRowMinHeight,
 }
 
 /// 자산 탭 승인값(compact = 하한 / wide = 상한). 상한은 960px 에서 찍힌다.
@@ -424,6 +445,10 @@ const Map<BbBoxRole, ({double min, double max})> kBbBoxSpec = {
   BbBoxRole.toggleSlot: (min: 52, max: 52),
   BbBoxRole.tab: (min: 44, max: 48),
   BbBoxRole.navBar: (min: 66, max: 80),
+  // 목록 행 = **모든 목록의 항목 사이를 20.0/25.0dp 로 맞추는 값** `[측정 2026-08-21]`.
+  // 사이(2줄) = 2 × listRowPadV · 사이(1줄) = listRowMinHeight − 제목줄(14/16).
+  BbBoxRole.listRowPadV: (min: 10, max: 12.5),
+  BbBoxRole.listRowMinHeight: (min: 34, max: 41),
 };
 
 /// 슬롯·크롬 치수. 계단(`width < 600 ? … : …`)을 대체한다 — 새 폭 분기는
@@ -450,6 +475,8 @@ class BbBox {
   double get toggleSlot => size(BbBoxRole.toggleSlot);
   double get tab => size(BbBoxRole.tab);
   double get navBar => size(BbBoxRole.navBar);
+  double get listRowPadV => size(BbBoxRole.listRowPadV);
+  double get listRowMinHeight => size(BbBoxRole.listRowMinHeight);
 
   @override
   bool operator ==(Object other) => other is BbBox && other.width == width;
