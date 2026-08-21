@@ -72,6 +72,8 @@ class _PeriodSummaryPageState extends State<PeriodSummaryPage> {
           title: const Text('기간별 기록'),
           bottom: const TabBar(
             isScrollable: true,
+            // M3 스크롤 탭의 기본값은 `startOffset`(왼쪽 52dp 죽은 여백)이다 `[측정]`.
+            tabAlignment: TabAlignment.center,
             tabs: [
               Tab(text: '카테고리별'),
               Tab(text: '예산별'),
@@ -123,8 +125,7 @@ class _PeriodSummaryPageState extends State<PeriodSummaryPage> {
                       children: [
                         PeriodCategoryTab(items: summary.byCategory),
                         PeriodBudgetTab(items: summary.byBudget),
-                        PeriodPaymentMethodTab(
-                            items: summary.byPaymentMethod),
+                        PeriodPaymentMethodTab(items: summary.byPaymentMethod),
                         PeriodDailyTab(items: summary.byDate),
                       ],
                     );
@@ -234,11 +235,10 @@ class _SummaryCard extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       '${CurrencyFormatter.format(amount)}원',
-                      style:
-                          Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
                     ),
                   ),
           ],

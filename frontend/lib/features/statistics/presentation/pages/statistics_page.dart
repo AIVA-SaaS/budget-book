@@ -56,7 +56,16 @@ class StatisticsPage extends StatelessWidget {
                   ),
                 ]
               : null,
-          bottom: TabBar(isScrollable: true, tabs: tabs),
+          // ★`tabAlignment` 를 반드시 적는다. M3 스크롤 탭의 기본값은 `startOffset`
+          // = 왼쪽 52dp 죽은 여백이고, #299 에서 탭이 아이콘+라벨 **가로** 배치로
+          // 넓어지자 오른쪽이 잘렸다 `[측정 2026-08-21]`: 첫 라벨 x=80.0 ·
+          // 마지막 라벨 끝 411.1 > 바 폭 390(360→51dp, 320→91dp 잘림).
+          // center 로 두면 첫 라벨 39.6 · 끝 370.5 · 여유 19.5 = 390 에 전부 들어간다.
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
+            tabs: tabs,
+          ),
         ),
         body: BlocBuilder<StatisticsBloc, StatisticsState>(
           builder: (context, state) {
@@ -72,12 +81,15 @@ class StatisticsPage extends StatelessWidget {
                   DateRangeIndicator(
                     label: state.dateRangeLabel ?? '',
                     onClear: () {
-                      context.read<StatisticsBloc>().add(const ClearDateRangeFilter());
+                      context
+                          .read<StatisticsBloc>()
+                          .add(const ClearDateRangeFilter());
                     },
                   ),
                 // Filter row: visibility (couple mode only) + date range button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Row(
                     children: [
                       if (isCoupleMode())
@@ -86,7 +98,8 @@ class StatisticsPage extends StatelessWidget {
                             segments: const [
                               ButtonSegment(value: 'ALL', label: Text('전체')),
                               ButtonSegment(value: 'SHARED', label: Text('공유')),
-                              ButtonSegment(value: 'PRIVATE', label: Text('개인')),
+                              ButtonSegment(
+                                  value: 'PRIVATE', label: Text('개인')),
                             ],
                             selected: {state.visibilityFilter},
                             onSelectionChanged: (value) {
@@ -116,14 +129,18 @@ class StatisticsPage extends StatelessWidget {
                               : null,
                           onApply: (label, from, to) {
                             final fmt = DateFormat('yyyy-MM-dd');
-                            context.read<StatisticsBloc>().add(SetDateRangeFilter(
+                            context
+                                .read<StatisticsBloc>()
+                                .add(SetDateRangeFilter(
                                   dateFrom: fmt.format(from),
                                   dateTo: fmt.format(to),
                                   label: label,
                                 ));
                           },
                           onClear: () {
-                            context.read<StatisticsBloc>().add(const ClearDateRangeFilter());
+                            context
+                                .read<StatisticsBloc>()
+                                .add(const ClearDateRangeFilter());
                           },
                         ),
                       ),
@@ -181,5 +198,4 @@ class StatisticsPage extends StatelessWidget {
       ),
     );
   }
-
 }

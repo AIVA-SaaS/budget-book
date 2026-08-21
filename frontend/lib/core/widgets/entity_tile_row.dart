@@ -302,10 +302,18 @@ class EntityTileRow extends StatelessWidget {
       },
     );
 
+    // ★세로는 `xs`, 가로는 `xl`. 사용자 승인값(2026-08-21, 2차) — 요청은 **"항목 1과 2
+    // 사이의 빈 공간"** 이었고 그 지표의 지배 변수는 **패딩(57%)** 이다 `[측정]`:
+    //   현재  텍스트 사이 28.0dp @390 = 패딩 16 + 아바타 오버행 12 / 41.0 @960
+    //   승인  텍스트 사이 **18.0dp @390**(−36%) · **25.0 @960**(−39%)
+    // 1차(2026-08-21 오전)는 `lg`→`md` 로 24.7dp(−12%)에 그쳐 체감이 없었고 되돌렸다(PR #305).
+    // ⚠ 행 높이는 38dp 로 44dp 터치 하한을 밑돈다 — 행이 화면 폭 전체를 쓰는 형태라
+    // 감수한 선택이다. 되돌리려면 이 한 줄을 `space.sm`(사이 22.2dp)으로 올린다.
+    // 가로(`xl`)·아바타(32/40)·폰트는 **건드리지 않는다**(1차 실패의 교훈: 요청 범위 봉인).
     final padded = Padding(
       padding: EdgeInsets.symmetric(
         horizontal: space.xl,
-        vertical: space.lg,
+        vertical: space.xs,
       ),
       child: dimmed ? Opacity(opacity: 0.55, child: content) : content,
     );
