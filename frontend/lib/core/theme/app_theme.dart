@@ -164,6 +164,7 @@ class AppTheme {
     // 퍼졌지만 여백에는 그 통로가 없었다 — 2026-08-20 실측: `BbSpace` 를 쓰는 `lib` 파일이
     // **3개**뿐이고 리터럴은 1,699건이었다. 그래서 컴포넌트 테마를 곡선으로 채운다.
     final space = BbSpace.forWidth(width);
+    final box = BbBox.forWidth(width);
     final radiusSm = BorderRadius.circular(space.md);
     final radiusMd = BorderRadius.circular(space.lg);
 
@@ -192,11 +193,19 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(space.xl)),
         ),
       ),
+      // ★프레임워크 `ListTile` 의 세로 리듬을 우리 타일과 **같은 값**으로 맞춘다
+      // `[측정 2026-08-21]`: 그냥 두면 SDK 기본 높이(1줄 56 · 2줄 72 + density)가
+      // 지배해 **항목 사이 34.8dp** 였고, `EntityTileRow` 는 20.0dp 였다.
+      // `minTileHeight` 를 주면 기본 높이 경로가 꺼지고 사이가
+      // `2 × minVerticalPadding`(2줄) · `minTileHeight − 제목줄`(1줄)로 결정된다.
+      // 그래서 두 값을 `kBbBoxSpec` 의 목록 행 역할에서 가져온다 = **사이 20.0/25.0dp**.
+      // 이 한 곳이 앱의 `ListTile` **87곳 전부**를 덮는다(호스트 개별 수정 없음).
       listTileTheme: base.listTileTheme.copyWith(
         titleTextStyle: text.bodyLarge,
         subtitleTextStyle: text.bodySmall,
         contentPadding: space.symmetric(h: BbSpaceToken.xl),
-        minVerticalPadding: space.sm,
+        minVerticalPadding: box.listRowPadV,
+        minTileHeight: box.listRowMinHeight,
       ),
       tabBarTheme: base.tabBarTheme.copyWith(
         labelStyle: text.titleSmall,
