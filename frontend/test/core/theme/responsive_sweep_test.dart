@@ -18,12 +18,7 @@ import 'package:budget_book/core/widgets/bb_tab.dart';
 /// `(compact = <400dp, wide = >=840dp)`
 const anchors = <String, ({double compact, double wide})>{
   'tilePaddingH': (compact: 10, wide: 16), // → BbSpaceToken.xl
-  // ★2026-08-21 사용자 승인 — 타일 세로 padding 을 한 단계 촘촘하게(`lg`→`md`).
-  // 인접 항목 간격 16.0 → 12.8dp @390 · 24 → 20dp @960. 토큰 곡선(`lg` 8/12)은 그대로이고
-  // **타일이 쓰는 토큰이 바뀌었다** — 그래서 `lg` 앵커는 아래 `radiusMd` 로 이름만 옮겼다
-  // (카드·입력 반지름 · dividerTheme.space · tabBar labelPadding 이 여전히 쓴다).
-  'tilePaddingV': (compact: 6, wide: 10), //  → BbSpaceToken.md
-  'radiusMd': (compact: 8, wide: 12), //      → BbSpaceToken.lg
+  'tilePaddingV': (compact: 8, wide: 12), //  → BbSpaceToken.lg
   'gap': (compact: 6, wide: 10), //           → BbSpaceToken.md
   'chipPaddingH': (compact: 5, wide: 8), //   → BbSpaceToken.sm
   'avatar': (compact: 32, wide: 40),
@@ -130,8 +125,7 @@ void main() {
     });
 
     test('아이콘은 텍스트와 같은 곡선을 탄다', () {
-      expect(
-          BbType.forWidth(360).iconMd, lessThan(BbType.forWidth(1440).iconMd));
+      expect(BbType.forWidth(360).iconMd, lessThan(BbType.forWidth(1440).iconMd));
       for (final w in widths) {
         final t = BbType.forWidth(w);
         expect(t.iconSm, lessThan(t.iconMd));
@@ -167,7 +161,7 @@ void main() {
     test('★여백 토큰이 자산 탭 승인값을 지나간다', () {
       const map = <BbSpaceToken, String>{
         BbSpaceToken.xl: 'tilePaddingH',
-        BbSpaceToken.lg: 'radiusMd',
+        BbSpaceToken.lg: 'tilePaddingV',
         BbSpaceToken.md: 'gap',
         BbSpaceToken.sm: 'chipPaddingH',
       };
@@ -257,8 +251,7 @@ void main() {
           t.inputDecorationTheme.contentPadding! as EdgeInsets;
       expect(pad(mobile).left, lessThan(pad(web).left),
           reason: '입력 필드 여백이 폭에 반응하지 않는다 (테마 하드코딩 회귀)');
-      expect(mobile.listTileTheme.contentPadding,
-          isNot(web.listTileTheme.contentPadding));
+      expect(mobile.listTileTheme.contentPadding, isNot(web.listTileTheme.contentPadding));
       expect(mobile.cardTheme.margin, isNot(web.cardTheme.margin));
       // 밀도도 계단이 아니라 연속이다.
       final mid = AppTheme.responsive(AppTheme.light, 600).visualDensity;
@@ -277,8 +270,10 @@ void main() {
       // ★calynda 가 실측한 결함: 화면은 넓은데 자기 폭은 좁은 자리(우측 패널·그리드
       // 셀)에서 `MediaQuery` 로 판정하면 "데스크톱"으로 그린다.
       // 좁은 컨테이너는 반드시 더 작아야 한다.
-      expect(BbType.forWidth(300).body, lessThan(BbType.forWidth(1440).body));
-      expect(BbType.forWidth(300).title, lessThan(BbType.forWidth(1440).title));
+      expect(BbType.forWidth(300).body,
+          lessThan(BbType.forWidth(1440).body));
+      expect(BbType.forWidth(300).title,
+          lessThan(BbType.forWidth(1440).title));
 
       // 타이포는 kBbContentMaxWidth 부근에서 **포화**한다 — 본문 칼럼이 960 으로
       // 묶여 있어 그보다 넓은 화면에서 글자가 더 커질 이유가 없다(의도된 상한).
@@ -306,8 +301,7 @@ void main() {
                       bbTab(context,
                           icon: Icons.account_balance_wallet_outlined,
                           label: '예산'),
-                      bbTab(context,
-                          icon: Icons.bar_chart_outlined, label: '통계'),
+                      bbTab(context, icon: Icons.bar_chart_outlined, label: '통계'),
                     ]),
                   ),
                   body: DefaultTabController(
@@ -324,8 +318,7 @@ void main() {
                               icon: Icons.credit_card, label: '결제수단별'),
                         ]),
                         const Expanded(
-                          child:
-                              Center(child: Text('데이터', key: Key('content'))),
+                          child: Center(child: Text('데이터', key: Key('content'))),
                         ),
                       ],
                     ),
@@ -383,12 +376,10 @@ void main() {
         await tester.pumpAndSettle();
 
         final content = tester.getSize(
-          find
-              .ancestor(
-                of: find.byKey(const Key('content')),
-                matching: find.byType(Expanded),
-              )
-              .first,
+          find.ancestor(
+            of: find.byKey(const Key('content')),
+            matching: find.byType(Expanded),
+          ).first,
         );
         final ratio = content.height / 780;
         // 2026-08-18 실측 baseline: 320/360/390 모두 **79.5%**(크롬 160dp).
@@ -415,8 +406,9 @@ void main() {
           child: MaterialApp(home: harness(390)),
         ));
         await tester.pumpAndSettle();
-        widthsSeen[ts] =
-            tester.getSize(find.byKey(const Key('content')).first).width;
+        widthsSeen[ts] = tester
+            .getSize(find.byKey(const Key('content')).first)
+            .width;
       }
       expect(widthsSeen[1.3]!, greaterThanOrEqualTo(widthsSeen[1.0]! - 0.01),
           reason: '배율 1.3 에서 텍스트 자리가 되레 줄었다 (calynda 2-4 역행 결함)');

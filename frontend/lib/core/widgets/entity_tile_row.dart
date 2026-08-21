@@ -302,15 +302,10 @@ class EntityTileRow extends StatelessWidget {
       },
     );
 
-    // 세로는 `md`, 가로는 `xl`. ★2026-08-21 사용자 승인으로 세로만 한 단계 촘촘해졌다
-    // (`lg`→`md`): 인접 항목 간격 16.0 → 12.8dp @390 · 24 → 20dp @960.
-    // `lg` 를 내리지 않은 이유는 그 토큰이 카드·입력 반지름, divider, 탭 labelPadding 등
-    // **세로가 아닌 자리 12곳**에서도 쓰이기 때문이다 — 세로만 좁히라는 요청을 넘어선다.
-    // 이 값은 앱 전체 타일의 세로 리듬 **단일 소스**다(호스트가 자기 값을 갖지 않는다).
     final padded = Padding(
       padding: EdgeInsets.symmetric(
         horizontal: space.xl,
-        vertical: space.md,
+        vertical: space.lg,
       ),
       child: dimmed ? Opacity(opacity: 0.55, child: content) : content,
     );
