@@ -43,6 +43,8 @@ class _FeedbackHubPageState extends State<FeedbackHubPage>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          // M3 스크롤 탭의 기본값은 `startOffset`(왼쪽 52dp 죽은 여백)이다 `[측정]`.
+          tabAlignment: TabAlignment.center,
           tabs: const [
             Tab(text: '공지사항'),
             Tab(text: '내 요청'),
