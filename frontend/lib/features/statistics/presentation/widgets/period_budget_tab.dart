@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 
@@ -45,85 +47,81 @@ class PeriodBudgetTab extends StatelessWidget {
             ? Theme.of(context).colorScheme.error
             : Theme.of(context).colorScheme.primary;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.budgetName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
+        // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+        return BbCardTile(
+          hPadding: BbSpaceToken.xl,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.budgetName,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    if (isOverBudget)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .error
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '초과',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.error,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor:
-                        progressColor.withValues(alpha: 0.1),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(progressColor),
-                    minHeight: 8,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '사용: ${CurrencyFormatter.format(item.spent)}원',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Text(
-                      '계획: ${CurrencyFormatter.format(item.budgetAmount)}원',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '남은 금액: ${CurrencyFormatter.format(item.remaining)}원',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: item.remaining >= 0
-                            ? Colors.green
-                            : Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w600,
+                  if (isOverBudget)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Text(
+                        '초과',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: progressColor.withValues(alpha: 0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                  minHeight: 8,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '사용: ${CurrencyFormatter.format(item.spent)}원',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    '계획: ${CurrencyFormatter.format(item.budgetAmount)}원',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '남은 금액: ${CurrencyFormatter.format(item.remaining)}원',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: item.remaining >= 0
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
           ),
         );
       },

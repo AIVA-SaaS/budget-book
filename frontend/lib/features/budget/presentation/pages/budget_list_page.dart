@@ -50,64 +50,71 @@ class _BudgetListPageState extends State<BudgetListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: !widget.showAppBar ? null : AppBar(
-        title: Text(_isWeeklyView ? '주간 예산' : '예산 관리'),
-        actions: _isWeeklyView
-            ? null
-            : [
-                IconButton(
-                  onPressed: () {
-                    final state = context.read<BudgetBloc>().state;
-                    final year = state is BudgetLoaded
-                        ? state.year
-                        : DateTime.now().year;
-                    final month = state is BudgetLoaded
-                        ? state.month
-                        : DateTime.now().month;
+      appBar: !widget.showAppBar
+          ? null
+          : AppBar(
+              title: Text(_isWeeklyView ? '주간 예산' : '예산 관리'),
+              actions: _isWeeklyView
+                  ? null
+                  : [
+                      IconButton(
+                        onPressed: () {
+                          final state = context.read<BudgetBloc>().state;
+                          final year = state is BudgetLoaded
+                              ? state.year
+                              : DateTime.now().year;
+                          final month = state is BudgetLoaded
+                              ? state.month
+                              : DateTime.now().month;
 
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('전월 예산 복사'),
-                        content: const Text(
-                          '이전 달의 예산 설정을 현재 달로 복사하시겠습니까?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('취소'),
-                          ),
-                          FilledButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              context.read<BudgetBloc>().add(
-                                    CopyPreviousMonthBudgets(
-                                      year: year,
-                                      month: month,
-                                    ),
-                                  );
-                            },
-                            child: const Text('복사'),
-                          ),
-                        ],
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('전월 예산 복사'),
+                              content: const Text(
+                                '이전 달의 예산 설정을 현재 달로 복사하시겠습니까?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(),
+                                  child: const Text('취소'),
+                                ),
+                                FilledButton(
+                                  onPressed: () {
+                                    Navigator.of(ctx).pop();
+                                    context.read<BudgetBloc>().add(
+                                          CopyPreviousMonthBudgets(
+                                            year: year,
+                                            month: month,
+                                          ),
+                                        );
+                                  },
+                                  child: const Text('복사'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.content_copy),
+                        tooltip: '전월 예산 복사',
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.content_copy),
-                  tooltip: '전월 예산 복사',
-                ),
-                IconButton(
-                  onPressed: () {
-                    final budgetState = context.read<BudgetBloc>().state;
-                    final year = budgetState is BudgetLoaded ? budgetState.year : DateTime.now().year;
-                    final month = budgetState is BudgetLoaded ? budgetState.month : DateTime.now().month;
-                    context.push('/asset-management?year=$year&month=$month');
-                  },
-                  icon: const Icon(Icons.category),
-                  tooltip: '자산 관리',
-                ),
-              ],
-      ),
+                      IconButton(
+                        onPressed: () {
+                          final budgetState = context.read<BudgetBloc>().state;
+                          final year = budgetState is BudgetLoaded
+                              ? budgetState.year
+                              : DateTime.now().year;
+                          final month = budgetState is BudgetLoaded
+                              ? budgetState.month
+                              : DateTime.now().month;
+                          context.push(
+                              '/asset-management?year=$year&month=$month');
+                        },
+                        icon: const Icon(Icons.category),
+                        tooltip: '자산 관리',
+                      ),
+                    ],
+            ),
       body: Column(
         children: [
           // View mode toggle
@@ -115,8 +122,12 @@ class _BudgetListPageState extends State<BudgetListPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SegmentedButton<bool>(
               segments: const [
-                ButtonSegment(value: false, label: Text('월간', maxLines: 1, softWrap: false)),
-                ButtonSegment(value: true, label: Text('주간', maxLines: 1, softWrap: false)),
+                ButtonSegment(
+                    value: false,
+                    label: Text('월간', maxLines: 1, softWrap: false)),
+                ButtonSegment(
+                    value: true,
+                    label: Text('주간', maxLines: 1, softWrap: false)),
               ],
               selected: {_isWeeklyView},
               onSelectionChanged: (value) {
@@ -124,8 +135,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 if (value.first) {
                   final now = DateTime.now();
                   getIt<WeeklyBudgetBloc>()
-                    ..add(LoadWeeklyOverview(
-                        year: now.year, month: now.month))
+                    ..add(LoadWeeklyOverview(year: now.year, month: now.month))
                     ..add(const LoadCurrentWeek());
                 }
               },
@@ -141,7 +151,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.message),
-                            backgroundColor: Theme.of(context).colorScheme.error,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
                           ),
                         );
                       } else if (state is BudgetLoaded &&
@@ -149,7 +160,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(state.operationError!),
-                            backgroundColor: Theme.of(context).colorScheme.error,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
                           ),
                         );
                       } else if (state is BudgetLoaded &&
@@ -163,7 +175,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     },
                     builder: (context, state) {
                       return switch (state) {
-                        BudgetInitial() || BudgetLoading() =>
+                        BudgetInitial() ||
+                        BudgetLoading() =>
                           const SkeletonLoader(itemCount: 5),
                         BudgetLoaded() => _buildLoaded(context, state),
                         BudgetError() => _buildError(context),
@@ -203,9 +216,11 @@ class _BudgetListPageState extends State<BudgetListPage> {
               ..add(const LoadCurrentWeek());
           }
           return switch (state) {
-            WeeklyBudgetInitial() || WeeklyBudgetLoading() =>
+            WeeklyBudgetInitial() ||
+            WeeklyBudgetLoading() =>
               const Center(child: CircularProgressIndicator()),
-            WeeklyBudgetLoaded() when state.overview == null && state.currentWeek == null =>
+            WeeklyBudgetLoaded()
+                when state.overview == null && state.currentWeek == null =>
               _buildWeeklyEmpty(context),
             WeeklyBudgetLoaded() => _buildWeeklyLoaded(context, state),
             WeeklyBudgetError(message: final message) => AppErrorWidget(
@@ -213,8 +228,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 onRetry: () {
                   final now = DateTime.now();
                   getIt<WeeklyBudgetBloc>()
-                    ..add(LoadWeeklyOverview(
-                        year: now.year, month: now.month))
+                    ..add(LoadWeeklyOverview(year: now.year, month: now.month))
                     ..add(const LoadCurrentWeek());
                 },
                 showHomeButton: true,
@@ -235,13 +249,19 @@ class _BudgetListPageState extends State<BudgetListPage> {
             Icon(
               Icons.calendar_today_outlined,
               size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               '주간 예산이 설정되지 않았습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
                   ),
             ),
             const SizedBox(height: 8),
@@ -249,7 +269,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
               '월간 예산 추가 시 "주간" 기간을 선택하면\n주간 예산이 자동으로 생성됩니다',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4),
                   ),
             ),
           ],
@@ -276,111 +299,112 @@ class _BudgetListPageState extends State<BudgetListPage> {
           ),
         Expanded(
           child: RefreshIndicator(
-      onRefresh: () async {
-        getIt<WeeklyBudgetBloc>()
-          ..add(LoadWeeklyOverview(year: state.year, month: state.month))
-          ..add(const LoadCurrentWeek());
-      },
-      child: ListView(
-        key: const PageStorageKey('budget_weekly_list'),
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Current week hero card
-          if (state.currentWeek != null) ...[
-            _buildCurrentWeekHero(context, state.currentWeek!, numberFormat),
-            const SizedBox(height: 24),
-          ],
-          // Weekly overview
-          if (state.overview != null) ...[
-            Text(
-              '${state.overview!.yearMonth} 주간 예산',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...state.overview!.weeks.map((week) {
-              final isCurrent = state.currentWeek != null &&
-                  week.weekNumber == state.currentWeek!.weekNumber;
-              final parts = state.overview!.yearMonth.split('-');
-              final year = int.parse(parts[0]);
-              final month = int.parse(parts[1]);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: WeekSummaryCard(
-                  weekSummary: week,
-                  isCurrentWeek: isCurrent,
-                  itemRowBuilder: (ctx, item, rowBody) {
-                    void reloadWeekly() {
-                      getIt<WeeklyBudgetBloc>()
-                        ..add(LoadWeeklyOverview(year: year, month: month))
-                        ..add(const LoadCurrentWeek());
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: BudgetRowActions(
-                            budgetId: item.budgetId,
-                            categoryId: item.categoryId,
-                            categoryGroupId:
-                                item.categoryId == null ? item.groupId : null,
-                            label: item.displayName,
-                            dateFrom: week.weekStart,
-                            dateTo: week.weekEnd,
-                            year: year,
-                            month: month,
-                            onAfterDelete: reloadWeekly,
-                            child: rowBody,
-                          ),
-                        ),
-                        BudgetRowActions.menuButton(
-                          context: ctx,
-                          budgetId: item.budgetId,
-                          categoryId: item.categoryId,
-                          categoryGroupId:
-                              item.categoryId == null ? item.groupId : null,
-                          label: item.displayName,
-                          dateFrom: week.weekStart,
-                          dateTo: week.weekEnd,
-                          year: year,
-                          month: month,
-                          onAfterDelete: reloadWeekly,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              );
-            }),
-          ],
-          if (state.overview == null && state.currentWeek == null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 64,
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            onRefresh: () async {
+              getIt<WeeklyBudgetBloc>()
+                ..add(LoadWeeklyOverview(year: state.year, month: state.month))
+                ..add(const LoadCurrentWeek());
+            },
+            child: ListView(
+              key: const PageStorageKey('budget_weekly_list'),
+              padding: const EdgeInsets.all(16),
+              children: [
+                // Current week hero card
+                if (state.currentWeek != null) ...[
+                  _buildCurrentWeekHero(
+                      context, state.currentWeek!, numberFormat),
+                  const SizedBox(height: 24),
+                ],
+                // Weekly overview
+                if (state.overview != null) ...[
+                  Text(
+                    '${state.overview!.yearMonth} 주간 예산',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '주간 예산 정보가 없습니다',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 12),
+                  ...state.overview!.weeks.map((week) {
+                    final isCurrent = state.currentWeek != null &&
+                        week.weekNumber == state.currentWeek!.weekNumber;
+                    final parts = state.overview!.yearMonth.split('-');
+                    final year = int.parse(parts[0]);
+                    final month = int.parse(parts[1]);
+                    // 세로 리듬은 WeekSummaryCard 안의 BbCardTile 이 소유한다 —
+                    // 호스트가 여백을 더 얹으면 승인값(20.0/25.0)을 지나가지 않는다.
+                    return WeekSummaryCard(
+                      weekSummary: week,
+                      isCurrentWeek: isCurrent,
+                      itemRowBuilder: (ctx, item, rowBody) {
+                        void reloadWeekly() {
+                          getIt<WeeklyBudgetBloc>()
+                            ..add(LoadWeeklyOverview(year: year, month: month))
+                            ..add(const LoadCurrentWeek());
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: BudgetRowActions(
+                                budgetId: item.budgetId,
+                                categoryId: item.categoryId,
+                                categoryGroupId: item.categoryId == null
+                                    ? item.groupId
+                                    : null,
+                                label: item.displayName,
+                                dateFrom: week.weekStart,
+                                dateTo: week.weekEnd,
+                                year: year,
+                                month: month,
+                                onAfterDelete: reloadWeekly,
+                                child: rowBody,
+                              ),
+                            ),
+                            BudgetRowActions.menuButton(
+                              context: ctx,
+                              budgetId: item.budgetId,
+                              categoryId: item.categoryId,
+                              categoryGroupId:
+                                  item.categoryId == null ? item.groupId : null,
+                              label: item.displayName,
+                              dateFrom: week.weekStart,
+                              dateTo: week.weekEnd,
+                              year: year,
+                              month: month,
+                              onAfterDelete: reloadWeekly,
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }),
+                ],
+                if (state.overview == null && state.currentWeek == null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 64,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '주간 예산 정보가 없습니다',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                const SizedBox(height: 88),
+              ],
             ),
-          const SizedBox(height: 88),
-        ],
-      ),
           ),
         ),
       ],
@@ -405,8 +429,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.today,
-                    color: theme.colorScheme.onPrimaryContainer),
+                Icon(Icons.today, color: theme.colorScheme.onPrimaryContainer),
                 const SizedBox(width: 8),
                 Text(
                   '이번 주 (${currentWeek.weekNumber}주차)',
@@ -421,8 +444,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
             Text(
               '${currentWeek.weekStart} ~ ${currentWeek.weekEnd}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer
-                    .withValues(alpha: 0.7),
+                color:
+                    theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
               ),
             ),
             if (currentWeek.items.isNotEmpty) ...[
@@ -468,8 +491,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                                 Flexible(
                                   child: Text(
                                     item.displayName,
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
+                                    style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
                                       color:
                                           theme.colorScheme.onPrimaryContainer,
@@ -564,8 +586,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
         // MonthNavigator는 MonthCubit.state를 자동으로 watch하여 표시/업데이트.
         // 회차 12 follow-up — 분석 탭 wrapper 에서는 부모가 단일 표시 (hide).
         if (widget.showMonthNavigator) const MonthNavigator(),
-        if (state.summary != null)
-          BudgetSummaryCard(summary: state.summary!),
+        if (state.summary != null) BudgetSummaryCard(summary: state.summary!),
         Expanded(
           child: state.budgets.isEmpty
               ? ListView(
@@ -575,7 +596,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
                       child: Text(
                         '이 달에 설정된 예산이 없습니다',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
                             ),
                       ),
                     ),
@@ -584,11 +608,14 @@ class _BudgetListPageState extends State<BudgetListPage> {
                       child: BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
                         builder: (context, pmState) {
                           if (pmState is PaymentMethodInitial) {
-                            getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
+                            getIt<PaymentMethodBloc>()
+                                .add(const LoadPaymentMethods());
                           }
                           if (pmState is! PaymentMethodLoaded) {
-                            return const Padding(padding: EdgeInsets.all(16),
-                                child: Center(child: CircularProgressIndicator()));
+                            return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child:
+                                    Center(child: CircularProgressIndicator()));
                           }
                           return const AccountBalanceCard(showHeader: false);
                         },
@@ -616,7 +643,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
       final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
 
       for (final budget in sharedBudgets) {
-        allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+        allItems
+            .add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
       }
 
       if (privateBudgets.isNotEmpty) {
@@ -631,7 +659,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   '나만 보임',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.7),
                       ),
                 ),
               ],
@@ -639,13 +670,15 @@ class _BudgetListPageState extends State<BudgetListPage> {
           ),
         );
         for (final budget in privateBudgets) {
-          allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+          allItems.add(
+              _buildBudgetTile(context, budget, summaryItems, numberFormat));
         }
       }
     } else {
       // Personal mode: show all budgets without visibility split
       for (final budget in state.budgets) {
-        allItems.add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
+        allItems
+            .add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
       }
     }
 
@@ -659,7 +692,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
               getIt<PaymentMethodBloc>().add(const LoadPaymentMethods());
             }
             if (pmState is! PaymentMethodLoaded) {
-              return const Padding(padding: EdgeInsets.all(16),
+              return const Padding(
+                  padding: EdgeInsets.all(16),
                   child: Center(child: CircularProgressIndicator()));
             }
             return const AccountBalanceCard(showHeader: false);
@@ -669,7 +703,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
     );
 
     allItems.add(const SizedBox(height: 88));
-    return ListView(key: const PageStorageKey('budget_monthly_list'), children: allItems);
+    return ListView(
+        key: const PageStorageKey('budget_monthly_list'), children: allItems);
   }
 
   Widget _buildBudgetTile(
@@ -681,7 +716,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final summaryItem = _findSummaryItem(summaryItems, budget);
     final usageRate = summaryItem?.usageRate ?? 0.0;
     // Use BE-calculated budget amount (consistent with totalBudget)
-    final displayBudgetAmount = summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
+    final displayBudgetAmount =
+        summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
 
     return Dismissible(
       key: Key(budget.id),
@@ -717,7 +753,10 @@ class _BudgetListPageState extends State<BudgetListPage> {
               Icon(
                 Icons.visibility_off,
                 size: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
             ],
@@ -730,7 +769,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
             const SizedBox(height: 4),
             _buildBudgetProgressBar(context, summaryItem, displayBudgetAmount),
             const SizedBox(height: 4),
-            _buildBudgetSubtitleText(context, summaryItem, displayBudgetAmount, numberFormat, usageRate),
+            _buildBudgetSubtitleText(context, summaryItem, displayBudgetAmount,
+                numberFormat, usageRate),
           ],
         ),
         trailing: Row(
@@ -746,8 +786,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
               context: context,
               budgetId: budget.id,
               categoryId: budget.category?.id,
-              categoryGroupId:
-                  budget.category == null ? budget.groupId : null,
+              categoryGroupId: budget.category == null ? budget.groupId : null,
               label: budget.targetLabel,
               dateFrom: null,
               dateTo: null,
@@ -757,7 +796,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
               }(),
               month: () {
                 final state = context.read<BudgetBloc>().state;
-                return state is BudgetLoaded ? state.month : DateTime.now().month;
+                return state is BudgetLoaded
+                    ? state.month
+                    : DateTime.now().month;
               }(),
               onAfterDelete: () {},
             ),
@@ -765,8 +806,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
         ),
         onTap: () {
           final state = context.read<BudgetBloc>().state;
-          final year =
-              state is BudgetLoaded ? state.year : DateTime.now().year;
+          final year = state is BudgetLoaded ? state.year : DateTime.now().year;
           final month =
               state is BudgetLoaded ? state.month : DateTime.now().month;
           BudgetRowActions.openEdit(context,
@@ -825,19 +865,24 @@ class _BudgetListPageState extends State<BudgetListPage> {
       List<BudgetSummaryItem> items, Budget budget) {
     for (final item in items) {
       // Match by category ID
-      if (budget.category != null && item.category != null &&
+      if (budget.category != null &&
+          item.category != null &&
           budget.category!.id == item.category!.id) {
         return item;
       }
       // Match by group ID (group budgets have no category)
-      if (budget.category == null && item.category == null &&
-          budget.groupId != null && item.groupId != null &&
+      if (budget.category == null &&
+          item.category == null &&
+          budget.groupId != null &&
+          item.groupId != null &&
           budget.groupId == item.groupId) {
         return item;
       }
       // Match total budget (no category, no group)
-      if (budget.category == null && item.category == null &&
-          budget.groupId == null && item.groupId == null) {
+      if (budget.category == null &&
+          item.category == null &&
+          budget.groupId == null &&
+          item.groupId == null) {
         return item;
       }
     }
@@ -881,8 +926,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color:
-                theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
+            color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
           ),
         ),
         const SizedBox(height: 2),
@@ -897,4 +941,3 @@ class _BudgetListPageState extends State<BudgetListPage> {
     );
   }
 }
-

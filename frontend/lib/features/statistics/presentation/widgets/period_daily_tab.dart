@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
 
@@ -163,40 +165,36 @@ class _DailyListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = DateTime.tryParse(item.date);
-    final dateLabel = date != null
-        ? DateFormat('M월 d일 (E)', 'ko').format(date)
-        : item.date;
+    final dateLabel =
+        date != null ? DateFormat('M월 d일 (E)', 'ko').format(date) : item.date;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(dateLabel,
-                  style: Theme.of(context).textTheme.bodyMedium),
+    // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+    return BbCardTile(
+      hPadding: BbSpaceToken.xl,
+      child: Row(
+        children: [
+          Expanded(
+            child:
+                Text(dateLabel, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          if (item.income > 0)
+            Text(
+              '+${CurrencyFormatter.format(item.income)}원',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
-            if (item.income > 0)
-              Text(
-                '+${CurrencyFormatter.format(item.income)}원',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            if (item.income > 0 && item.expense > 0)
-              const SizedBox(width: 12),
-            if (item.expense > 0)
-              Text(
-                '-${CurrencyFormatter.format(item.expense)}원',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-          ],
-        ),
+          if (item.income > 0 && item.expense > 0) const SizedBox(width: 12),
+          if (item.expense > 0)
+            Text(
+              '-${CurrencyFormatter.format(item.expense)}원',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+        ],
       ),
     );
   }

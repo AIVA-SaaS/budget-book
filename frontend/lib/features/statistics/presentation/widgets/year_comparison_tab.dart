@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
@@ -77,7 +79,6 @@ class YearComparisonTab extends StatelessWidget {
             icon: Icons.arrow_downward,
             year: year,
           ),
-          const SizedBox(height: 12),
           _ComparisonCard(
             title: '지출',
             currentAmount: currentYear!.totalExpense,
@@ -86,7 +87,6 @@ class YearComparisonTab extends StatelessWidget {
             icon: Icons.arrow_upward,
             year: year,
           ),
-          const SizedBox(height: 12),
           _ComparisonCard(
             title: '잔액',
             currentAmount: currentYear!.balance,
@@ -95,7 +95,6 @@ class YearComparisonTab extends StatelessWidget {
             icon: Icons.account_balance_wallet,
             year: year,
           ),
-          const SizedBox(height: 12),
           _ComparisonCard(
             title: '거래 건수',
             currentAmount: currentYear!.transactionCount,
@@ -145,102 +144,103 @@ class _ComparisonCard extends StatelessWidget {
       changeColor = pct >= 0 ? Colors.green : Colors.red;
     }
 
-    return Card(
+    // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+    // 종전: 카드 사이 수동 SizedBox(12) + margin(theme) + 내부 all(16) = 62.7/67.5 `[측정]`.
+    return BbCardTile(
       elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
+      hMargin: BbSpaceToken.md,
+      hPadding: BbSpaceToken.xl,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const Spacer(),
+              if (changeText != null)
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: changeColor!.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const Spacer(),
-                if (changeText != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: changeColor!.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      changeText,
-                      style: TextStyle(
-                        color: changeColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                  child: Text(
+                    changeText,
+                    style: TextStyle(
+                      color: changeColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Current year
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$year년',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.6),
-                      ),
                 ),
-                Text(
-                  '${CurrencyFormatter.format(currentAmount)}$suffix',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            // Previous year
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${year - 1}년',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.4),
-                      ),
-                ),
-                Text(
-                  previousAmount != null
-                      ? '${CurrencyFormatter.format(previousAmount!)}$suffix'
-                      : '데이터 없음',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
-                      ),
-                ),
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Current year
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$year년',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+              ),
+              Text(
+                '${CurrencyFormatter.format(currentAmount)}$suffix',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          // Previous year
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${year - 1}년',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.4),
+                    ),
+              ),
+              Text(
+                previousAmount != null
+                    ? '${CurrencyFormatter.format(previousAmount!)}$suffix'
+                    : '데이터 없음',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -1,10 +1,10 @@
 {
-  "total": 1481,
+  "total": 1464,
   "areas": {
     "_core": 278,
     "admin": 23,
     "auth": 22,
-    "budget": 94,
+    "budget": 93,
     "card_settlement": 20,
     "category": 17,
     "category_group": 27,
@@ -20,9 +20,9 @@
     "report": 69,
     "settings": 46,
     "spending_plan": 97,
-    "statistics": 95,
+    "statistics": 81,
     "transaction": 120,
     "transfer": 23,
-    "weekly_budget": 58
+    "weekly_budget": 56
   }
 }

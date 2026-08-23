@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:budget_book/core/theme/app_theme.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/widgets/entity_tile_row.dart';
 
 /// 세로 리듬 가드 (2026-08-21, 2차).
@@ -162,6 +163,96 @@ void main() {
       expect(theme.listTileTheme.minVerticalPadding,
           closeTo(approvedTextGap.at390 / 2, 0.26),
           reason: '2줄 사이 = 2 × minVerticalPadding 이므로 승인값의 절반이어야 한다');
+    });
+  });
+
+  group('V3. 카드형 목록 항목도 같은 사이를 갖는다 — 3계열 1승인값', () {
+    // 왜 필요한가 `[측정 2026-08-24]`: 3차(PR #308)에서 우리 타일과 `ListTile` 은
+    // 승인값을 지나가게 됐지만 **카드형은 남아 있었다** — 통계>카테고리별 34.2/48.0 ·
+    // 결제수단별 32.0/32.0 · 전년비교 62.7/67.5 · 예산>주간카드 75.2/80.5.
+    //
+    // ⚠ 3차의 처방(테마 2값)이 카드에 통하지 않은 이유: `cardTheme.margin` 은 전역인데
+    // **호출부가 margin 을 덮어쓰는 곳이 18건**이었다. 그래서 카드는 테마가 아니라
+    // 위젯(`BbCardTile`)이 소유한다.
+    //
+    // ⚠ 계측 함정: `Card` 의 `RenderBox` 는 자기 margin 을 **포함**한다 — `Card` rect
+    // 간격은 보이는 테두리 간격이 아니다(안쪽 `Material` 을 봐야 한다).
+    Future<void> pumpCards(WidgetTester t, double w) async {
+      await t.binding.setSurfaceSize(Size(w, 1200));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      await t.pumpWidget(MaterialApp(
+        theme: AppTheme.responsive(AppTheme.light, w),
+        home: Scaffold(
+          body: BbScaleScope(
+            width: w,
+            child: const Column(children: [
+              BbCardTile(child: Text('카드 항목 1')),
+              BbCardTile(child: Text('카드 항목 2')),
+            ]),
+          ),
+        ),
+      ));
+    }
+
+    void cardGapCase(double w, double approved) {
+      testWidgets('w=$w — 카드 항목 사이 = $approved', (tester) async {
+        await pumpCards(tester, w);
+        final gap = tester.getRect(find.text('카드 항목 2')).top -
+            tester.getRect(find.text('카드 항목 1')).bottom;
+        expect(gap, closeTo(approved, 0.51),
+            reason: 'w=$w 카드 항목 사이가 승인값 ${approved}dp 에서 벗어났다 (측정 $gap). '
+                '우리 타일 · ListTile · 카드 3계열이 같은 값을 지나가야 한다');
+      });
+    }
+
+    cardGapCase(390, approvedTextGap.at390);
+    cardGapCase(960, approvedTextGap.at960);
+
+    // ⚠ 폭마다 테스트를 나눈다 — 한 테스트에서 폭을 바꾸면 `AnimatedTheme` 가 옛 값을
+    // 읽는다(V1-b 에서 기록한 계측 함정).
+    void anatomyCase(double w) {
+      testWidgets('w=$w — 세로는 두 곳뿐(margin xs + cardRowPadV)', (tester) async {
+        await pumpCards(tester, w);
+        final card = tester.widgetList<Card>(find.byType(Card)).first;
+        final margin = card.margin! as EdgeInsets;
+        // ⚠ `Card` 는 margin 을 `Container`(= Padding) 로 구현한다 — 그냥 첫 Padding 을
+        // 잡으면 margin(4.0)을 내부 여백으로 오독한다. 내용의 조상 Padding 을 잡는다.
+        final padding = tester
+            .widgetList<Padding>(find.ancestor(
+              of: find.text('카드 항목 1'),
+              matching: find.byType(Padding),
+            ))
+            .first
+            .padding
+            .resolve(TextDirection.ltr);
+        final space = BbSpace.forWidth(w);
+        final box = BbBox.forWidth(w);
+        expect(margin.top, closeTo(space.xs, 1e-9),
+            reason: 'w=$w 카드 margin 세로가 xs 에서 벗어났다');
+        expect(margin.bottom, closeTo(space.xs, 1e-9));
+        expect(padding.top, closeTo(box.cardRowPadV, 1e-9),
+            reason: 'w=$w 카드 내부 세로 여백이 cardRowPadV 에서 벗어났다');
+        expect(padding.bottom, closeTo(box.cardRowPadV, 1e-9));
+        // 항등식: 사이 = 2 × (margin 세로 + 내부 세로). 이 식이 승인값을 만든다.
+        expect(2 * (margin.top + padding.top),
+            closeTo(2 * (space.xs + box.cardRowPadV), 1e-9));
+      });
+    }
+
+    anatomyCase(320);
+    anatomyCase(390);
+    anatomyCase(960);
+
+    test('BbCardTile 이 세로 축 인자를 노출하지 않는다 — 리터럴 유출 경로 봉인', () {
+      final src = File('lib/core/widgets/bb_card_tile.dart').readAsStringSync();
+      expect(src.contains('vertical: box.cardRowPadV'), isTrue,
+          reason: '내부 세로 여백의 단일 소스가 사라졌다');
+      expect(src.contains('vertical: space.xs'), isTrue,
+          reason: 'margin 세로의 단일 소스가 사라졌다');
+      for (final leak in ['vPadding', 'vMargin', 'verticalPadding']) {
+        expect(src.contains(leak), isFalse,
+            reason: '세로 축을 호출부에 되돌려주면 카드 169곳이 다시 갈라진다 ($leak)');
+      }
     });
   });
 
