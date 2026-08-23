@@ -1,3 +1,4 @@
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -19,7 +20,6 @@ class PaymentMethodStatsTab extends StatelessWidget {
     required this.month,
     this.error,
   });
-
 
   static const _colors = [
     Color(0xFF2196F3),
@@ -46,8 +46,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline,
-                size: 48,
-                color: Theme.of(context).colorScheme.error),
+                size: 48, color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 12),
             Text(error!, style: Theme.of(context).textTheme.bodyMedium),
           ],
@@ -121,77 +120,69 @@ class PaymentMethodStatsTab extends StatelessWidget {
           final stat = entry.value;
           final color = _colors[index % _colors.length];
 
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () {
-                context.go('/transactions?year=$year&month=$month&paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                children: [
-                  // Color indicator
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
+          // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+          // 종전: margin only(bottom: 8) + 내부 all(12) = 사이 32.0/32.0 `[측정]`.
+          return BbCardTile(
+            onTap: () {
+              context.go(
+                  '/transactions?year=$year&month=$month&paymentMethodId=${stat.paymentMethodId}&paymentMethodName=${Uri.encodeComponent(stat.paymentMethodName)}');
+            },
+            child: Row(
+              children: [
+                // Color indicator
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 12),
-                  // Payment method info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stat.paymentMethodName,
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${stat.transactionCount}건',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.5),
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Amount and percentage
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                const SizedBox(width: 12),
+                // Payment method info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${CurrencyFormatter.format(stat.totalAmount)}원',
-                        style:
-                            Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        stat.paymentMethodName,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        '${stat.percentage.toStringAsFixed(1)}%',
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: color,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        '${stat.transactionCount}건',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+                // Amount and percentage
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${CurrencyFormatter.format(stat.totalAmount)}원',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      '${stat.percentage.toStringAsFixed(1)}%',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         }),

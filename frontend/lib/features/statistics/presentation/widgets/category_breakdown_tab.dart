@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/features/statistics/domain/entities/category_statistics.dart';
@@ -379,76 +380,69 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
     required int count,
     VoidCallback? onTap,
   }) {
-    return Padding(
-      padding: context.bbSpace.symmetric(v: BbSpaceToken.xs),
-      child: Card(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
-          child: Padding(
-            padding: context.bbSpace.all(BbSpaceToken.lg),
-            child: Row(
+    // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+    // 가로는 종전 값 그대로: margin `md`(테마가 주던 값) · 내부 padding `lg`.
+    return BbCardTile(
+      onTap: onTap,
+      hMargin: BbSpaceToken.md,
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          context.bbSpace.gapH(BbSpaceToken.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration:
-                      BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-                context.bbSpace.gapH(BbSpaceToken.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: Theme.of(context).textTheme.bodyLarge),
-                      context.bbSpace.gapV(BbSpaceToken.xs),
-                      ClipRRect(
-                        borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
-                        child: LinearProgressIndicator(
-                          value: (percentage / 100).clamp(0.0, 1.0),
-                          backgroundColor: color.withValues(alpha: 0.1),
-                          valueColor: AlwaysStoppedAnimation<Color>(color),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ],
+                Text(name, style: Theme.of(context).textTheme.bodyLarge),
+                context.bbSpace.gapV(BbSpaceToken.xs),
+                ClipRRect(
+                  borderRadius: context.bbSpace.radius(BbSpaceToken.xs),
+                  child: LinearProgressIndicator(
+                    value: (percentage / 100).clamp(0.0, 1.0),
+                    backgroundColor: color.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                    minHeight: 6,
                   ),
                 ),
-                context.bbSpace.gapH(BbSpaceToken.lg),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${CurrencyFormatter.format(amount)}원',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${percentage.toStringAsFixed(1)}% ($count건)',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                    ),
-                  ],
-                ),
-                if (onTap != null) ...[
-                  context.bbSpace.gapH(BbSpaceToken.xs),
-                  Icon(Icons.chevron_right,
-                      size: context.bbType.iconSm,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3)),
-                ],
               ],
             ),
           ),
-        ),
+          context.bbSpace.gapH(BbSpaceToken.lg),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${CurrencyFormatter.format(amount)}원',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${percentage.toStringAsFixed(1)}% ($count건)',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+              ),
+            ],
+          ),
+          if (onTap != null) ...[
+            context.bbSpace.gapH(BbSpaceToken.xs),
+            Icon(Icons.chevron_right,
+                size: context.bbType.iconSm,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.3)),
+          ],
+        ],
       ),
     );
   }

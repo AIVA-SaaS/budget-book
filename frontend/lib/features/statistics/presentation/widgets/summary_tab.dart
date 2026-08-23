@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/features/statistics/domain/entities/statistics_summary.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
@@ -27,7 +28,6 @@ class SummaryTab extends StatelessWidget {
           children: [
             Icon(Icons.error_outline,
                 size: context.bbType.iconLg * 1.5, color: Colors.red),
-            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(error!, textAlign: TextAlign.center),
           ],
         ),
@@ -46,7 +46,6 @@ class SummaryTab extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(
               '이 달에 기록된 거래가 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -81,35 +80,31 @@ class SummaryTab extends StatelessWidget {
             color: const Color(0xFF4CAF50),
             icon: Icons.arrow_downward,
           ),
-          context.bbSpace.gapV(BbSpaceToken.lg),
           _SummaryCard(
             title: '지출',
             amount: summary!.totalExpense,
             color: const Color(0xFFF44336),
             icon: Icons.arrow_upward,
           ),
-          context.bbSpace.gapV(BbSpaceToken.lg),
           _SummaryCard(
             title: '잔액',
             amount: summary!.balance,
             color: const Color(0xFF2196F3),
             icon: Icons.account_balance_wallet,
           ),
-          context.bbSpace.gapV(BbSpaceToken.xl),
-          Card(
-            child: Padding(
-              padding: context.bbSpace.all(BbSpaceToken.xl),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long, size: context.bbType.iconMd),
-                  context.bbSpace.gapH(BbSpaceToken.md),
-                  Text(
-                    '총 ${summary!.transactionCount}건의 거래',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-              ),
+          BbCardTile(
+            hMargin: BbSpaceToken.md,
+            hPadding: BbSpaceToken.xl,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.receipt_long, size: context.bbType.iconMd),
+                context.bbSpace.gapH(BbSpaceToken.md),
+                Text(
+                  '총 ${summary!.transactionCount}건의 거래',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ],
             ),
           ),
         ],
@@ -137,47 +132,48 @@ class _SummaryCard extends StatelessWidget {
     final displayAmount = isNegative ? -amount : amount;
     final prefix = isNegative ? '-' : '';
 
-    return Card(
+    // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+    // 종전: 수동 gapV(lg) + margin(theme) + 내부 all(xxl) = 48.8/76.0 `[측정]`.
+    return BbCardTile(
       elevation: 2,
-      child: Padding(
-        padding: context.bbSpace.all(BbSpaceToken.xxl),
-        child: Row(
-          children: [
-            Container(
-              padding: context.bbSpace.all(BbSpaceToken.lg),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
-              ),
-              child: Icon(icon, color: color, size: context.bbType.iconLg),
+      hMargin: BbSpaceToken.md,
+      hPadding: BbSpaceToken.xxl,
+      child: Row(
+        children: [
+          Container(
+            padding: context.bbSpace.all(BbSpaceToken.lg),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: context.bbSpace.radius(BbSpaceToken.lg),
             ),
-            context.bbSpace.gapH(BbSpaceToken.xl),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
-                        ),
-                  ),
-                  context.bbSpace.gapV(BbSpaceToken.xs),
-                  Text(
-                    '$prefix${CurrencyFormatter.format(displayAmount)}원',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              ),
+            child: Icon(icon, color: color, size: context.bbType.iconLg),
+          ),
+          context.bbSpace.gapH(BbSpaceToken.xl),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6),
+                      ),
+                ),
+                context.bbSpace.gapV(BbSpaceToken.xs),
+                Text(
+                  '$prefix${CurrencyFormatter.format(displayAmount)}원',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

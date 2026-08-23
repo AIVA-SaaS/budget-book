@@ -421,6 +421,20 @@ enum BbBoxRole {
   /// ⚠ 34dp 는 44dp 터치 하한을 밑돈다 — 사용자가 승인한 "항목 사이 20dp" 를 1줄
   /// 항목에도 적용한 결과다. 되돌리려면 `min` 을 44 로 올린다(사이 30dp).
   listRowMinHeight,
+
+  /// **카드형 목록 항목의 세로 여백**(`BbCardTile` 내부 `Padding` 의 위·아래).
+  ///
+  /// 왜 별도 역할인가 `[측정 2026-08-24]`: 카드 항목의 사이는
+  /// `2 × (Card margin 세로 + 카드 내부 padding 세로)` 다. 승인값 **20.0 @390 /
+  /// 25.0 @960** 은 390→960 에서 **1.25배**인데 일반 여백 토큰의 곡선은 1.5~1.57배라
+  /// (`lg` 8→12, `xl` 10.2→16) 어떤 토큰 조합으로도 두 지점을 동시에 지나갈 수 없다.
+  /// 그래서 `listRowPadV`(10, 12.5)와 **같은 관용구**로 전용 spec 을 둔다:
+  /// `margin` 세로는 `xs`(4.0 상수) 로 고정하고 이 값이 `(6, 8.5)` 를 지나가면
+  /// **사이 = 2 × (4 + 6) = 20.0 @390 · 2 × (4 + 8.5) = 25.0 @960** 이 된다.
+  ///
+  /// 대조군 실측(변경 전): 통계>카테고리별 34.2/48.0 · 결제수단별 32.0/32.0 ·
+  /// 전년비교 62.7/67.5 · 예산>주간카드 75.2/80.5 `[측정 2026-08-24]`.
+  cardRowPadV,
 }
 
 /// 자산 탭 승인값(compact = 하한 / wide = 상한). 상한은 960px 에서 찍힌다.
@@ -449,6 +463,8 @@ const Map<BbBoxRole, ({double min, double max})> kBbBoxSpec = {
   // 사이(2줄) = 2 × listRowPadV · 사이(1줄) = listRowMinHeight − 제목줄(14/16).
   BbBoxRole.listRowPadV: (min: 10, max: 12.5),
   BbBoxRole.listRowMinHeight: (min: 34, max: 41),
+  // 사이(카드) = 2 × (space.xs + cardRowPadV) = 2 × (4 + 6) = 20.0 @390 · 25.0 @960.
+  BbBoxRole.cardRowPadV: (min: 6, max: 8.5),
 };
 
 /// 슬롯·크롬 치수. 계단(`width < 600 ? … : …`)을 대체한다 — 새 폭 분기는
@@ -477,6 +493,7 @@ class BbBox {
   double get navBar => size(BbBoxRole.navBar);
   double get listRowPadV => size(BbBoxRole.listRowPadV);
   double get listRowMinHeight => size(BbBoxRole.listRowMinHeight);
+  double get cardRowPadV => size(BbBoxRole.cardRowPadV);
 
   @override
   bool operator ==(Object other) => other is BbBox && other.width == width;

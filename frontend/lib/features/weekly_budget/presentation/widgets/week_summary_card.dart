@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/weekly_overview.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 
@@ -9,7 +11,8 @@ class WeekSummaryCard extends StatelessWidget {
   /// 행 builder. 카드는 자체적으로 InkWell/PopupMenu 를 만들지 않고
   /// 부모가 제공하는 [itemRowBuilder] 를 통해 BudgetRowActions 등을 주입.
   /// (하네스 audit `budget_row_action_unification` — 행 동선 단일 진입점 강제)
-  final Widget Function(BuildContext context, WeeklyBudgetItem item, Widget rowBody)?
+  final Widget Function(
+          BuildContext context, WeeklyBudgetItem item, Widget rowBody)?
       itemRowBuilder;
 
   const WeekSummaryCard({
@@ -25,156 +28,160 @@ class WeekSummaryCard extends StatelessWidget {
     final totalUsage = weekSummary.totalUsageRate;
     final overallColor = _getUsageColor(totalUsage);
 
-    return Card(
+    // 세로 리듬은 BbCardTile 이 소유한다(사이 20.0dp @390 · 25.0 @960).
+    // 종전: 호스트 Padding(bottom:8) + margin(theme) + 내부 all(16) + 마지막 항목의
+    // 꼬리 여백까지 겹쳐 **사이 75.2/80.5** 였다 `[측정 2026-08-24]`.
+    return BbCardTile(
       elevation: isCurrentWeek ? 3 : 1,
+      hMargin: BbSpaceToken.md,
+      hPadding: BbSpaceToken.xl,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isCurrentWeek
             ? BorderSide(color: theme.colorScheme.primary, width: 2)
             : BorderSide.none,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '${weekSummary.weekNumber}주차',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '${weekSummary.weekNumber}주차',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (isCurrentWeek) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '이번 주',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
                     ),
-                    if (isCurrentWeek) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color:
-                              theme.colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '이번 주',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
+                  ],
+                ],
+              ),
+              Text(
+                '${totalUsage.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: overallColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${weekSummary.weekStart} ~ ${weekSummary.weekEnd}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Total summary row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSummaryChip(context, '예산',
+                  CurrencyFormatter.format(weekSummary.totalBudget)),
+              _buildSummaryChip(context, '지출',
+                  CurrencyFormatter.format(weekSummary.totalSpent)),
+              _buildSummaryChip(context, '잔여',
+                  CurrencyFormatter.format(weekSummary.totalRemaining),
+                  color: weekSummary.totalRemaining >= 0
+                      ? Colors.green
+                      : Colors.red),
+            ],
+          ),
+          // Per-item breakdown
+          if (weekSummary.items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            ...weekSummary.items.asMap().entries.map((entry) {
+              final item = entry.value;
+              // ★마지막 항목은 꼬리 여백 0 — 카드 밑변까지의 빈 공간이 두 번
+              // 겹쳐 "항목 사이"를 부풀리고 있었다.
+              final isLastItem = entry.key == weekSummary.items.length - 1;
+              final progress = (item.usageRate / 100).clamp(0.0, 1.0);
+              final itemColor = _getUsageColor(item.usageRate);
+              final rowBody = Padding(
+                padding: EdgeInsets.only(bottom: isLastItem ? 0 : 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.folder_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5)),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  item.displayName,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(Icons.chevron_right,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)),
+                            ],
                           ),
                         ),
+                        Text(
+                          '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        backgroundColor:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                        valueColor: AlwaysStoppedAnimation<Color>(itemColor),
                       ),
-                    ],
+                    ),
                   ],
                 ),
-                Text(
-                  '${totalUsage.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: overallColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${weekSummary.weekStart} ~ ${weekSummary.weekEnd}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Total summary row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSummaryChip(
-                    context, '예산', CurrencyFormatter.format(weekSummary.totalBudget)),
-                _buildSummaryChip(
-                    context, '지출', CurrencyFormatter.format(weekSummary.totalSpent)),
-                _buildSummaryChip(context, '잔여',
-                    CurrencyFormatter.format(weekSummary.totalRemaining),
-                    color: weekSummary.totalRemaining >= 0
-                        ? Colors.green
-                        : Colors.red),
-              ],
-            ),
-            // Per-item breakdown
-            if (weekSummary.items.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-              ...weekSummary.items.map((item) {
-                final progress = (item.usageRate / 100).clamp(0.0, 1.0);
-                final itemColor = _getUsageColor(item.usageRate);
-                final rowBody = Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.folder_outlined,
-                                    size: 14,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5)),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    item.displayName,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Icon(Icons.chevron_right,
-                                    size: 14,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.4)),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '${CurrencyFormatter.format(item.spentAmount)}원 / ${CurrencyFormatter.format(item.budgetAmount)}원',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 5,
-                          backgroundColor: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.1),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(itemColor),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-                if (itemRowBuilder != null) {
-                  return itemRowBuilder!(context, item, rowBody);
-                }
-                return rowBody;
-              }),
-            ],
+              );
+              if (itemRowBuilder != null) {
+                return itemRowBuilder!(context, item, rowBody);
+              }
+              return rowBody;
+            }),
           ],
-        ),
+        ],
       ),
     );
   }
