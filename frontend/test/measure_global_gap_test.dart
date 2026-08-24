@@ -113,6 +113,69 @@ void main() {
       });
     }
 
+    // 우리 타일(EntityTileRow)은 박스를 **선행 슬롯 + 여백**으로 정한다 → 아이콘을
+    // 2줄 관례(40)로 두고도 사이가 계약값이 되는지 본다(부제목 있는 2줄 행).
+    testWidgets('우리 타일 2줄(부제목) w=$w', (t) async {
+      await t.binding.setSurfaceSize(Size(w, 1600));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      await t.pumpWidget(wrap(
+          w,
+          const Column(children: [
+            EntityTileRow(
+                title: '신한 주거래',
+                subtitle: '입출금 · 주거래',
+                leadingIcon: Icons.account_balance,
+                trailingMetric: EntityMetric(value: '+1,234,567')),
+            EntityTileRow(
+                title: '카카오뱅크',
+                subtitle: '입출금',
+                leadingIcon: Icons.account_balance,
+                trailingMetric: EntityMetric(value: '+99,000')),
+            EntityTileRow(
+                title: '현금',
+                subtitle: '지갑',
+                leadingIcon: Icons.money,
+                trailingMetric: EntityMetric(value: '+30,000')),
+          ])));
+      await t.pump(const Duration(milliseconds: 300));
+      report('우리 타일 2줄', w, find.byType(EntityTileRow));
+    });
+
+    // 가설(2026-08-24 사용자 지시): "아이콘은 2줄이니까 40 으로 맞추거나 적절하게".
+    // → 아이콘을 **줄이지 않고**, 선행 위젯 상자에 `2 × listRowPadV` 를 실어
+    //   행 박스를 키우면 잉크 사이가 여백 계약값(20/25)이 되는가?
+    for (final avatar in [40.0, 32.0]) {
+      testWidgets('가설: 아바타 $avatar + 선행 보정 w=$w', (t) async {
+        await t.binding.setSurfaceSize(Size(w, 1600));
+        addTearDown(() => t.binding.setSurfaceSize(null));
+        final box = BbBox.forWidth(w);
+        await t.pumpWidget(wrap(
+            w,
+            Column(children: [
+              for (final label in ['점심 식사', '지하철', '영화'])
+                ListTile(
+                  leading: SizedBox(
+                    width: avatar,
+                    // ★핵심: 아이콘 높이 + 2 × 세로 여백 계약
+                    height: avatar + 2 * box.listRowPadV,
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: avatar,
+                        child: CircleAvatar(
+                            child: Icon(Icons.fastfood, size: avatar * 0.5)),
+                      ),
+                    ),
+                  ),
+                  title: Text(label),
+                  subtitle: const Text('식비 · 신한카드'),
+                  trailing: const Text('-12,000'),
+                ),
+            ])));
+        await t.pump(const Duration(milliseconds: 300));
+        report('가설 아바타=$avatar+보정', w, find.byType(ListTile));
+      });
+    }
+
     testWidgets('프레임워크 ListTile(2줄) w=$w', (t) async {
       await t.binding.setSurfaceSize(Size(w, 1600));
       addTearDown(() => t.binding.setSurfaceSize(null));
