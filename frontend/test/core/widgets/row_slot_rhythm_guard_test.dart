@@ -143,14 +143,26 @@ void main() {
   });
 
   group('S3. 소스 봉인 — 슬롯의 레이아웃 높이가 정사각으로 회귀하지 않는다', () {
-    test('entity_tile_row 에 height: box.actionSlot 이 없다', () {
-      final src =
-          File('lib/core/widgets/entity_tile_row.dart').readAsStringSync();
-      // 슬롯은 정사각 44 를 유지한다(터치 하한). 리듬은 **여백 0** 이 만든다.
+    test('슬롯은 정사각 44 를 유지하고, 세로 흐름 밖에 있다', () {
+      // ★주석을 뺀 코드만 본다(6차: 폐기한 표현을 주석에 인용했더니 이 봉인이
+      // 조용히 통과했다).
+      final src = File('lib/core/widgets/entity_tile_row.dart')
+          .readAsStringSync()
+          .split('\n')
+          .where((l) => !l.trimLeft().startsWith('//'))
+          .join('\n');
+      // 슬롯은 정사각 44 를 유지한다(터치 하한).
       expect(src.contains('height: box.actionSlot'), isTrue,
           reason: '터치 하한 44 가 사라졌다 — 히트 영역이 새어나간다(탭 라우팅으로 확인됨)');
-      expect(src.contains('hasTallSlot ? 0 : space.xs'), isTrue,
-          reason: '액션 행의 여백 0 계약이 사라졌다 — 사이가 32dp 로 벌어진다');
+      // ★6차(2026-08-24): 리듬은 여백 0 이 아니라 **슬롯을 세로 흐름 밖에 두는 것**이
+      // 만든다. 여백 0 은 슬롯의 슬랙 24 를 행 안쪽에 갇히게 해 위 12.0 / 아래 4.0 의
+      // 3배 비대칭을 만들었다 `[측정]`(사용자 신고 ③). 사이 24.0(S1)은 그대로다 —
+      // 박스가 슬롯 44 에 묶이는 것은 여백이 아니라 슬롯의 높이가 정하기 때문이다.
+      expect(src.contains('hasTallSlot'), isFalse,
+          reason: '슬롯 유무로 여백을 갈랐던 5차 회귀가 돌아왔다');
+      expect(src.contains('trailingSlot'), isTrue,
+          reason: '슬롯이 다시 제목 행(세로 흐름) 안으로 들어갔다 — '
+              '슬랙이 행 안쪽에 갇혀 위아래 비대칭이 된다');
     });
 
     test('budget_row_actions 의 메뉴 버튼도 같은 계약을 쓴다', () {

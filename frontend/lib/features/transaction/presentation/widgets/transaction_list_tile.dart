@@ -84,22 +84,13 @@ class TransactionListTile extends StatelessWidget {
                   size: context.bbType.iconSm,
                 ),
               ),
-              if (transaction.paymentMethodName != null)
-                Padding(
-                  padding: context.bbSpace.only(top: BbSpaceToken.xs),
-                  child: Text(
-                    transaction.paymentMethodName!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: context.bbType.caption,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.45),
-                    ),
-                  ),
-                ),
+              // ★2026-08-24 (6차) — 아바타 아래 결제수단 캡션을 지웠다 `[측정]`:
+              // 선행 Column 이 아바타 32 + `xs` 4 + 캡션 14 = **50** 이었고 타일 박스는
+              // 45(3차 PR #308 의 `minTileHeight: 34` 이후)라 **행 사이 −6.0 = 겹침**이
+              // 됐다(사용자 신고 ①: 아이콘 아래 글자가 붙는다). 그런데 이 값은
+              // **부제목이 이미 `카테고리 · 결제수단` 으로 같은 문자열을 보여준다** —
+              // 중복이라 지워도 잃는 정보가 없고 선행 높이가 32 로 내려가
+              // `minTileHeight` 를 건드릴 필요가 없다(기획서 §5-1 사전 판정 기준).
             ],
           ),
         ),

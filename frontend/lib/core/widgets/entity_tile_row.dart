@@ -185,13 +185,15 @@ class EntityTileRow extends StatelessWidget {
 
     final content = LayoutBuilder(
       builder: (context, constraints) {
-        // Chrome the title row cannot use: padding, avatar, gaps, actions.
+        // Chrome the title row cannot use: padding, avatar, gaps.
+        // ★액션·슬롯은 이제 이 Column 밖에 있다(아래 `body` 의 형제). 이
+        // LayoutBuilder 가 이미 슬롯 폭을 뺀 제약을 받으므로 여기서 또 빼면
+        // 이중 차감이다. 폭 항등식은 보존된다 `[증명]`:
+        //   종전 (full − 2xl) − (2xl + slot + md)
+        //   == 지금 (full − 2xl − slot − md) − 2xl
+        // 그래서 금액을 제목 행에 둘지(inlineMetric) 판정은 바뀌지 않는다.
         var chrome = space.xl * 2;
         if (leadingIcon != null) chrome += box.avatar + space.md;
-        if (editing) chrome += _actionsWidth(box, actions!) + space.md;
-        if (!editing && viewAction != null) {
-          chrome += box.actionSlot + space.md;
-        }
         final available = constraints.maxWidth - chrome;
 
         // In edit mode the action lane owns the right side, so the amount
@@ -260,29 +262,6 @@ class EntityTileRow extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (!editing && viewAction != null) ...[
-                  SizedBox(width: space.md),
-                  // ★슬롯은 정사각 44 를 유지한다 — 터치 하한이다(도메인 12 L4).
-                  // 레이아웃 높이만 낮추고 `OverflowBox` 로 히트 영역을 살리려 했지만
-                  // **탭 라우팅 계측이 반증했다** `[측정 2026-08-24]`: 조상 위젯이 hit test
-                  // 를 자기 박스로 제한해 위쪽 20dp 탭이 새어나갔다(위젯 박스로 판정했으면
-                  // 통과했을 오류다). 대신 이 행의 **세로 padding 을 0** 으로 두어
-                  // 박스 = 슬롯 44 가 되게 한다 → 사이 24 @390 · **25.0 @960**.
-                  SizedBox(
-                    width: box.actionSlot,
-                    height: box.actionSlot,
-                    child: IconButton(
-                      icon: Icon(viewAction!.icon, size: box.actionIcon),
-                      padding: EdgeInsets.zero,
-                      tooltip: viewAction!.tooltip,
-                      onPressed: viewAction!.onPressed,
-                    ),
-                  ),
-                ],
-                if (editing) ...[
-                  SizedBox(width: space.md),
-                  _ActionLane(actions: actions!),
-                ],
               ],
             ),
             if (!editing && subtitle != null) ...[
@@ -308,45 +287,61 @@ class EntityTileRow extends StatelessWidget {
       },
     );
 
-    // ★세로는 `xs`, 가로는 `xl`. 사용자 승인값(2026-08-21, 2차) — 요청은 **"항목 1과 2
-    // 사이의 빈 공간"** 이었고 그 지표의 지배 변수는 **패딩(57%)** 이다 `[측정]`:
-    //   현재  텍스트 사이 28.0dp @390 = 패딩 16 + 아바타 오버행 12 / 41.0 @960
-    //   승인  텍스트 사이 **18.0dp @390**(−36%) · **25.0 @960**(−39%)
-    // 1차(2026-08-21 오전)는 `lg`→`md` 로 24.7dp(−12%)에 그쳐 체감이 없었고 되돌렸다(PR #305).
-    // ⚠ 행 높이는 38dp 로 44dp 터치 하한을 밑돈다 — 행이 화면 폭 전체를 쓰는 형태라
-    // 감수한 선택이다. 되돌리려면 이 한 줄을 `space.sm`(사이 22.2dp)으로 올린다.
-    // 가로(`xl`)·아바타(32/40)·폰트는 **건드리지 않는다**(1차 실패의 교훈: 요청 범위 봉인).
-    // ★항목 사이 = 행 박스 − 행 잉크 `[측정 2026-08-24]`. 박스는 **가장 큰 슬롯**이 정한다:
-    //   슬롯 없는 행  = 아바타 32 + 2×xs(4) = 40 − 잉크 20 = 사이 **20.0** ✅
-    //   44 슬롯 행    = 44 + 2×xs        = 52 − 잉크 20 = 사이 **32.0** ❌ (종전)
-    //   44 슬롯 + 여백 0 = 44            − 잉크 20 = 사이 **24.0**(@960 25.0 정확) ← 채택
-    // 44 는 터치 하한이라 줄일 수 없고(계측으로 확인), 그래서 남는 레버가 여백뿐이다.
-    final hasTallSlot = (!editing && viewAction != null) ||
-        (actions?.onActiveChanged != null) ||
-        (actions?.menu.isNotEmpty ?? false) ||
-        (actions?.reorderIndex != null);
-    final padded = Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: space.xl,
-        vertical: hasTallSlot ? 0 : space.xs,
-      ),
-      child: dimmed ? Opacity(opacity: 0.55, child: content) : content,
+    // ★행 리듬의 **단일 소유자** — 세 지표를 한 규칙으로 묶는다 `[측정 2026-08-24]`:
+    //   박스 = max(잉크 + 2 × 여백, 터치 슬롯 44) · 위 = 아래 · 사이 = 위 + 아래
+    // 여백은 모든 행에서 같은 값(`xs`)이고 **대칭**이다. 가로(`xl`)·아바타·폰트는
+    // 이번 축이 아니므로 건드리지 않는다(1차 실패의 교훈: 요청 범위 봉인).
+    //
+    // 5차(PR #313)의 `hasTallSlot ? 0 : space.xs` 를 되돌린다. 그 처방은 슬롯 44 가
+    // **제목 행 안**에 있다는 전제를 그대로 두고 여백만 0 으로 깎았고, 그래서 슬랙 24 가
+    // 행 안쪽(제목 위아래)에 갇힌 채 위 12.0 / 아래 4.0 의 3배 비대칭이 됐다
+    // `[측정]`(사용자 신고 ③: 자산 탭·카테고리 탭·자산 현황).
+    // 지금은 슬롯을 **세로 흐름 밖**으로 뺀다 — 슬롯은 여전히 정사각 44(터치 하한,
+    // 탭 라우팅 계측으로 확인)지만 박스의 **하한**만 정하고, 남는 슬랙은 Row 의 center
+    // 정렬이 위아래로 균등하게 나눈다:
+    //   1줄 + 슬롯 행: 박스 max(32 + 8, 44) = 44 → 사이 24.0(@960 48 → 24.0) 종전과 동일
+    //   칩 행:        박스 = 잉크 + 8 → 사이 18.0 — 액션 유무로 갈리지 않는다
+    //                 (종전 액션 16.0 / 무액션 18.0 — 같은 위젯이 두 리듬을 가졌다)
+    final Widget? trailingSlot = editing
+        ? _ActionLane(actions: actions!)
+        : (viewAction != null
+            ? SizedBox(
+                width: box.actionSlot,
+                height: box.actionSlot,
+                child: IconButton(
+                  icon: Icon(viewAction!.icon, size: box.actionIcon),
+                  padding: EdgeInsets.zero,
+                  tooltip: viewAction!.tooltip,
+                  onPressed: viewAction!.onPressed,
+                ),
+              )
+            : null);
+
+    final body = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: space.xs),
+            child: content,
+          ),
+        ),
+        if (trailingSlot != null) ...[
+          SizedBox(width: space.md),
+          trailingSlot,
+        ],
+      ],
     );
 
     // Tapping a row navigates away; in edit mode that would fight the
     // toggle/drag gestures, so it is disabled (검증 B5).
     return InkWell(
       onTap: editing ? null : onTap,
-      child: padded,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: space.xl),
+        child: dimmed ? Opacity(opacity: 0.55, child: body) : body,
+      ),
     );
-  }
-
-  static double _actionsWidth(BbBox box, EntityTileActions actions) {
-    var width = 0.0;
-    if (actions.onActiveChanged != null) width += box.toggleSlot;
-    if (actions.menu.isNotEmpty) width += box.actionSlot;
-    if (actions.reorderIndex != null) width += box.actionSlot;
-    return width;
   }
 
   /// Foreground color for a tone painted directly on the surface.

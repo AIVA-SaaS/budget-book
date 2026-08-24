@@ -42,21 +42,10 @@ class TransferListTile extends StatelessWidget {
                 size: 16,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Text(
-                '이체',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.45),
-                ),
-              ),
-            ),
+            // ★2026-08-24 (6차) — 거래 타일과 **같은 선행 계약**(아바타만)으로 맞췄다.
+            // 종전에는 아바타 아래 `이체` 캡션(리터럴 fontSize 8 · top 1)이 붙어 선행이
+            // 42.4 였고 타일 박스 45 와의 여유가 위아래 1.3dp 뿐이었다 `[측정]`.
+            // 표식은 사라지지 않는다 — 부제목 머리로 옮겼다(정보 보존).
           ],
         ),
       ),
@@ -85,7 +74,7 @@ class TransferListTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        '${transfer.sourcePaymentMethod.name} \u2192 ${transfer.destinationPaymentMethod.name}',
+        '이체 · ${transfer.sourcePaymentMethod.name} \u2192 ${transfer.destinationPaymentMethod.name}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(

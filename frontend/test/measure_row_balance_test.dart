@@ -110,8 +110,11 @@ void main() {
       balance('자산탭 칩만', w, find.byType(EntityTileRow));
     });
 
-    // ① 거래 탭: 선행이 Column(아바타 + 결제수단 글자) 인 ListTile
-    testWidgets('거래탭형: 선행 Column(아바타+글자) w=$w', (t) async {
+    // ① 거래 탭 **대조군** — 종전 선행 Column(아바타 + 결제수단 캡션)을 이 파일 안에
+    // 재현한 것이다. 6차(2026-08-24)에 실제 타일에서는 캡션을 지웠으므로 이 케이스는
+    // **고친 뒤에도 계속 −6.0 을 보고한다** — 그게 대조군의 역할이다.
+    // 실제 위젯의 균형은 `test/core/widgets/row_balance_guard_test.dart` B2 가 잰다.
+    testWidgets('거래탭형(대조군): 종전 선행 Column(아바타+캡션) w=$w', (t) async {
       await t.binding.setSurfaceSize(Size(w, 1600));
       addTearDown(() => t.binding.setSurfaceSize(null));
       await t.pumpWidget(wrap(w, Builder(builder: (context) {
@@ -149,8 +152,8 @@ void main() {
       // 이 값이 null 이 되어야 하고, 그때 가드가 `isNull` 로 단정한다.
       final overflow = t.takeException();
       // ignore: avoid_print
-      print('OVERFLOW|거래탭 선행Column|w=$w|${overflow ?? "없음"}');
-      balance('거래탭 선행Column', w, find.byType(ListTile));
+      print('OVERFLOW|거래탭 선행Column(대조군)|w=$w|${overflow ?? "없음"}');
+      balance('거래탭 선행Column(대조군)', w, find.byType(ListTile));
 
       // 선행 Column 안의 위/아래 균형 — 신고 ①의 지표
       final leads = find.byType(ListTile).evaluate().toList();
@@ -169,7 +172,7 @@ void main() {
         final a = r(avatar.first);
         final p = r(pmText.first);
         // ignore: avoid_print
-        print('LEAD|거래탭 선행|w=$w'
+        print('LEAD|거래탭 선행(대조군)|w=$w'
             '|타일박스=${tile.height.toStringAsFixed(1)}'
             '|타일상단→아바타=${(a.top - tile.top).toStringAsFixed(1)}'
             '|아바타→글자=${(p.top - a.bottom).toStringAsFixed(1)}'
