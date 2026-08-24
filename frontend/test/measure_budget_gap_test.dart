@@ -326,6 +326,26 @@ void main() {
         }
       }
 
+      // 신고②(예산 여백 과다)의 지배 변수: 부제목이 몇 줄로 랩되는가 + 그 폭.
+      {
+        final tiles0 = find.byType(ListTile).evaluate().toList();
+        if (tiles0.isNotEmpty) {
+          final t0 = tiles0.first;
+          final texts = find
+              .descendant(
+                  of: find.byWidget(t0.widget), matching: find.byType(Text))
+              .evaluate();
+          for (final e in texts) {
+            final wd = e.widget as Text;
+            final rr = _rect(e);
+            // ignore: avoid_print
+            print('WRAP|예산항목|w=$w|"${wd.data}"'
+                '|폭=${rr.width.toStringAsFixed(1)}'
+                '|높이=${rr.height.toStringAsFixed(1)}');
+          }
+        }
+      }
+
       // ── 항목 **높이** 해부 (2026-08-24 추가 — 사용자가 "높이 조정이 안됐다")
       // 사이(gap)와 높이(height)는 지배 변수가 다르다. 무엇이 93dp 를 채우는지 쟨다.
       final tilesA = find.byType(ListTile).evaluate().toList();
