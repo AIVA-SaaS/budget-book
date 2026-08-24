@@ -262,6 +262,12 @@ class EntityTileRow extends StatelessWidget {
                 ],
                 if (!editing && viewAction != null) ...[
                   SizedBox(width: space.md),
+                  // ★슬롯은 정사각 44 를 유지한다 — 터치 하한이다(도메인 12 L4).
+                  // 레이아웃 높이만 낮추고 `OverflowBox` 로 히트 영역을 살리려 했지만
+                  // **탭 라우팅 계측이 반증했다** `[측정 2026-08-24]`: 조상 위젯이 hit test
+                  // 를 자기 박스로 제한해 위쪽 20dp 탭이 새어나갔다(위젯 박스로 판정했으면
+                  // 통과했을 오류다). 대신 이 행의 **세로 padding 을 0** 으로 두어
+                  // 박스 = 슬롯 44 가 되게 한다 → 사이 24 @390 · **25.0 @960**.
                   SizedBox(
                     width: box.actionSlot,
                     height: box.actionSlot,
@@ -310,10 +316,19 @@ class EntityTileRow extends StatelessWidget {
     // ⚠ 행 높이는 38dp 로 44dp 터치 하한을 밑돈다 — 행이 화면 폭 전체를 쓰는 형태라
     // 감수한 선택이다. 되돌리려면 이 한 줄을 `space.sm`(사이 22.2dp)으로 올린다.
     // 가로(`xl`)·아바타(32/40)·폰트는 **건드리지 않는다**(1차 실패의 교훈: 요청 범위 봉인).
+    // ★항목 사이 = 행 박스 − 행 잉크 `[측정 2026-08-24]`. 박스는 **가장 큰 슬롯**이 정한다:
+    //   슬롯 없는 행  = 아바타 32 + 2×xs(4) = 40 − 잉크 20 = 사이 **20.0** ✅
+    //   44 슬롯 행    = 44 + 2×xs        = 52 − 잉크 20 = 사이 **32.0** ❌ (종전)
+    //   44 슬롯 + 여백 0 = 44            − 잉크 20 = 사이 **24.0**(@960 25.0 정확) ← 채택
+    // 44 는 터치 하한이라 줄일 수 없고(계측으로 확인), 그래서 남는 레버가 여백뿐이다.
+    final hasTallSlot = (!editing && viewAction != null) ||
+        (actions?.onActiveChanged != null) ||
+        (actions?.menu.isNotEmpty ?? false) ||
+        (actions?.reorderIndex != null);
     final padded = Padding(
       padding: EdgeInsets.symmetric(
         horizontal: space.xl,
-        vertical: space.xs,
+        vertical: hasTallSlot ? 0 : space.xs,
       ),
       child: dimmed ? Opacity(opacity: 0.55, child: content) : content,
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
@@ -70,34 +71,50 @@ class BudgetRowActions extends StatelessWidget {
 
   /// PopupMenu 위젯만 반환 (trailing 영역에 별도 배치하고 싶을 때).
   Widget buildMenu(BuildContext context) {
-    return PopupMenuButton<String>(
-      onSelected: (value) => _handleMenu(context, value),
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'transactions',
-          child: Row(children: [
-            Icon(Icons.receipt_long, size: 18),
-            SizedBox(width: 8),
-            Text('거래 보기'),
-          ]),
+    final box = context.bbBox;
+    // ★메뉴 버튼의 **레이아웃 높이**는 아바타 기준이다 `[측정 2026-08-24]`.
+    // 기본 IconButton 은 48dp 정사각이라 이 버튼이 든 행의 박스를 밀어올려
+    // **주간 카드 내부 행 사이가 28dp**(승인값 20)였다. 히트 영역 44 는 OverflowBox 로 유지.
+    // 같은 처방을 `entity_tile_row.dart` 의 액션 슬롯 4곳에도 적용했다.
+    return SizedBox(
+      width: box.actionSlot,
+      // 높이는 **아이콘 사다리**다 — 아바타(32/40)로 두면 아바타가 없는 행
+      // (주간 카드 내부)에서 그 차이가 그대로 slack 이 되어 사이를 벌린다 `[측정]`.
+      height: box.actionIcon,
+      child: OverflowBox(
+        minHeight: box.actionSlot,
+        maxHeight: box.actionSlot,
+        child: PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          onSelected: (value) => _handleMenu(context, value),
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: 'transactions',
+              child: Row(children: [
+                Icon(Icons.receipt_long, size: 18),
+                SizedBox(width: 8),
+                Text('거래 보기'),
+              ]),
+            ),
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(children: [
+                Icon(Icons.edit, size: 18),
+                SizedBox(width: 8),
+                Text('수정'),
+              ]),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(children: [
+                Icon(Icons.delete, size: 18, color: Colors.red),
+                SizedBox(width: 8),
+                Text('삭제', style: TextStyle(color: Colors.red)),
+              ]),
+            ),
+          ],
         ),
-        PopupMenuItem(
-          value: 'edit',
-          child: Row(children: [
-            Icon(Icons.edit, size: 18),
-            SizedBox(width: 8),
-            Text('수정'),
-          ]),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(children: [
-            Icon(Icons.delete, size: 18, color: Colors.red),
-            SizedBox(width: 8),
-            Text('삭제', style: TextStyle(color: Colors.red)),
-          ]),
-        ),
-      ],
+      ),
     );
   }
 
