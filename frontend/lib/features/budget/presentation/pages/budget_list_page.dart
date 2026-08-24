@@ -10,6 +10,8 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart'
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_row_actions.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
+import 'package:budget_book/core/widgets/one_line_label.dart';
 import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/core/widgets/color_picker.dart';
@@ -769,8 +771,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
             const SizedBox(height: 4),
             _buildBudgetProgressBar(context, summaryItem, displayBudgetAmount),
             const SizedBox(height: 4),
-            _buildBudgetSubtitleText(context, summaryItem, displayBudgetAmount,
-                numberFormat, usageRate),
+            _buildBudgetSubtitleText(
+                context, summaryItem, numberFormat, usageRate),
           ],
         ),
         trailing: Row(
@@ -847,16 +849,24 @@ class _BudgetListPageState extends State<BudgetListPage> {
 
   /// 회차 12 P4 — subtitle 에서 + 계획 표시 제거 (도메인 분리).
   /// plannedAmount branch 제거. spent/budget 만 표시.
+  ///
+  /// ★2026-08-24 (6차) — 사용자 신고 ②("예산 위 아래 여백이 엄청 많음")의 지배 변수는
+  /// 여백이 아니라 **이 한 줄의 랩**이었다 `[측정]`: 행 박스 93.0dp 중 45.0dp(48%)가
+  /// 부제목 **3줄**이었고, 폭은 145.6dp(trailing 금액 116 + 메뉴 44 가 먹고 남은 값)다.
+  /// 예산 총액은 **같은 행 trailing 에 이미 굵게** 있으므로 `/ 400,000원` 은 중복이었다.
+  /// 지운 뒤 `250,000원 (62.5%)` 는 1줄(≈100dp)로 들어간다. 게다가 `OneLineLabel` 이
+  /// 폭이 더 좁아져도 글자를 줄여 **랩 자체를 구조적으로 막는다**(우리가 높이를 소유).
+  /// 되돌리려면 분모를 문자열에 다시 넣으면 된다 — 그래도 1줄은 유지된다.
   Widget _buildBudgetSubtitleText(
     BuildContext context,
     BudgetSummaryItem? summaryItem,
-    int budgetAmount,
     NumberFormat numberFormat,
     double usageRate,
   ) {
     final spentAmount = summaryItem?.spentAmount ?? 0;
-    return Text(
-      '${numberFormat.format(spentAmount)}원 / ${numberFormat.format(budgetAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+    return OneLineLabel(
+      '${numberFormat.format(spentAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
+      baseFontSize: context.bbType.caption + 1,
       style: Theme.of(context).textTheme.bodySmall,
     );
   }

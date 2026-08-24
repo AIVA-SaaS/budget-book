@@ -68,30 +68,47 @@ void main() {
       }
     });
 
-    testWidgets('세로 padding 은 xs 하나뿐 — 가로는 건드리지 않는다', (tester) async {
+    testWidgets('세로 여백은 대칭 xs 뿐 — 가로는 건드리지 않는다', (tester) async {
       for (final w in [320.0, 390.0, 960.0]) {
         await pumpPair(tester, w);
-        final padding = tester
+        // 6차(2026-08-24)부터 여백이 **두 위젯**으로 나뉘었다: 가로는 행 전체
+        // (`InkWell` 바로 아래), 세로는 텍스트 블록(액션 슬롯의 형제). 슬롯이 세로
+        // 흐름 밖으로 나가야 슬롯이 만든 슬랙이 행 **안쪽**에 갇히지 않는다
+        // (5차 회귀: 위 12.0 / 아래 4.0). 그래서 합으로 단정한다.
+        // ⚠ `of: find.byType(InkWell)` 은 **두 행 모두**를 잡아 여백이 2배로 세어진다
+        // (6차에 한 번 그렇게 틀렸다) — 행 하나로 좁힌다.
+        final paddings = tester
             .widgetList<Padding>(find.descendant(
-              of: find.byType(InkWell),
+              of: find.byType(InkWell).first,
               matching: find.byType(Padding),
             ))
-            .first
-            .padding
-            .resolve(TextDirection.ltr);
+            .map((p) => p.padding.resolve(TextDirection.ltr))
+            .toList();
         final space = BbSpace.forWidth(w);
-        expect(padding.top, closeTo(space.xs, 1e-9),
-            reason: 'w=$w 세로 padding 이 xs 에서 벗어났다');
-        expect(padding.bottom, closeTo(space.xs, 1e-9));
-        expect(padding.left, closeTo(space.xl, 1e-9),
-            reason: 'w=$w 가로가 바뀌었다 — 이번 회차는 세로 한 축만 만진다');
+        double sum(double Function(EdgeInsets) f) =>
+            paddings.fold<double>(0, (a, p) => a + f(p));
+        expect(sum((p) => p.top), closeTo(space.xs, 1e-9),
+            reason: 'w=$w 세로 여백(위)이 xs 에서 벗어났다');
+        expect(sum((p) => p.bottom), closeTo(space.xs, 1e-9),
+            reason: 'w=$w 세로 여백(아래)이 위와 달라졌다 — 대칭이 깨졌다');
+        expect(sum((p) => p.left), closeTo(space.xl, 1e-9),
+            reason: 'w=$w 가로가 바뀌었다 — 이번 회차도 세로 한 축만 만진다');
       }
     });
 
     test('소스에도 한 곳뿐이다', () {
-      final src =
-          File('lib/core/widgets/entity_tile_row.dart').readAsStringSync();
-      expect(src.contains('hasTallSlot ? 0 : space.xs'), isTrue);
+      // ★주석을 뺀 코드만 본다. 6차에 폐기한 표현을 주석에 인용했더니 이 봉인이
+      // **조용히 통과**했다 — 봉인은 주석 문구로 만족될 수 있으면 봉인이 아니다.
+      final src = File('lib/core/widgets/entity_tile_row.dart')
+          .readAsStringSync()
+          .split('\n')
+          .where((l) => !l.trimLeft().startsWith('//'))
+          .join('\n');
+      expect(src.contains('vertical: space.xs'), isTrue,
+          reason: '세로 여백 토큰(xs)이 사라졌다');
+      expect(src.contains('hasTallSlot'), isFalse,
+          reason: '슬롯 유무로 여백을 갈랐던 5차 회귀가 돌아왔다 '
+              '(row_balance_guard_test 가 같은 계약을 렌더로 본다)');
       expect(src.contains('vertical: space.lg'), isFalse,
           reason: '1차에서 되돌린 값으로 회귀했다');
       expect(src.contains('vertical: space.md'), isFalse,
