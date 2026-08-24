@@ -123,7 +123,12 @@ class WeekSummaryCard extends StatelessWidget {
               final progress = (item.usageRate / 100).clamp(0.0, 1.0);
               final itemColor = _getUsageColor(item.usageRate);
               final rowBody = Padding(
-                padding: EdgeInsets.only(bottom: isLastItem ? 0 : 8),
+                // ★카드 **내부** 항목 사이도 승인값이다 = `2 × listRowPadV`
+                // (20.0 @390 · 25.0 @960). 종전 리터럴 8 은 사이 28dp 였다 —
+                // 메뉴 버튼(기본 48dp)이 행 박스를 밀어올린 몫 20dp 가 더해졌기 때문이다.
+                // 그 슬롯을 아이콘 사다리로 낮춘 뒤에는 사이 = 이 여백과 정확히 같다 `[측정]`.
+                padding: EdgeInsets.only(
+                    bottom: isLastItem ? 0 : 2 * context.bbBox.listRowPadV),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

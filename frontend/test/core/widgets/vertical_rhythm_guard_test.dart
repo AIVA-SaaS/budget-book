@@ -91,7 +91,7 @@ void main() {
     test('소스에도 한 곳뿐이다', () {
       final src =
           File('lib/core/widgets/entity_tile_row.dart').readAsStringSync();
-      expect(src.contains('vertical: space.xs'), isTrue);
+      expect(src.contains('hasTallSlot ? 0 : space.xs'), isTrue);
       expect(src.contains('vertical: space.lg'), isFalse,
           reason: '1차에서 되돌린 값으로 회귀했다');
       expect(src.contains('vertical: space.md'), isFalse,
