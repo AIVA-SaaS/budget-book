@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
+import 'package:budget_book/core/widgets/entity_tile_row.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_transactions_sheet.dart';
@@ -70,6 +71,44 @@ class BudgetRowActions extends StatelessWidget {
   });
 
   /// PopupMenu 위젯만 반환 (trailing 영역에 별도 배치하고 싶을 때).
+  /// 값 타입 메뉴 항목 — `EntityTileRow.overflowMenu` 가 렌더한다.
+  /// `buildMenu` 의 PopupMenuItem 3종과 **같은 목록**이어야 한다.
+  static const List<EntityMenuAction> menuItems = <EntityMenuAction>[
+    EntityMenuAction(
+        value: 'transactions', label: '거래 보기', icon: Icons.receipt_long),
+    EntityMenuAction(value: 'edit', label: '수정', icon: Icons.edit),
+    EntityMenuAction(
+        value: 'delete', label: '삭제', icon: Icons.delete, destructive: true),
+  ];
+
+  /// 위 항목 선택을 처리한다(`buildMenu` 와 같은 경로).
+  static Future<void> handleMenuValue(
+    BuildContext context,
+    String value, {
+    required String budgetId,
+    required String? categoryId,
+    required String? categoryGroupId,
+    required String label,
+    required String? dateFrom,
+    required String? dateTo,
+    required int year,
+    required int month,
+    required VoidCallback onAfterDelete,
+  }) {
+    return BudgetRowActions(
+      budgetId: budgetId,
+      categoryId: categoryId,
+      categoryGroupId: categoryGroupId,
+      label: label,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      year: year,
+      month: month,
+      onAfterDelete: onAfterDelete,
+      child: const SizedBox.shrink(),
+    )._handleMenu(context, value);
+  }
+
   Widget buildMenu(BuildContext context) {
     final box = context.bbBox;
     // ★메뉴 버튼의 **레이아웃 높이**는 아바타 기준이다 `[측정 2026-08-24]`.

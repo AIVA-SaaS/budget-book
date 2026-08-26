@@ -9,12 +9,9 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart';
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_row_actions.dart';
+import 'package:budget_book/features/budget/presentation/widgets/budget_tile.dart';
 import 'package:budget_book/features/budget/presentation/widgets/budget_summary_card.dart';
-import 'package:budget_book/core/theme/bb_scale.dart';
-import 'package:budget_book/core/widgets/one_line_label.dart';
-import 'package:budget_book/core/widgets/icon_picker.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
-import 'package:budget_book/core/widgets/color_picker.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/skeleton_loader.dart';
 import 'package:budget_book/core/di/injection.dart';
@@ -716,11 +713,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
     NumberFormat numberFormat,
   ) {
     final summaryItem = _findSummaryItem(summaryItems, budget);
-    final usageRate = summaryItem?.usageRate ?? 0.0;
-    // Use BE-calculated budget amount (consistent with totalBudget)
-    final displayBudgetAmount =
-        summaryItem?.budgetAmount ?? budget.effectiveMonthlyAmount;
-
     return Dismissible(
       key: Key(budget.id),
       direction: DismissDirection.endToStart,
@@ -740,72 +732,31 @@ class _BudgetListPageState extends State<BudgetListPage> {
         padding: const EdgeInsets.only(right: 16),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _getCategoryColor(budget.category?.color),
-          child: Icon(
-            _getCategoryIcon(budget.category?.icon),
-            color: Colors.white,
-            size: 20,
-          ),
-        ),
-        title: Row(
-          children: [
-            if (budget.isPrivate && isCoupleMode()) ...[
-              Icon(
-                Icons.visibility_off,
-                size: 14,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Expanded(child: Text(budget.targetLabel)),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            _buildBudgetProgressBar(context, summaryItem, displayBudgetAmount),
-            const SizedBox(height: 4),
-            _buildBudgetSubtitleText(
-                context, summaryItem, numberFormat, usageRate),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${numberFormat.format(displayBudgetAmount)}원',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            BudgetRowActions.menuButton(
-              context: context,
-              budgetId: budget.id,
-              categoryId: budget.category?.id,
-              categoryGroupId: budget.category == null ? budget.groupId : null,
-              label: budget.targetLabel,
-              dateFrom: null,
-              dateTo: null,
-              year: () {
-                final state = context.read<BudgetBloc>().state;
-                return state is BudgetLoaded ? state.year : DateTime.now().year;
-              }(),
-              month: () {
-                final state = context.read<BudgetBloc>().state;
-                return state is BudgetLoaded
-                    ? state.month
-                    : DateTime.now().month;
-              }(),
-              onAfterDelete: () {},
-            ),
-          ],
-        ),
+      // ★`ListTile` 에서 `EntityTileRow` 로 이관(2026-08-26, 7차).
+      //   `ListTile` 은 프레임워크가 높이를 소유해 행마다 높이가 갈렸다
+      //   — 사용자 보고 "예산 간의 위아래 항목 높이가 다르다". 상세는 BudgetTile.
+      child: BudgetTile(
+        budget: budget,
+        summaryItem: summaryItem,
+        numberFormat: numberFormat,
+        showPrivateMark: budget.isPrivate && isCoupleMode(),
+        menu: BudgetRowActions.menuItems,
+        onMenuSelected: (value) {
+          final state = context.read<BudgetBloc>().state;
+          BudgetRowActions.handleMenuValue(
+            context,
+            value,
+            budgetId: budget.id,
+            categoryId: budget.category?.id,
+            categoryGroupId: budget.category == null ? budget.groupId : null,
+            label: budget.targetLabel,
+            dateFrom: null,
+            dateTo: null,
+            year: state is BudgetLoaded ? state.year : DateTime.now().year,
+            month: state is BudgetLoaded ? state.month : DateTime.now().month,
+            onAfterDelete: () {},
+          );
+        },
         onTap: () {
           final state = context.read<BudgetBloc>().state;
           final year = state is BudgetLoaded ? state.year : DateTime.now().year;
@@ -815,59 +766,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
               budgetId: budget.id, year: year, month: month);
         },
       ),
-    );
-  }
-
-  /// 회차 12 P4 (2026-05-03) — 도메인 분리.
-  /// 이전: 3-segment (spent + planned + remaining). 사용자 요구로 plannedAmount
-  /// 표시 제거 (계획 정보는 별도 분석 영역으로 이전 예정). 2-segment
-  /// (spent + remaining) 단순 progress bar.
-  Widget _buildBudgetProgressBar(
-    BuildContext context,
-    BudgetSummaryItem? summaryItem,
-    int budgetAmount,
-  ) {
-    if (budgetAmount <= 0) {
-      return const SizedBox.shrink();
-    }
-
-    final spentAmount = summaryItem?.spentAmount ?? 0;
-    final spentRatio = (spentAmount / budgetAmount).clamp(0.0, 1.0);
-    final usageRate = summaryItem?.usageRate ?? 0.0;
-    final spentColor = _getProgressColor(usageRate);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: LinearProgressIndicator(
-        value: spentRatio,
-        minHeight: 6,
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        color: spentColor,
-      ),
-    );
-  }
-
-  /// 회차 12 P4 — subtitle 에서 + 계획 표시 제거 (도메인 분리).
-  /// plannedAmount branch 제거. spent/budget 만 표시.
-  ///
-  /// ★2026-08-24 (6차) — 사용자 신고 ②("예산 위 아래 여백이 엄청 많음")의 지배 변수는
-  /// 여백이 아니라 **이 한 줄의 랩**이었다 `[측정]`: 행 박스 93.0dp 중 45.0dp(48%)가
-  /// 부제목 **3줄**이었고, 폭은 145.6dp(trailing 금액 116 + 메뉴 44 가 먹고 남은 값)다.
-  /// 예산 총액은 **같은 행 trailing 에 이미 굵게** 있으므로 `/ 400,000원` 은 중복이었다.
-  /// 지운 뒤 `250,000원 (62.5%)` 는 1줄(≈100dp)로 들어간다. 게다가 `OneLineLabel` 이
-  /// 폭이 더 좁아져도 글자를 줄여 **랩 자체를 구조적으로 막는다**(우리가 높이를 소유).
-  /// 되돌리려면 분모를 문자열에 다시 넣으면 된다 — 그래도 1줄은 유지된다.
-  Widget _buildBudgetSubtitleText(
-    BuildContext context,
-    BudgetSummaryItem? summaryItem,
-    NumberFormat numberFormat,
-    double usageRate,
-  ) {
-    final spentAmount = summaryItem?.spentAmount ?? 0;
-    return OneLineLabel(
-      '${numberFormat.format(spentAmount)}원 (${usageRate.toStringAsFixed(1)}%)',
-      baseFontSize: context.bbType.caption + 1,
-      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 
@@ -912,20 +810,6 @@ class _BudgetListPageState extends State<BudgetListPage> {
       },
       showHomeButton: true,
     );
-  }
-
-  Color _getProgressColor(double usageRate) {
-    if (usageRate > 100) return Colors.red;
-    if (usageRate >= 80) return Colors.orange;
-    return Colors.green;
-  }
-
-  Color _getCategoryColor(String? colorHex) {
-    return parseHexColor(colorHex);
-  }
-
-  IconData _getCategoryIcon(String? iconName) {
-    return resolveIcon(iconName);
   }
 
   Widget _buildTotalChip(BuildContext context, String label, String value,

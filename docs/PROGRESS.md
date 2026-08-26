@@ -9,23 +9,23 @@
 ## 1. 현재 상태 (한눈에)
 
 <!-- HNS:STATE -->
-- **단계**: 6차 배포 완료 — **사용자 라이브 검증 대기**(3점)
-- **상태**: verifying
-- **갱신**: 2026-08-24
-- **main**: `5735b2c` (PR #316 머지 · deploy run 32699949694 success)
-- **배포 판정** `[측정]`: `verify-live` success · `main.dart.js` last-modified 07:06:29
-  (run 시작 07:05:02) · content-length 5,515,266 · 번들에 새 문자열
-  `이체 · `(escaped `이체 \xb7 `) 존재 = 이번 변경이 서빙된다
-- **고친 것**: 슬롯·액션 레인을 세로 흐름 **밖**으로 → `박스 = max(잉크 + 2 × xs, 슬롯 44)`,
-  여백 조건 없이 대칭. 중복 정보 2건 삭제(거래 선행 캡션 = 부제목과 중복 ·
-  예산 부제목 분모 = trailing 금액과 중복) + `OneLineLabel` 로 랩 봉인
-- **결과** `[측정]`: 칩 행 위 10.0 / 아래 8.0 · 사이 18.0 @390(칠해진 표면 4.0 / 4.0) ·
-  1줄+슬롯 6.0 / 6.0 · 24.0 · 예산 항목 잉크높이 93.0 → 43.0 · 사이 20.0
-- **가드**: `row_balance_guard_test` 20건(대조군 5건 실패 확인) · 주석으로 오통과하던
-  소스 봉인 2건 교체. 교훈 1건 `lessons-learned.jsonl` 등록(ui_pattern·meta_process)
-- **미해결(다른 축)**: 자산 현황 **그룹 경계 67.0dp** `[측정]` — 그룹 박스 20 + 헤더 +
-  44 슬롯 슬랙. 줄이려면 그룹 박스를 없애야 하고 시각이 바뀐다 → 사용자 결정
-- **blocker**: 사용자 라이브 확인
+- **단계**: **7차 구현·로컬 CI 완료 → PR·배포 대기**. 6차 3번(예산 항목 높이) 실패의 처방이다
+- **상태**: verifying 아님 — `in-progress`. 사람 답변 대기 없음
+- **갱신**: 2026-08-26
+- **★[측정] 요구 축 달성**: 예산 행 간 높이 **편차 0.00px**(390·430·768 전 폭).
+  종전 결함 재현 시 편차 **9.19px**(예산액 0 행 59.19 vs 68.37) — 가드가 잡는다
+- **구조적 수정**: `ListTile` → **`EntityTileRow` 이관**(높이 소유권을 프레임워크 → 앱).
+  프로그레스 자리 **항상 예약**(0원도 빈 트랙) · 개인 표시는 뱃지가 아니라 **부제목 안**
+  (뱃지는 칩 행을 만들어 그 행만 높인다) · 금액은 **제목 행 고정**(`keepMetricInline`)
+- **★가드 S1 을 깨서 되돌린 것**: 처음에 `Widget? progress`·`Widget? trailingAction` 로
+  넣었다가 `entity_tile_api_guard_test` 에 걸렸다. 그 가드 사유가 정확히 내 audit 결과와
+  같다 — "과거 `ui_pattern` 실패는 전부 **한 곳에 얹기**". → **값 타입**
+  `EntityProgress`·`EntityOverflowMenu` 로 재설계
+- **[측정] 로컬 CI**: analyze **18 → 15**(회귀 0·죽은 코드 제거) / test **전량 통과**
+  (신규 가드 6케이스 포함) / build web **EXIT=0** / 하드코딩 색 래칫 **313 → 309**(성과 고정)
+- **하네스 audit**: `ui_pattern` STRUCTURAL_FIX_REQUIRED → 기획서에 구조적 수정 기재 후
+  게이트 승인(지문 12:2026-08-24)
+- **blocker**: 없음
 <!-- /HNS:STATE -->
 
 ## 2. 타임라인 (append-only)
@@ -33,615 +33,9 @@
 > 형식: `N. **YYYY-MM-DD** — 한 줄 요약.` + 하위 불릿(산출물 / 게이트 결과 / 결정 / 실패·인시던트).
 > 지우지 않는다. 틀린 기록은 지우지 말고 다음 항목에서 정정한다.
 
-1. **2026-07-30** — 대장 신설. 이전 이력은 `docs/sessions/` 회차 문서가 보유(#277~#280 배포 완료,
-   남은 것은 사용자 라이브 검증 5건).
-   - 산출물: 이 파일
-   - 결정: 앞으로 진행 기록은 이 대장이 단일 진입점
-
-2. **2026-07-30** — "정산 아이콘만 안 나온다" 3회차 — 근본 원인 확정 + 구조적 fix.
-   - 측정(hard evidence): 라이브 폰트(37,276B / 293글리프)에 `fact_check 0xE256` **존재**,
-     `list 0xE384`·`calendar_month 0xF06BB` 도 존재. `index.html`·`main.dart.js`·`FontManifest.json`·
-     `.otf` 전부 `no-cache, must-revalidate`. Service Worker 는 이미 비활성(`--pwa-strategy=none`).
-     빌드 산출물 어디에도 폰트 파일명 하드코딩 없음(`FontManifest.json` 참조 2건).
-   - 진단: 캐시 정책이 아니라 **URL 신원 ≠ 내용 신원**. 트리셰이킹 아이콘 폰트는 내용이 빌드마다
-     바뀌는데 URL 이 `assets/fonts/MaterialIcons-Regular.otf` 로 고정 → nginx 가 이 URL 을
-     `immutable` 로 내보내던 시절(2026-07-27 이전)에 캐시한 기기는 **재검증 요청조차 하지 않아**
-     정산 도입 이전 subset 을 계속 사용 → 0xE256 만 빈칸. 헤더 fix(#277)로는 도달 불가.
-   - 결정(사용자 승인): 폰트 파일명 content hash + 뷰 토글 텍스트 라벨 제거를 한 PR 로.
-     라벨 제거는 해시 fix 가 전제 — 순서를 뒤집으면 stale 폰트 기기에서 정산 칸이 완전히 빈칸.
-   - 산출물: `infra/scripts/hash-icon-font.sh`(신설) / `verify-cache-headers.sh` 해시 검증 추가 /
-     `deploy-nas.yml` 배선 + FE 트리거 경로 / `_ViewModeToggle` 아이콘 전용 /
-     `view_mode_toggle_guard_test.dart` 재작성(tooltip + 해시 게이트 배선 고정) /
-     `ops/nas-nginx/aiva-bb.conf` 주석 갱신
-   - 게이트: 합성 픽스처 + **실제 `flutter build web` 산출물**에서 rename·manifest 재작성·재실행
-     안전성 확인 / analyze 통과 / test 805건 통과
-   - 재발 방지: 해시 단계가 빠지면 배포 후 `verify-cache-headers.sh` 가 실패(FontManifest 경로의
-     해시 패턴 검사), 워크플로 배선이 빠지면 `flutter test` 가 실패
-
-3. **2026-07-30** — 커밋 → PR 생성 → 머지 → 배포 진입.
-   - 커밋: `fix(deploy): 아이콘 폰트 파일명에 content hash …` (a0de353)
-   - 함께 반영: `CLAUDE.md` 볼트 배선 안내(직전 회차 커밋 누락분)
-   - 배포 트리거: `.github/workflows/deploy-nas.yml` 변경 → BE·FE·nginx 3개 job 전부 실행
-
-4. **2026-07-30** — PR #281 원격 CI 통과 → 머지·배포.
-   - CI: `backend-ci` pass / `frontend-ci` pass (2m2s)
-   - 머지: squash + branch 삭제 (개인 계정 자동 진행 승인 범위)
-   - 배포 후 자동 검증: `verify-live` job = nginx drift + `verify-cache-headers.sh`
-     (아이콘 폰트 URL 의 content hash 존재 포함)
-
-5. **2026-07-30** — 배포 성공 + **서버 측 검증 완료**. 남은 것은 사용자 기기 확인.
-   - deploy-nas run 30507251616: changes/deploy-backend/deploy-frontend/sync-nginx/**verify-live 전부 success**
-   - 라이브 `FontManifest.json` → `fonts/MaterialIcons-Regular.309eccd00f9c.otf`
-     (로컬 빌드 해시와 동일 = 결정적), 그 URL 200 · `no-cache, must-revalidate` ·
-     cmap 에 `0xE256`·`0xE384`·`0xF06BB` 존재
-   - **옛 고정 URL `/assets/fonts/MaterialIcons-Regular.otf` → 404** (stale 캐시가 가릴 대상 자체가 사라짐)
-   - 서빙 번들에서 정산 세그먼트 확인: `new A.a5(57942,"MaterialIcons")` + `size 18` +
-     `label = null` + tooltip `"정산 보기 …"` → **아이콘 전용 + tooltip** 로 배포됨
-   - 재발 방지 등록: `~/.claude/harness/lessons-learned.jsonl` (deployment_cache, ui_pattern) +
-     `recurrence_check.py` 프로젝트 귀속 버그 fix(`.` 호출 시 자기 인시던트를 타 프로젝트로 집계)
-
-6. **2026-07-30** — **사용자 라이브 검증 통과 ("모두 잘 된다") → 이번 회차 종결.**
-   - 정산 아이콘 노출 확인 (아이콘 전용 토글, 하드 리프레시 없이 새 폰트 URL 수신)
-   - 함께 확인: 날짜 그룹 헤더 / 전체 선택 체크박스 / 스냅샷 펼침 액션 /
-     잔액 수정(ADJUSTMENT) 정산 제외 / 거래 → 이체 변환 (2026-07-27_2_result.md §3)
-   - 이로써 PR #277 ~ #282 회차 전체가 "완료" 판정. 열린 작업 없음.
-
-7. **2026-07-30** — 아이콘 재발 방지 **철저 정리**(사용자 지시). 코드 동작 변경 없음.
-   - 정본 문서 신설: `docs/incidents/2026-07-30_icon-font-stale-cache.md`
-     (5회 발생 타임라인 / 근본 원인 / 3·4회차 진단 오류 해부 / 방어선 4겹 / 잔존 위험 전수 /
-     5분 진단 순서 / 다른 프로젝트에도 쓰는 일반 규칙)
-   - 측정 2건 추가: ① pre-#277 nginx conf 확인 — `immutable` 은 **폰트 확장자에만** 걸려 있었고
-     `FontManifest.json` 은 항상 no-cache → **옛 폰트 URL 404 는 안전**(manifest 고착 불가).
-     ② 산출물 41개 전수 헤더 확인 — 전부 `no-cache, must-revalidate`, immutable 0건.
-   - 같은 위험군 1건 발견·차단: `NotoSansKR-Subset.woff2` 도 해시 없는 고정 URL + 재생성
-     스크립트 존재 → 교체 시 두부(□) 재발 가능. `project_font_pin_guard_test.dart` 가 sha256 을
-     고정하고 실패 메시지로 "파일명 버전 올리고 pubspec 갱신" 3단계를 지시(음성 경로 검증 완료).
-   - `verify-cache-headers.sh` 검사 대상 7종 → **21종**(유형별 대표 경로 전부: canvaskit·wasm·
-     shader·아이콘 PNG·프로젝트 폰트·AssetManifest·정적 html). 라이브 전수 통과 확인.
-
-8. **2026-07-30** — PR #284 머지·배포 성공 → **이 회차 완전 종결. `/clear` 안전.**
-   - deploy run 30528256355: deploy-frontend success / **verify-live success**
-     (확장된 21종 캐시 검사 + 아이콘 폰트 해시 검사 전부 통과)
-   - 라이브 폰트 해시 `309eccd00f9c` 유지(아이콘 구성 동일 = 결정적), 옛 고정 URL 404 유지
-   - 다음 세션은 이 대장 §3 "다음 회차 후보 — 착수 지점" 에서 시작한다
-
-9. **2026-07-31** — 새 회차 **"이체 → 거래 역변환" 기획 완료**(승인 대기). 코드 변경 0줄.
-   - 사용자 요청: "PC 재부팅 후 이어서 진행할 수 있게 준비·세팅" → 기획과 상태를 **문서로 고정**
-   - 산출물: `docs/sessions/2026-07-31_transfer-to-transaction_plan.md` (설계 정본 —
-     재개 절차 / 측정 사실 8건 / API 계약 / BE·FE 설계 / 테스트 / 로컬 CI)
-   - 측정(hard evidence): `transfers` FK 참조는 **2개뿐**(`transactions.settlement_transfer_id` V63,
-     `reconciliation_items.transfer_id` V65, 둘 다 SET NULL) · `Transfer` 에 visibility/owner 없음
-     (거래 생성은 visibility 를 카테고리에서 파생) · `updateTransfer` 는 이미 CARD_SETTLEMENT 차단 ·
-     `createTransaction` 은 카테고리-유형 일치 검증을 **안 한다**(update 경로에만 있음) ·
-     FE `getTransfer(id)` 이미 존재(새로고침 안전 prefill 가능)
-   - 설계 결정 3건: ① 순환 의존 회피 — `TransactionService.convertFromTransfer` + `TransferController`
-     호출(반대는 순환) ② 승계 규칙(결제수단: EXPENSE→출금 / INCOME→입금) ③ FE 는 이체 폼에서
-     거래 폼으로 push(피커 복제 금지 — 거래 폼이 이미 양쪽 폼 보유)
-   - 기획 중 발견한 기존 결함 1건: 정방향 변환이 Dashboard·PaymentMethod BLoC 을 리로드하지 않음
-     → 같은 PR 에서 양방향 공통 처리로 수정 예정
-   - 게이트: `pre-change-audit.sh . "amount_calculation ui_pattern navigation_state"` → OK / gate OPEN
-   - **다음 단계는 사용자 승인** — 승인 전 코드 편집 금지(§2 게이트)
-
-- **2026-08-06** — **git 이력의 회사 이메일 전량 제거(코드·문서 내용 변경 0).** 이 저장소 이력의 `donghyunele@wemeetmobility.com` **352건**(author+committer, 2026-02-25~07-30)을 `kdh-92 <kdh920411@gmail.com>` 로 치환. 기획·코드와 무관한 **위생 작업**이며 승인 게이트(§2)와 별개다.
-  - 배경: 전역 `~/.gitconfig` 기본 `[user]` 가 회사 이메일이고 `~/.gitconfig-wemeet` 도 **같은 이메일**이라 includeIf 계정 분리가 실질적으로 분리를 못 했다. 같은 날 전역 기본값을 개인 계정으로 교정(재발 차단) + 이 repo 는 별도 로컬 고정 불필요.
-  - 범위 결정: 6월 이후 5건만 고쳐도 이후 SHA 는 어차피 전부 바뀌는데 2~6월 291건이 남는다 → **전체 정리(A안)** 선택.
-  - 검증: 잔여 오염 **0건** · 커밋 **707 → 707** · 태그 **33 → 33** · main **557 → 557** · **`git diff` 공백 = 파일 내용 완전 동일**.
-  - ⚠ **푸시 대기.** `~/backup/git-email-rewrite-20260806/push-budget-book.sh` 로 민다. **`git push --all` 금지** — 로컬 91개 중 **39개가 원격에서 이미 삭제된 브랜치**라 `--all` 은 그것들을 되살린다(babylog 에서 실제 발생·원복). 스크립트가 원격 실재 **52개만** 명시해 밀고, 사전에 원격 목록 일치까지 대조한다.
-  - ⚠ **이 저장소는 `.git/config` 에 `user.email = donghyunele@wemeetmobility.com` 로컬 override 를 갖고 있었다** — 전역 교정만으로는 안 막혔고, 실제로 이 대장 커밋이 회사 이메일로 한 번 들어갔다가 amend 로 정정됐다. **`git config --local user.email kdh920411@gmail.com` 으로 고정 완료.**
-    - 발견이 늦은 이유: 앞선 전수 스캔이 `find -maxdepth 5` 라 깊이 6인 이 경로를 **아예 훑지 않았다**(스캔이 "없음"을 반환해 안전하다고 오판). 깊이 8로 재스캔한 결과 회사 이메일 로컬 override 는 **이 저장소 하나**였다.
-    - 교훈: "스캔 결과 0건"은 **스캔 범위가 대상을 덮었을 때만** 근거가 된다. 범위를 먼저 검증할 것.
-  - 남은 이력 이슈(별건): `kdh929624@gmail.com` **21건**. 회사 이메일은 아니라 이번 범위 밖 — 정리 여부는 사용자 판단.
-
-10. **2026-08-09** — **달력 일자 시트에 "거래 추가" 진입 신설**(별건 소규모 회차. 역변환 회차와 파일 무겹침).
-   - 사용자 지적: "거래 > 달력에서 거래 클릭해서 별도 노출될 때 거래를 추가할 수 없다"
-   - 측정(hard evidence): `TransactionCalendarView` 가 받는 콜백은 `onTransactionTap`/`onTransferTap`
-     **둘뿐**이었고 일자 시트(`_showDayBottomSheet`) 안에 추가 어포던스가 **전무**(빈 날은 `'거래 없음'`
-     텍스트만). 시트가 모달이라 페이지 FAB 을 배리어로 덮어 그 상태에서 추가 불가, 시트를 닫고 FAB 을
-     눌러도 `_buildCreateTransactionUrl(tab:)` 만 호출돼 **선택 일자가 승계되지 않았다**.
-     목록 모드에는 `_DateHeader.onAddTap` → `_buildCreateTransactionUrl(date:)` 로 이미 있던 진입 —
-     **달력에만 빠진 대칭 결함**(`feedback_common_scope_audit` 유형)
-   - 공통 범위 전수: `TableCalendar` 사용처 **1곳**(이 위젯뿐) · `LedgerDateHeader` 소비처 2곳 중
-     목록 페이지는 이미 보유, 정산 뷰는 그룹 체크박스 선택용이라 추가 진입 대상 아님 → **수정 2파일 확정**
-   - 산출물: `transaction_calendar_view.dart`(`onAddTap` 파라미터 + 시트 헤더 `+` 버튼 + 빈 날
-     [이 날짜에 거래 추가] 버튼 + `_addForDay` = pop 후 콜백) /
-     `transaction_list_page.dart`(호출부에서 `_buildCreateTransactionUrl(date:)` 주입) /
-     `test/features/transaction/calendar_day_sheet_add_test.dart`(신설, 4건)
-   - 설계 결정: URL 조립은 **상위 페이지의 `_buildCreateTransactionUrl` 단일 소스**만 한다. 위젯이 직접
-     push 하면 필터된 결제수단 전파가 끊긴다 → 가드 테스트가 위젯 내 `'/transactions/create'` 문자열
-     **부재**까지 고정
-   - 게이트: `pre-change-audit.sh . "navigation_state ui_pattern"` → OK / gate OPEN ·
-     `flutter analyze` 통과(잔여 info 3건은 기존 테스트 파일, 이번 변경과 무관) ·
-     `flutter test` **815건 통과** · `flutter build web --release` 성공
-   - 아이콘 위험군 아님: 새 코드포인트 없음(`Icons.add` 는 기존 FAB 에서 이미 사용) → 폰트 subset 불변
-   - 정정(§2-16 기록): 이력 재작성 **푸시는 완료**됐다. 측정 — `main` == `origin/main` (`49ef7ed`),
-     원격 실재 52개 브랜치·태그 33/33 전부 동기. 잔여 diff 는 stale `worktree-agent-*` 로컬 브랜치
-     7개뿐(원격과 무관한 폐기 대상)
-
-11. **2026-08-09** — PR #287 머지 → 배포 성공 → **서버 측 검증 완료. 남은 것은 사용자 기기 확인.**
-   - 원격 CI: `backend-ci` pass / `frontend-ci` pass → squash 머지 + 브랜치 삭제 (개인 계정 자동 진행 범위)
-   - main `a6a437e` · deploy-nas run 31293344811: changes / **deploy-frontend success** /
-     **verify-live success** (BE·nginx 는 변경 없어 skipped)
-   - 라이브 번들 측정: `main.dart.js` last-modified 03:55Z(이번 배포) ·
-     `'이 날짜에 거래 추가'` **2건 존재**(tooltip + 버튼 라벨). 한글은 번들에서 `\uXXXX` 로
-     이스케이프되므로 **원문 grep 은 항상 0건** — escaped 형태로 대조해야 한다(측정 함정)
-   - **미완**: 사용자 라이브 검증 1건(§3 참조). 이것이 통과할 때까지 이 회차는 "완료" 아님
-
-12. **2026-08-09** — **사용자 라이브 검증 통과 ("잘 들어온다, 삭제도 된다") → 이 회차 종결. 열린 작업 없음.**
-   - 확인: 달력 일자 시트의 추가 진입 → 거래 폼에 **그 날짜가 승계**되어 들어옴
-   - 함께 확인: 그렇게 만든 거래의 **삭제도 정상**(시트 → 항목 탭 → 상세 경로가 살아 있음 —
-     시트를 pop 한 뒤 네비게이션하는 `_addForDay`/탭 콜백 규약이 스택을 오염시키지 않았다)
-   - 이로써 PR #287·#288 회차 완료. 다음은 §3 "다음 액션"(이체 → 거래 역변환, 착수 승인 대기)
-
-13. **2026-08-09** — **이체 → 거래 역변환: 착수 승인("다음 작업 진행해줘") → 구현 완료 → 로컬 CI 4종 통과.**
-   - 승인: 사용자 착수 지정. 기획 정본(`2026-07-31_transfer-to-transaction_plan.md`)을 그대로 구현,
-     설계 변경 없음
-   - BE 산출물: `ConvertToTransactionRequest`(DTO) / `TransactionService.convertFromTransfer` /
-     `TransactionRepository.existsBySettlementTransferId` /
-     `TransferController POST /{id}/convert-to-transaction`(RateLimit 30/60s)
-   - 배치 결정 유지: 구현은 **거래 서비스**, 호출은 이체 컨트롤러 — 반대로 넣으면
-     `TransactionService → TransferService` 기존 주입과 순환 빈 의존. 근거를 코드 주석에 남김
-   - 차단 3종 + 설명 공백 가드 + 카테고리-유형 일치 검증(`createTransaction` 에는 없어 변환 경로에서
-     명시적으로 태움) / `saveAndFlush` 후 이체 삭제 / `TRANSFER_DELETED` + `TRANSACTION_CREATED` 2건 발행
-   - FE 산출물: `TransferRepository.convertToTransaction`(datasource·impl 포함) /
-     거래 폼 `convertFromTransferId` 모드(이체 fetch → prefill, 이체 탭 숨김, 변경 배너, 저장 시 변환 API) /
-     이체 폼 수정 모드 유형 선택기(지출·수입 선택 → 거래 폼으로 push) / 라우터 query param 배선
-   - **기존 결함 동시 수정**: 정방향 `_convertToTransfer` 가 Dashboard·PaymentMethod 를 리로드하지
-     않던 문제 → **네 BLoC 리로드를 양방향 공통 헬퍼 `_reloadAfterConversion` 로** 묶음
-     (`feedback_common_scope_audit` — 한 곳만 수정 금지)
-   - 테스트: BE 서비스 8케이스(승계·결제수단 방향·차단 4종·이벤트 2건·404) + 컨트롤러 위임 1건 +
-     **Testcontainers 통합 4건**(실제 PG: 이체 삭제+거래 삽입 원자성, INCOME 입금 승계,
-     설명 NULL 400 가드, 카드결제 차단) / FE repository 3건 + 배선 가드 5건(양방향 대칭 고정)
-   - 게이트: `./gradlew test` 통과 · `flutter analyze` 신규 지적 0 · `flutter test` 820건 통과 ·
-     `flutter build web --release` 성공. 아이콘 신규 코드포인트 없음(폰트 subset 불변)
-   - 문서: `docs/api-spec.md` Transfers §4-1 신설 + 양방향 상호 참조 2곳
-   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
-
-14. **2026-08-09** — PR #290 머지 → 배포 성공 → **서버 측 검증 완료. 남은 것은 사용자 기기 확인.**
-   - 원격 CI: `Backend CI` pass(4m18s) / `Frontend CI` pass(2m29s) → squash 머지 + 브랜치 삭제
-   - main `3215399` · deploy-nas run 31298339060: changes / **deploy-frontend success** /
-     **deploy-backend success** / **verify-live success** (sync-nginx 는 변경 없어 skipped)
-   - 라이브 번들 측정: `main.dart.js` last-modified 06:13Z(이번 배포) ·
-     escaped `거래로 변경`("거래로 변경") **5건** ·
-     `convert-to-transaction` **1건** → FE·BE 양쪽 배선이 번들에 올라갔다.
-     (한글 원문 grep 은 항상 0건 — `reference_live_bundle_string_verification`)
-   - **미완**: 사용자 라이브 검증 1건(§3 참조). 이것이 통과할 때까지 이 회차는 "완료" 아님
-
-15. **2026-08-10** — 이체 → 거래 역변환 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
-   - 사용자 확인: 정상 동작. PR #286 기획 → #290 구현 → 배포 → 라이브 검증까지 전 구간 종료
-   - 이 회차의 산출물(양방향 리로드 공통 헬퍼 + 대칭 가드 테스트)은 §4 산출물 지도에 유지
-
-16. **2026-08-10** — 신규 회차 착수: **장부 필터 게이팅 단일화 + 동적 빈 상태 문구** (Step 1).
-   - 사용자 보고: "확인 필요 등 필터 적용 시 이체를 선택 안 했는데도 이체가 보인다" +
-     "결과가 없을 때 선택한 필터에 맞는 동적 문구" + "남은 요구사항 단계 정리"
-   - 진단(hard evidence): `transaction_list_page.dart:727~785` 이체 게이팅이 필터 축을 **수동 나열** →
-     `needsReviewOnly` · 카테고리 · 포켓 · 금액 **4축 누락**, 결제수단은 `paymentMethodIds.first`
-     **1개만** 적용. `Transfer` 엔티티에는 needsReview/category/pocket 필드가 **없어** 해당 축이
-     켜지면 이체는 매칭 불가 = 전량 제외가 정답. 거래·합계는 BE 가 정상 필터
-     (`TransactionSpecifications.kt:100`, `StatisticsService.kt:105`) → "거래는 맞는데 이체만 남는" 비대칭
-   - 하네스 감사: `filter_propagation` **STRUCTURAL_FIX_REQUIRED**(4회째 재발) → 게이트 LOCKED →
-     기획서에 구조적 수정 포함 후 `acknowledge-gate.sh` 로 해제
-   - 결정(사용자 승인): Step 1 범위 = 게이팅 단일화 + 동적 빈 문구 + 결제수단 복수선택 fix 한 PR
-   - 산출물: `ledger_gating.dart`(신설, 이체 게이팅 단일 진입점) /
-     `ledger_empty_message.dart`(신설, 빈 상태 문구 단일 생성기) /
-     `ledger_gating_test.dart` · `ledger_empty_message_test.dart`(신설) /
-     `transaction_list_page.dart`(인라인 게이팅 제거 + 동적 빈 상태 + 필터 초기화 액션) /
-     `unified_filter_state.dart`(`kTransactionTypeLabels` 공용 상수) / `unified_filter_bar.dart`(라벨 참조)
-   - 재발 방지(구조): ① 이체 게이팅 단일 진입점 ② **필드 수 가드** — `UnifiedFilterState` 에 필드가
-     늘면 `kUnifiedFilterAxisCount` 불일치로 테스트 실패 → 이체 판정 갱신 강제
-     ③ 페이지에 인라인 이체 필터링이 재도입되면 소스 검사 테스트가 실패
-   - 게이트: 로컬 CI 4종 통과(analyze 신규 0 / flutter test 843 / gradlew test / build web)
-   - 미해결로 남긴 것: 금액·기간·결제수단 필터만 켠 경우 BE summary 는 이체를 합계에서 빼는데
-     FE 행에는 이체가 남는다(`StatisticsService.kt:147` "필터 활성 시 totalTransfer=0").
-     이번 보고 증상과는 무관한 **기존** 불일치 → 별도 회차 후보로 §3 에 등재
-
-17. **2026-08-10** — PR #292 생성(원격 CI 진행) + 자체 검토에서 잡은 후속 1건 반영.
-   - PR: https://github.com/AIVA-SaaS/budget-book/pull/292 (커밋 `1514728`)
-   - 자체 검토 지적: `toTransactionFilter(keywordOverride:)` 는 override 가 null/빈 문자열이면
-     VO 의 keyword 로 fallback 하는데, FE 게이팅은 빈 검색창(`''`)을 "검색어 없음"으로 처리해
-     **BE 가 좁힌 거래 ↔ FE 가 남긴 이체가 어긋날 수 있었다**(합계 ≠ 행 계열)
-   - 조치: `resolveLedgerKeyword` 로 실효 검색어 규칙을 한 곳에 두고 게이팅·빈 상태 문구가 공유.
-     회귀 테스트 추가(빈 검색창 → VO keyword fallback)
-   - 게이트: 유틸 테스트 31건 통과 / analyze 신규 0건
-
-18. **2026-08-10** — PR #292 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
-   남은 것은 사용자 라이브 검증.**
-   - 원격 CI: `backend-ci` pass(10s) / `frontend-ci` pass(2m11s) → squash 머지 + 브랜치 삭제
-   - main `c6bed67` · deploy-nas run **31343215446 success**
-     (changes / **deploy-frontend success** / **verify-live success**;
-     BE 변경이 없어 deploy-backend·sync-nginx 는 skipped)
-   - 라이브 번들 측정(`main.dart.js`): escaped 대조 —
-     `확인/입력 필요한 거래가 없습니다` 1건 · `필터 초기화` 1건 · `적용된 필터: ` 1건 ·
-     `이체 내역이 없습니다` 2건. 한글 원문 grep 은 항상 0건이 정상
-     (`reference_live_bundle_string_verification`). 이 문구들은 이번 PR 에서 처음 생긴 것이라
-     **번들 신원 자체가 이번 배포임을 증명**한다
-   - **미완**: 사용자 라이브 검증(§3 완료 판정 6항목). 통과 전까지 이 회차는 "완료" 아님
-
-19. **2026-08-10** — 장부 필터 게이팅 회차 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
-   - 사용자 확인: "잘 된다". PR #292 구현 → 배포 → 라이브 검증까지 전 구간 종료. **열린 작업 없음**
-   - 사용자 지적 2건(프로세스) 반영:
-     ① **다음 회차는 반드시 `/clear` 후 새 세션에서 시작**한다. 회차가 끝나면 종결 기록 +
-        다음 착수 지점 고정까지만 하고 멈춘다 — 같은 세션에서 다음 단계로 넘어가지 않는다
-        (메모리 `feedback_round_boundary_clear`)
-     ② 후보 번호 모순 정정 — "다음은 Step 2" 라고 쓰고 추천은 Step 3 을 가리켰다.
-        원인은 **개발 회차가 아닌 "남은 라이브 검증 정리"를 회차 번호에 섞어 넣은 것**.
-        아래 §3 에서 회차 번호는 실제 착수 순서로만 매기고, 사용자 확인 트랙은 회차 밖으로 분리했다
-
-20. **2026-08-10** — 새 회차 착수(대장 §3 후보 1번): **홈 대시보드 "월말 점검(미기록 N건)" 위젯
-   기획 완료 — 승인 대기.** 코드 변경 0줄.
-   - 산출물: `docs/sessions/2026-08-10_2_reconciliation-widget_plan.md` (설계 정본)
-   - 측정(hard evidence): `GET /reconciliations/summary` 는 BE·FE 배선이 **이미 전부 존재**
-     (컨트롤러 `:51`, `ReconciliationRepository.getSummary`, DI 등재) → **이번 회차는 FE 전용,
-     BE·DB·api-spec 변경 0** · 위젯 추가 시 손대야 하는 지점은 **5곳**(기본 목록 / 기본 설정값 /
-     `_buildWidgetById` / 설정 시트 분기 / `home_config_page._getIconData`) ·
-     기존 사용자 마이그레이션 불필요(`loadConfig` 가 신규 ID 자동 append)
-   - 측정으로 드러난 **차단 요인 1건**: 거래 탭 뷰 모드(리스트/달력/정산)는 SharedPreferences
-     에만 있고 `/transactions` 라우트에 `view` 파라미터가 **없다** → "위젯 탭 → 정산 뷰" 는
-     현재 구조로 불가능. `view` 쿼리 파라미터 신설이 이번 범위에 포함된다
-   - 함께 고칠 기존 결함 1건: 홈 화면 구성에서 위젯을 켜도 **pull-to-refresh 전까지 홈에
-     반영되지 않는다**(`dashboard_page` 가 initState·새로고침에서만 설정을 읽음). 새 위젯은
-     기본 OFF 라 첫 동작이 "켜기" 이므로 이 결함이 그대로면 기능이 없는 것처럼 보인다(P4)
-   - 하네스 감사: `ui_pattern` WARNING(타 프로젝트 2건) / `navigation_state`
-     **STRUCTURAL_FIX_REQUIRED**(3건) → 게이트 LOCKED.
-     **측정: 2026-04-15 인시던트가 지정한 방지책 `navigation_helpers.dart` 는 실제로 도입된 적이
-     없다**(`find lib -name "navigation_helpers*"` → 0건). 3회 재발의 이유가 이것 —
-     방지책이 문서로만 남고 코드 강제가 없었다
-   - 구조적 수정(기획서 §3-3): ① 중앙 헬퍼 `core/utils/ledger_route.dart` 신설
-     (**year/month required** = 컴파일 타임 월 누락 차단) ② `dashboard_page` 의 장부 URL 직접
-     조립 **3곳**(`:647`·`:774`·`:1166`) 전수 이관 ③ raw `'/transactions?` 리터럴 0건 가드 테스트
-     ④ 위젯 등록 누락(5곳) 소스 스캔 가드
-   - 용어 확정: 대장 후보의 "미정산" → 앱 용어는 **미기록**. 위젯 이름은 **월말 점검**
-     ("정산" 은 이 프로젝트에서 3개 동명 개념 — `reference_reconciliation_snapshot`)
-   - **다음 단계는 사용자 승인** — 승인 전 코드 편집 금지(§2 게이트).
-     승인 시 `acknowledge-gate.sh` 로 navigation_state 게이트 해제 후 착수
-
-21. **2026-08-10** — 월말 점검 위젯 **승인("전체 승인") → 구현 완료 → 로컬 CI 4종 통과.**
-   - 하네스: `acknowledge-gate.sh frontend` 로 navigation_state 게이트 해제(기획서에 구조적 수정 포함)
-   - 구조적 수정(하네스 요구 이행): `core/utils/ledger_route.dart` 신설 —
-     `ledgerLocation({required year, required month, view, ...})` **year/month required 로
-     월 누락을 컴파일 타임 차단**. `dashboard_page` 의 URL 문자열 조립 3곳 전수 이관 +
-     raw `'/transactions?` 리터럴 0건 가드. 뷰 전환 규칙은 순수 함수
-     `nextLedgerViewOnUpdate` 로 분리(value→null 무시 규칙을 단위 테스트로 고정)
-   - 신설: `/transactions?view=` 쿼리 파라미터(리스트/달력/정산). URL 명시 > 저장된 prefs,
-     **URL 진입은 prefs 를 덮어쓰지 않는다**. `initialView` 가 있으면 `_loadViewMode()` 를
-     호출하지 않아 비동기 prefs 복원이 URL 지정을 덮는 레이스를 차단
-   - BE 변경 0 — `GET /reconciliations/summary` 재사용
-   - 성능: 위젯이 **꺼져 있으면 요약 API 를 호출하지 않는다**(기본 OFF). 켠 경우에도 기존 6개
-     호출과 같은 `Future.wait` 에 합류 → 직렬 지연 증가 없음
-   - 함께 고친 기존 결함: 홈 화면 구성에서 위젯을 켜도 pull-to-refresh 전까지 반영되지 않던 문제 →
-     `HomeConfigService.revision` ValueNotifier + 대시보드 구독(설정 저장 시 config 재로드 +
-     LoadDashboard 재발행). 모든 저장 경로가 `saveConfig` 를 지나므로 토글·순서·개별 설정 전부 커버
-   - 산출물(FE): `core/utils/ledger_route.dart` · `home/presentation/widgets/reconciliation_summary_card.dart`
-     (신설) / `dashboard_bloc.dart`·`dashboard_state.dart`·`dashboard_page.dart`·
-     `dashboard_widget_config.dart`·`home_config_service.dart`·`widget_settings_sheet.dart`·
-     `home_config_page.dart`·`injection.dart`·`app_router.dart`·`transaction_list_page.dart`(수정)
-   - 테스트: `ledger_route_test`(13) · `reconciliation_summary_card_test`(7) ·
-     `dashboard_widget_registry_guard_test`(위젯별 렌더 분기·아이콘 매핑 전수 + 설정 시트 +
-     URL 리터럴 가드) · `home_config_revision_test`(6) · `ledger_view_param_wiring_test`(4) ·
-     `dashboard_bloc_test`(게이팅 verifyNever 포함 3건 추가) · 위젯 개수 가드 10→11
-   - 게이트: **analyze 신규 지적 0 / flutter test 900건 통과 / `./gradlew test` 통과 /
-     `flutter build web --release` 성공**. 아이콘은 `fact_check`·`check_circle` 둘 다 기존
-     사용처가 있어 **폰트 subset 불변**
-   - 용어: 위젯 이름 "월말 점검", 지표 "미기록 N건"(앱 용어). "미정산" 문구는 쓰지 않는다
-   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
-
-22. **2026-08-10** — 사용자 추가 요청 접수(회차 진행 중) → **다음 회차로 등재.** 코드 변경 0줄.
-   - 요청: "`< yyyy년 mm월 >` 의 달력 팝업에서 **연도별 보기 → 연도 내 달 선택**이 가능했으면,
-     또 **팝업 전에 '오늘로 가는 버튼'**이 적절한 위치에 있으면 좋겠다"
-   - 산출물: `docs/sessions/2026-08-10_3_month-navigator_plan.md` (설계 정본)
-   - 측정: 공용 위젯 `core/widgets/month_navigator.dart` 하나를 **13개 페이지**가 쓴다 →
-     한 곳 수정이 전체 반영. **단 홈 대시보드만 예외** — `dashboard_page.dart:235 _MonthHeader`
-     자체 구현이고 날짜가 `Text` 라 **눌러도 팝업이 뜨지 않는다**(공용 위젯만 고치면 홈은 누락) ·
-     팝업(`calendar_picker_dialog.dart`)의 `CalendarDatePicker` 는 **연도 선택은 이미 되지만
-     월 그리드가 없다** — 연도를 골라도 원하는 달까지 좌우로 넘겨야 한다(요청의 정확한 결손 지점) ·
-     `onDatePicked` 실사용은 **1곳뿐**(거래 목록 스크롤)이라 나머지 12곳은 "월 우선" 전환에
-     부작용이 없다 · "오늘" 버튼은 **어디에도 없다**
-   - 판단: 현재 회차(월말 점검 위젯)와 **파일·관심사가 겹치지 않고** 회귀 범위가 13개 페이지로
-     넓다 → 같은 PR 에 섞지 않고 다음 회차로 분리(§3 후보 1번으로 승격)
-
-23. **2026-08-10** — PR #293 머지·배포 성공. 그러나 배포 후 번들 검증에서 **회차 전제가 틀렸음을 발견**.
-   ⚠ **홈 대시보드 화면은 이 앱에 더 이상 존재하지 않는다.**
-   - 배포: main `f2e3d92` · deploy-nas run **31348106262 success**(deploy-frontend·**verify-live**)
-   - 번들 대조 중 이상 발견: 새 카드의 고유 문구(`이 달은 정산 완료입니다`, `확인 필요 `)가
-     라이브·로컬 번들 **양쪽에서 0건**. 반면 `월말 점검`(위젯 목록 이름)·`소계 표시`(설정 시트)는 존재
-   - 측정(추측 배제, 실험 6회): 마커 삽입 → clean 빌드 → 소스맵 → profile 빌드 →
-     **대조군 실험**(기존 위젯 `monthly_trend_card` 에 마커)에서 **대조군도 사라짐** →
-     "내 코드만 제거" 가 아니라 **그 파일들을 참조하는 화면 자체가 죽은 코드**임이 드러남
-   - **근본 원인**: `app_router.dart:792` — `/home` 은 **`/transactions` 로 redirect** 다.
-     `DashboardPage` 를 **어디서도 라우팅하지 않는다**(전역 참조: 자기 정의 4줄뿐).
-     탭은 4개(거래·분석·자산·더보기). git 이력 `ea065d0 feat(nav): Phase 25 Step 10 — 홈 탭 제거(6→5탭) #163`
-   - 따라서 `dashboard_page.dart`(1,252줄)와 그것만 참조하는 위젯들(월별 추이·카테고리별 현황·
-     이번 월말 점검 카드)은 전부 dart2js 가 트리셰이킹한다. 설정의 **"홈 화면 구성"**(`settings_page.dart:232`)도
-     **존재하지 않는 화면을 설정하는 고아 항목**이다
-   - 라이브 영향: **회귀 없음**(죽은 코드 추가일 뿐). 실제로 살아 있는 산출물은
-     `/transactions?view=` 파라미터 + `parseLedgerView`/`nextLedgerViewOnUpdate`(거래 목록에서 동작),
-     `HomeConfigService.revision`(설정 저장 시 bump). `ledgerLocation` 은 호출부가 죽은 화면이라 현재는 미사용
-   - **프로세스 실패(재발 방지 대상)**: 기획 §2 에서 "위젯 등록 5곳" 은 전수 조사했으면서
-     **그 화면이 사용자에게 도달 가능한지(라우팅 여부)는 확인하지 않았다.**
-     대장 후보 목록과 메모리(`project_home_customization`)가 홈 탭 존재를 전제하고 있었고 그대로 믿었다.
-     → 새 규칙: **화면에 무언가를 추가하기 전, 그 화면의 라우팅 진입점을 먼저 측정한다**
-   - **다음 결정은 사용자 몫**: 홈 탭 복원 / 위젯을 살아있는 화면으로 이전 / 되돌리기
-
-24. **2026-08-10** — 사용자 결정("위젯을 분석 탭으로 이전") → **이전 완료 + 이번 회차가 추가했던
-   대시보드 배선 회수.** 로컬 CI 4종 + **번들 포함 검증** 통과.
-   - 배치: 분석 탭(`analysis_page.dart`)의 **MonthNavigator 바로 아래** — 예산/통계 두 sub-tab 이
-     공유하는 위치. 요약이 없으면(미조회·실패) 아무것도 그리지 않는다
-   - 데이터: `ReconciliationSummaryCubit` 신설(요약 8개 숫자만 조회).
-     `ReconciliationBloc` 재사용을 피한 이유 = 그쪽은 스냅샷 목록 + 미기록 항목 최대 200건까지
-     함께 불러온다. `MonthSyncHandler` 에 등록해 월 이동 시 자동 재조회 + 탭 진입 시 1회 재조회
-     (거래 탭에서 정산하고 돌아왔을 때 stale 방지). **늦게 도착한 지난 달 응답이 현재 달을
-     덮어쓰지 않도록** 요청 연/월 대조 가드 + 회귀 테스트
-   - 회수(이전이지 복사가 아니므로): 대시보드 위젯 등록 5곳 · `DashboardBloc` 요약 로드/게이팅 ·
-     `DashboardLoaded.reconciliationSummary` · `HomeConfigService.revision` · 관련 테스트 전부 원복.
-     위젯 개수 가드도 11 → 10 으로 복귀
-   - 유지(살아 있는 산출물): `core/utils/ledger_route.dart`(이제 **분석 탭 카드가 실제로 사용** —
-     구조적 수정이 죽은 코드가 아니게 됐다) · `/transactions?view=` 파라미터 ·
-     `parseLedgerView`/`nextLedgerViewOnUpdate`
-   - 카드 단순화: 위젯 설정(`showSubtotals`) 제거 — 설정 화면 자체가 고아라 의미가 없다
-   - 새 가드: ① 분석 탭이 카드+cubit 을 호스팅하는지 ② 카드가 `ledgerLocation` 만 쓰는지
-     (raw `'/transactions` 리터럴 0건) — **다시 죽은 화면으로 옮겨가는 것을 테스트가 막는다**
-   - 게이트: analyze 신규 0 / flutter test **894** / `./gradlew test` / `build web --release` ·
-     **배포 전 번들 검증**: `이 달은 정산 완료입니다` 1 · `확인 필요 ` 1 · `월말 점검` 1
-     (직전 실패의 직접적 재발 방지 — 이제 빌드 산출물에서 카드가 확인된다)
-   - **미완**: 커밋·PR·머지·배포·사용자 라이브 검증
-
-25. **2026-08-10** — PR #294 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
-   남은 것은 사용자 라이브 검증.**
-   - 원격 CI: `backend-ci` pass(10s) / `frontend-ci` pass(2m12s) → squash 머지 + 브랜치 삭제
-   - main `552cfae` · deploy-nas run **31359057515 success**
-     (changes / deploy-frontend / **verify-live** success; BE 변경 없어 나머지 skipped)
-   - **라이브 번들 검증(이번 회차의 핵심 게이트)**: `main.dart.js` last-modified 05:36Z ·
-     `월말 점검` 1 · `이 달은 정산 완료입니다` 1 · `확인 필요 ` 1 · `미기록 ` 6 →
-     **직전 배포에서 0건이던 카드 문구가 이번엔 모두 존재**. 카드가 실제로 번들에 들어갔다
-   - **미완**: 사용자 라이브 검증. 통과 전까지 이 회차는 "완료" 아님
-
-26. **2026-08-11** — 월말 점검 카드 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
-   - 사용자 확인: "잘 된다". PR #293(홈 전제 오류) → PR #294(분석 탭 이전) → 배포 →
-     라이브 검증까지 전 구간 종료. **열린 작업 없음**
-   - 이 회차가 남긴 살아 있는 산출물(§4 산출물 지도에 유지):
-     `core/utils/ledger_route.dart`(`ledgerLocation`, **year/month required** — 하네스
-     navigation_state 3회 재발의 구조적 수정을 실제로 이행) · `/transactions?view=` 파라미터
-     (리스트/달력/정산 URL 진입, 저장된 뷰를 덮어쓰지 않음) · `ReconciliationSummaryCubit` ·
-     분석 탭 월말 점검 카드
-   - 이 회차의 가장 큰 소득은 기능이 아니라 **전제 검증 규칙**이다 —
-     화면에 무언가를 추가하기 전 라우팅 진입점을 먼저 측정한다.
-     메모리 `feedback_screen_reachability_check` · `reference_dead_home_dashboard` ·
-     하네스 인시던트(`dead_code`/`navigation_state`/`deployment_verification`) 등록 완료
-   - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 시작
-     (메모리 `feedback_round_boundary_clear`)
-
-27. **2026-08-11** — 월 네비게이터 회차 **착수**: 재측정으로 기획서 사실 오류 2건 정정(v2) →
-   사용자 결정 → 하네스 게이트 해제. 코드 변경은 아직 0줄.
-   - **하네스**: `pre-change-audit.sh . navigation_state` → 🚫 **STRUCTURAL_FIX_REQUIRED**
-     (인시던트 4건: 2026-04-14 / 04-15 ×2 / **08-10 죽은 화면 배포**). v1 기획의 구조 항목이
-     무효가 된 Step 3(홈 통합)에 의존하고 있어 **그대로는 게이트를 못 넘는 상태**였다
-   - **정정 ①**: "사용처 13개 페이지" → **실제 렌더되는 호스트는 9개**.
-     `statistics_page:68` · `budget_list_page:269/566` 은 `showMonthNavigator: false` 로만
-     쓰이는 죽은 분기(유일 사용처가 `analysis_page:117/135`, `/budgets`·`/statistics` 는 redirect)
-   - **정정 ②**: v1 Step 3(홈 `_MonthHeader` → MonthNavigator 통합) **무효** — 홈은 미라우팅.
-     삭제도 하지 않는다(홈 복원 여부 미결 + `dashboard_widget_registry_guard_test` 연쇄 정리 필요)
-   - **추가 측정**: `showCalendarPickerDialog` 호출부 18곳 중 **17곳이 "날짜 입력"이 본질**
-     → 기존 함수 무변경, 월 피커 신설 / `Icons.today` 기존 사용 중 → **신규 아이콘 코드포인트 없음**
-     (폰트 subset 리스크 해당 없음) / `MonthNavigator` 전용 테스트 **0건**
-   - **구조적 수정 4종**(게이트 해제 근거): S1 자체 월 헤더 금지 스캔 —
-     **`dashboard_page` 는 "미라우팅인 동안만" 예외**라 홈을 되살리면 테스트가 깨져 이행 강제 /
-     S2 월 피커 단일 소스 / S3 **도달성 고정**(9개 호스트 목록 + 라우터 참조 검사 — 08-10 인시던트
-     직결) / S4 MonthNavigator 위젯 테스트 신설
-   - **사용자 결정(진입 단계)**: 거래 탭은 **일 달력 먼저**(기존 유지) + 헤더 탭으로 월→연도
-     드릴업. 나머지 8곳은 월 그리드 진입. 기각안(거래 탭도 월 그리드)은 달 이동 1탭이 되는 대신
-     같은 달 일 스크롤이 2→3탭으로 퇴보 — **퇴보 없는 쪽을 택했다**
-   - 게이트: `acknowledge-gate.sh budget-book <plan>` ✅ 편집 허용
-   - **미완**: 구현 · 로컬 CI 4종+번들 검증 · PR · 배포 · 사용자 라이브 검증
-
-28. **2026-08-11** — 월 네비게이터 구현 완료 · **로컬 게이트 5종 전부 통과**. 커밋/PR 전.
-   - 브랜치 `feat/month-navigator-drilldown-picker`
-   - 산출물(신규): `core/widgets/month_year_picker_dialog.dart` —
-     `MonthPickerResult{year, month, day?}` + 3단(`year ↔ month ↔ day`) 드릴다운.
-     **`day == null` 이 "월까지만 골랐다"** 는 신호라, 1일 선택과 월 선택이 구별된다
-     (`DateTime` 하나로 뭉갰으면 거래 목록이 매번 스크롤했을 것)
-   - 산출물(수정): `core/widgets/month_navigator.dart` —
-     `allowDaySelection: onDatePicked != null` / **`Icons.today` "오늘" 버튼**
-     (이번 달이면 비활성, 툴팁 `이번 달로`) / 좌측 48 스페이서로 대칭 유지 +
-     `Flexible`+ellipsis(좁은 화면·큰 글꼴 배율 overflow 방어)
-   - 산출물(테스트 신규 30건): 가드 `month_navigator_single_source_guard_test.dart`(S1~S3) ·
-     `month_navigator_test.dart`(S4) · `month_year_picker_dialog_test.dart`
-   - **게이트**: analyze 신규 0(기존 info 3건만) / flutter test **924**(894 + 30) /
-     `./gradlew test` BUILD SUCCESSFUL / `build web --release` ✅
-   - **배포 전 번들 검증 ✅**: `이번 달로` 1 · `월 선택으로` 1 · `연도 선택` 2 · `월 선택` 2 ·
-     `날짜 선택` 2 — 신규 UI 가 트리셰이킹되지 않았다
-   - ⚠ **검증 방법 정정**: dart2js 는 한글을 **소문자** hex 로 이스케이프한다(`이`).
-     대문자 `이` 로만 grep 하면 **0건이 나와 오탐**한다. 이번에 실제로 한 번 겪었다
-     → 메모리 `reference_live_bundle_string_verification` 보강 대상
-   - **미완**: PR · 머지 · 배포 · 사용자 라이브 검증
-
-29. **2026-08-11** — PR #295 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
-   남은 것은 사용자 라이브 검증.**
-   - 원격 CI: `backend-ci` pass(9s) / `frontend-ci` pass(2m11s) → squash 머지 + 브랜치 삭제
-   - main `3dc6543` · deploy-nas run **31455747310 success**
-     (changes / deploy-frontend / **verify-live** success; BE 변경 없어 나머지 skipped)
-   - **라이브 번들 검증**: `main.dart.js` last-modified 03:35Z · `cache-control: no-cache` ·
-     `이번 달로` 1 · `월 선택으로` 1 · `연도 선택` 2 · `월 선택` 2 · `날짜 선택` 2
-   - **미완**: 사용자 라이브 검증(기획서 §6 A1~C2). 통과 전까지 이 회차는 "완료" 아님
-
-30. **2026-08-11** — 월 네비게이터 드릴다운 피커 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
-   동시에 **후속 요청 3건 접수**(다음 회차로 이월).
-   - 사용자 확인: "다 잘 된다" — A1~C2 전 항목 통과. PR #295 배포까지 전 구간 종료
-   - 이 회차가 남긴 살아 있는 산출물(§4 산출물 지도에 유지):
-     `core/widgets/month_year_picker_dialog.dart`(연↔월↔일 드릴다운, `MonthPickerResult`) ·
-     `MonthNavigator` 의 "오늘" 버튼 · 가드 3종(S1 자체 월 헤더 금지 / S2 피커 단일 소스 /
-     S3 도달성 9곳 고정) · `MonthNavigator` 위젯 테스트(그전까지 0건)
-   - **후속 요청**(사용자, 2026-08-11 — 다음 회차): ① 월 그리드와 연 그리드가 사실상 같은
-     포맷인데 서로 왔다갔다 하는 게 번거롭다 → **한 공간에서 연·월을 같이** ② `날짜 선택`에서
-     `2026년 8월` 을 누르면 **연도 설정이 나온다 — 월 선택이 나와야 한다** ③ (부가) 연·월을
-     **스피너**로 돌려 고르는 방식
-   - **②의 원인은 이미 특정됐다** `[측정]`: 그 헤더는 이번 회차가 만든 `월 선택으로` 버튼이
-     아니라 **`CalendarDatePicker` 내장 헤더**(`_buildDayStage` 가 그대로 쓴다)이고,
-     Material 기본 동작이 연도 목록 직행이다. 어포던스가 둘로 갈라져 있는 상태
-   - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 **분석부터** 시작
-     (메모리 `feedback_round_boundary_clear`)
-
-31. **2026-08-11** — 새 회차 **"연/월 피커 단일 화면 통합 + 스피너" 기획 완료**(승인 대기). 코드 변경 0줄.
-   - 산출물: `docs/sessions/2026-08-11_1_month-picker-unified_plan.md` (설계 정본)
-   - 게이트 재확인 `[측정]`: `pre-change-audit.sh . navigation_state` → 여전히
-     **STRUCTURAL_FIX_REQUIRED**(과거 인시던트 4건) · 게이트 LOCKED.
-     기획서 §3.1 에 구조적 수정 계획을 넣고 `acknowledge-gate.sh` 로 해제하는 절차로 처리
-   - 측정 재확인: 요청 ②의 헤더는 `_buildDayStage`(:332)의 **`CalendarDatePicker` 내장 헤더**이고
-     **숨기거나 탭을 가로챌 공개 API 가 없다** → 어포던스 2개 상태가 결함의 정체
-   - **사용자 결정 2건**(형태 선택지 제시 후):
-     ① 형태 **C** — 왼쪽 연도 **휠 스피너** + 오른쪽 12개월 그리드 한 화면(단계 전환 0회,
-        연도 그리드 삭제). 요청 ①·③ 이 하나로 수렴
-     ② 일 선택 — `CalendarDatePicker` 를 **자체 일 그리드로 교체**, 헤더는 우리가 소유하고
-        탭하면 연/월 화면으로 복귀(요청 ② 구조적 해결)
-   - **구조적 수정 계획**: 피커 안에서 `CalendarDatePicker` 제거(연·월·일 전부 자체 소유) +
-     `_PickerStage` 3개 → 2개 + **가드 추가**(피커 파일에 `CalendarDatePicker` 문자열 부재 /
-     일 단계에 `findsNothing`). 기존 S1·S2·S3 는 약화 없이 유지
-   - **미완**: 사용자 승인 → 구현 → 로컬 CI → PR → 배포 → 라이브 검증
-
-32. **2026-08-11** — 연/월 피커 통합 **구현 완료 · 로컬 게이트 5종 전부 통과**. 커밋/PR 전.
-   - 브랜치 `feat/month-picker-unified` · 게이트 해제 `acknowledge-gate.sh budget-book <기획서>` `[측정]`
-   - 산출물(재작성): `core/widgets/month_year_picker_dialog.dart` —
-     `_PickerStage` **3개 → 2개**(`monthYear`, `day`) · 왼쪽 `ListWheelScrollView` 연도 휠 +
-     오른쪽 12개월 그리드 한 화면 · **`CalendarDatePicker` 완전 제거**, 자체 일 그리드
-     (일요일 시작, 요일 라벨 한국어 하드코딩 → 로케일 델리게이트 의존 없음)
-   - 설계 결정 3건:
-     ① 일 1탭 = 확정(기존 `선택` 버튼 제거) — 월도 1탭이라 규칙을 하나로 맞췄다
-     ② 연도 휠은 **항목 탭도 지원**(`animateToItem`) — 휠만으로는 정밀도가 낮다
-     ③ `ScrollConfiguration.dragDevices` 에 mouse/trackpad 추가 — Flutter 웹 기본값은
-       마우스 드래그 스크롤을 제외한다 `[1차]`. 실제 브라우저 동작은 라이브 검증 A3
-   - 컨트롤러 수명: 일 그리드에서 연/월로 올라갈 때만 `FixedExtentScrollController` 를
-     dispose 후 재생성한다(그 시점엔 휠이 트리에 없어 detached = 안전). 일 그리드 `‹ ›` 로
-     해가 바뀐 뒤에도 휠이 옛 연도를 가리키지 않게 하는 유일한 지점
-   - 산출물(테스트): `month_year_picker_dialog_test.dart` **6건 → 12건 재작성**
-     (연/월 동시 노출·휠 드래그·비중앙 연도 탭·1년 범위·헤더 라벨 복귀·달 넘김·1탭 확정·
-     **2026-08-01=토요일 선행공백 6칸을 열 좌표로 검증**·달 중간 자른 범위·320×640 overflow 0) /
-     `month_navigator_test.dart` 3건 갱신 / 가드 S2 에 **`CalendarDatePicker(` 부재** 1건 추가
-   - **게이트**: analyze 신규 0(기존 info 3건만) / flutter test **932**(924 → +8) /
-     `./gradlew test` BUILD SUCCESSFUL / `build web --release` ✅
-   - **배포 전 번들 검증 ✅**: `연/월 선택` 1 · `날짜 선택` 2 · `이번 달로` 1 · 요일 라벨 7종 전부
-     (한글은 **소문자** hex 이스케이프로만 잡힌다 — 원문 grep 은 전부 0건)
-   - **미완**: PR · 머지 · 배포 · 사용자 라이브 검증
-
-33. **2026-08-11** — PR #296 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
-   남은 것은 사용자 라이브 검증.**
-   - 원격 CI: `backend-ci` pass(10s) / `frontend-ci` pass(2m3s) → squash 머지 + 브랜치 삭제
-   - main `1ae11be` · deploy-nas run **31538119612 success**
-     (changes / deploy-frontend / **verify-live** success; BE·nginx 변경 없어 skipped)
-   - **라이브 번들 검증** `[측정]`: `main.dart.js` last-modified 21:31Z ·
-     `cache-control: no-cache, must-revalidate` · `연/월 선택` 1 · `날짜 선택` 2 ·
-     `이번 달로` 1 · `이전 달` 3 · `다음 달` 4 (전부 소문자 hex 이스케이프)
-   - ⚠ 번들에 `연도 선택` 문자열이 **여전히 남아 있다** — 우리 코드가 아니라
-     `flutter_localizations` 한국어 리소스(`selectYearSemanticsLabel`)다. 다른 17곳이 쓰는
-     `showCalendarPickerDialog` 가 `CalendarDatePicker` 를 계속 쓰므로 정상이다.
-     **번들 문자열로는 월 피커의 프레임워크 이탈을 판정할 수 없다** — 그 판정은 가드
-     테스트(`CalendarDatePicker(` 소스 부재 + `findsNothing`)가 한다
-   - **미완**: 사용자 라이브 검증(기획서 §9 A1~C3). 통과 전까지 이 회차는 "완료" 아님
-
-34. **2026-08-11** — 연/월 피커 통합 **사용자 라이브 검증 통과 → 회차 종결(완료)**.
-   - 사용자 확인: "전체 잘 된다" — 기획서 §9 A1~C3 전 항목 통과. PR #296 배포까지 전 구간 종료
-   - 이 회차가 남긴 살아 있는 산출물(§4 산출물 지도에 유지):
-     `core/widgets/month_year_picker_dialog.dart`(연도 휠 + 12개월 그리드 한 화면,
-     자체 일 그리드, `CalendarDatePicker` 0개) · 가드 S2 의 프레임워크 위젯 부재 검사 ·
-     위젯 테스트 12건
-   - **재발 방지 등록**: `~/.claude/harness/lessons-learned.jsonl`(ui_pattern, navigation_state) +
-     메모리 `reference_framework_owned_affordance`.
-     교훈 한 줄 — **"경로를 추가했다"가 아니라 "경쟁 경로를 0개로 만들었다"가 완료 기준이다.**
-     제어 불가한 프레임워크 어포던스가 남아 있으면 위젯 교체 외에 해결이 없다
-   - **회차 경계**: 여기서 멈춘다. 다음 회차는 `/clear` 후 새 세션에서 **분석부터** 시작
-     (메모리 `feedback_round_boundary_clear`)
-
-35. **2026-08-12** — 새 회차 **"합계 ≠ 행 잔존 불일치" 분석 완료**(기획 전, 코드 변경 0줄).
-   **착수 지점의 전제가 측정으로 정정됐다.**
-   - 산출물: `docs/sessions/2026-08-12_1_summary-row-mismatch_analysis.md`
-   - 하네스 감사: `pre-change-audit.sh . filter_propagation amount_calculation` →
-     `filter_propagation` **STRUCTURAL_FIX_REQUIRED**(과거 3건, 게이트 LOCKED).
-     기획서에 구조적 수정 포함 후 `acknowledge-gate.sh` 로 해제
-   - **전제 정정**: §3 에 적혀 있던 근거 `StatisticsService.kt:147`(필터 활성 시 `totalTransfer=0`)은
-     **FE 어디에서도 표시되지 않는 죽은 값**이었다 — 장부 합계바의 이체 칸은 클라 계산
-     (`LedgerSummary.from`)이고 분석 탭은 이체 칸을 그리지 않는다(grep 측정).
-     수입/지출이 갈라지려면 `EXPENSE_TRANSFER`/`INCOME_TRANSFER` 이체가 필요한데 실 DB **0건**
-   - 실 DB 측정: 이체 kind = `GENERIC` 22 / `CARD_SETTLEMENT` 8 / EXPENSE·INCOME_TRANSFER **0** ·
-     거래 type = EXPENSE 542 / INCOME 31 / **ADJUSTMENT 17** · 월 최대 거래 **119건**(페이지 200 미달)
-   - **실제 발현 중인 결함(F1)**: 기간 필터가 포커스 월을 넘으면 **이체 스트림만 월에 갇힌다** —
-     `LoadTransfers({year, month})` 는 월 단위(`transfer_event.dart:15`)인데 거래 목록과 서버 합계는
-     `dateFrom/dateTo` 가 월을 완전히 덮어쓴다(`TransactionService.kt:109~118`,
-     `StatisticsService.kt:78~79`)며 행 빌더는 월로 다시 자르지 않는다.
-     표본(2026-06-15~08-05, 포커스 8월): 거래 192건 전량 노출 vs 이체는 8월 2건만 →
-     범위 내 이체 금액의 **77%(3,385,139원) 누락**.
-     `reference_transaction_merged_transfer_stream_drift` 의 5번째 변형 —
-     이번엔 축 누락이 아니라 **스트림의 로드 범위 불일치**
-   - 함께 확인된 잠재/표시 결함: F2 필터 경로의 이체 전량 제외(도달 가능, 이체 폼에서 kind 선택 가능) ·
-     F3 ADJUSTMENT 17건·CARD_SETTLEMENT 8건이 행에는 보이나 합계 어느 칸에도 없음
-     (합계바 잔액이 `LedgerSummary.balance` 를 안 쓴다) · F4 페이지네이션(월 단위 미발현, 여유 8건)
-   - 근본 원인 한 문장: **행 집합과 합계 집합이 같은 소스에서 나오지 않는다** — 합계는
-     서버(거래·범위 전체) + 클라(이체·포커스 월)를 한 줄에 섞고, 이체 로드 범위(월)가 필터 범위와 다르다
-   - 구조적 수정 방향(안 A 권장): S1 BE `hasContentFilters` 분기 제거(이체도 필터 축 집계) ·
-     S2 `LoadTransfers({required dateFrom, dateTo})` 로 컴파일 강제 · S3 합계 응답에 집계 건수 ·
-     S4 합계바 혼합 소스 금지 소스검사 가드 · S5 `StatisticsServiceTest` 의 kind×필터 케이스 0건 보강
-   - **다음 단계는 사용자 판정 3건**(분석서 §5): Q1 합계에 이체 포함 여부(포함으로 판정, 반증 조건 명시) ·
-     Q2 기간 필터가 월을 넘을 때 화면 정체성 · Q3 ADJUSTMENT/CARD_SETTLEMENT 행 배지 여부
-
-36. **2026-08-12** — 판정 3건 확정 + **기획 완료**(승인 대기). 코드 변경 0줄.
-   - 사용자 판정: **Q1 = 합계에 이체 포함**(필터 경로를 고친다) / **Q2 = 기간 장부**(이체도 범위 로드) /
-     **Q3 = 행 유지 + "합계 제외" 배지**
-   - 산출물: `docs/sessions/2026-08-12_2_summary-row-mismatch_plan.md`
-   - **게이트 해제 완료**: `acknowledge-gate.sh budget-book <plan>` → 편집 허용
-     (근거 = 기획서 §2 S1~S8 구조적 수정)
-   - 구조적 수정 설계: S1 BE `LedgerFilter` VO + `LedgerFilterAxis` enum(`when` exhaustive =
-     축 추가 시 **컴파일 실패**) + 리플렉션 가드 · S2 `TransferGating` 단일 판정을 **이체 목록
-     쿼리와 이체 집계가 공유** · S3 합계의 `hasContentFilters` 분기 **제거**(`totalTransfer=0`
-     하드코딩 삭제) · S4 장부 전용 `LedgerTransfersCubit` 분리 · S5 합계바 서버 단일 소스 +
-     FE 이체 축 판정 제거 · S6 합계 제외 배지 · S7 api-spec 선행 갱신 · S8 "합계=행" 계약 통합테스트
-   - **사이드이펙트 감사(측정)**: `TransferBloc` 은 **6곳이 공유하는 lazy singleton**
-     (장부 · 이체 목록 · 카드정산 · 정산 뷰 · 거래 폼 · month_sync/sync_event) →
-     장부에 필터를 주입하면 나머지가 오염된다 → **장부 전용 Cubit 분리로 차단**(S4).
-     이 감사 없이 진행했으면 5개 화면이 필터된 이체만 보게 됐다
-   - **금액 표시 위치 전수 조사(측정)**: `totalIncome|totalExpense|totalTransfer` 참조 26파일 확인 →
-     영향 7곳(합계바 계열) / 무영향 확인 근거 병기. 분석 탭·리포트는 **이체 칸을 그리지 않음**
-     (grep 0건) → 분석서 §6 미해결 1건 해소. `reconciliation_view.dart:729` 는 정산 스냅샷 별개 소스
-   - **자체 총괄 검토에서 잡은 누락 2건**: ① `docs/api-spec.md:1773` 이 summary 의 필터 파라미터를
-     3개만 문서화(구현은 12개+) + `:42` 가 이번에 바꿀 규칙("필터 시 totalTransfer 항상 0")을
-     규범으로 못박아 둠 → S7 로 선행 갱신 ② Spring `@ModelAttribute` + Kotlin 기본값 +
-     `List<UUID>` 바인딩 리스크 → 구현 첫 단계에 컨트롤러 슬라이스 테스트로 선검증
-   - DB 마이그레이션 없음(스키마 변경 0건)
-
-37. **2026-08-13** — 승인 후 **구현 완료 · 로컬 CI 5종 전부 통과**. 커밋/PR 전.
-   - 사용자 승인: "기획대로 한 PR" (기획서 §7 순서 그대로)
-   - **BE 구조 수정**:
-     - 신설 `common/filter/LedgerFilterAxis.kt` — 축 20개 enum + `TransferAxisHandling`.
-       `TransferGating.handling` 의 **exhaustive when** 이 축 추가 시 컴파일을 막는다
-     - 신설 `common/filter/LedgerTypeSelection.kt` — `transactionTypes` 파싱 단일 진입점.
-       **`TRANSFER` 가 계약 값으로 승격**(이전엔 400). "필터 없음"과 "거래 타입 0개 선택"을 구분
-     - 신설 `transfer/service/TransferGating.kt` — 이체 판정 단일 지점.
-       `excludedWholesale` + `spec` 을 **목록 조회와 집계가 공유**
-     - `StatisticsService.getMonthlySummary` 의 `hasContentFilters` **분기 제거** →
-       `totalTransfer = 0L` 하드코딩 삭제. `getPeriodSummary` 도 같은 헬퍼(`resolveTransactionScope`)로 통일
-     - `ExpenseCalculator.transferBuckets/bucketsOf` 추가(kind 별 버킷) ·
-       `TransferRepository` 에 `JpaSpecificationExecutor` · 응답에 `transferCount`
-     - 컨트롤러의 **필드 수동 나열 제거** — 필터 VO 통째로 전달
-   - **FE 구조 수정**:
-     - 신설 `LedgerTransfersCubit` — 장부 전용 이체 소스. 공유 `TransferBloc`(소비자 6곳)은
-       손대지 않아 이체 목록·카드정산·정산 뷰·거래 폼 무영향. DI·month_sync·sync_event 배선
-     - `ledger_gating.dart` 에서 **이체 축 판정 삭제**(서버 신뢰) — 판정 2곳이 재발 메커니즘이었다
-     - 합계바 3칸 전부 **서버 단일 소스**(`serverTotalTransfer` 신설). 클라 `LedgerSummary` 는
-       러닝밸런스 전용으로 축소. `toQueryParams` 가 `TRANSFER` 를 그대로 전송
-     - 신설 `ledger_totals_exclusion.dart` + `ExcludedFromTotalsBadge` — ADJUSTMENT·카드정산 행에
-       "합계 제외" 배지(판정은 단일 헬퍼 경유)
-   - **계약 문서 선행 갱신**: `docs/api-spec.md` — summary 필터 파라미터 12개+ 문서화 ·
-     `:42` 의 "필터 시 totalTransfer 항상 0" **규범 폐기 명시** · List Transfers 범위·필터 ·
-     `TRANSFER` 계약 값 절 신설
-   - **구현 중 테스트가 잡은 실제 버그 1건**: "타입 필터 없음"과 "타입 필터가 거래를 하나도
-     고르지 않음"(이체만 보기)을 혼동해 이체만 보기에서 거래 합계가 남았다 →
-     `hasTypeFilter` 로 분리. `LedgerTypeSelectionTest` 가 회귀 가드
-   - **신설 테스트**: `LedgerSummaryRowContractIntegrationTest`(실 PostgreSQL, 축 조합 15건 —
-     **합계 = 행** 대조 + 절대값 고정) · `LedgerFilterAxisGuardTest`(리플렉션 1:1) ·
-     `TransferGatingTest` · `LedgerTypeSelectionTest` · `ledger_transfers_cubit_test.dart` ·
-     `ledger_gating_test.dart` 재작성(FE 이체 판정 재도입 금지 + 장부의 `TransferBloc` 사용 금지 가드)
-   - **로컬 CI 5종**: analyze 신규 0건(잔여 3건은 미변경 테스트 파일 기존 info) /
-     `flutter test` **936건** / `./gradlew clean test` 통과 /
-     `flutter build web --release` 통과 / **번들 문자열 확인** — `합계 제외` 1건,
-     배지 툴팁 2건 존재
-   - **측정 방법 보강**: 번들 문자열 확인에서 한글은 `\uXXXX` 지만 **Latin-1 범위(`·` 등)는
-     `\xNN`** 로 인코딩된다. 처음 `·` 포함 문구가 0건으로 나와 대조군 실험으로 방법 결함을 찾았다
-     (메모리 `reference_live_bundle_string_verification` 보강 대상)
+<!-- HNS:ARCHIVE -->
+> **항목 1~37 은 `docs/progress-archive/timeline-001.md` 로 롤오프됐다(2026-08-24 · 내용 무삭제).** 본체를 100KB 아래로 유지해 전문 Read 가 막히지 않게 하기 위해서다.
+> 이전 이력을 볼 때는 그 파일을 읽는다. 새 항목은 계속 이 아래에 append 한다.
 
 38. **2026-08-13** — PR #297 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
    남은 것은 사용자 라이브 검증.**
@@ -1457,38 +851,78 @@
       "봉인은 주석 제거 후 스캔", "새 가드는 대조군에서 1회 실패시킨다".
       프로젝트 메모리에도 `reference_row_balance_measurement_traps` 로 남겼다
 
+82. **2026-08-26** — **6차 라이브 회신: 1·2 통과, 3 실패(요구 오독).** 코드는 배포됐고 결함은 판정 축에 있었다.
+    - **[측정] 회신**: ①거래 탭 ✅ ②자산·카테고리·자산현황 여백 ✅ ③분석>예산 — "예산 간의 위아래 항목 높이도 **자산처럼 일치**시키고 싶었던 건데 잘못 이해한 것 같다"
+    - **원인 ⓐ 요구 오독**: "항목 높이"를 **축소**로 읽었다. 실제 요구는 **행 간 동일성**이다. 6차는 잉크높이 93.0→43.0 을 달성했지만 그건 다른 축이었다.
+    - **[측정: 코드] 원인 ⓑ 구조**: `budget_list_page.dart:743` 이 `ListTile` 을 쓴다 → **프레임워크가 높이를 소유**한다. subtitle Column 의 `_buildBudgetProgressBar` 가 `budgetAmount <= 0` 에서 `SizedBox.shrink()` 를 돌려주므로 **항목마다 subtitle 높이가 갈린다**. 통과한 자산(`asset_management_page.dart`)·카테고리(`category_list_tile.dart`)는 `EntityTileRow` 라 **앱이 높이를 소유**한다 — 통과/실패가 갈린 지점이 정확히 여기다.
+    - **[측정: 코드] 원인 ⓒ 가드 공백**: `row_balance_guard_test` 는 `expect(top, closeTo(bottom))` 로 **행 안 위/아래 대칭**만 잰다. 행 **간** 높이 동일성 축이 없어 20/20 초록인 채로 이 결함이 나갔다.
+    - **★원인 ⓓ 교훈 자체의 구멍(가장 중요)**: 2026-08-24 교훈은 "'여백이 없다/많다' 회신은 **축을 셋으로** 갈라서 잰다: 행 사이 · 행 안 균형 · 랩"이었다. **거기에 '행 간 높이 동일성'이 없다.** 교훈이 축을 빠뜨렸으니 가드도 빠뜨렸다. 같은 교훈의 "놓친 위치"에 이미 `budget_list_page.dart` 가 적혀 있었는데도 다시 샜다.
+    - **[측정] 하네스 audit**(`ui_pattern`): **STRUCTURAL_FIX_REQUIRED** — 12건(이 프로젝트 1). 패치 수정 불허, 구조적 수정안을 기획서에 넣어야 게이트가 열린다.
+    - **다음**: 7차 기획(§3 NEXT) — 계측기로 4축 동시 측정 → `EntityTileRow` 이관 → 신규 가드(대조군 1회 실패 필수). **승인 대기**.
+
+83. **2026-08-26** — **★7차 구현 완료 — 예산 행 간 높이 편차 0.00px. 로컬 CI 전량 통과.**
+    - **[측정] 요구 축**: 신규 가드가 6행 픽스처(일반·**예산액 0**·초과·**개인**·**긴 제목**·경계 80%)를 3폭에서 재서 **편차 0.00px**(390 전부 68.37 · 430 전부 68.69 · 768 전부 76.72).
+    - **[측정] V3 대조군**: 원래 결함(`budgetAmount <= 0` 이면 자리 비움)을 되살려 재현하니 **예산액 0 행만 59.19**(나머지 68.37) = **편차 9.19px** 로 가드가 실패한다. 되돌리면 6/6 통과. 가드가 요구 축에 걸려 있다는 증거이고, **사용자가 본 결함의 크기가 9.19px 였다**는 뜻이기도 하다.
+    - **구조적 수정 3건**: ①`ListTile` → **`EntityTileRow` 이관** — 높이 소유권을 프레임워크에서 앱으로 옮긴다(`박스 = max(잉크 + 2×xs, 슬롯 44)`). 사용자가 "자산처럼"이라 한 것이 이 계약이다. ②프로그레스 자리 **항상 예약**(0원도 빈 트랙 — 조건부로 비우는 것이 원인이었다). ③소스 봉인(예산 페이지에 `ListTile(` 없음 · 타일에 `SizedBox.shrink()` 없음, **주석 제거 후 스캔**).
+    - **★[측정] 설계를 두 번 되돌렸다(중요)**:
+      · **1차**: `Widget? progress`·`Widget? trailingAction` 로 슬롯을 열었더니 **`entity_tile_api_guard_test` 가 막았다**. 그 가드의 사유가 내 audit 결과와 **같은 문장**이다 — "과거 `ui_pattern` 실패는 전부 **한 곳에 얹기**(호출부가 임의 위젯을 끼워 레이아웃을 다시 깬다)". → **값 타입** `EntityProgress`(0~1 + 톤)·`EntityOverflowMenu`(항목 + onSelected)로 재설계했다. **가드를 낮추지 않았다.**
+      · **2차**: 긴 제목 행만 **+25.19px** 높았다 — `EntityTileRow` 기본 동작이 "제목이 길면 금액을 칩 행으로 내린다(이름이 이긴다)"인데 칩 행이 그 행만 키운다. 목록 요구가 **행 간 동일성**이므로 예산에 한해 `keepMetricInline: true` 로 금액을 제목 행에 고정했다(기본값은 그대로).
+    - **부수 성과**: 하드코딩 색을 `EntityTone`(→`BbColors`)으로 옮겨 래칫 baseline **313 → 309** 로 낮췄다(성과 고정). 죽은 코드 4함수 제거로 analyze **18 → 15**.
+    - **신규 가드 `test/features/budget/budget_row_height_guard_test.dart`(6케이스)** — B1 행 간 높이 동일(3폭) · B2 예산액 0 도 트랙 유지(원인 봉인) · B3 소스 봉인 2종.
+    - **★교훈 보강 대상**: 2026-08-24 교훈의 "여백 회신은 **3축**(행 사이·행 안 균형·랩)"에 **'행 간 높이 동일성'이 없었다**. 교훈이 축을 빠뜨려 `row_balance_guard_test`(위==아래만 본다)도 빠뜨렸고, 20/20 초록인 채로 배포됐다. → 4축으로 보강한다.
+    - **다음**: PR → 배포 → 라이브 검증(예산 항목들이 **같은 높이로 보이나**).
+
 ## 3. 다음 단계
 
 <!-- HNS:NEXT -->
-**6차 배포 후 라이브 검증 3점.** 코드는 끝났다(로컬 CI 6종 통과). 사용자 확인 대기.
+**7차 = 예산 항목 행 간 높이 동일성 — 구현·로컬 CI 완료(항목 83). 다음 = PR → 배포 → 라이브 검증.**
 
-### 라이브 검증 (0단계 = 오프라인 배너 없음 확인)
+### 라이브 검증 (배포 후)
 
-1. **거래 탭** — 아이콘 아래 글자가 사라졌고(결제수단은 부제목 `식비 · 롯데카드` 에 있다)
-   행이 겹치지 않는다
-2. **자산 탭 결제수단 · 카테고리 탭 · 분석>예산의 자산 현황** — 항목 위아래 여백이 같다
-   (종전: 위만 있고 아래는 붙었다)
-3. **분석>예산** — 항목 높이가 줄었다(부제목 1줄). 예산 총액은 오른쪽에 그대로 있다
+1. **분석 > 예산** — 항목들이 **서로 같은 높이**로 보인다(자산 탭처럼). 특히 **예산액이 0 인 항목**과 **개인 예산 항목**이 다른 항목과 같은 높이인가
+2. 예산 총액은 오른쪽에 그대로 있고, 카테고리 이름이 길어도 **금액이 아래로 안 내려간다**
+3. ⋮ 메뉴(거래 보기·수정·삭제)가 종전대로 동작한다
+4. 자산 탭·카테고리 탭은 **변화 없다**(이번 변경은 예산 화면만)
 
 ### 실패하면
 
-- 계측기 4종 + `row_balance_guard_test`(대조군 검증 완료)가 이미 초록이다 → 실패면
-  **지표가 다른 것**이다. 스크린샷 픽셀을 직접 재라 — 특히 '여백'이 행 축인지 그룹 축인지
-- 자산 현황이 여전히 헐렁하면 축은 **그룹**이다: 그룹 경계 **67.0dp** `[측정]` =
-  그룹 박스 20(4차 승인값) + 헤더 + 44 슬롯 슬랙. 그룹 박스(테두리 + 이중 padding)를
-  자산 탭처럼 없애는 것이 유일한 레버이고 시각이 바뀐다 → 사용자 결정 필요
+- 가드가 편차 0.00px 로 초록이므로, 실패면 **지표가 다른 것**이다. "높이"가 아니라 **행 사이**나 **랩**을 보고 계신 것일 수 있다 → 4축 계측기 리포트를 다시 읽고 어느 축인지 먼저 가른다
+
+### 착수 전 (순서 고정)
+
+1. **대장 롤오프** — 본체가 150KB 차단선에 붙었다. `progress-rolloff.py` 로 §2 를 옮긴다(무삭제)
+2. **계측기 먼저** — 처방 전에 **4축 동시 출력**: 행 사이 · 행 안 위/아래 균형 · 랩(폭) ·
+   **행 간 높이 동일성(신설)**. 어느 축이 지배 변수인지 수치로 고른다(2026-08-24 교훈 + 이번 4번째 축)
+
+### 구조적 수정안 (게이트 요구)
+
+- **높이 소유권을 앱으로 옮긴다**: 예산 타일 `ListTile` → `EntityTileRow` 이관.
+  이건 대기열 2번(`ListTile` 87건/39파일)의 **예산 화면 인스턴스**다 — 개별 패치가 아니라 이관
+- **조건부 렌더가 높이를 가르지 못하게 한다**: 프로그레스바 자리를 **항상 예약**(값 0 이어도 자리 유지)
+- **소스 봉인**: 예산 페이지에 `ListTile(` 생성자가 없다(주석 제거 후 스캔 — 2026-08-24 교훈)
+
+### 축 ↔ 가드 매핑 (무가드면 명시)
+
+- 행 간 높이 동일성 → **신규 가드**(같은 리스트 모든 행 높이가 허용오차 내 동일). **대조군에서 1회 실패 필수**
+- 행 안 균형 → `row_balance_guard_test`(기존 20건, 무회귀)
+- 랩 → `OneLineLabel` 봉인(기존)
+- 체감 판정 → `[무가드]` 사용자 라이브
+
+### 재발 방지 (실패 처리 3단계 — 04)
+
+- `lessons-learned.jsonl` 에 교훈 등록: **"높이/여백 회신은 4축이다 — 3축 목록이 축 하나를 빠뜨렸다"** +
+  "프레임워크 위젯이 높이를 소유하면 여백 토큰으로는 못 고친다"
+- 2026-08-24 교훈의 3축 문장을 4축으로 보강(교훈이 축을 빠뜨리면 가드도 빠뜨린다)
 
 ### 그 다음 대기열
 
-1. **대장 롤오프 — 본체 142KB(150KB 부터 차단). 다음 회차 착수 전에 먼저 한다**
-2. `ListTile` 87건/39파일 → `EntityTileRow` 이관(프레임워크가 높이를 소유하는 구조 해소)
-3. 주간 카드 320dp 가로 오버플로우 · 비목록 카드 리듬 · `_buildCurrentWeekHero` 리터럴 2건
-4. 좌우 비대칭 여백 32건 · 하드코딩 색 래칫 · 차트 색 체계
-5. 미기록 200건 초과 페이지 로드 UI · 개인 자산 · 죽은 화면 정리 · P4 알림 · Android
+1. `ListTile` 나머지 이관 · 2. 주간 카드 320dp 오버플로우 · 3. 좌우 비대칭 32건 · 하드코딩 색 래칫
+4. 미기록 200건 초과 페이지 로드 UI · 개인 자산 · 죽은 화면 정리 · P4 알림 · Android
 
-### 회차 밖 트랙
+### 회차 밖 — 사용자 확인만 필요
 
-- 정산 스냅샷 A1~A10 / B1~B7 / C1~C5 · KI-006 · 거래 탭 ±1일 버튼 라벨 중앙
+- 정산 스냅샷 A1~A10 / B1~B7 / C1~C5(`docs/sessions/2026-07-27_1_result.md §4.1`) · KI-006
+- 자산 현황 그룹 경계 67.0dp `[측정]` — 그룹 박스를 없애야 하고 시각이 바뀐다 → 사용자 결정
 <!-- /HNS:NEXT -->
 
 ### 그 다음 대기열 (착수 순서 아님 — 자동 주입 대상 아님)
