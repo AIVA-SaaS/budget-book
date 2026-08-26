@@ -17,6 +17,7 @@ import 'package:budget_book/features/spending_plan/presentation/widgets/assign_p
 import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/link_transaction_sheet.dart';
 import 'package:budget_book/core/widgets/filters/selectable_chip_group.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class SpendingPlanListPage extends StatefulWidget {
   const SpendingPlanListPage({super.key});
@@ -440,7 +441,7 @@ class _DateHeader extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.calendar_today,
-              size: 14,
+              size: context.bbType.iconSm,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
           const SizedBox(width: 8),
           Text(
@@ -554,7 +555,7 @@ class _WishlistItemCard extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: pColor.withValues(alpha: 0.15),
-          child: Icon(Icons.shopping_cart, color: pColor, size: 20),
+          child: Icon(Icons.shopping_cart, color: pColor, size: context.bbType.iconSm),
         ),
         title: Row(
           children: [

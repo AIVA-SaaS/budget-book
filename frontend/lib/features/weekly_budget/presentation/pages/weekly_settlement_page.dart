@@ -348,7 +348,7 @@ class _SettlementItemTile extends StatelessWidget {
           children: [
             // Checkbox or settled indicator
             if (isSettled)
-              const Icon(Icons.check_circle, color: Colors.green, size: 20)
+              Icon(Icons.check_circle, color: Colors.green, size: context.bbType.iconSm)
             else
               SizedBox(
                 width: 20,
@@ -371,7 +371,7 @@ class _SettlementItemTile extends StatelessWidget {
               ),
               child: Icon(
                 resolveIcon(item.categoryIcon),
-                size: 18,
+                size: context.bbType.iconSm,
                 color: parseHexColor(item.categoryColor),
               ),
             ),
@@ -415,7 +415,7 @@ class _SettlementItemTile extends StatelessWidget {
             if (isSettled) ...[
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.undo, size: 18),
+                icon: Icon(Icons.undo, size: context.bbType.iconMd),
                 onPressed: onUnsettle,
                 tooltip: '정산 취소',
                 padding: EdgeInsets.zero,

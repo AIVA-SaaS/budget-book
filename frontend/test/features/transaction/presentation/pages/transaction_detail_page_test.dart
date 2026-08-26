@@ -111,7 +111,7 @@ void main() {
         hasMore: false,
       ));
       when(() => mockRepo.getTransaction('non-existent'))
-          .thenAnswer((_) async => Left(ServerFailure('Not found')));
+          .thenAnswer((_) async => const Left(ServerFailure('Not found')));
       await tester.pumpWidget(
           createTestWidget(transactionId: 'non-existent'));
       // Initially shows loading spinner (API call in progress)

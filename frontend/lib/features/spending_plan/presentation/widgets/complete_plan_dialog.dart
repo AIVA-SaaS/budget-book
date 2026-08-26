@@ -312,15 +312,15 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
               leading: Icon(
                 _linkedTransaction!.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
                 color: _linkedTransaction!.isExpense ? Colors.red : Colors.blue,
-                size: 20,
+                size: context.bbType.iconSm,
               ),
-              title: Text(_linkedTransaction!.description, style: const TextStyle(fontSize: 14)),
+              title: Text(_linkedTransaction!.description, style: TextStyle(fontSize: context.bbType.section)),
               subtitle: Text(
                 '${CurrencyFormatter.format(_linkedTransaction!.amount)}원 · ${_linkedTransaction!.transactionDate}',
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: context.bbType.label),
               ),
               trailing: IconButton(
-                icon: const Icon(Icons.close, size: 18),
+                icon: Icon(Icons.close, size: context.bbType.iconMd),
                 onPressed: () => setState(() => _linkedTransaction = null),
               ),
             ),
@@ -337,12 +337,12 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                   leading: Icon(
                     t.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
                     color: t.isExpense ? Colors.red : Colors.blue,
-                    size: 18,
+                    size: context.bbType.iconSm,
                   ),
-                  title: Text(t.description, style: const TextStyle(fontSize: 13)),
+                  title: Text(t.description, style: TextStyle(fontSize: context.bbType.body)),
                   subtitle: Text(
                     '${CurrencyFormatter.format(t.amount)}원 · ${t.transactionDate}',
-                    style: const TextStyle(fontSize: 11),
+                    style: TextStyle(fontSize: context.bbType.label),
                   ),
                   onTap: () => setState(() => _linkedTransaction = t),
                 );

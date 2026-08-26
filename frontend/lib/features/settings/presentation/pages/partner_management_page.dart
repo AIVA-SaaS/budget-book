@@ -164,7 +164,7 @@ class PartnerManagementPage extends StatelessWidget {
                             partner.nickname.isNotEmpty
                                 ? partner.nickname[0]
                                 : '?',
-                            style: const TextStyle(fontSize: 24),
+                            style: TextStyle(fontSize: context.bbType.display),
                           )
                         : null,
                   ),

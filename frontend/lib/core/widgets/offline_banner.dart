@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/services/connectivity_service.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A banner that shows "오프라인 상태입니다" when the device has no network.
 /// Auto-hides when connectivity is restored.
@@ -58,14 +59,14 @@ class _OfflineBannerState extends State<OfflineBanner> {
                 children: [
                   Icon(
                     Icons.wifi_off,
-                    size: 16,
+                    size: context.bbType.iconSm,
                     color: Colors.grey.shade300,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '오프라인 상태입니다',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: context.bbType.body,
                       color: Colors.grey.shade300,
                     ),
                   ),

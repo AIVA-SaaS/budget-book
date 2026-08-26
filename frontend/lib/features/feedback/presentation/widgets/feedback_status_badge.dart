@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class FeedbackStatusBadge extends StatelessWidget {
   final String status;
@@ -19,7 +20,7 @@ class FeedbackStatusBadge extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 12,
+          fontSize: context.bbType.label,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -55,12 +56,12 @@ class FeedbackCategoryChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(icon, style: const TextStyle(fontSize: 14)),
+        Text(icon, style: TextStyle(fontSize: context.bbType.section)),
         const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: context.bbType.label,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),

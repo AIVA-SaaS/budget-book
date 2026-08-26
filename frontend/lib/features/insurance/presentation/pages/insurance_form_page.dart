@@ -318,7 +318,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                 prefixIcon: const Icon(Icons.play_arrow),
                 suffixIcon: _startDate != null
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: Icon(Icons.clear, size: context.bbType.iconMd),
                         onPressed: () => setState(() => _startDate = null),
                       )
                     : null,
@@ -401,7 +401,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                         children: [
                           Icon(
                             insuranceTypeIcon(e.$1),
-                            size: 18,
+                            size: context.bbType.iconSm,
                             color: insuranceTypeColor(e.$1),
                           ),
                           const SizedBox(width: 8),
@@ -488,7 +488,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                 prefixIcon: const Icon(Icons.stop),
                 suffixIcon: _endDate != null
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: Icon(Icons.clear, size: context.bbType.iconMd),
                         onPressed: () => setState(() => _endDate = null),
                       )
                     : null,

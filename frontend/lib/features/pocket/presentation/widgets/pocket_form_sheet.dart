@@ -268,7 +268,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                     label: Icon(
                       UIHelpers.resolveIcon(iconName,
                           fallback: Icons.account_balance_wallet),
-                      size: 20,
+                      size: context.bbType.iconSm,
                       color: isSelected
                           ? Theme.of(context).colorScheme.onPrimary
                           : null,

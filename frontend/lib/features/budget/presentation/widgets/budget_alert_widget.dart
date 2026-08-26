@@ -34,7 +34,7 @@ class BudgetAlertWidget extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.warning_amber_rounded,
-                    size: 20,
+                    size: context.bbType.iconSm,
                     color: Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 6),

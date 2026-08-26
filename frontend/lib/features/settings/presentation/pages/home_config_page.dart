@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
 import 'package:budget_book/features/home/data/home_config_service.dart';
 import 'package:budget_book/features/home/presentation/widgets/widget_settings_sheet.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Settings page that allows the user to reorder and toggle dashboard widgets.
 class HomeConfigPage extends StatefulWidget {
@@ -120,7 +121,7 @@ class _HomeConfigPageState extends State<HomeConfigPage> {
                           IconButton(
                             icon: Icon(
                               Icons.settings,
-                              size: 20,
+                              size: context.bbType.iconMd,
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurface

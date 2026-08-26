@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/insurance/domain/entities/insurance.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Maps insurance type to Korean label.
 String insuranceTypeLabel(String type) {
@@ -114,7 +115,7 @@ class InsuranceCard extends StatelessWidget {
           child: Icon(
             insuranceTypeIcon(insurance.insuranceType),
             color: typeColor,
-            size: 20,
+            size: context.bbType.iconSm,
           ),
         ),
         title: Row(

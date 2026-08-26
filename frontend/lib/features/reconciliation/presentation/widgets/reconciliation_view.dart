@@ -392,7 +392,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.check_circle, size: 18),
+                  : Icon(Icons.check_circle, size: context.bbType.iconSm),
               label: Text(
                 _selectedCount == 0 ? '정산하기' : '선택 $_selectedCount건 정산하기',
               ),
@@ -431,13 +431,13 @@ class _ReconciliationViewState extends State<ReconciliationView> {
               Row(
                 children: [
                   Icon(Icons.warning_amber,
-                      size: 16, color: Colors.amber.shade800),
+                      size: context.bbType.iconSm, color: Colors.amber.shade800),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       '"확인/입력 필요" $needsReviewCount건이 포함됩니다',
                       style:
-                          TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                          TextStyle(fontSize: context.bbType.label, color: Colors.amber.shade900),
                     ),
                   ),
                 ],
@@ -614,11 +614,11 @@ class _UnrecordedHeader extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.warning_amber,
-                      size: 14, color: Colors.amber.shade800),
+                      size: context.bbType.iconSm, color: Colors.amber.shade800),
                   Text(
                     '${summary.needsReviewCount}',
                     style:
-                        TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                        TextStyle(fontSize: context.bbType.label, color: Colors.amber.shade900),
                   ),
                 ],
               ),
@@ -638,7 +638,7 @@ class _FullyReconciledBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         children: [
-          const Icon(Icons.verified, size: 36, color: Color(0xFF2E7D32)),
+          Icon(Icons.verified, size: context.bbType.iconLg, color: const Color(0xFF2E7D32)),
           context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             '이 달 정산 완료',
@@ -674,7 +674,7 @@ class _SnapshotSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          const Icon(Icons.history, size: 16),
+          Icon(Icons.history, size: context.bbType.iconSm),
           const SizedBox(width: 6),
           Text(
             '정산 기록 $count건',
@@ -823,20 +823,20 @@ class _SnapshotTileState extends State<_SnapshotTile> {
             }),
             icon: Icon(
               allSelected ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 16,
+              size: context.bbType.iconSm,
             ),
             label: Text(allSelected ? '선택 해제' : '항목 전체 선택'),
           ),
           TextButton.icon(
             onPressed: widget.onRename,
-            icon: const Icon(Icons.edit_outlined, size: 16),
+            icon: Icon(Icons.edit_outlined, size: context.bbType.iconSm),
             label: const Text('라벨 수정'),
           ),
           TextButton.icon(
             onPressed: _selectedItemIds.isEmpty
                 ? null
                 : () => widget.onRemoveItems(_selectedItemIds.toList()),
-            icon: const Icon(Icons.remove_circle_outline, size: 16),
+            icon: Icon(Icons.remove_circle_outline, size: context.bbType.iconSm),
             label: Text('선택 ${_selectedItemIds.length}건 정산 취소'),
           ),
           TextButton.icon(
@@ -844,7 +844,7 @@ class _SnapshotTileState extends State<_SnapshotTile> {
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            icon: const Icon(Icons.undo, size: 16),
+            icon: Icon(Icons.undo, size: context.bbType.iconSm),
             label: const Text('전체 정산 취소'),
           ),
         ],
@@ -885,7 +885,7 @@ class _SnapshotItemRow extends StatelessWidget {
           ),
           Icon(
             item.isTransfer ? Icons.swap_horiz : Icons.receipt_long,
-            size: 16,
+            size: context.bbType.iconSm,
             color: color,
           ),
         ],
@@ -913,7 +913,7 @@ class _SnapshotItemRow extends StatelessWidget {
                   '정산 당시 ${CurrencyFormatter.format(item.snapshotAmount)}원 → '
                   '현재 ${CurrencyFormatter.format(item.currentAmount ?? 0)}원',
               child: Icon(Icons.error_outline,
-                  size: 14, color: Colors.orange.shade900),
+                  size: context.bbType.iconSm, color: Colors.orange.shade900),
             ),
         ],
       ),

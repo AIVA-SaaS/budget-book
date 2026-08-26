@@ -72,9 +72,9 @@ class PeriodDailyTab extends StatelessWidget {
                 final amount = rodIndex == 0 ? item.income : item.expense;
                 return BarTooltipItem(
                   '$label: ${CurrencyFormatter.format(amount)}원',
-                  const TextStyle(
+                  TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.bold),
                 );
               },
@@ -100,7 +100,7 @@ class PeriodDailyTab extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       date != null ? df.format(date) : '',
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(fontSize: context.bbType.caption),
                     ),
                   );
                 },
@@ -115,7 +115,7 @@ class PeriodDailyTab extends StatelessWidget {
                   if (value == 0) return const SizedBox.shrink();
                   return Text(
                     CurrencyFormatter.toKoreanUnit(value.toInt()),
-                    style: const TextStyle(fontSize: 9),
+                    style: TextStyle(fontSize: context.bbType.caption),
                   );
                 },
               ),

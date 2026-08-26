@@ -31,7 +31,7 @@ class AppInfoPage extends StatelessWidget {
               ),
               child: Icon(
                 Icons.account_balance_wallet,
-                size: 40,
+                size: context.bbType.iconLg,
                 color: theme.colorScheme.primary,
               ),
             ),
@@ -72,13 +72,13 @@ class AppInfoPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('개인정보 처리방침'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
+            trailing: Icon(Icons.open_in_new, size: context.bbType.iconSm),
             onTap: () => _launchUrl(_privacyUrl),
           ),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('이용약관'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
+            trailing: Icon(Icons.open_in_new, size: context.bbType.iconSm),
             onTap: () => _launchUrl(_termsUrl),
           ),
           const Divider(),

@@ -68,8 +68,8 @@ class PeriodCategoryTab extends StatelessWidget {
                       : '',
                   color: color,
                   radius: 60,
-                  titleStyle: const TextStyle(
-                      fontSize: 11,
+                  titleStyle: TextStyle(
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.bold,
                       color: Colors.white),
                 );

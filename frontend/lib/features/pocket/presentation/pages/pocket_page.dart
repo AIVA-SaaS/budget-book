@@ -262,7 +262,7 @@ class _PocketCard extends StatelessWidget {
                     child: Icon(
                       UIHelpers.resolveIcon(pocket.icon, fallback: Icons.account_balance_wallet),
                       color: color,
-                      size: 20,
+                      size: context.bbType.iconSm,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -290,7 +290,7 @@ class _PocketCard extends StatelessWidget {
                               child: Text(
                                 typeLabel,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: context.bbType.caption,
                                   fontWeight: FontWeight.bold,
                                   color: color,
                                 ),
@@ -331,13 +331,13 @@ class _PocketCard extends StatelessWidget {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'edit',
                         child: Row(
                           children: [
-                            Icon(Icons.edit_outlined, size: 20),
-                            SizedBox(width: 8),
-                            Text('수정'),
+                            Icon(Icons.edit_outlined, size: context.bbType.iconSm),
+                            const SizedBox(width: 8),
+                            const Text('수정'),
                           ],
                         ),
                       ),
@@ -345,7 +345,7 @@ class _PocketCard extends StatelessWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 20,
+                            Icon(Icons.delete_outline, size: context.bbType.iconSm,
                                 color: Theme.of(context).colorScheme.error),
                             const SizedBox(width: 8),
                             Text('삭제',

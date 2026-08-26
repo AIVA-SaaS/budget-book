@@ -220,10 +220,10 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                     labelText: '직접 입력',
                     isDense: true,
                     border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.color_lens, size: 20),
+                    prefixIcon: Icon(Icons.color_lens, size: context.bbType.iconSm),
                     suffixIcon: _customPreview != null
                         ? IconButton(
-                            icon: const Icon(Icons.check, size: 20),
+                            icon: Icon(Icons.check, size: context.bbType.iconMd),
                             onPressed: () =>
                                 _selectColor(_customPreview!),
                           )
@@ -282,7 +282,7 @@ class _ColorCircle extends StatelessWidget {
                 ),
         ),
         child: isSelected
-            ? const Icon(Icons.check, color: Colors.white, size: 20)
+            ? Icon(Icons.check, color: Colors.white, size: context.bbType.iconSm)
             : null,
       ),
     );

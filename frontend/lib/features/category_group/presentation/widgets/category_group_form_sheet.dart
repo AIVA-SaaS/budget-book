@@ -204,7 +204,7 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                       ),
                       child: Icon(
                         entry.value,
-                        size: 20,
+                        size: context.bbType.iconSm,
                         color: isSelected
                             ? Theme.of(context).colorScheme.primary
                             : null,
@@ -247,10 +247,10 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                             : null,
                       ),
                       child: isSelected
-                          ? const Icon(
+                          ? Icon(
                               Icons.check,
                               color: Colors.white,
-                              size: 18,
+                              size: context.bbType.iconSm,
                             )
                           : null,
                     ),

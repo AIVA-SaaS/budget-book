@@ -42,7 +42,7 @@ class ReleaseNoteCard extends StatelessWidget {
                       releaseNote.version,
                       style: TextStyle(
                         color: theme.colorScheme.onPrimaryContainer,
-                        fontSize: 12,
+                        fontSize: context.bbType.label,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -92,11 +92,11 @@ class ReleaseNoteCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.orange.withAlpha(100)),
                   ),
-                  child: const Text(
+                  child: Text(
                     '미게시',
                     style: TextStyle(
                       color: Colors.orange,
-                      fontSize: 11,
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

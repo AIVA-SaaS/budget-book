@@ -68,7 +68,7 @@ class FeedbackCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Icon(
                       Icons.chat_bubble_outline,
-                      size: 14,
+                      size: context.bbType.iconSm,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 2),

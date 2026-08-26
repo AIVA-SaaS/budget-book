@@ -24,7 +24,7 @@ class CardPendingSummary extends StatelessWidget {
                 Icon(
                   Icons.credit_score,
                   color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+                  size: context.bbType.iconSm,
                 ),
                 const SizedBox(width: 8),
                 Text(

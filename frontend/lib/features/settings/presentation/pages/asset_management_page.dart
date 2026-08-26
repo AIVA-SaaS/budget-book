@@ -244,8 +244,8 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  // ui-fixed: 시트 드래그 핸들 — 카드가 아니다(폭 40 × 높이 4).
-                  margin: context.bbSpace.only(bottom: BbSpaceToken.lg),
+
+                  margin: context.bbSpace.only(bottom: BbSpaceToken.lg),  // ui-fixed: 시트 드래그 핸들(40×4) — 카드가 아니다
                   decoration: BoxDecoration(
                     color: Theme.of(context)
                         .colorScheme
@@ -421,7 +421,7 @@ class _CategoryTabState extends State<_CategoryTab> {
         },
         builder: (context, state) {
           if (state is! CategoryGroupLoaded) {
-            return const Center(child: const CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
           final coupled = isCoupleMode();
           // type 별 필터링 — 사용자가 선택한 EXPENSE/INCOME 만 노출.

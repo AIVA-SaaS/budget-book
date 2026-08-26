@@ -239,7 +239,7 @@ class _UserListTile extends StatelessWidget {
             child: Text(
               user.role,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: context.bbType.caption,
                 fontWeight: FontWeight.bold,
                 color: user.role == 'ADMIN' ? Colors.red : Colors.blue,
               ),
@@ -253,10 +253,10 @@ class _UserListTile extends StatelessWidget {
                 color: Colors.grey.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 '비활성',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: context.bbType.caption,
                   fontWeight: FontWeight.bold,
                   color: Colors.grey,
                 ),

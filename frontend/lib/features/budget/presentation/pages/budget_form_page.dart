@@ -335,7 +335,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 isEditing
                     ? '체크 안 함: 이번 달만 변경 (미래 일정 보존)\n체크 함: 이번 달부터 미래 모든 달에 적용'
                     : '체크 안 함: 이번 달만 적용\n체크 함: 이번 달부터 미래 모든 달 자동 적용',
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: context.bbType.label),
               ),
               value: _applyToFuture,
               onChanged: (v) => setState(() => _applyToFuture = v ?? false),

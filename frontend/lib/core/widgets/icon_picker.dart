@@ -208,7 +208,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
           TextField(
             decoration: InputDecoration(
               hintText: '아이콘 검색',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              prefixIcon: Icon(Icons.search, size: context.bbType.iconSm),
               isDense: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -295,7 +295,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                             children: [
                               Icon(
                                 entry.value,
-                                size: 24,
+                                size: context.bbType.iconMd,
                                 color: isSelected
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.onSurface,
@@ -304,7 +304,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                               Text(
                                 entry.key.replaceAll('_', '\n'),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: 8,
+                                  fontSize: context.bbType.caption,
                                   color: isSelected
                                       ? theme.colorScheme.primary
                                       : theme.colorScheme.onSurface

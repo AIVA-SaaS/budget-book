@@ -341,7 +341,7 @@ class _ReportPageState extends State<ReportPage> {
                             Text(
                               '${numberFormat.format(c.deviation.abs())}원',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: context.bbType.label,
                                 color: c.deviation > 0
                                     ? Colors.red
                                     : Colors.green,
@@ -372,9 +372,9 @@ class _ReportPageState extends State<ReportPage> {
               subtitle: Text('${report.cardPendingSummary!.cardCount}개 카드'),
               trailing: Text(
                 '${numberFormat.format(report.cardPendingSummary!.totalPendingAmount)}원',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: context.bbType.title,
                   color: Colors.orange,
                 ),
               ),
@@ -410,7 +410,7 @@ class _ReportPageState extends State<ReportPage> {
         Text(
           '${numberFormat.format(amount)}원',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: context.bbType.section,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -450,7 +450,7 @@ class _ReportPageState extends State<ReportPage> {
                     ),
                     child: Text(
                       group.budgetType == 'WEEKLY' ? '주간' : '월간',
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(fontSize: context.bbType.caption),
                     ),
                   ),
                 ],
@@ -523,7 +523,7 @@ class _ReportPageState extends State<ReportPage> {
                       child: Text(
                         _dayOfWeekLabel(day.dayOfWeek),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: context.bbType.label,
                           fontWeight: FontWeight.bold,
                           color: intensity > 0.5
                               ? Colors.white
@@ -534,7 +534,7 @@ class _ReportPageState extends State<ReportPage> {
                     context.bbSpace.gapV(BbSpaceToken.xs),
                     Text(
                       numberFormat.format(day.averageSpending),
-                      style: const TextStyle(fontSize: 9),
+                      style: TextStyle(fontSize: context.bbType.caption),
                     ),
                   ],
                 );
@@ -608,7 +608,7 @@ class _ReportPageState extends State<ReportPage> {
       // ★항목 사이는 호스트(`ListView.separated` + `BbCardGap`)가 갖는다.
       margin: EdgeInsets.zero,
       child: ListTile(
-        leading: Icon(icon, color: color, size: 28),
+        leading: Icon(icon, color: color, size: context.bbType.iconLg),
         title: Text(
           insight.title,
           style: const TextStyle(fontWeight: FontWeight.w600),

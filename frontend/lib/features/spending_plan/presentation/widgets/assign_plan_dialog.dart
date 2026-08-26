@@ -170,7 +170,7 @@ class _AssignPlanDialogState extends State<_AssignPlanDialog> {
             // Custom date picker
             OutlinedButton.icon(
               onPressed: _selectCustomDate,
-              icon: const Icon(Icons.calendar_today, size: 16),
+              icon: Icon(Icons.calendar_today, size: context.bbType.iconSm),
               label: Text(_selectedDate != null
                   ? DateFormat('yyyy년 M월 d일', 'ko').format(_selectedDate!)
                   : '날짜 직접 선택'),

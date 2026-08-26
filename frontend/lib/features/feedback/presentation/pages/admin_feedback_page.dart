@@ -254,7 +254,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                             );
                         Navigator.of(sheetContext).pop();
                       },
-                      icon: const Icon(Icons.send, size: 18),
+                      icon: Icon(Icons.send, size: context.bbType.iconSm),
                       label: const Text('답변 보내기'),
                     ),
                   ],

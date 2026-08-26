@@ -119,7 +119,7 @@ class MonthlyTrendTab extends StatelessWidget {
             getTitlesWidget: (value, meta) {
               return Text(
                 '${value.toInt()}만',
-                style: const TextStyle(fontSize: 10),
+                style: TextStyle(fontSize: context.bbType.caption),
               );
             },
           ),
@@ -136,7 +136,7 @@ class MonthlyTrendTab extends StatelessWidget {
               final month = ym.split('-').last;
               return Text(
                 '${int.parse(month)}월',
-                style: const TextStyle(fontSize: 10),
+                style: TextStyle(fontSize: context.bbType.caption),
               );
             },
           ),
@@ -195,7 +195,7 @@ class MonthlyTrendTab extends StatelessWidget {
                 TextStyle(
                   color: isIncome ? _incomeColor : _expenseColor,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: context.bbType.label,
                 ),
               );
             }).toList();

@@ -507,7 +507,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                                 const SizedBox(width: 4),
                                 Icon(
                                   Icons.chevron_right,
-                                  size: 16,
+                                  size: context.bbType.iconSm,
                                   color: theme.colorScheme.onPrimaryContainer
                                       .withValues(alpha: 0.5),
                                 ),
@@ -662,7 +662,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
               children: [
-                const Icon(Icons.visibility_off, size: 16),
+                Icon(Icons.visibility_off, size: context.bbType.iconSm),
                 const SizedBox(width: 6),
                 Text(
                   '나만 보임',

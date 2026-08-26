@@ -106,7 +106,7 @@ class CategoryGroupPage extends StatelessWidget {
           child: Icon(
             UIHelpers.resolveIcon(group.icon, fallback: Icons.folder),
             color: color,
-            size: 20,
+            size: context.bbType.iconSm,
           ),
         ),
         title: Row(
@@ -158,23 +158,23 @@ class CategoryGroupPage extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_outlined, size: 20),
-                        SizedBox(width: 8),
-                        Text('수정'),
+                        Icon(Icons.edit_outlined, size: context.bbType.iconSm),
+                        const SizedBox(width: 8),
+                        const Text('수정'),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('삭제', style: TextStyle(color: Colors.red)),
+                        Icon(Icons.delete_outline, size: context.bbType.iconSm, color: Colors.red),
+                        const SizedBox(width: 8),
+                        const Text('삭제', style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
@@ -214,7 +214,7 @@ class CategoryGroupPage extends StatelessWidget {
         child: Icon(
           UIHelpers.resolveIcon(category.icon, fallback: Icons.folder),
           color: color,
-          size: 14,
+          size: context.bbType.iconSm,
         ),
       ),
       title: Text(

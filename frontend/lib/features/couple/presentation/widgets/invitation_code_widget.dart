@@ -45,7 +45,7 @@ class InvitationCodeWidget extends StatelessWidget {
                   const SnackBar(content: Text('코드가 복사되었습니다')),
                 );
               },
-              icon: const Icon(Icons.copy, size: 18),
+              icon: Icon(Icons.copy, size: context.bbType.iconSm),
               label: const Text('코드 복사'),
             ),
             context.bbSpace.gapV(BbSpaceToken.xl),

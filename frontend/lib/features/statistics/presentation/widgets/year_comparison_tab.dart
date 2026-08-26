@@ -162,7 +162,7 @@ class _ComparisonCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: context.bbType.iconSm),
               ),
               const SizedBox(width: 12),
               Text(
@@ -185,7 +185,7 @@ class _ComparisonCard extends StatelessWidget {
                     style: TextStyle(
                       color: changeColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: context.bbType.body,
                     ),
                   ),
                 ),

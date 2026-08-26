@@ -213,7 +213,7 @@ class _CategoryGroupSelectorSheetState
                             ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 20),
+                        icon: Icon(Icons.close, size: context.bbType.iconMd),
                         onPressed: () => Navigator.of(context).pop(),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -358,13 +358,13 @@ class _CategoryGroupSelectorSheetState
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Row(
                 children: [
-                  const Icon(Icons.star, size: 16, color: Colors.amber),
+                  Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                   const SizedBox(width: 6),
                   Text(
                     '즐겨찾기',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: context.bbType.body,
                         ),
                   ),
                 ],
@@ -390,14 +390,14 @@ class _CategoryGroupSelectorSheetState
                     final selected = _tempCategoryIds.contains(cat.id);
                     return FilterChip(
                       label: Text(cat.name),
-                      avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                      avatar: Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                       selected: selected,
                       onSelected: (_) => _toggleCategory(cat.id),
                     );
                   }
                   return ActionChip(
                     label: Text(cat.name),
-                    avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                    avatar: Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                     onPressed: () {
                       widget.onSelected!(cat);
                       widget.onSelectedWithGroupName?.call(cat, groupName);
@@ -441,13 +441,13 @@ class _CategoryGroupSelectorSheetState
               dense: true,
               leading: Icon(
                 Icons.add,
-                size: 18,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: Text(
                 '공유 그룹 추가',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: context.bbType.body,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -472,7 +472,7 @@ class _CategoryGroupSelectorSheetState
                 children: [
                   Icon(
                     Icons.visibility_off_outlined,
-                    size: 16,
+                    size: context.bbType.iconSm,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
@@ -524,13 +524,13 @@ class _CategoryGroupSelectorSheetState
               dense: true,
               leading: Icon(
                 Icons.add,
-                size: 18,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               title: Text(
                 '개인 그룹 추가',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: context.bbType.body,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -592,7 +592,7 @@ class _CategoryGroupSelectorSheetState
                   child: Icon(
                     (group.isPrivate && isCoupleMode()) ? Icons.visibility_off : Icons.folder,
                     color: color,
-                    size: 18,
+                    size: context.bbType.iconSm,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -614,7 +614,7 @@ class _CategoryGroupSelectorSheetState
                                     .colorScheme
                                     .onSurface
                                     .withValues(alpha: 0.4),
-                                fontSize: 11,
+                                fontSize: context.bbType.label,
                               ),
                         ),
                     ],
@@ -656,13 +656,13 @@ class _CategoryGroupSelectorSheetState
                 dense: true,
                 leading: Icon(
                   Icons.add,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 title: Text(
                   '하위 카테고리 추가',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: context.bbType.body,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
@@ -705,7 +705,7 @@ class _CategoryGroupSelectorSheetState
                     child: Icon(
                       Icons.label,
                       color: color,
-                      size: 16,
+                      size: context.bbType.iconSm,
                     ),
                   ),
                 ],
@@ -716,7 +716,7 @@ class _CategoryGroupSelectorSheetState
                 child: Icon(
                   Icons.label,
                   color: color,
-                  size: 16,
+                  size: context.bbType.iconSm,
                 ),
               ),
         title: Text(
@@ -746,7 +746,7 @@ class _CategoryGroupSelectorSheetState
                 padding: const EdgeInsets.all(4),
                 child: Icon(
                   isFavorite ? Icons.star : Icons.star_outline,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: isFavorite ? Colors.amber : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                 ),
               ),
@@ -759,7 +759,7 @@ class _CategoryGroupSelectorSheetState
                   padding: const EdgeInsets.all(4),
                   child: Icon(
                     Icons.edit_outlined,
-                    size: 16,
+                    size: context.bbType.iconSm,
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
                 ),
@@ -767,7 +767,7 @@ class _CategoryGroupSelectorSheetState
             if (isSingleSelected)
               Icon(
                 Icons.check,
-                size: 18,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.primary,
               ),
             // Delete button — hidden in multi mode (filter context)
@@ -775,7 +775,7 @@ class _CategoryGroupSelectorSheetState
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
-                  size: 18,
+                  size: context.bbType.iconMd,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 tooltip: '삭제',
@@ -838,7 +838,7 @@ class _CategoryGroupSelectorSheetState
           child: Icon(
             Icons.tune,
             color: theme.colorScheme.tertiary,
-            size: 18,
+            size: context.bbType.iconSm,
           ),
         ),
         title: Text(
@@ -852,7 +852,7 @@ class _CategoryGroupSelectorSheetState
           '실제 잔액에 맞춰 증가/감소 기록 (통계 제외)',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onTertiaryContainer.withValues(alpha: 0.7),
-            fontSize: 11,
+            fontSize: context.bbType.label,
           ),
         ),
         trailing: isSelected

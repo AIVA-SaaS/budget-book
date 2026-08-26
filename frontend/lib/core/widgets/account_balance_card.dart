@@ -135,11 +135,11 @@ class _AssetGroup extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: color),
+              Icon(icon, size: context.bbType.iconSm, color: color),
               const SizedBox(width: 6),
               Text(label,
                   style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+                      fontSize: context.bbType.body, fontWeight: FontWeight.w700, color: color)),
             ],
           ),
           SizedBox(height: context.bbSpace.xs),

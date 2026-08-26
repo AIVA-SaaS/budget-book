@@ -103,7 +103,7 @@ class PocketTransferPage extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.blue.withValues(alpha: 0.15),
-        child: const Icon(Icons.swap_horiz, color: Colors.blue, size: 20),
+        child: Icon(Icons.swap_horiz, color: Colors.blue, size: context.bbType.iconSm),
       ),
       title: Text(
         '${transfer.fromPocket.name} -> ${transfer.toPocket.name}',

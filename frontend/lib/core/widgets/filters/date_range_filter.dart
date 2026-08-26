@@ -162,7 +162,7 @@ class DateRangeIndicator extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.date_range,
-              size: 16, color: theme.colorScheme.onPrimaryContainer),
+              size: context.bbType.iconSm, color: theme.colorScheme.onPrimaryContainer),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -176,7 +176,7 @@ class DateRangeIndicator extends StatelessWidget {
           InkWell(
             onTap: onClear,
             child: Icon(Icons.close,
-                size: 18, color: theme.colorScheme.onPrimaryContainer),
+                size: context.bbType.iconSm, color: theme.colorScheme.onPrimaryContainer),
           ),
         ],
       ),

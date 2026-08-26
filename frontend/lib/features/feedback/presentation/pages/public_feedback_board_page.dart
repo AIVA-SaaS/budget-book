@@ -243,7 +243,7 @@ class _FilterBar extends StatelessWidget {
       selected: active,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-      deleteIcon: active ? const Icon(Icons.close, size: 16) : null,
+      deleteIcon: active ? Icon(Icons.close, size: context.bbType.iconSm) : null,
       onDeleted: active
           ? () {
               if (label.contains('카테고리') || _isCategoryLabel(label)) {
@@ -405,7 +405,7 @@ class _PublicFeedbackCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Icon(
                       Icons.chat_bubble_outline,
-                      size: 14,
+                      size: context.bbType.iconSm,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 2),

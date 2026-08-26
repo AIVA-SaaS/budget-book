@@ -249,7 +249,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                     context.bbSpace.gapV(BbSpaceToken.lg),
                     TextButton.icon(
                       onPressed: _isUploadingImage ? null : _showImageOptions,
-                      icon: const Icon(Icons.camera_alt, size: 16),
+                      icon: Icon(Icons.camera_alt, size: context.bbType.iconSm),
                       label: const Text('이미지 변경'),
                     ),
                     Text(

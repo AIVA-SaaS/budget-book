@@ -12,6 +12,7 @@ import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.da
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 final _wonFormat = NumberFormat('#,###', 'ko');
 
@@ -76,7 +77,7 @@ class TransferListPage extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.swap_horiz,
-                  size: 20,
+                  size: context.bbType.iconSm,
                   color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               Text(
@@ -276,7 +277,7 @@ class _TransferListTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Icon(
                 Icons.arrow_forward,
-                size: 16,
+                size: context.bbType.iconSm,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),

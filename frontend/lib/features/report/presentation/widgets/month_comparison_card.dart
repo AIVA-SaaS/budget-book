@@ -90,13 +90,13 @@ class MonthComparisonCard extends StatelessWidget {
           context.bbSpace.gapV(BbSpaceToken.lg),
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: context.bbType.iconSm, color: color),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   '${numberFormat.format(amount.abs())}원',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: context.bbType.section,
                     fontWeight: FontWeight.bold,
                     color: color,
                   ),
@@ -109,7 +109,7 @@ class MonthComparisonCard extends StatelessWidget {
           Text(
             '${rate >= 0 ? '+' : ''}${rate.toStringAsFixed(1)}%',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: context.bbType.label,
               color: color,
             ),
           ),

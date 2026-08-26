@@ -134,7 +134,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                             OutlinedButton.icon(
                               onPressed: () => context.push(
                                   '/releases/${detail.resolvedReleaseId}'),
-                              icon: const Icon(Icons.new_releases, size: 18),
+                              icon: Icon(Icons.new_releases, size: context.bbType.iconSm),
                               label: const Text('관련 업데이트 보기'),
                             ),
                           ],
@@ -194,7 +194,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                             style: TextStyle(
                                               color: theme
                                                   .colorScheme.onPrimary,
-                                              fontSize: 10,
+                                              fontSize: context.bbType.caption,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -273,7 +273,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2),
                                     )
-                                  : const Icon(Icons.send, size: 20),
+                                  : Icon(Icons.send, size: context.bbType.iconSm),
                             ),
                           ],
                         ),

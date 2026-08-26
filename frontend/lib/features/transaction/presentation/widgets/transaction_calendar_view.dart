@@ -138,7 +138,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                 child: Text(
                   '${day.day}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                     color: numberColor,
                     fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -179,7 +179,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
           maxLines: 1,
           softWrap: false,
           style: TextStyle(
-            fontSize: 9,
+            fontSize: context.bbType.caption,
             height: 1.2,
             color: color,
             fontWeight: FontWeight.w600,
@@ -349,7 +349,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                                 context.bbSpace.gapV(BbSpaceToken.xl),
                                 FilledButton.tonalIcon(
                                   onPressed: () => _addForDay(ctx, day),
-                                  icon: const Icon(Icons.add, size: 18),
+                                  icon: Icon(Icons.add, size: context.bbType.iconSm),
                                   label: const Text('이 날짜에 거래 추가'),
                                 ),
                               ],

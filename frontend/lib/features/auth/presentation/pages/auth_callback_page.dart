@@ -75,9 +75,9 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
               children: [
                 const CircularProgressIndicator(),
                 context.bbSpace.gapV(BbSpaceToken.block),
-                const Text(
+                Text(
                   '로그인 처리 중...',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: context.bbType.title),
                 ),
               ],
             ),

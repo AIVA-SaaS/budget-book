@@ -608,7 +608,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
           if (tx.isTransfer)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: Icon(Icons.swap_horiz, size: 16,
+              child: Icon(Icons.swap_horiz, size: context.bbType.iconSm,
                   color: Theme.of(context).colorScheme.tertiary),
             ),
           Expanded(

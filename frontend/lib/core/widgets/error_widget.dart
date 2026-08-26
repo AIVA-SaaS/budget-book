@@ -52,7 +52,7 @@ class AppErrorWidget extends StatelessWidget {
               context.bbSpace.gapV(BbSpaceToken.xxl),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 18),
+                icon: Icon(Icons.refresh, size: context.bbType.iconSm),
                 label: const Text('다시 시도'),
               ),
             ],
@@ -60,7 +60,7 @@ class AppErrorWidget extends StatelessWidget {
               context.bbSpace.gapV(BbSpaceToken.lg),
               TextButton.icon(
                 onPressed: () => context.go('/home'),
-                icon: const Icon(Icons.home_outlined, size: 18),
+                icon: Icon(Icons.home_outlined, size: context.bbType.iconSm),
                 label: const Text('홈으로'),
               ),
             ],

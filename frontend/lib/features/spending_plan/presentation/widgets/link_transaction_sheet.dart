@@ -216,7 +216,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Icon(
               Icons.receipt_long,
-              size: 20,
+              size: context.bbType.iconSm,
               color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),

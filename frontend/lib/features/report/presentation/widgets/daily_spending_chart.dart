@@ -46,7 +46,7 @@ class DailySpendingChart extends StatelessWidget {
                   child: Text(
                     '최다 지출: ${_dayOfWeekLabel(peakSpendingDay)}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: context.bbType.label,
                       color: theme.colorScheme.tertiary,
                       fontWeight: FontWeight.bold,
                     ),
@@ -67,7 +67,7 @@ class DailySpendingChart extends StatelessWidget {
                       child: Text(
                         _dayOfWeekLabel(day.dayOfWeek),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: context.bbType.label,
                           fontWeight:
                               isPeak ? FontWeight.bold : FontWeight.normal,
                           color: isPeak
@@ -101,7 +101,7 @@ class DailySpendingChart extends StatelessWidget {
                         '${CurrencyFormatter.format(day.amount)}원',
                         textAlign: TextAlign.end,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: context.bbType.label,
                           fontWeight:
                               isPeak ? FontWeight.bold : FontWeight.normal,
                         ),

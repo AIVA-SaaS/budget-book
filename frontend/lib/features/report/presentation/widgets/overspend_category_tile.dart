@@ -2,6 +2,7 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/ui_helpers.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class OverspendCategoryTile extends StatelessWidget {
   final OverspendCategory category;
@@ -20,7 +21,7 @@ class OverspendCategoryTile extends StatelessWidget {
         child: Icon(
           Icons.category,
           color: UIHelpers.parseColor(category.categoryColor),
-          size: 20,
+          size: context.bbType.iconSm,
         ),
       ),
       title: Text(
@@ -46,13 +47,13 @@ class OverspendCategoryTile extends StatelessWidget {
             children: [
               Icon(
                 isOverAverage ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 14,
+                size: context.bbType.iconSm,
                 color: isOverAverage ? Colors.red : Colors.green,
               ),
               Text(
                 '${CurrencyFormatter.format(category.deviation.abs())}원',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: context.bbType.label,
                   color: isOverAverage ? Colors.red : Colors.green,
                   fontWeight: FontWeight.w500,
                 ),

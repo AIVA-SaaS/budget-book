@@ -483,7 +483,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 runSpacing: 4,
                 children: _tags.map((tag) => Chip(
                   label: Text(tag),
-                  deleteIcon: const Icon(Icons.close, size: 16),
+                  deleteIcon: Icon(Icons.close, size: context.bbType.iconSm),
                   onDeleted: () => _removeTag(tag),
                 )).toList(),
               ),
@@ -785,7 +785,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           ),
           child: Row(
             children: [
-              Icon(statusIcon(status), color: statusColor(status), size: 18),
+              Icon(statusIcon(status), color: statusColor(status), size: context.bbType.iconSm),
               const SizedBox(width: 8),
               Text(
                 '현재 상태: ${statusLabel(status)}',
@@ -856,7 +856,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
           ),
-        const SizedBox(height: 88), // FAB padding
+        const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
       ],
     );
   }

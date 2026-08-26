@@ -244,16 +244,16 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
 
             // Mode toggle — 통계 포함(수입/지출 기록) vs 미포함(잔액만 조정)
             SegmentedButton<_AdjustmentMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _AdjustmentMode.recordAsTransaction,
-                  label: Text('수입/지출 기록', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.swap_vert, size: 16),
+                  label: Text('수입/지출 기록', style: TextStyle(fontSize: context.bbType.label)),
+                  icon: Icon(Icons.swap_vert, size: context.bbType.iconSm),
                 ),
                 ButtonSegment(
                   value: _AdjustmentMode.adjustOnly,
-                  label: Text('잔액만 조정', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.tune, size: 16),
+                  label: Text('잔액만 조정', style: TextStyle(fontSize: context.bbType.label)),
+                  icon: Icon(Icons.tune, size: context.bbType.iconSm),
                 ),
               ],
               selected: {_mode},
@@ -301,7 +301,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                       child: Text(
                         _previewText(),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: context.bbType.section,
                           fontWeight: FontWeight.w600,
                           color: _mode == _AdjustmentMode.adjustOnly
                               ? Colors.grey.shade800
@@ -322,12 +322,12 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
+                    Icon(Icons.check_circle, size: context.bbType.iconSm, color: Colors.green.shade700),
                     const SizedBox(width: 8),
                     Text(
                       '현재 잔액과 동일합니다',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.bbType.section,
                         fontWeight: FontWeight.w600,
                         color: Colors.green.shade700,
                       ),

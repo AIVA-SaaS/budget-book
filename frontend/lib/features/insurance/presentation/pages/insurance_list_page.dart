@@ -174,7 +174,7 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Icon(Icons.shield, size: 20, color: theme.colorScheme.primary),
+          Icon(Icons.shield, size: context.bbType.iconSm, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Text(
             '보험료 합계: ${CurrencyFormatter.format(totalPremium)}원',
@@ -287,7 +287,7 @@ class _TypeHeader extends StatelessWidget {
           .withValues(alpha: 0.5),
       child: Row(
         children: [
-          Icon(insuranceTypeIcon(type), size: 16, color: color),
+          Icon(insuranceTypeIcon(type), size: context.bbType.iconSm, color: color),
           const SizedBox(width: 8),
           Text(
             insuranceTypeLabel(type),

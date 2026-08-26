@@ -126,29 +126,29 @@ class BudgetRowActions extends StatelessWidget {
         child: PopupMenuButton<String>(
           padding: EdgeInsets.zero,
           onSelected: (value) => _handleMenu(context, value),
-          itemBuilder: (_) => const [
+          itemBuilder: (_) => [
             PopupMenuItem(
               value: 'transactions',
               child: Row(children: [
-                Icon(Icons.receipt_long, size: 18),
-                SizedBox(width: 8),
-                Text('거래 보기'),
+                Icon(Icons.receipt_long, size: context.bbType.iconSm),
+                const SizedBox(width: 8),
+                const Text('거래 보기'),
               ]),
             ),
             PopupMenuItem(
               value: 'edit',
               child: Row(children: [
-                Icon(Icons.edit, size: 18),
-                SizedBox(width: 8),
-                Text('수정'),
+                Icon(Icons.edit, size: context.bbType.iconSm),
+                const SizedBox(width: 8),
+                const Text('수정'),
               ]),
             ),
             PopupMenuItem(
               value: 'delete',
               child: Row(children: [
-                Icon(Icons.delete, size: 18, color: Colors.red),
-                SizedBox(width: 8),
-                Text('삭제', style: TextStyle(color: Colors.red)),
+                Icon(Icons.delete, size: context.bbType.iconSm, color: Colors.red),
+                const SizedBox(width: 8),
+                const Text('삭제', style: TextStyle(color: Colors.red)),
               ]),
             ),
           ],

@@ -3,6 +3,7 @@ import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:budget_book/features/recurring/domain/entities/recurring_transaction.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class RecurringListTile extends StatelessWidget {
   final RecurringTransaction transaction;
@@ -50,7 +51,7 @@ class RecurringListTile extends StatelessWidget {
           child: Icon(
             transaction.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
             color: typeColor,
-            size: 20,
+            size: context.bbType.iconSm,
           ),
         ),
         title: Row(
@@ -58,7 +59,7 @@ class RecurringListTile extends StatelessWidget {
             if (transaction.isPrivate && isCoupleMode()) ...[
               Icon(
                 Icons.visibility_off,
-                size: 14,
+                size: context.bbType.iconSm,
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
@@ -79,7 +80,7 @@ class RecurringListTile extends StatelessWidget {
               child: Text(
                 transaction.frequencyLabel,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: context.bbType.caption,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.secondary,
                 ),

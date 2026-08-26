@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:budget_book/features/transaction/presentation/utils/ledger_totals_exclusion.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// "합계 제외" 배지 — **모든 노출 지점의 단일 소스**.
 ///
@@ -35,14 +36,14 @@ class ExcludedFromTotalsBadge extends StatelessWidget {
           children: [
             Icon(
               Icons.functions,
-              size: 11,
+              size: context.bbType.iconSm,
               color: scheme.onSurfaceVariant,
             ),
             const SizedBox(width: 3),
             Text(
               kExcludedFromTotalsLabel,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: context.bbType.caption,
                 fontWeight: FontWeight.w600,
                 color: scheme.onSurfaceVariant,
               ),

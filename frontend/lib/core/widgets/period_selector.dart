@@ -127,26 +127,26 @@ class _PeriodSelectorState extends State<PeriodSelector> {
 
   Widget _buildTypeSelector(BuildContext context) {
     return SegmentedButton<PeriodType>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: PeriodType.none,
-          label: Text('없음'),
-          icon: Icon(Icons.block, size: 16),
+          label: const Text('없음'),
+          icon: Icon(Icons.block, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.daily,
-          label: Text('일별'),
-          icon: Icon(Icons.today, size: 16),
+          label: const Text('일별'),
+          icon: Icon(Icons.today, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.weekly,
-          label: Text('주간'),
-          icon: Icon(Icons.date_range, size: 16),
+          label: const Text('주간'),
+          icon: Icon(Icons.date_range, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.monthly,
-          label: Text('월별'),
-          icon: Icon(Icons.calendar_month, size: 16),
+          label: const Text('월별'),
+          icon: Icon(Icons.calendar_month, size: context.bbType.iconSm),
         ),
       ],
       selected: {_selectedType},

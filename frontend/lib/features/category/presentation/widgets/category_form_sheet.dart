@@ -198,7 +198,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                 },
                 icon: Icon(
                   resolveIcon(_selectedIcon),
-                  size: 20,
+                  size: context.bbType.iconSm,
                 ),
                 label: Text(
                   _selectedIcon ?? '아이콘을 선택하세요',

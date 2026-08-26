@@ -101,8 +101,8 @@ class PaymentMethodStatsTab extends StatelessWidget {
                   title: stat.percentage >= 5
                       ? '${stat.percentage.toStringAsFixed(0)}%'
                       : '',
-                  titleStyle: const TextStyle(
-                    fontSize: 12,
+                  titleStyle: TextStyle(
+                    fontSize: context.bbType.label,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),

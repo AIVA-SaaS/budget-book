@@ -68,7 +68,7 @@ class WeekSummaryCard extends StatelessWidget {
                       child: Text(
                         '이번 주',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.bbType.label,
                           fontWeight: FontWeight.bold,
                           color: theme.colorScheme.primary,
                         ),
@@ -80,7 +80,7 @@ class WeekSummaryCard extends StatelessWidget {
               Text(
                 '${totalUsage.toStringAsFixed(1)}%',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: context.bbType.body,
                   fontWeight: FontWeight.bold,
                   color: overallColor,
                 ),
@@ -139,7 +139,7 @@ class WeekSummaryCard extends StatelessWidget {
                           child: Row(
                             children: [
                               Icon(Icons.folder_outlined,
-                                  size: 14,
+                                  size: context.bbType.iconSm,
                                   color: theme.colorScheme.onSurface
                                       .withValues(alpha: 0.5)),
                               const SizedBox(width: 4),
@@ -154,7 +154,7 @@ class WeekSummaryCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 2),
                               Icon(Icons.chevron_right,
-                                  size: 14,
+                                  size: context.bbType.iconSm,
                                   color: theme.colorScheme.onSurface
                                       .withValues(alpha: 0.4)),
                             ],

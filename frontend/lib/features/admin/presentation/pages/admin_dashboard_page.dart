@@ -189,7 +189,7 @@ class _StatCard extends StatelessWidget {
             CircleAvatar(
               radius: 24,
               backgroundColor: color.withValues(alpha: 0.15),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: context.bbType.iconMd),
             ),
             const SizedBox(width: 16),
             Expanded(

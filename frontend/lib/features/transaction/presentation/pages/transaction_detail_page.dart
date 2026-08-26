@@ -155,7 +155,7 @@ class TransactionDetailPage extends StatelessWidget {
               children: [
                 Icon(
                   typeIcon,
-                  size: 36,
+                  size: context.bbType.iconLg,
                   color: amountColor,
                 ),
                 context.bbSpace.gapV(BbSpaceToken.lg),
@@ -297,7 +297,7 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 20,
+          size: context.bbType.iconSm,
           color: iconColor ??
               theme.colorScheme.onSurface.withValues(alpha: 0.5),
         ),

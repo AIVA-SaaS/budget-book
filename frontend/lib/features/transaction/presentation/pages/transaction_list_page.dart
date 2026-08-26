@@ -1095,7 +1095,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           if (index >= sortedDates.length) {
             return Padding(
               padding: context.bbSpace.symmetric(v: BbSpaceToken.xl),
-              child: const Center(child: const CircularProgressIndicator()),
+              child: const Center(child: CircularProgressIndicator()),
             );
           }
           final date = sortedDates[index];

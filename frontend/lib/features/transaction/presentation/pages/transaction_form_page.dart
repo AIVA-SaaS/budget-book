@@ -860,7 +860,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.swap_horiz, size: 18, color: scheme.onTertiaryContainer),
+          Icon(Icons.swap_horiz, size: context.bbType.iconSm, color: scheme.onTertiaryContainer),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -890,7 +890,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           child: Row(
             children: [
               Icon(Icons.tune,
-                  size: 16, color: Theme.of(context).colorScheme.tertiary),
+                  size: context.bbType.iconSm, color: Theme.of(context).colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 '잔액 수정 (유형 변경 불가)',
@@ -928,21 +928,21 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               style: const ButtonStyle(
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: 'EXPENSE',
-                  icon: Icon(Icons.arrow_downward, size: 14),
-                  label: Text('지출'),
+                  icon: Icon(Icons.arrow_downward, size: context.bbType.iconSm),
+                  label: const Text('지출'),
                 ),
                 ButtonSegment(
                   value: 'INCOME',
-                  icon: Icon(Icons.arrow_upward, size: 14),
-                  label: Text('수입'),
+                  icon: Icon(Icons.arrow_upward, size: context.bbType.iconSm),
+                  label: const Text('수입'),
                 ),
                 ButtonSegment(
                   value: 'TRANSFER',
-                  icon: Icon(Icons.swap_horiz, size: 14),
-                  label: Text('이체'),
+                  icon: Icon(Icons.swap_horiz, size: context.bbType.iconSm),
+                  label: const Text('이체'),
                 ),
               ],
               selected: {_editTargetType},
@@ -1064,7 +1064,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 4),
                   child: ActionChip(
-                    avatar: const Icon(Icons.auto_awesome, size: 16),
+                    avatar: Icon(Icons.auto_awesome, size: context.bbType.iconSm),
                     // 회차 12 P3 + follow-up — AI 추천 chip 도 "그룹 > 하위" 형식.
                     // result.groupName 직접 사용.
                     label: Text(_aiResult!.groupName.isNotEmpty
@@ -1629,7 +1629,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               children: [
                 Icon(
                   Icons.note_outlined,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
@@ -1684,11 +1684,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       '!',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: context.bbType.label,
                         fontWeight: FontWeight.bold,
                         height: 1.0,
                       ),
@@ -1698,9 +1698,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   const Text('확인/입력 필요로 표시'),
                 ],
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
-                style: TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: context.bbType.label),
               ),
             ),
           ),
@@ -1725,7 +1725,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               return ActionChip(
                 label: Text(sg.description),
                 avatar:
-                    isExpanded ? const Icon(Icons.expand_less, size: 18) : null,
+                    isExpanded ? Icon(Icons.expand_less, size: context.bbType.iconSm) : null,
                 onPressed: () {
                   if (isExpanded) {
                     // Collapse: apply description only (empty pattern)
@@ -1900,7 +1900,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         children: [
           Row(
             children: [
-              Icon(Icons.tune, size: 18, color: theme.colorScheme.tertiary),
+              Icon(Icons.tune, size: context.bbType.iconSm, color: theme.colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 '잔액 조정 모드',
@@ -1916,7 +1916,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onTertiaryContainer
                         .withValues(alpha: 0.7),
-                    fontSize: 11,
+                    fontSize: context.bbType.label,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1982,7 +1982,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _categoryError!,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),
@@ -2026,7 +2026,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _paymentMethodError!,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),

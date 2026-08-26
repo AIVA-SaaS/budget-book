@@ -69,7 +69,7 @@ class AdminReleaseNotePage extends StatelessWidget {
                       child: Icon(
                         note.isPublished ? Icons.check : Icons.edit_note,
                         color: note.isPublished ? Colors.green : Colors.grey,
-                        size: 20,
+                        size: context.bbType.iconSm,
                       ),
                     ),
                     title: Text(

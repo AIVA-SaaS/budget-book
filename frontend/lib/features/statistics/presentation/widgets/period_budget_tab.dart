@@ -82,7 +82,7 @@ class PeriodBudgetTab extends StatelessWidget {
                       child: Text(
                         '초과',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.bbType.label,
                           color: Theme.of(context).colorScheme.error,
                           fontWeight: FontWeight.bold,
                         ),

@@ -184,13 +184,13 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                       children: [
                         ...cardIssuerPresets.map((preset) => ChoiceChip(
                               label: Text(preset.name,
-                                  style: const TextStyle(fontSize: 12)),
+                                  style: TextStyle(fontSize: context.bbType.label)),
                               selected: _selectedIssuerId == preset.id,
                               onSelected: (_) => _onCardIssuerSelected(preset),
                             )),
                         ChoiceChip(
-                          label: const Text('직접 입력',
-                              style: TextStyle(fontSize: 12)),
+                          label: Text('직접 입력',
+                              style: TextStyle(fontSize: context.bbType.label)),
                           selected: _selectedIssuerId == 'custom',
                           onSelected: (_) {
                             setState(() {
@@ -329,7 +329,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
             children: [
               Icon(
                 Icons.info_outline,
-                size: 16,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
@@ -355,7 +355,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.5),
-                    fontSize: 11,
+                    fontSize: context.bbType.label,
                   ),
             ),
           if (settlementText != null)

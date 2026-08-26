@@ -361,21 +361,21 @@ class _TransferFormPageState extends State<TransferFormPage> {
               style: const ButtonStyle(
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: 'EXPENSE',
-                  icon: Icon(Icons.arrow_downward, size: 14),
-                  label: Text('지출'),
+                  icon: Icon(Icons.arrow_downward, size: context.bbType.iconSm),
+                  label: const Text('지출'),
                 ),
                 ButtonSegment(
                   value: 'INCOME',
-                  icon: Icon(Icons.arrow_upward, size: 14),
-                  label: Text('수입'),
+                  icon: Icon(Icons.arrow_upward, size: context.bbType.iconSm),
+                  label: const Text('수입'),
                 ),
                 ButtonSegment(
                   value: 'TRANSFER',
-                  icon: Icon(Icons.swap_horiz, size: 14),
-                  label: Text('이체'),
+                  icon: Icon(Icons.swap_horiz, size: context.bbType.iconSm),
+                  label: const Text('이체'),
                 ),
               ],
               selected: const {'TRANSFER'},
