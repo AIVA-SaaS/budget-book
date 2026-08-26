@@ -10,6 +10,7 @@ import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_event.dart';
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_state.dart';
 import 'package:budget_book/features/insurance/presentation/widgets/insurance_card.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class InsuranceListPage extends StatefulWidget {
   const InsuranceListPage({super.key});
@@ -104,7 +105,8 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
     final theme = Theme.of(context);
     final summary = state.summary!;
     return Card(
-      margin: const EdgeInsets.all(12),
+      // ★세로는 블록 축(`gapV(block)`)이 갖는다 — 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xl),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -120,7 +122,7 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
                           .withValues(alpha: 0.6),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     '${CurrencyFormatter.format(summary.totalPremium)}원',
                     style: theme.textTheme.titleLarge?.copyWith(
@@ -172,7 +174,7 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Icon(Icons.shield, size: 20, color: theme.colorScheme.primary),
+          Icon(Icons.shield, size: context.bbType.iconSm, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Text(
             '보험료 합계: ${CurrencyFormatter.format(totalPremium)}원',
@@ -202,7 +204,7 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
       key: const PageStorageKey('insurance_list'),
       itemCount: sortedTypes.length + 1,
       itemBuilder: (context, index) {
-        if (index == sortedTypes.length) return const SizedBox(height: 88);
+        if (index == sortedTypes.length) return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         final type = sortedTypes[index];
         final items = grouped[type]!;
         return Column(
@@ -285,7 +287,7 @@ class _TypeHeader extends StatelessWidget {
           .withValues(alpha: 0.5),
       child: Row(
         children: [
-          Icon(insuranceTypeIcon(type), size: 16, color: color),
+          Icon(insuranceTypeIcon(type), size: context.bbType.iconSm, color: color),
           const SizedBox(width: 8),
           Text(
             insuranceTypeLabel(type),

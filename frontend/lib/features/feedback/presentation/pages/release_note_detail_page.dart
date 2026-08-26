@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_bloc.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class ReleaseNoteDetailPage extends StatelessWidget {
   final String releaseId;
@@ -45,14 +46,14 @@ class ReleaseNoteDetailPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      context.bbSpace.gapV(BbSpaceToken.xl),
                       Text(
                         detail.title,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      context.bbSpace.gapV(BbSpaceToken.lg),
                       Text(
                         detail.publishedAt != null
                             ? dateFormat.format(detail.publishedAt!)

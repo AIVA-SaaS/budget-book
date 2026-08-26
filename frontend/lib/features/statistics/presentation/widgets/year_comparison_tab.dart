@@ -33,7 +33,7 @@ class YearComparisonTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(error!, textAlign: TextAlign.center),
           ],
         ),
@@ -52,7 +52,7 @@ class YearComparisonTab extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '비교할 데이터가 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -70,7 +70,8 @@ class YearComparisonTab extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        children: [
+        // ★항목 사이는 **호스트**가 소유한다.
+        children: bbCardItems(context, [
           _ComparisonCard(
             title: '수입',
             currentAmount: currentYear!.totalIncome,
@@ -104,7 +105,7 @@ class YearComparisonTab extends StatelessWidget {
             year: year,
             isCount: true,
           ),
-        ],
+        ]),
       ),
     );
   }
@@ -161,7 +162,7 @@ class _ComparisonCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: context.bbType.iconSm),
               ),
               const SizedBox(width: 12),
               Text(
@@ -184,13 +185,13 @@ class _ComparisonCard extends StatelessWidget {
                     style: TextStyle(
                       color: changeColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: context.bbType.body,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Current year
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

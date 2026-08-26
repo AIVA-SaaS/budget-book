@@ -8,6 +8,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_bl
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_transfer_state.dart';
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_transfer_form_sheet.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class PocketTransferPage extends StatelessWidget {
   const PocketTransferPage({super.key});
@@ -72,7 +73,7 @@ class PocketTransferPage extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '이체 내역이 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -91,7 +92,7 @@ class PocketTransferPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: transfers.length + 1,
       itemBuilder: (context, index) {
-        if (index == transfers.length) return const SizedBox(height: 88);
+        if (index == transfers.length) return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         final transfer = transfers[index];
         return _buildTransferTile(context, transfer);
       },
@@ -102,7 +103,7 @@ class PocketTransferPage extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.blue.withValues(alpha: 0.15),
-        child: const Icon(Icons.swap_horiz, color: Colors.blue, size: 20),
+        child: Icon(Icons.swap_horiz, color: Colors.blue, size: context.bbType.iconSm),
       ),
       title: Text(
         '${transfer.fromPocket.name} -> ${transfer.toPocket.name}',
@@ -135,9 +136,9 @@ class PocketTransferPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           const Text('이체 내역을 불러오지 못했습니다'),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           FilledButton(
             onPressed: () {
               context

@@ -5,6 +5,7 @@ import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class TransactionImportPage extends StatefulWidget {
   const TransactionImportPage({super.key});
@@ -143,7 +144,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     Text(
                       'CSV 파일을 선택하여 거래 내역을 일괄 등록할 수 있습니다.\n'
                       '내보내기에서 다운로드한 CSV 형식과 동일한 형식을 사용해 주세요.',
@@ -156,7 +157,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
 
             // File picker area
             InkWell(
@@ -185,7 +186,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                           : theme.colorScheme.onSurface
                               .withValues(alpha: 0.4),
                     ),
-                    const SizedBox(height: 12),
+                    context.bbSpace.gapV(BbSpaceToken.xl),
                     if (_selectedFile != null) ...[
                       Text(
                         _selectedFile!.name,
@@ -193,7 +194,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         _formatFileSize(_selectedFile!.size),
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -209,7 +210,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                               .withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         'CSV 파일만 지원됩니다',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -222,7 +223,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
 
             // Upload button
             FilledButton.icon(
@@ -242,7 +243,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
               label: Text(_isUploading ? '가져오는 중...' : '가져오기'),
             ),
 
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
 
             // Results
             if (_result != null) ...[
@@ -274,7 +275,7 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      context.bbSpace.gapV(BbSpaceToken.xl),
                       Text(
                         '${CurrencyFormatter.format(_result!.successCount)}건 가져오기 완료'
                         '${_result!.failCount > 0 ? ', ${CurrencyFormatter.format(_result!.failCount)}건 실패' : ''}',
@@ -283,14 +284,14 @@ class _TransactionImportPageState extends State<TransactionImportPage> {
                         ),
                       ),
                       if (_result!.errors.isNotEmpty) ...[
-                        const SizedBox(height: 12),
+                        context.bbSpace.gapV(BbSpaceToken.xl),
                         const Divider(),
-                        const SizedBox(height: 8),
+                        context.bbSpace.gapV(BbSpaceToken.lg),
                         Text(
                           '오류 목록',
                           style: theme.textTheme.titleSmall,
                         ),
-                        const SizedBox(height: 8),
+                        context.bbSpace.gapV(BbSpaceToken.lg),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxHeight: 200),
                           child: ListView.builder(

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_bloc.dart';
 import 'package:budget_book/features/home/presentation/bloc/dashboard_state.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Shows budget alerts on the dashboard for categories that are
 /// at WARNING (>=80%) or EXCEEDED (>=100%) usage levels.
@@ -33,7 +34,7 @@ class BudgetAlertWidget extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.warning_amber_rounded,
-                    size: 20,
+                    size: context.bbType.iconSm,
                     color: Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 6),
@@ -74,7 +75,8 @@ class _BudgetAlertCard extends StatelessWidget {
     return Card(
       color: bgColor,
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
+      // ★세로는 호스트가 갖는다 — 카드는 자기 밖을 소유하지 않는다.
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -109,7 +111,7 @@ class _BudgetAlertCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -119,7 +121,7 @@ class _BudgetAlertCard extends StatelessWidget {
                 color: alertColor,
               ),
             ),
-            const SizedBox(height: 6),
+            context.bbSpace.gapV(BbSpaceToken.md),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class ReleaseNoteCard extends StatelessWidget {
   final ReleaseNote releaseNote;
@@ -18,7 +19,8 @@ class ReleaseNoteCard extends StatelessWidget {
     final dateFormat = DateFormat('yyyy.MM.dd');
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // ★세로는 호스트가 갖는다(`BbCardGap`). 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -40,7 +42,7 @@ class ReleaseNoteCard extends StatelessWidget {
                       releaseNote.version,
                       style: TextStyle(
                         color: theme.colorScheme.onPrimaryContainer,
-                        fontSize: 12,
+                        fontSize: context.bbType.label,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -62,7 +64,7 @@ class ReleaseNoteCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Text(
                 releaseNote.title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -71,7 +73,7 @@ class ReleaseNoteCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              context.bbSpace.gapV(BbSpaceToken.xs),
               Text(
                 releaseNote.content,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -81,7 +83,7 @@ class ReleaseNoteCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               if (!releaseNote.isPublished) ...[
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -90,11 +92,11 @@ class ReleaseNoteCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.orange.withAlpha(100)),
                   ),
-                  child: const Text(
+                  child: Text(
                     '미게시',
                     style: TextStyle(
                       color: Colors.orange,
-                      fontSize: 11,
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

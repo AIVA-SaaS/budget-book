@@ -10,6 +10,8 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/weekly_budget/presentation/widgets/week_summary_card.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class WeeklyBudgetPage extends StatefulWidget {
   const WeeklyBudgetPage({super.key});
@@ -93,7 +95,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
           // Current week hero card
           if (state.currentWeek != null) ...[
             _buildCurrentWeekHero(context, state.currentWeek!),
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
           ],
           // Weekly overview timeline
           if (state.overview != null) ...[
@@ -103,16 +105,16 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            ...state.overview!.weeks.map((week) {
+            context.bbSpace.gapV(BbSpaceToken.xl),
+            // ★항목 사이는 **호스트**가 소유한다.
+            ...bbCardItems(context, state.overview!.weeks.map((week) {
               final isCurrent = state.currentWeek != null &&
                   week.weekNumber == state.currentWeek!.weekNumber;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child:
-                    WeekSummaryCard(weekSummary: week, isCurrentWeek: isCurrent),
-              );
-            }),
+              // ★사이는 bbCardItems 가 소유한다 — 종전의 `Padding(bottom: 8)` 은
+              // 카드 margin 과 겹쳐 사이를 부풀리던 **경쟁 경로**였다.
+              return WeekSummaryCard(
+                  weekSummary: week, isCurrentWeek: isCurrent);
+            }).toList()),
           ],
           if (state.overview == null && state.currentWeek == null)
             Center(
@@ -125,7 +127,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                       size: 64,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                     ),
-                    const SizedBox(height: 16),
+                    context.bbSpace.gapV(BbSpaceToken.xxl),
                     Text(
                       '주간 예산 정보가 없습니다',
                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -168,7 +170,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               '${currentWeek.weekStart} ~ ${currentWeek.weekEnd}',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -178,7 +180,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
             ),
             // Total summary
             if (currentWeek.items.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -193,9 +195,9 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                           : Colors.red.shade700),
                 ],
               ),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               const Divider(height: 1),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               ...currentWeek.items.map((item) {
                 final progress = (item.usageRate / 100).clamp(0.0, 1.0);
                 final statusColor = item.usageRate > 100
@@ -226,7 +228,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      context.bbSpace.gapV(BbSpaceToken.md),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
@@ -261,7 +263,7 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
                 theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
           ),
         ),
-        const SizedBox(height: 2),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           value,
           style: theme.textTheme.bodySmall?.copyWith(

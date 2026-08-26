@@ -110,14 +110,14 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 Text(
                   isEditing ? '결제수단 수정' : '결제수단 추가',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 24),
+                context.bbSpace.gapV(BbSpaceToken.block),
                 // Name field
                 TextFormField(
                   controller: _nameController,
@@ -133,14 +133,14 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 // Type selector (only for new payment methods)
                 if (!isEditing) ...[
                   Text(
                     '유형',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  const SizedBox(height: 8),
+                  context.bbSpace.gapV(BbSpaceToken.lg),
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(
@@ -171,26 +171,26 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                 ],
                 // Card issuer presets + closing/settlement day (only for CREDIT type)
                 if (_selectedType == 'CREDIT') ...[
                   if (!isEditing) ...[
                     Text('카드사', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     Wrap(
                       spacing: 8,
                       runSpacing: 4,
                       children: [
                         ...cardIssuerPresets.map((preset) => ChoiceChip(
                               label: Text(preset.name,
-                                  style: const TextStyle(fontSize: 12)),
+                                  style: TextStyle(fontSize: context.bbType.label)),
                               selected: _selectedIssuerId == preset.id,
                               onSelected: (_) => _onCardIssuerSelected(preset),
                             )),
                         ChoiceChip(
-                          label: const Text('직접 입력',
-                              style: TextStyle(fontSize: 12)),
+                          label: Text('직접 입력',
+                              style: TextStyle(fontSize: context.bbType.label)),
                           selected: _selectedIssuerId == 'custom',
                           onSelected: (_) {
                             setState(() {
@@ -202,7 +202,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    context.bbSpace.gapV(BbSpaceToken.xxl),
                   ],
                   TextFormField(
                     controller: _closingDayController,
@@ -230,7 +230,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   TextFormField(
                     controller: _settlementDayController,
                     decoration: const InputDecoration(
@@ -257,15 +257,15 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   // Billing cycle info
                   _buildBillingCycleInfo(context),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   // Linked bank dropdown
                   _buildLinkedBankDropdown(context),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                 ],
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 FilledButton(
                   onPressed: _isSubmitting ? null : _onSubmit,
                   style: FilledButton.styleFrom(
@@ -329,7 +329,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
             children: [
               Icon(
                 Icons.info_outline,
-                size: 16,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
@@ -342,7 +342,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             periodText,
             style: Theme.of(context).textTheme.bodySmall,
@@ -355,7 +355,7 @@ class _PaymentMethodFormSheetState extends State<PaymentMethodFormSheet> {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.5),
-                    fontSize: 11,
+                    fontSize: context.bbType.label,
                   ),
             ),
           if (settlementText != null)

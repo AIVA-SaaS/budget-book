@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Heart-style vote button with count and animated toggle.
 class FeedbackVoteButton extends StatefulWidget {
@@ -68,7 +69,7 @@ class _FeedbackVoteButtonState extends State<FeedbackVoteButton>
               scale: _scaleAnimation,
               child: Icon(
                 widget.hasVoted ? Icons.favorite : Icons.favorite_border,
-                size: 20,
+                size: context.bbType.iconSm,
                 color: color,
               ),
             ),

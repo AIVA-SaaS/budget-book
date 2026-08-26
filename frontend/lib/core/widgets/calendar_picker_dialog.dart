@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Shows a compact calendar-only date picker dialog without the Material3 header panel.
 Future<DateTime?> showCalendarPickerDialog({
@@ -22,14 +23,14 @@ Future<DateTime?> showCalendarPickerDialog({
                 padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       '날짜 선택',
                       style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                          fontSize: context.bbType.title, fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: Icon(Icons.close, size: context.bbType.iconMd),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],

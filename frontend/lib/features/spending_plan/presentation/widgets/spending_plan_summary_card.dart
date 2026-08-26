@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class SpendingPlanSummaryCard extends StatelessWidget {
   final SpendingPlanSummary summary;
@@ -18,7 +19,8 @@ class SpendingPlanSummaryCard extends StatelessWidget {
         totalCount > 0 ? summary.completedCount / totalCount : 0.0;
 
     return Card(
-      margin: const EdgeInsets.all(12),
+      // ★세로는 블록 축(`gapV(block)`)이 갖는다 — 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xl),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -38,7 +40,7 @@ class SpendingPlanSummaryCard extends StatelessWidget {
                               .withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         '${CurrencyFormatter.format(summary.totalPlanned)}원',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -60,7 +62,7 @@ class SpendingPlanSummaryCard extends StatelessWidget {
                               .withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         '${CurrencyFormatter.format(summary.totalCompleted)}원',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -73,7 +75,7 @@ class SpendingPlanSummaryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             // Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -85,7 +87,7 @@ class SpendingPlanSummaryCard extends StatelessWidget {
                 color: Colors.green,
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             // Status badges row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -156,7 +158,7 @@ class _StatusBadge extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(

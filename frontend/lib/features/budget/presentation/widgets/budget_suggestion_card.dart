@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/ai/domain/entities/budget_suggestion.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Card showing a budget adjustment suggestion from the smart analysis engine.
 class BudgetSuggestionCard extends StatelessWidget {
@@ -24,7 +25,7 @@ class BudgetSuggestionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, size: 18, color: theme.colorScheme.primary),
+                Icon(Icons.lightbulb_outline, size: context.bbType.iconSm, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   '예산 조정 제안',
@@ -34,7 +35,7 @@ class BudgetSuggestionCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             ...suggestions.map((s) => _SuggestionItem(
                   suggestion: s,
                   formatter: formatter,
@@ -83,7 +84,7 @@ class _SuggestionItem extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(diffIcon, size: 14, color: diffColor),
+              Icon(diffIcon, size: context.bbType.iconSm, color: diffColor),
               const SizedBox(width: 2),
               Text(
                 '$diffText${formatter.format(suggestion.difference)}원',
@@ -94,7 +95,7 @@ class _SuggestionItem extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           // Current vs suggested bar
           Row(
             children: [
@@ -105,7 +106,7 @@ class _SuggestionItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.arrow_forward, size: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+              Icon(Icons.arrow_forward, size: context.bbType.iconSm, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
               const SizedBox(width: 8),
               Text(
                 '제안 ${formatter.format(suggestion.suggestedAmount)}원',
@@ -116,7 +117,7 @@ class _SuggestionItem extends StatelessWidget {
             ],
           ),
           if (suggestion.reason.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               suggestion.reason,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -127,17 +128,17 @@ class _SuggestionItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: onAdjust,
-              icon: const Icon(Icons.edit, size: 14),
+              icon: Icon(Icons.edit, size: context.bbType.iconSm),
               label: const Text('조정하기'),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: const Size(0, 28),
-                textStyle: const TextStyle(fontSize: 12),
+                textStyle: TextStyle(fontSize: context.bbType.label),
               ),
             ),
           ),

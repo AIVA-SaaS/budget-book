@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A generic two-level hierarchical selector presented as a bottom sheet.
 ///
@@ -88,7 +89,7 @@ class _HierarchicalSelectorSheetState<G, I>
                         ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 20),
+                    icon: Icon(Icons.close, size: context.bbType.iconMd),
                     onPressed: () => Navigator.of(context).pop(),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -179,7 +180,7 @@ class _HierarchicalSelectorSheetState<G, I>
                       CircleAvatar(
                         radius: 16,
                         backgroundColor: color.withValues(alpha: 0.15),
-                        child: Icon(Icons.folder, color: color, size: 18),
+                        child: Icon(Icons.folder, color: color, size: context.bbType.iconSm),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -194,7 +195,7 @@ class _HierarchicalSelectorSheetState<G, I>
                       if (isGroupSelected)
                         Icon(
                           Icons.check,
-                          size: 18,
+                          size: context.bbType.iconSm,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       if (itemCount > 0) ...[
@@ -223,7 +224,7 @@ class _HierarchicalSelectorSheetState<G, I>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 child: Icon(
                   isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
+                  size: context.bbType.iconSm,
                   color: Theme.of(context)
                       .colorScheme
                       .onSurface
@@ -246,7 +247,7 @@ class _HierarchicalSelectorSheetState<G, I>
             CircleAvatar(
               radius: 16,
               backgroundColor: color.withValues(alpha: 0.15),
-              child: Icon(Icons.folder, color: color, size: 18),
+              child: Icon(Icons.folder, color: color, size: context.bbType.iconSm),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -267,7 +268,7 @@ class _HierarchicalSelectorSheetState<G, I>
                                 .colorScheme
                                 .onSurface
                                 .withValues(alpha: 0.4),
-                            fontSize: 11,
+                            fontSize: context.bbType.label,
                           ),
                     ),
                 ],
@@ -286,7 +287,7 @@ class _HierarchicalSelectorSheetState<G, I>
             const SizedBox(width: 4),
             Icon(
               isExpanded ? Icons.expand_less : Icons.expand_more,
-              size: 20,
+              size: context.bbType.iconSm,
               color: Theme.of(context)
                   .colorScheme
                   .onSurface
@@ -310,7 +311,7 @@ class _HierarchicalSelectorSheetState<G, I>
         leading: CircleAvatar(
           radius: 14,
           backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(Icons.label, color: color, size: 16),
+          child: Icon(Icons.label, color: color, size: context.bbType.iconSm),
         ),
         title: Text(
           widget.itemLabel(item),
@@ -329,14 +330,14 @@ class _HierarchicalSelectorSheetState<G, I>
             if (isSelected)
               Icon(
                 Icons.check,
-                size: 18,
+                size: context.bbType.iconSm,
                 color: Theme.of(context).colorScheme.primary,
               ),
             if (widget.onDeleteItem != null)
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
-                  size: 18,
+                  size: context.bbType.iconMd,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 tooltip: '삭제',
@@ -360,13 +361,13 @@ class _HierarchicalSelectorSheetState<G, I>
         dense: true,
         leading: Icon(
           Icons.add,
-          size: 18,
+          size: context.bbType.iconSm,
           color: Theme.of(context).colorScheme.primary,
         ),
         title: Text(
           '하위 카테고리 추가',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: context.bbType.body,
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
@@ -383,7 +384,7 @@ class _HierarchicalSelectorSheetState<G, I>
         child: Icon(
           Icons.create_new_folder,
           color: Theme.of(context).colorScheme.primary,
-          size: 20,
+          size: context.bbType.iconSm,
         ),
       ),
       title: Text(

@@ -10,6 +10,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction_fil
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/presentation/widgets/transaction_list_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Shows a bottom sheet with transactions filtered for a budget item.
 ///
@@ -100,7 +101,7 @@ class _BudgetTransactionsContentState
     return Column(
       children: [
         // Handle bar
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         Container(
           width: 40,
           height: 4,
@@ -171,7 +172,7 @@ class _BudgetTransactionsContentState
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.3),
                         ),
-                        const SizedBox(height: 12),
+                        context.bbSpace.gapV(BbSpaceToken.xl),
                         Text(
                           '해당 기간에 거래가 없습니다',
                           style: theme.textTheme.bodyMedium?.copyWith(

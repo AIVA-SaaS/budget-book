@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A TextFormField for amount input that supports arithmetic (+ - * /) with
 /// parentheses, and a calculator popup for mobile (where number-only keyboards
@@ -278,7 +279,7 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
                     padding: const EdgeInsets.all(8),
                     child: Icon(
                       Icons.calculate_outlined,
-                      size: 22,
+                      size: context.bbType.iconMd,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
@@ -295,7 +296,7 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
                         padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.check_circle,
-                          size: 22,
+                          size: context.bbType.iconMd,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
@@ -337,9 +338,9 @@ class _CalculatorAmountFieldState extends State<CalculatorAmountField> {
                       message: '지우기 (길게 누르면 전체 삭제)',
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        child: const Icon(
+                        child: Icon(
                           Icons.backspace_outlined,
-                          size: 20,
+                          size: context.bbType.iconSm,
                         ),
                       ),
                     ),
@@ -469,7 +470,7 @@ class _CalculatorPopupState extends State<_CalculatorPopup> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     previewText,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -482,7 +483,7 @@ class _CalculatorPopupState extends State<_CalculatorPopup> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             _buildButtonGrid(),
           ],
         ),
@@ -586,7 +587,7 @@ class _CalculatorPopupState extends State<_CalculatorPopup> {
               child: Text(
                 spec.label,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: context.bbType.display,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),

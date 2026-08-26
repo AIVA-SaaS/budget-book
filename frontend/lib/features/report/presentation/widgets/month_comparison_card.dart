@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/report/domain/entities/monthly_report.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class MonthComparisonCard extends StatelessWidget {
   final MonthComparison comparison;
@@ -23,7 +24,7 @@ class MonthComparisonCard extends StatelessWidget {
               style: theme.textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Row(
               children: [
                 Expanded(
@@ -86,16 +87,16 @@ class MonthComparisonCard extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: context.bbType.iconSm, color: color),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   '${numberFormat.format(amount.abs())}원',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: context.bbType.section,
                     fontWeight: FontWeight.bold,
                     color: color,
                   ),
@@ -104,11 +105,11 @@ class MonthComparisonCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Text(
             '${rate >= 0 ? '+' : ''}${rate.toStringAsFixed(1)}%',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: context.bbType.label,
               color: color,
             ),
           ),

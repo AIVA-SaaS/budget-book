@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// 정산 완료 배지 — **모든 노출 지점의 단일 소스**.
 ///
@@ -56,7 +57,7 @@ class ReconciledBadge extends StatelessWidget {
           children: [
             Icon(
               changed ? Icons.error_outline : Icons.check_circle,
-              size: 12,
+              size: context.bbType.iconSm,
               color: color,
             ),
             const SizedBox(width: 2),
@@ -66,7 +67,7 @@ class ReconciledBadge extends StatelessWidget {
               // 배지 존재 자체가 보이지 않을 수 있다.
               seq != null ? '$seq차' : '정산',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: context.bbType.caption,
                 fontWeight: FontWeight.w600,
                 color: color,
                 height: 1.0,

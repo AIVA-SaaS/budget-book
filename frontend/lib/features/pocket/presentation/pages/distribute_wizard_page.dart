@@ -7,6 +7,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_bloc.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_event.dart';
 import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class DistributeWizardPage extends StatefulWidget {
   const DistributeWizardPage({super.key});
@@ -267,7 +268,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('분배할 총 금액을 입력하세요'),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
         TextFormField(
           controller: _totalAmountController,
           decoration: const InputDecoration(
@@ -314,7 +315,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        context.bbSpace.gapV(BbSpaceToken.xl),
         ...pockets.map((pocket) {
           final controller = _allocationControllers[pocket.id]!;
           return Padding(
@@ -332,7 +333,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
             ),
           );
         }),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         OutlinedButton.icon(
           onPressed: () => _saveCurrentRatios(pockets),
           icon: const Icon(Icons.save),
@@ -358,7 +359,7 @@ class _DistributeWizardPageState extends State<DistributeWizardPage> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

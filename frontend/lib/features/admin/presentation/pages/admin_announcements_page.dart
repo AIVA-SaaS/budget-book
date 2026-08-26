@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Admin announcement management page.
 class AdminAnnouncementsPage extends StatefulWidget {
@@ -122,7 +124,7 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 TextField(
                   controller: contentController,
                   decoration: const InputDecoration(
@@ -131,7 +133,7 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                   ),
                   maxLines: 4,
                 ),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 SwitchListTile(
                   title: const Text('활성화'),
                   value: isActive,
@@ -185,7 +187,7 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('오류: $_error'),
-                      const SizedBox(height: 16),
+                      context.bbSpace.gapV(BbSpaceToken.xxl),
                       FilledButton(
                         onPressed: _loadAnnouncements,
                         child: const Text('재시도'),
@@ -197,16 +199,19 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                   onRefresh: _loadAnnouncements,
                   child: _announcements.isEmpty
                       ? ListView(
-                          children: const [
-                            SizedBox(height: 100),
-                            Center(child: Text('공지사항이 없습니다')),
+                          // ★`gapV` 는 토큰을 읽으므로 const 목록에서 나와야 한다.
+                          children: [
+                            context.bbSpace.gapV(BbSpaceToken.block),
+                            const Center(child: Text('공지사항이 없습니다')),
                           ],
                         )
-                      : ListView.builder(
+                      // ★항목 사이는 **호스트**가 소유한다.
+                      : ListView.separated(
+                          separatorBuilder: (_, __) => const BbCardGap(),
                           itemCount: _announcements.length + 1,
                           itemBuilder: (context, index) {
                             if (index == _announcements.length) {
-                              return const SizedBox(height: 88);
+                              return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
                             }
                             final ann = _announcements[index];
                             return Card(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A reusable widget that displays an empty state with an icon, title,
 /// optional subtitle, and optional action button.
@@ -35,7 +36,7 @@ class EmptyStateWidget extends StatelessWidget {
               size: 48,
               color: mutedColor,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
@@ -44,7 +45,7 @@ class EmptyStateWidget extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Text(
                 subtitle!,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -54,7 +55,7 @@ class EmptyStateWidget extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 20),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               FilledButton.tonal(
                 onPressed: onAction,
                 child: Text(actionLabel!),

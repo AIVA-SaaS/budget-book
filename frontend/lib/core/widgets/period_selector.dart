@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Period type enum for budget period selection.
 enum PeriodType { none, daily, weekly, monthly }
@@ -117,7 +118,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
       children: [
         // Period type segmented button
         _buildTypeSelector(context),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
         // Conditional UI based on selected type
         _buildTypeSpecificUI(context),
       ],
@@ -126,26 +127,26 @@ class _PeriodSelectorState extends State<PeriodSelector> {
 
   Widget _buildTypeSelector(BuildContext context) {
     return SegmentedButton<PeriodType>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: PeriodType.none,
-          label: Text('없음'),
-          icon: Icon(Icons.block, size: 16),
+          label: const Text('없음'),
+          icon: Icon(Icons.block, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.daily,
-          label: Text('일별'),
-          icon: Icon(Icons.today, size: 16),
+          label: const Text('일별'),
+          icon: Icon(Icons.today, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.weekly,
-          label: Text('주간'),
-          icon: Icon(Icons.date_range, size: 16),
+          label: const Text('주간'),
+          icon: Icon(Icons.date_range, size: context.bbType.iconSm),
         ),
         ButtonSegment(
           value: PeriodType.monthly,
-          label: Text('월별'),
-          icon: Icon(Icons.calendar_month, size: 16),
+          label: const Text('월별'),
+          icon: Icon(Icons.calendar_month, size: context.bbType.iconSm),
         ),
       ],
       selected: {_selectedType},
@@ -221,7 +222,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                 }
               : null,
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // End date
         _buildDateTile(
           context,
@@ -323,7 +324,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // Week breakdown preview
         Card(
           child: Padding(
@@ -337,7 +338,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 ...weekRanges.asMap().entries.map((entry) {
                   final weekNum = entry.key + 1;
                   final (start, end) = entry.value;
@@ -400,7 +401,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                 }
               : null,
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // End month
         _buildDateTile(
           context,

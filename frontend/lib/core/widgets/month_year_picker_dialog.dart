@@ -29,6 +29,7 @@ library;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// 사용자가 피커에서 고른 값.
 ///
@@ -218,11 +219,11 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
         children: [
           Text(
             _title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: context.bbType.title, fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close, size: 20),
+            icon: Icon(Icons.close, size: context.bbType.iconMd),
             onPressed: () => Navigator.pop(context),
             tooltip: '닫기',
           ),
@@ -434,7 +435,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_up, size: 20),
+                  Icon(Icons.arrow_drop_up, size: context.bbType.iconSm),
                 ],
               ),
             ),

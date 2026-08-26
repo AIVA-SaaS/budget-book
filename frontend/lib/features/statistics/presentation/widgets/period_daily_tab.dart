@@ -24,7 +24,7 @@ class PeriodDailyTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 일별 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -41,8 +41,10 @@ class PeriodDailyTab extends StatelessWidget {
       child: Column(
         children: [
           _buildBarChart(context),
-          const SizedBox(height: 24),
-          ...items.map((item) => _DailyListItem(item: item)),
+          context.bbSpace.gapV(BbSpaceToken.block),
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context,
+              items.map((item) => _DailyListItem(item: item)).toList()),
         ],
       ),
     );
@@ -70,9 +72,9 @@ class PeriodDailyTab extends StatelessWidget {
                 final amount = rodIndex == 0 ? item.income : item.expense;
                 return BarTooltipItem(
                   '$label: ${CurrencyFormatter.format(amount)}원',
-                  const TextStyle(
+                  TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.bold),
                 );
               },
@@ -98,7 +100,7 @@ class PeriodDailyTab extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       date != null ? df.format(date) : '',
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(fontSize: context.bbType.caption),
                     ),
                   );
                 },
@@ -113,7 +115,7 @@ class PeriodDailyTab extends StatelessWidget {
                   if (value == 0) return const SizedBox.shrink();
                   return Text(
                     CurrencyFormatter.toKoreanUnit(value.toInt()),
-                    style: const TextStyle(fontSize: 9),
+                    style: TextStyle(fontSize: context.bbType.caption),
                   );
                 },
               ),

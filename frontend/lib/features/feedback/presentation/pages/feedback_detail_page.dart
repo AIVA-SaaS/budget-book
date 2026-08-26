@@ -6,6 +6,7 @@ import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.da
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_event.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_state.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_status_badge.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class FeedbackDetailPage extends StatefulWidget {
   final String feedbackId;
@@ -81,27 +82,27 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                               FeedbackStatusBadge(status: detail.status),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          context.bbSpace.gapV(BbSpaceToken.xl),
                           Text(
                             detail.title,
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.lg),
                           Text(
                             '${detail.userName} | ${dateFormat.format(detail.createdAt)}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xxl),
                           Text(
                             detail.content,
                             style: theme.textTheme.bodyMedium,
                           ),
                           if (detail.adminNote != null) ...[
-                            const SizedBox(height: 16),
+                            context.bbSpace.gapV(BbSpaceToken.xxl),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
@@ -121,7 +122,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  context.bbSpace.gapV(BbSpaceToken.xs),
                                   Text(detail.adminNote!),
                                 ],
                               ),
@@ -129,11 +130,11 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                           ],
                           if (detail.status == 'RESOLVED' &&
                               detail.resolvedReleaseId != null) ...[
-                            const SizedBox(height: 12),
+                            context.bbSpace.gapV(BbSpaceToken.xl),
                             OutlinedButton.icon(
                               onPressed: () => context.push(
                                   '/releases/${detail.resolvedReleaseId}'),
-                              icon: const Icon(Icons.new_releases, size: 18),
+                              icon: Icon(Icons.new_releases, size: context.bbType.iconSm),
                               label: const Text('관련 업데이트 보기'),
                             ),
                           ],
@@ -144,12 +145,13 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          context.bbSpace.gapV(BbSpaceToken.lg),
                           // Comments timeline
                           ...detail.comments.map((comment) {
                             final isAdmin = comment.isAdminReply;
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              // ★세로는 호스트가 갖는다(`bbCardItems`).
+                              margin: EdgeInsets.zero,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isAdmin
@@ -192,7 +194,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                             style: TextStyle(
                                               color: theme
                                                   .colorScheme.onPrimary,
-                                              fontSize: 10,
+                                              fontSize: context.bbType.caption,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -209,7 +211,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
+                                  context.bbSpace.gapV(BbSpaceToken.xs),
                                   Text(comment.content),
                                 ],
                               ),
@@ -271,7 +273,7 @@ class _FeedbackDetailPageState extends State<FeedbackDetailPage> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2),
                                     )
-                                  : const Icon(Icons.send, size: 20),
+                                  : Icon(Icons.send, size: context.bbType.iconSm),
                             ),
                           ],
                         ),

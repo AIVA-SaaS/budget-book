@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/home/domain/entities/dashboard_widget_config.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Shows a bottom sheet for editing per-widget settings.
 /// Renders appropriate controls based on widget type.
@@ -85,7 +86,7 @@ class _WidgetSettingsSheetState extends State<_WidgetSettingsSheet> {
           const Divider(),
           // Dynamic settings controls
           ..._buildControls(context),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Save button
           SizedBox(
             width: double.infinity,
@@ -97,7 +98,7 @@ class _WidgetSettingsSheetState extends State<_WidgetSettingsSheet> {
               child: const Text('저장'),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
         ],
       ),
     );
@@ -171,7 +172,7 @@ class _WidgetSettingsSheetState extends State<_WidgetSettingsSheet> {
             key: 'months',
             options: {3: '3개월', 6: '6개월', 12: '12개월'},
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           ..._buildCheckboxListControl(
             label: '표시 항목',
             key: 'showItems',
@@ -189,7 +190,7 @@ class _WidgetSettingsSheetState extends State<_WidgetSettingsSheet> {
             key: 'type',
             options: {'EXPENSE': '지출', 'INCOME': '수입'},
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           _buildDropdownControl(
             label: '표시 개수',
             key: 'count',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/features/couple/domain/entities/invitation.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class InvitationCodeWidget extends StatelessWidget {
   final Invitation invitation;
@@ -18,7 +19,7 @@ class InvitationCodeWidget extends StatelessWidget {
               '초대 코드',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
@@ -36,7 +37,7 @@ class InvitationCodeWidget extends StatelessWidget {
                     ),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             OutlinedButton.icon(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: invitation.code));
@@ -44,10 +45,10 @@ class InvitationCodeWidget extends StatelessWidget {
                   const SnackBar(content: Text('코드가 복사되었습니다')),
                 );
               },
-              icon: const Icon(Icons.copy, size: 18),
+              icon: Icon(Icons.copy, size: context.bbType.iconSm),
               label: const Text('코드 복사'),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(
               '만료: ${_formatExpiry(invitation.expiresAt)}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(

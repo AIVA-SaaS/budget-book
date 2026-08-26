@@ -860,7 +860,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.swap_horiz, size: 18, color: scheme.onTertiaryContainer),
+          Icon(Icons.swap_horiz, size: context.bbType.iconSm, color: scheme.onTertiaryContainer),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -890,7 +890,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           child: Row(
             children: [
               Icon(Icons.tune,
-                  size: 16, color: Theme.of(context).colorScheme.tertiary),
+                  size: context.bbType.iconSm, color: Theme.of(context).colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 '잔액 수정 (유형 변경 불가)',
@@ -928,21 +928,21 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               style: const ButtonStyle(
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: 'EXPENSE',
-                  icon: Icon(Icons.arrow_downward, size: 14),
-                  label: Text('지출'),
+                  icon: Icon(Icons.arrow_downward, size: context.bbType.iconSm),
+                  label: const Text('지출'),
                 ),
                 ButtonSegment(
                   value: 'INCOME',
-                  icon: Icon(Icons.arrow_upward, size: 14),
-                  label: Text('수입'),
+                  icon: Icon(Icons.arrow_upward, size: context.bbType.iconSm),
+                  label: const Text('수입'),
                 ),
                 ButtonSegment(
                   value: 'TRANSFER',
-                  icon: Icon(Icons.swap_horiz, size: 14),
-                  label: Text('이체'),
+                  icon: Icon(Icons.swap_horiz, size: context.bbType.iconSm),
+                  label: const Text('이체'),
                 ),
               ],
               selected: {_editTargetType},
@@ -1011,7 +1011,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 order: const NumericFocusOrder(0),
                 child: _buildDatePicker(context),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Amount
               FocusTraversalOrder(
                 order: const NumericFocusOrder(1),
@@ -1036,7 +1036,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   },
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Description with suggestion chips
               FocusTraversalOrder(
                 order: const NumericFocusOrder(2),
@@ -1064,7 +1064,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 4),
                   child: ActionChip(
-                    avatar: const Icon(Icons.auto_awesome, size: 16),
+                    avatar: Icon(Icons.auto_awesome, size: context.bbType.iconSm),
                     // 회차 12 P3 + follow-up — AI 추천 chip 도 "그룹 > 하위" 형식.
                     // result.groupName 직접 사용.
                     label: Text(_aiResult!.groupName.isNotEmpty
@@ -1073,7 +1073,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                     onPressed: () => _applyAiCategory(_aiResult!),
                   ),
                 ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Category picker with keyboard support
               FocusTraversalOrder(
                 order: const NumericFocusOrder(3),
@@ -1085,10 +1085,10 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
               // 회차 4 — ADJUSTMENT 모드 banner + 증가/감소 radio.
               if (_isAdjustmentSelected) ...[
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 _buildAdjustmentBanner(context),
               ],
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Payment method picker with keyboard support
               FocusTraversalOrder(
                 order: const NumericFocusOrder(4),
@@ -1098,7 +1098,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   child: _buildPaymentMethodPicker(context),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Pocket picker with keyboard support
               FocusTraversalOrder(
                 order: const NumericFocusOrder(5),
@@ -1108,7 +1108,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   child: _buildPocketPicker(context),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // V61 (2026-05-06) — 메모 카드 + needs_review 토글.
               // 이전: prefixIcon 있는 좌측정렬 단행 입력 + maxLines:2.
               // 변경: 카드 컨테이너 안에 [멀티라인 가운데정렬 메모] + [확인/입력 필요 토글].
@@ -1116,7 +1116,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 order: const NumericFocusOrder(6),
                 child: _buildMemoCard(context),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               // Continue mode options (new transactions only)
               if (!isEditing) ...[
                 GestureDetector(
@@ -1140,7 +1140,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
               ],
               // Submit buttons
               FocusTraversalOrder(
@@ -1464,7 +1464,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             // Amount — 회차 12 P5/B-fix: 지출/수입 탭과 동일한 CalculatorAmountField
             // 사용. 이전: AmountInputField 였으나 controller 단일화에도 widget 차이로
             // 텍스트 표시 깨짐. 사용자 요구 "공통화" 의도 반영하여 widget 도 통일.
@@ -1485,7 +1485,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             // Source payment method
             DropdownButtonFormField<String>(
               key: ValueKey('transfer_source_$_swapCounter'),
@@ -1514,7 +1514,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               },
               validator: (value) => value == null ? '출금 결제수단을 선택하세요' : null,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Swap button
             Center(
               child: IconButton(
@@ -1536,7 +1536,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 tooltip: '출금/입금 교환',
               ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Destination payment method
             DropdownButtonFormField<String>(
               key: ValueKey('transfer_dest_$_swapCounter'),
@@ -1566,7 +1566,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               },
               validator: (value) => value == null ? '입금 결제수단을 선택하세요' : null,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             // Description — 회차 12 P5: 공통 controller 사용
             TextFormField(
               controller: _descriptionController,
@@ -1577,7 +1577,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
               maxLength: 255,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Memo — 회차 12 P5: 공통 controller 사용
             TextFormField(
               controller: _memoController,
@@ -1587,7 +1587,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
             // Submit button
             FilledButton(
               onPressed: _isTransferSubmitting ? null : _submitTransfer,
@@ -1629,7 +1629,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               children: [
                 Icon(
                   Icons.note_outlined,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
@@ -1684,11 +1684,11 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       '!',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: context.bbType.label,
                         fontWeight: FontWeight.bold,
                         height: 1.0,
                       ),
@@ -1698,9 +1698,9 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   const Text('확인/입력 필요로 표시'),
                 ],
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 '나중에 확인하거나 정보를 채워넣어야 하는 거래로 마킹합니다.',
-                style: TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: context.bbType.label),
               ),
             ),
           ),
@@ -1725,7 +1725,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
               return ActionChip(
                 label: Text(sg.description),
                 avatar:
-                    isExpanded ? const Icon(Icons.expand_less, size: 18) : null,
+                    isExpanded ? Icon(Icons.expand_less, size: context.bbType.iconSm) : null,
                 onPressed: () {
                   if (isExpanded) {
                     // Collapse: apply description only (empty pattern)
@@ -1739,7 +1739,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
           ),
           // Expanded patterns for selected suggestion
           if (_expandedSuggestion != null) ...[
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // First option: description only, no pre-fill
             InkWell(
               borderRadius: BorderRadius.circular(8),
@@ -1762,7 +1762,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             // Grouped patterns sorted by count
             ..._expandedSuggestion!.patterns.map((p) {
               // 회차 12 P3 + follow-up — suggestion picker label 도 "그룹 > 하위" 형식.
@@ -1900,7 +1900,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
         children: [
           Row(
             children: [
-              Icon(Icons.tune, size: 18, color: theme.colorScheme.tertiary),
+              Icon(Icons.tune, size: context.bbType.iconSm, color: theme.colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 '잔액 조정 모드',
@@ -1916,14 +1916,14 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onTertiaryContainer
                         .withValues(alpha: 0.7),
-                    fontSize: 11,
+                    fontSize: context.bbType.label,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Row(
             children: [
               Expanded(
@@ -1982,7 +1982,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _categoryError!,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),
@@ -2026,7 +2026,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
                   _paymentMethodError!,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                   ),
                 ),
               ),
@@ -2260,7 +2260,7 @@ class _TransactionFormPageState extends State<TransactionFormPage>
             child: Text(formattedDate),
           ),
         ),
-        const SizedBox(height: 6),
+        context.bbSpace.gapV(BbSpaceToken.md),
         // ★라벨은 버튼 **정중앙**, 아이콘은 바깥쪽 끝(전 ←, 후 →)에 고정한다.
         // `OutlinedButton.icon` 은 아이콘+라벨을 한 덩어리로 중앙 정렬해서 라벨이
         // 24dp 오른쪽으로 밀렸다(2026-08-20 사용자 지적 → 기하 실측으로 확정).

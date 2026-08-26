@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Maps spending plan status to Korean label.
 String statusLabel(String status) {
@@ -136,7 +137,7 @@ class SpendingPlanCard extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.15),
-          child: Icon(statusIcon(plan.status), color: color, size: 20),
+          child: Icon(statusIcon(plan.status), color: color, size: context.bbType.iconSm),
         ),
         title: Row(
           children: [
@@ -173,7 +174,7 @@ class SpendingPlanCard extends StatelessWidget {
               ),
           ],
         ),
-        subtitle: _buildSubtitle(theme),
+        subtitle: _buildSubtitle(context, theme),
         trailing: Text(
           '${CurrencyFormatter.format(plan.amount)}원',
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -258,7 +259,8 @@ class SpendingPlanCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSubtitle(ThemeData theme) {
+  // ★타이포 토큰은 컨테이너 폭을 읽으므로 context 가 필요하다.
+  Widget _buildSubtitle(BuildContext context, ThemeData theme) {
     if (plan.status == 'COMPLETED' && plan.actualAmount != null) {
       final variance = plan.variance;
       final varianceStr = variance != null
@@ -290,7 +292,7 @@ class SpendingPlanCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                fontSize: 11,
+                fontSize: context.bbType.label,
               ),
             ),
         ],

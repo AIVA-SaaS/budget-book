@@ -176,8 +176,14 @@ void main() {
     test('자산 현황 그룹 박스는 카드와 같은 세로 계약을 쓴다', () {
       final src =
           File('lib/core/widgets/account_balance_card.dart').readAsStringSync();
-      expect(src.contains('vertical: context.bbSpace.xs'), isTrue,
-          reason: '그룹 박스 margin 세로가 xs 에서 벗어났다(종전 리터럴 8 → 경계 91dp)');
+      // ★2026-08-26 개정: 카드/박스는 **자기 밖의 세로 간격을 소유하지 않는다**.
+      // 종전 계약은 `margin 세로 = xs` 였는데, 그러면 보이는 블록 간격이
+      // `spacer + 위 margin + 아래 margin` 의 합이 되어 같은 리터럴이 16.00·26.00·36.00
+      // 으로 갈린다 `[측정]`. 세로는 호스트(`BbCardGap`)·블록 축(`gapV(block)`)이 갖는다.
+      expect(src.contains('vertical: context.bbSpace.xs'), isFalse,
+          reason: '그룹 박스가 세로 margin 을 되찾았다 — 블록 사이 간격이 다시 오염된다');
+      expect(src.contains('margin: EdgeInsets.zero'), isTrue,
+          reason: '세로 margin 부재가 명시적이어야 한다(암묵적 누락과 구분된다)');
       expect(src.contains('context.bbBox.cardRowPadV'), isTrue,
           reason: '그룹 박스 padding 세로가 cardRowPadV 에서 벗어났다(종전 리터럴 12)');
     });

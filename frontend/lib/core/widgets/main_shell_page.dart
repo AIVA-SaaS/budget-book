@@ -25,6 +25,7 @@ import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_bloc.dart';
 import 'package:budget_book/features/couple/presentation/bloc/couple_event.dart';
+import '../../core/theme/bb_scale.dart';
 
 class MainShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -277,14 +278,14 @@ class _ConnectionStatusBanner extends StatelessWidget {
             children: [
               Icon(
                 Icons.cloud_off,
-                size: 14,
+                size: context.bbType.iconSm,
                 color: Colors.red.shade700,
               ),
               const SizedBox(width: 8),
               Text(
                 '오프라인 - 실시간 동기화 중단',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: context.bbType.label,
                   color: Colors.red.shade900,
                 ),
               ),
@@ -294,7 +295,7 @@ class _ConnectionStatusBanner extends StatelessWidget {
                 child: Text(
                   '재연결',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: context.bbType.label,
                     color: Colors.red.shade900,
                     fontWeight: FontWeight.bold,
                     decoration: TextDecoration.underline,

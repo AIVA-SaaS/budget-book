@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class ProfileEditPage extends StatefulWidget {
   const ProfileEditPage({super.key});
@@ -245,10 +246,10 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     TextButton.icon(
                       onPressed: _isUploadingImage ? null : _showImageOptions,
-                      icon: const Icon(Icons.camera_alt, size: 16),
+                      icon: Icon(Icons.camera_alt, size: context.bbType.iconSm),
                       label: const Text('이미지 변경'),
                     ),
                     Text(
@@ -269,7 +270,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                                 .withValues(alpha: 0.4),
                           ),
                     ),
-                    const SizedBox(height: 32),
+                    context.bbSpace.gapV(BbSpaceToken.block),
                     // Nickname field
                     TextFormField(
                       controller: _nicknameController,
@@ -290,7 +291,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    context.bbSpace.gapV(BbSpaceToken.xxl),
                     // Email field — shown for all users; Kakao users without
                     // a registered email see an empty field with a helper hint.
                     TextFormField(
@@ -327,7 +328,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+                    context.bbSpace.gapV(BbSpaceToken.block),
                     // Submit button
                     SizedBox(
                       width: double.infinity,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class SocialLoginButton extends StatelessWidget {
   final String providerName;
@@ -39,13 +40,13 @@ class SocialLoginButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: iconColor, size: 24),
+            Icon(icon, color: iconColor, size: context.bbType.iconMd),
             const SizedBox(width: 12),
             Text(
               '$providerName(으)로 로그인',
               style: TextStyle(
                 color: textColor,
-                fontSize: 16,
+                fontSize: context.bbType.title,
                 fontWeight: FontWeight.w600,
               ),
             ),

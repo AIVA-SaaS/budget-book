@@ -6,6 +6,7 @@ import 'package:budget_book/features/feedback/presentation/bloc/feedback_event.d
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_state.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_status_badge.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class AdminFeedbackPage extends StatefulWidget {
   const AdminFeedbackPage({super.key});
@@ -158,14 +159,14 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                             fontWeight: FontWeight.bold,
                           ),
                     ),
-                    const SizedBox(height: 4),
+                    context.bbSpace.gapV(BbSpaceToken.xs),
                     Text(fb.content,
                         style: Theme.of(context).textTheme.bodySmall),
                     const Divider(height: 24),
                     // Status change
                     Text('상태 변경',
                         style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     Wrap(
                       spacing: 8,
                       children: [
@@ -185,7 +186,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                       }).toList(),
                     ),
                     if (selectedStatus != fb.status) ...[
-                      const SizedBox(height: 8),
+                      context.bbSpace.gapV(BbSpaceToken.lg),
                       FilledButton(
                         onPressed: () {
                           this.context.read<FeedbackBloc>().add(
@@ -203,7 +204,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                     // Admin note
                     Text('관리자 메모',
                         style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     TextField(
                       controller: noteController,
                       decoration: const InputDecoration(
@@ -213,7 +214,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                       ),
                       maxLines: 2,
                     ),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     OutlinedButton(
                       onPressed: () {
                         this.context.read<FeedbackBloc>().add(
@@ -230,7 +231,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                     // Admin reply
                     Text('답변',
                         style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     TextField(
                       controller: replyController,
                       decoration: const InputDecoration(
@@ -240,7 +241,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                       ),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     FilledButton.icon(
                       onPressed: () {
                         final text = replyController.text.trim();
@@ -253,7 +254,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
                             );
                         Navigator.of(sheetContext).pop();
                       },
-                      icon: const Icon(Icons.send, size: 18),
+                      icon: Icon(Icons.send, size: context.bbType.iconSm),
                       label: const Text('답변 보내기'),
                     ),
                   ],

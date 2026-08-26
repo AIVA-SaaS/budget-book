@@ -23,6 +23,7 @@ import 'package:budget_book/features/spending_plan/domain/entities/spending_plan
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart' as tx;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Result from the complete plan dialog.
 class CompletePlanResult {
@@ -311,15 +312,15 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
               leading: Icon(
                 _linkedTransaction!.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
                 color: _linkedTransaction!.isExpense ? Colors.red : Colors.blue,
-                size: 20,
+                size: context.bbType.iconSm,
               ),
-              title: Text(_linkedTransaction!.description, style: const TextStyle(fontSize: 14)),
+              title: Text(_linkedTransaction!.description, style: TextStyle(fontSize: context.bbType.section)),
               subtitle: Text(
                 '${CurrencyFormatter.format(_linkedTransaction!.amount)}원 · ${_linkedTransaction!.transactionDate}',
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: context.bbType.label),
               ),
               trailing: IconButton(
-                icon: const Icon(Icons.close, size: 18),
+                icon: Icon(Icons.close, size: context.bbType.iconMd),
                 onPressed: () => setState(() => _linkedTransaction = null),
               ),
             ),
@@ -336,12 +337,12 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                   leading: Icon(
                     t.isExpense ? Icons.arrow_downward : Icons.arrow_upward,
                     color: t.isExpense ? Colors.red : Colors.blue,
-                    size: 18,
+                    size: context.bbType.iconSm,
                   ),
-                  title: Text(t.description, style: const TextStyle(fontSize: 13)),
+                  title: Text(t.description, style: TextStyle(fontSize: context.bbType.body)),
                   subtitle: Text(
                     '${CurrencyFormatter.format(t.amount)}원 · ${t.transactionDate}',
-                    style: const TextStyle(fontSize: 11),
+                    style: TextStyle(fontSize: context.bbType.label),
                   ),
                   onTap: () => setState(() => _linkedTransaction = t),
                 );
@@ -386,7 +387,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Toggle: new transaction vs link existing
             SegmentedButton<bool>(
@@ -400,7 +401,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 _linkedTransaction = null;
               }),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             if (_linkExisting) ...[
               // Transaction search/select
@@ -427,7 +428,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Description
             TextFormField(
@@ -445,7 +446,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Date picker
             InkWell(
@@ -461,7 +462,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Payment method selector
             ItemSelectorField(
@@ -471,7 +472,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
               placeholder: '선택 안 함',
               onTap: _showPaymentMethodSelectorSheet,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Category selector
             ItemSelectorField(
               label: '카테고리',

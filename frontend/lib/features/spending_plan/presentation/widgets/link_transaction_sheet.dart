@@ -5,6 +5,7 @@ import 'package:budget_book/features/transaction/domain/entities/transaction.dar
 import 'package:budget_book/features/transaction/domain/entities/transaction_filter.dart';
 import 'package:budget_book/features/transaction/domain/repositories/transaction_repository.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Shows a bottom sheet for searching and selecting a transaction to link to a spending plan.
 Future<Transaction?> showLinkTransactionSheet({
@@ -126,7 +127,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
@@ -136,7 +137,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -162,7 +163,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
                 },
               ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Transaction list
             Expanded(
               child: _buildContent(scrollController),
@@ -184,7 +185,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             TextButton(
               onPressed: _loadTransactions,
               child: const Text('다시 시도'),
@@ -215,7 +216,7 @@ class _LinkTransactionSheetState extends State<_LinkTransactionSheet> {
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Icon(
               Icons.receipt_long,
-              size: 20,
+              size: context.bbType.iconSm,
               color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),

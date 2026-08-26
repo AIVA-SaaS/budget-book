@@ -9,6 +9,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_e
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class TransactionDetailPage extends StatelessWidget {
   final String transactionId;
@@ -154,17 +155,17 @@ class TransactionDetailPage extends StatelessWidget {
               children: [
                 Icon(
                   typeIcon,
-                  size: 36,
+                  size: context.bbType.iconLg,
                   color: amountColor,
                 ),
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 Text(
                   typeLabel,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: amountColor,
                   ),
                 ),
-                const SizedBox(height: 4),
+                context.bbSpace.gapV(BbSpaceToken.xs),
                 Text(
                   '$amountPrefix${CurrencyFormatter.format(displayAmount)}원',
                   style: theme.textTheme.headlineMedium?.copyWith(
@@ -176,7 +177,7 @@ class TransactionDetailPage extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
 
         // Details
         Card(
@@ -296,7 +297,7 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 20,
+          size: context.bbType.iconSm,
           color: iconColor ??
               theme.colorScheme.onSurface.withValues(alpha: 0.5),
         ),
@@ -373,7 +374,7 @@ class _AsyncTransactionLoaderState extends State<_AsyncTransactionLoader> {
         children: [
           Icon(Icons.search_off, size: 48,
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           Text(_error ?? '거래를 찾을 수 없습니다'),
         ],
       ),

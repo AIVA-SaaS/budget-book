@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/router/app_router.dart' show markOnboardingCompleted;
+import '../../../../core/theme/bb_scale.dart';
 
 /// A 3-step onboarding flow shown once after first login.
 class OnboardingPage extends StatefulWidget {
@@ -110,14 +111,14 @@ class _WelcomeStep extends StatelessWidget {
             size: 80,
             color: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '환영합니다',
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Text(
             'Budget Book으로 똑똑하게 가계부를 관리하세요',
             style: theme.textTheme.bodyLarge?.copyWith(
@@ -153,14 +154,14 @@ class _CoupleStep extends StatelessWidget {
             size: 80,
             color: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '파트너와 함께',
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Text(
             '파트너와 연결하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요',
             style: theme.textTheme.bodyLarge?.copyWith(
@@ -168,12 +169,12 @@ class _CoupleStep extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           FilledButton(
             onPressed: onConnect,
             child: const Text('파트너 연결하기'),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           TextButton(
             onPressed: onSkip,
             child: const Text('혼자 사용할게요'),
@@ -202,14 +203,14 @@ class _StartStep extends StatelessWidget {
             size: 80,
             color: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '준비 완료!',
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Text(
             '첫 거래를 기록해보세요',
             style: theme.textTheme.bodyLarge?.copyWith(
@@ -217,7 +218,7 @@ class _StartStep extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           FilledButton(
             onPressed: onStart,
             child: const Text('시작하기'),

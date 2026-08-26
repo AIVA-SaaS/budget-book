@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_event.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class AuthCallbackPage extends StatefulWidget {
   final String? accessToken;
@@ -65,17 +66,18 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
           context.go('/login');
         }
       },
-      child: const Scaffold(
+      // ★`gapV` 는 토큰을 읽으므로 const 트리에서 나와야 한다.
+      child: Scaffold(
         body: SafeArea(
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 24),
+                const CircularProgressIndicator(),
+                context.bbSpace.gapV(BbSpaceToken.block),
                 Text(
                   '로그인 처리 중...',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: context.bbType.title),
                 ),
               ],
             ),

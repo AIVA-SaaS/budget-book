@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/bb_scale.dart';
 
 /// Shows a date range filter bottom sheet with presets and custom range picker.
 ///
@@ -35,7 +36,7 @@ void showDateRangeFilterSheet({
           child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Container(
               width: 40,
               height: 4,
@@ -47,14 +48,14 @@ void showDateRangeFilterSheet({
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '기간 필터',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             ListTile(
               leading: const Icon(Icons.today),
               title: const Text('이번 주'),
@@ -127,7 +128,7 @@ void showDateRangeFilterSheet({
                 },
               ),
             ],
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
         ),
         ),
@@ -151,7 +152,8 @@ class DateRangeIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // ★세로는 호스트가 갖는다. 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer,
@@ -160,7 +162,7 @@ class DateRangeIndicator extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.date_range,
-              size: 16, color: theme.colorScheme.onPrimaryContainer),
+              size: context.bbType.iconSm, color: theme.colorScheme.onPrimaryContainer),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -174,7 +176,7 @@ class DateRangeIndicator extends StatelessWidget {
           InkWell(
             onTap: onClear,
             child: Icon(Icons.close,
-                size: 18, color: theme.colorScheme.onPrimaryContainer),
+                size: context.bbType.iconSm, color: theme.colorScheme.onPrimaryContainer),
           ),
         ],
       ),

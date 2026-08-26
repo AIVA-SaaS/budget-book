@@ -1,5 +1,6 @@
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class MonthSummaryBar extends StatelessWidget {
   final int totalIncome;
@@ -79,7 +80,7 @@ class MonthSummaryBar extends StatelessWidget {
                     .withValues(alpha: 0.6),
               ),
         ),
-        const SizedBox(height: 4),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           '${CurrencyFormatter.format(amount)}원',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(

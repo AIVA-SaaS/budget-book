@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_pending.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class CardPendingSummary extends StatelessWidget {
   final List<CardPending> cardPendings;
@@ -23,7 +24,7 @@ class CardPendingSummary extends StatelessWidget {
                 Icon(
                   Icons.credit_score,
                   color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+                  size: context.bbType.iconSm,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -34,7 +35,7 @@ class CardPendingSummary extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Text(
               '${CurrencyFormatter.format(totalPending)}원',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(

@@ -8,6 +8,8 @@ import 'package:budget_book/features/feedback/presentation/bloc/feedback_event.d
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_state.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_vote_button.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_status_badge.dart';
+import '../../../../core/theme/bb_scale.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 class PublicFeedbackBoardPage extends StatefulWidget {
   const PublicFeedbackBoardPage({super.key});
@@ -87,7 +89,7 @@ class _PublicFeedbackBoardPageState extends State<PublicFeedbackBoardPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(state.message),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             FilledButton(
               onPressed: () => _loadFeedbacks(),
               child: const Text('다시 시도'),
@@ -108,7 +110,7 @@ class _PublicFeedbackBoardPageState extends State<PublicFeedbackBoardPage> {
                 size: 64,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 '아직 피드백이 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge,
@@ -120,7 +122,9 @@ class _PublicFeedbackBoardPageState extends State<PublicFeedbackBoardPage> {
 
       return RefreshIndicator(
         onRefresh: () async => _loadFeedbacks(),
-        child: ListView.builder(
+        // ★항목 사이는 **호스트**가 소유한다.
+        child: ListView.separated(
+          separatorBuilder: (_, __) => const BbCardGap(),
           padding: const EdgeInsets.only(top: 4, bottom: 16),
           itemCount: state.feedbacks.length + (state.hasMore ? 1 : 0),
           itemBuilder: (context, index) {
@@ -239,7 +243,7 @@ class _FilterBar extends StatelessWidget {
       selected: active,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-      deleteIcon: active ? const Icon(Icons.close, size: 16) : null,
+      deleteIcon: active ? Icon(Icons.close, size: context.bbType.iconSm) : null,
       onDeleted: active
           ? () {
               if (label.contains('카테고리') || _isCategoryLabel(label)) {
@@ -345,7 +349,8 @@ class _PublicFeedbackCard extends StatelessWidget {
     final dateFormat = DateFormat('yyyy.MM.dd');
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // ★세로는 호스트가 갖는다(`BbCardGap`). 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -361,7 +366,7 @@ class _PublicFeedbackCard extends StatelessWidget {
                   FeedbackStatusBadge(status: feedback.status),
                 ],
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Text(
                 feedback.title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -370,7 +375,7 @@ class _PublicFeedbackCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              context.bbSpace.gapV(BbSpaceToken.xs),
               Text(
                 feedback.contentPreview,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -379,7 +384,7 @@ class _PublicFeedbackCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 children: [
                   Text(
@@ -400,7 +405,7 @@ class _PublicFeedbackCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Icon(
                       Icons.chat_bubble_outline,
-                      size: 14,
+                      size: context.bbType.iconSm,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 2),

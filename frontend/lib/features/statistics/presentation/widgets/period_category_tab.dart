@@ -36,7 +36,7 @@ class PeriodCategoryTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -68,8 +68,8 @@ class PeriodCategoryTab extends StatelessWidget {
                       : '',
                   color: color,
                   radius: 60,
-                  titleStyle: const TextStyle(
-                      fontSize: 11,
+                  titleStyle: TextStyle(
+                      fontSize: context.bbType.label,
                       fontWeight: FontWeight.bold,
                       color: Colors.white),
                 );
@@ -78,13 +78,14 @@ class PeriodCategoryTab extends StatelessWidget {
               sectionsSpace: 2,
             )),
           ),
-          const SizedBox(height: 24),
-          ...sorted.asMap().entries.map((entry) {
+          context.bbSpace.gapV(BbSpaceToken.block),
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context, sorted.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
             final color = _defaultColors[index % _defaultColors.length];
             return _CategoryListItem(item: item, color: color);
-          }),
+          }).toList()),
         ],
       ),
     );
@@ -116,7 +117,7 @@ class _CategoryListItem extends StatelessWidget {
               children: [
                 Text(item.categoryName,
                     style: Theme.of(context).textTheme.bodyLarge),
-                const SizedBox(height: 4),
+                context.bbSpace.gapV(BbSpaceToken.xs),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(

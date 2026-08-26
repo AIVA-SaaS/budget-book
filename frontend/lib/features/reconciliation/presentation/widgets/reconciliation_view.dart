@@ -17,6 +17,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// 정산 뷰 — 상단 "미기록", 하단 "스냅샷별 기록".
 ///
@@ -110,7 +111,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(state.message, textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   TextButton(
                     onPressed: () => context.read<ReconciliationBloc>().add(
                         LoadReconciliations(
@@ -218,7 +219,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                 onRemoveItems: (itemIds) =>
                     _confirmRemoveItems(context, s, itemIds),
               )),
-        const SizedBox(height: 88),
+        const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
       ],
     );
   }
@@ -391,7 +392,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.check_circle, size: 18),
+                  : Icon(Icons.check_circle, size: context.bbType.iconSm),
               label: Text(
                 _selectedCount == 0 ? '정산하기' : '선택 $_selectedCount건 정산하기',
               ),
@@ -426,23 +427,23 @@ class _ReconciliationViewState extends State<ReconciliationView> {
           children: [
             Text('선택한 $_selectedCount건을 정산 스냅샷으로 기록합니다.'),
             if (needsReviewCount > 0) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 children: [
                   Icon(Icons.warning_amber,
-                      size: 16, color: Colors.amber.shade800),
+                      size: context.bbType.iconSm, color: Colors.amber.shade800),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       '"확인/입력 필요" $needsReviewCount건이 포함됩니다',
                       style:
-                          TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                          TextStyle(fontSize: context.bbType.label, color: Colors.amber.shade900),
                     ),
                   ),
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             TextField(
               controller: controller,
               maxLength: 100,
@@ -613,11 +614,11 @@ class _UnrecordedHeader extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.warning_amber,
-                      size: 14, color: Colors.amber.shade800),
+                      size: context.bbType.iconSm, color: Colors.amber.shade800),
                   Text(
                     '${summary.needsReviewCount}',
                     style:
-                        TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                        TextStyle(fontSize: context.bbType.label, color: Colors.amber.shade900),
                   ),
                 ],
               ),
@@ -637,8 +638,8 @@ class _FullyReconciledBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         children: [
-          const Icon(Icons.verified, size: 36, color: Color(0xFF2E7D32)),
-          const SizedBox(height: 8),
+          Icon(Icons.verified, size: context.bbType.iconLg, color: const Color(0xFF2E7D32)),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             '이 달 정산 완료',
             style: Theme.of(context)
@@ -646,7 +647,7 @@ class _FullyReconciledBanner extends StatelessWidget {
                 .titleSmall
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 2),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Text(
             '미기록 항목이 없습니다',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -673,7 +674,7 @@ class _SnapshotSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          const Icon(Icons.history, size: 16),
+          Icon(Icons.history, size: context.bbType.iconSm),
           const SizedBox(width: 6),
           Text(
             '정산 기록 $count건',
@@ -822,20 +823,20 @@ class _SnapshotTileState extends State<_SnapshotTile> {
             }),
             icon: Icon(
               allSelected ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 16,
+              size: context.bbType.iconSm,
             ),
             label: Text(allSelected ? '선택 해제' : '항목 전체 선택'),
           ),
           TextButton.icon(
             onPressed: widget.onRename,
-            icon: const Icon(Icons.edit_outlined, size: 16),
+            icon: Icon(Icons.edit_outlined, size: context.bbType.iconSm),
             label: const Text('라벨 수정'),
           ),
           TextButton.icon(
             onPressed: _selectedItemIds.isEmpty
                 ? null
                 : () => widget.onRemoveItems(_selectedItemIds.toList()),
-            icon: const Icon(Icons.remove_circle_outline, size: 16),
+            icon: Icon(Icons.remove_circle_outline, size: context.bbType.iconSm),
             label: Text('선택 ${_selectedItemIds.length}건 정산 취소'),
           ),
           TextButton.icon(
@@ -843,7 +844,7 @@ class _SnapshotTileState extends State<_SnapshotTile> {
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            icon: const Icon(Icons.undo, size: 16),
+            icon: Icon(Icons.undo, size: context.bbType.iconSm),
             label: const Text('전체 정산 취소'),
           ),
         ],
@@ -884,7 +885,7 @@ class _SnapshotItemRow extends StatelessWidget {
           ),
           Icon(
             item.isTransfer ? Icons.swap_horiz : Icons.receipt_long,
-            size: 16,
+            size: context.bbType.iconSm,
             color: color,
           ),
         ],
@@ -912,7 +913,7 @@ class _SnapshotItemRow extends StatelessWidget {
                   '정산 당시 ${CurrencyFormatter.format(item.snapshotAmount)}원 → '
                   '현재 ${CurrencyFormatter.format(item.currentAmount ?? 0)}원',
               child: Icon(Icons.error_outline,
-                  size: 14, color: Colors.orange.shade900),
+                  size: context.bbType.iconSm, color: Colors.orange.shade900),
             ),
         ],
       ),

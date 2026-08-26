@@ -11,6 +11,7 @@ import 'package:budget_book/features/statistics/presentation/widgets/period_cate
 import 'package:budget_book/features/statistics/presentation/widgets/period_budget_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/period_payment_method_tab.dart';
 import 'package:budget_book/features/statistics/presentation/widgets/period_daily_tab.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class PeriodSummaryPage extends StatefulWidget {
   const PeriodSummaryPage({super.key});
@@ -107,9 +108,9 @@ class _PeriodSummaryPageState extends State<PeriodSummaryPage> {
                         children: [
                           const Icon(Icons.error_outline,
                               size: 48, color: Colors.red),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xxl),
                           Text(state.message, textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xxl),
                           FilledButton.icon(
                             onPressed: _loadData,
                             icon: const Icon(Icons.refresh),
@@ -223,7 +224,7 @@ class _SummaryCard extends StatelessWidget {
                           .onSurface
                           .withValues(alpha: 0.6),
                     )),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             isLoading
                 ? const SizedBox(
                     height: 16,

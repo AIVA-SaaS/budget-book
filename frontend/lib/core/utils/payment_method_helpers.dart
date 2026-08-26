@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:budget_book/core/theme/bb_colors.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Group labels for payment method types, used in selector sheet section headers.
 const paymentMethodGroupLabels = <String, String>{
@@ -52,7 +53,7 @@ Widget buildPaymentMethodTypeBadge(BuildContext context, String type) {
     child: Text(
       paymentMethodTypeLabel(type),
       style: TextStyle(
-        fontSize: 10,
+        fontSize: context.bbType.caption,
         fontWeight: FontWeight.bold,
         color: color,
       ),

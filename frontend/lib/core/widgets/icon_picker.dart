@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Categorized icon map for the picker UI.
 const Map<String, Map<String, IconData>> categorizedIcons = {
@@ -195,19 +196,19 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           Text(
             '아이콘 선택',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // Search field
           TextField(
             decoration: InputDecoration(
               hintText: '아이콘 검색',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              prefixIcon: Icon(Icons.search, size: context.bbType.iconSm),
               isDense: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -217,7 +218,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
             ),
             onChanged: (value) => setState(() => _searchQuery = value),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // Category chips
           SizedBox(
             height: 36,
@@ -239,7 +240,7 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // Icon grid
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -294,16 +295,16 @@ class _IconPickerSheetState extends State<_IconPickerSheet> {
                             children: [
                               Icon(
                                 entry.value,
-                                size: 24,
+                                size: context.bbType.iconMd,
                                 color: isSelected
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.onSurface,
                               ),
-                              const SizedBox(height: 4),
+                              context.bbSpace.gapV(BbSpaceToken.xs),
                               Text(
                                 entry.key.replaceAll('_', '\n'),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: 8,
+                                  fontSize: context.bbType.caption,
                                   color: isSelected
                                       ? theme.colorScheme.primary
                                       : theme.colorScheme.onSurface

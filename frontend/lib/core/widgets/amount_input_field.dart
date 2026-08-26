@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A reusable amount input field with +/- calculation buttons and a clear button.
 ///
@@ -131,7 +132,7 @@ class _ActionButton extends StatelessWidget {
       width: 32,
       height: 32,
       child: IconButton(
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: context.bbType.iconMd),
         tooltip: tooltip,
         onPressed: onPressed,
         padding: EdgeInsets.zero,

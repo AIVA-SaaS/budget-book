@@ -35,6 +35,7 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/core/widgets/balance_adjustment_sheet.dart';
 import 'package:budget_book/core/widgets/month_navigator.dart';
 import 'package:budget_book/features/payment_method/domain/entities/card_settlement_summary.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 /// Phase 25 후속 — 자산 탭의 [지출/수입] 토글과 카테고리 추가 dialog 사이 공유 state.
 /// _CategoryTab 이 토글 변경 시 갱신하고, FAB 의 _showAddCategory 가 읽어
@@ -243,7 +244,8 @@ class _AssetManagementPageState extends State<AssetManagementPage> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: context.bbSpace.only(bottom: BbSpaceToken.lg),
+
+                  margin: context.bbSpace.only(bottom: BbSpaceToken.lg),  // ui-fixed: 시트 드래그 핸들(40×4) — 카드가 아니다
                   decoration: BoxDecoration(
                     color: Theme.of(context)
                         .colorScheme
@@ -419,7 +421,7 @@ class _CategoryTabState extends State<_CategoryTab> {
         },
         builder: (context, state) {
           if (state is! CategoryGroupLoaded) {
-            return const Center(child: const CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
           final coupled = isCoupleMode();
           // type 별 필터링 — 사용자가 선택한 EXPENSE/INCOME 만 노출.
@@ -1396,7 +1398,9 @@ class _PocketTab extends StatelessWidget {
           );
         }
 
-        return ListView.builder(
+        // ★항목 사이는 **호스트**가 소유한다.
+        return ListView.separated(
+          separatorBuilder: (_, __) => const BbCardGap(),
           padding: EdgeInsets.fromLTRB(
             context.bbSpace.xl,
             context.bbSpace.xl,
@@ -1425,7 +1429,8 @@ class _PocketTab extends StatelessWidget {
     };
 
     return Card(
-      margin: context.bbSpace.only(bottom: BbSpaceToken.md),
+      // ★세로는 호스트가 갖는다(`BbCardGap`).
+      margin: EdgeInsets.zero,
       child: EntityTileRow(
         title: pocket.name,
         leadingIcon: UIHelpers.resolveIcon(pocket.icon,

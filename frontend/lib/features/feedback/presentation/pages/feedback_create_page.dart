@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_bloc.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_event.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/feedback_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class FeedbackCreatePage extends StatefulWidget {
   const FeedbackCreatePage({super.key});
@@ -76,7 +77,7 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
                 '카테고리',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 8,
                 children: _categories.map((cat) {
@@ -90,7 +91,7 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
@@ -105,7 +106,7 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               TextFormField(
                 controller: _contentController,
                 decoration: const InputDecoration(
@@ -123,7 +124,7 @@ class _FeedbackCreatePageState extends State<FeedbackCreatePage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               FilledButton(
                 onPressed: _submitting ? null : _submit,
                 child: _submitting

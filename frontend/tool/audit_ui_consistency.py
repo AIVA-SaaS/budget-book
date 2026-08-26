@@ -76,7 +76,7 @@ CLASSES = {
     "E": "ListTile 계열 — 타일 밀도 계약 밖",
     "F": "하드코딩 색",
     "G": "화면이 MediaQuery 폭을 직접 읽는다",
-    "H": "같은 역할에 값이 여러 종류 (토큰 사다리는 6종)",
+    "H": "같은 역할에 값이 여러 종류 (토큰 사다리는 7종 — 2026-08-26 `block` 신설)",
 }
 
 BASELINE = ROOT / "tool/ui_consistency_baseline.json"

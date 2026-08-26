@@ -209,7 +209,7 @@ class BbType {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 여백·간격 역할.
-enum BbSpaceToken { xs, sm, md, lg, xl, xxl }
+enum BbSpaceToken { xs, sm, md, lg, xl, xxl, block }
 
 /// 역할별 `(ref, min, max)`. `min`/`max` 는 **가독·기하 기준 px** 이다(비율이 아니다).
 ///
@@ -225,6 +225,7 @@ enum BbSpaceToken { xs, sm, md, lg, xl, xxl }
 /// sm  ← chipPaddingH    5   8 │  5.0   5.0   5.1   7.2   8.0   8.0
 /// xs  (앵커 없음)        3   4 │  3.0   3.0   3.0   3.6   4.0   4.0
 /// xxl (앵커 없음)       15  24 │ 15.0  15.0  15.3  21.5  24.0  24.0
+/// block ← 블록 사이     24  32 │ 24.0  24.0  24.0  28.6  32.0  32.0
 /// ```
 ///
 /// ⚠ 종전 판은 `base × sqrt(body(W)/14)` 였고 `body` 가 `13~15` 로 clamp 돼 있어
@@ -243,6 +244,19 @@ const Map<BbSpaceToken, ({double min, double max})> kBbSpaceSpec = {
   BbSpaceToken.lg: (min: 8, max: 12),
   BbSpaceToken.xl: (min: 10, max: 16),
   BbSpaceToken.xxl: (min: 15, max: 24),
+  // ★블록(카드·섹션) **사이**. 위 6단이 전부 컴포넌트 **내부** 축이라 블록 축을 표현할
+  // 수단이 없었다 `[측정 2026-08-26]` — 최대 토큰 `xxl` 이 15.30@390 인데 실제 블록
+  // 간격 리터럴은 16(160곳)·24(43곳)·32(25곳)였다.
+  //
+  // 앵커 유도: 리터럴 최빈값은 **16** 이지만 16 은 항목 사이 승인값 20.0 보다 좁아
+  // **서열 제약을 위반**한다(그 역전이 사용자가 본 "붙은 채로"의 원인이다). 그래서
+  // "서열을 만족하는 값 중 최빈" = **24**(43곳)를 하한으로, 상한은 콘텐츠 최대폭 960
+  // 에서 찍히도록 32 로 둔다. 하한 도달 폭 **540dp** 로 기존 토큰(346·375·427·960)과
+  // 달라 도메인 ★1 의 "전 축 동시 굳음" 을 피한다.
+  //
+  // ⚠ `region`(구획 사이) 은 **신설하지 않았다** — 사용자 결정(2026-08-26): 블록과
+  // 구획을 한 단으로 합친다. 그 결과 리터럴 32(25곳)가 24 로 8dp 축소된다.
+  BbSpaceToken.block: (min: 24, max: 32),
 };
 
 /// 폰트↔여백 결합 지수 — **부분 결합 = 제곱근**(calynda 2026-08-14 사용자 결정).
@@ -327,6 +341,7 @@ class BbSpace {
   double get lg => value(BbSpaceToken.lg);
   double get xl => value(BbSpaceToken.xl);
   double get xxl => value(BbSpaceToken.xxl);
+  double get block => value(BbSpaceToken.block);
 
   EdgeInsets all(BbSpaceToken token) => EdgeInsets.all(value(token));
 
@@ -435,6 +450,22 @@ enum BbBoxRole {
   /// 대조군 실측(변경 전): 통계>카테고리별 34.2/48.0 · 결제수단별 32.0/32.0 ·
   /// 전년비교 62.7/67.5 · 예산>주간카드 75.2/80.5 `[측정 2026-08-24]`.
   cardRowPadV,
+  /// **카드형 목록의 항목 사이 간격** — 호스트(목록)가 삽입한다.
+  ///
+  /// 왜 신설했나 `[측정 2026-08-26]`: 종전에는 이 값의 절반을 `BbCardTile` 의 **세로
+  /// 외부 margin**(`space.xs`)이 만들었다. 카드가 자기 밖의 간격을 소유하면 **블록 사이
+  /// 간격이 오염된다** — 보이는 블록 간격이 `spacer + 위 margin + 아래 margin` 의 합이
+  /// 되어 같은 `SizedBox(height: 16)` 이 16.00 · 26.00 · 36.00 으로 갈렸다
+  /// (비카드↔비카드 / 카드↔비카드 / 카드↔카드 @390).
+  ///
+  /// 그래서 **축마다 소유자 하나, 경계는 위젯 경계**로 바꿨다 — 카드는 자기 밖을
+  /// 소유하지 않고(세로 margin 0), 목록이 항목 사이를, 블록 컬럼이 블록 사이를 갖는다.
+  ///
+  /// 값은 **불변**이다: 잉크 사이 = `이 값 + 2 × cardRowPadV` = `8 + 2×6 = 20.0 @390`
+  /// · `8 + 2×8.5 = 25.0 @960` — 종전 승인값과 같다. `xs` 가 폭 상수(4.0)라 `2 × xs` 도
+  /// 상수 **8.0** 이고, 그래서 두 앵커를 동시에 지나갈 수 있다(어떤 폭 곡선도 두 지점을
+  /// 동시에 지나가지 못한다).
+  cardItemGap,
 }
 
 /// 자산 탭 승인값(compact = 하한 / wide = 상한). 상한은 960px 에서 찍힌다.
@@ -465,6 +496,8 @@ const Map<BbBoxRole, ({double min, double max})> kBbBoxSpec = {
   BbBoxRole.listRowMinHeight: (min: 34, max: 41),
   // 사이(카드) = 2 × (space.xs + cardRowPadV) = 2 × (4 + 6) = 20.0 @390 · 25.0 @960.
   BbBoxRole.cardRowPadV: (min: 6, max: 8.5),
+  // 2 × xs. 폭 상수 8.0 — 20.0@390 과 25.0@960 을 동시에 지나가는 유일한 형태다.
+  BbBoxRole.cardItemGap: (min: 8, max: 8),
 };
 
 /// 슬롯·크롬 치수. 계단(`width < 600 ? … : …`)을 대체한다 — 새 폭 분기는
@@ -494,6 +527,7 @@ class BbBox {
   double get listRowPadV => size(BbBoxRole.listRowPadV);
   double get listRowMinHeight => size(BbBoxRole.listRowMinHeight);
   double get cardRowPadV => size(BbBoxRole.cardRowPadV);
+  double get cardItemGap => size(BbBoxRole.cardItemGap);
 
   @override
   bool operator ==(Object other) => other is BbBox && other.width == width;

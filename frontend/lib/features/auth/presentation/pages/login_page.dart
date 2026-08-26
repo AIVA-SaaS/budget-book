@@ -11,6 +11,7 @@ import 'package:budget_book/core/constants/api_endpoints.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:budget_book/features/auth/presentation/bloc/auth_state.dart';
 import 'package:budget_book/features/auth/presentation/widgets/social_login_button.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -51,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
                   size: 80,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(height: 24),
+                context.bbSpace.gapV(BbSpaceToken.block),
                 Text(
                   'Budget Book',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -59,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                 ),
-                const SizedBox(height: 32),
+                context.bbSpace.gapV(BbSpaceToken.block),
                 const CircularProgressIndicator(),
               ],
             ),
@@ -77,14 +78,14 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 60),  // ui-fixed: 로그인 히어로 여백 — SingleChildScrollView 안이라 L0(Spacer) 불가, 큰 여백이 의도(§6-4)
                     // App icon
                     Icon(
                       Icons.account_balance_wallet_rounded,
                       size: 80,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(height: 24),
+                    context.bbSpace.gapV(BbSpaceToken.block),
                     // App title
                     Text(
                       'Budget Book',
@@ -94,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                     ),
-                    const SizedBox(height: 8),
+                    context.bbSpace.gapV(BbSpaceToken.lg),
                     // Subtitle
                     Text(
                       '스마트 가계부',
@@ -105,11 +106,11 @@ class _LoginPageState extends State<LoginPage> {
                                 .withValues(alpha: 0.6),
                           ),
                     ),
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 60),  // ui-fixed: 로그인 히어로 여백 — SingleChildScrollView 안이라 L0(Spacer) 불가, 큰 여백이 의도(§6-4)
                     // Server wake-up status
                     if (_isWakingServer) ...[
                       _buildWakeUpIndicator(),
-                      const SizedBox(height: 24),
+                      context.bbSpace.gapV(BbSpaceToken.block),
                     ],
                     // Google login button
                     SocialLoginButton(
@@ -124,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
                                 '${ApiEndpoints.baseUrl}${ApiEndpoints.authGoogle}',
                               ),
                     ),
-                    const SizedBox(height: 16),
+                    context.bbSpace.gapV(BbSpaceToken.xxl),
                     // Kakao login button
                     SocialLoginButton(
                       providerName: '카카오',
@@ -138,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
                                 '${ApiEndpoints.baseUrl}${ApiEndpoints.authKakao}',
                               ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 40),  // ui-fixed: 로그인 히어로 여백 — SingleChildScrollView 안이라 L0(Spacer) 불가, 큰 여백이 의도(§6-4)
                     // Footer text
                     Text(
                       '소셜 계정으로 간편하게 시작하세요',
@@ -149,7 +150,7 @@ class _LoginPageState extends State<LoginPage> {
                                 .withValues(alpha: 0.5),
                           ),
                     ),
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 60),  // ui-fixed: 로그인 히어로 여백 — SingleChildScrollView 안이라 L0(Spacer) 불가, 큰 여백이 의도(§6-4)
                   ],
                 ),
               ),

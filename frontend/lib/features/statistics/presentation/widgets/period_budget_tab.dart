@@ -22,7 +22,7 @@ class PeriodBudgetTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 예산 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -34,7 +34,10 @@ class PeriodBudgetTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
+    // ★항목 사이는 **호스트**가 소유한다 — 카드는 자기 밖을 소유하지 않으므로
+    // `.builder` 가 아니라 `.separated` 로 사이를 명시한다.
+    return ListView.separated(
+      separatorBuilder: (_, __) => const BbCardGap(),
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -79,7 +82,7 @@ class PeriodBudgetTab extends StatelessWidget {
                       child: Text(
                         '초과',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.bbType.label,
                           color: Theme.of(context).colorScheme.error,
                           fontWeight: FontWeight.bold,
                         ),
@@ -87,7 +90,7 @@ class PeriodBudgetTab extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
@@ -97,7 +100,7 @@ class PeriodBudgetTab extends StatelessWidget {
                   minHeight: 8,
                 ),
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -111,7 +114,7 @@ class PeriodBudgetTab extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              context.bbSpace.gapV(BbSpaceToken.xs),
               Text(
                 '남은 금액: ${CurrencyFormatter.format(item.remaining)}원',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

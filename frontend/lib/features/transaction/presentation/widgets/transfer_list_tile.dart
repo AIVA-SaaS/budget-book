@@ -4,6 +4,7 @@ import 'package:budget_book/core/widgets/excluded_from_totals_badge.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/transaction/presentation/utils/ledger_totals_exclusion.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// A list tile for displaying a transfer in the unified transaction list.
 /// Styled with blue/teal accent to distinguish from income/expense transactions.
@@ -36,10 +37,10 @@ class TransferListTile extends StatelessWidget {
             CircleAvatar(
               radius: 16,
               backgroundColor: transferColor.withValues(alpha: 0.15),
-              child: const Icon(
+              child: Icon(
                 Icons.swap_horiz,
                 color: transferColor,
-                size: 16,
+                size: context.bbType.iconSm,
               ),
             ),
             // ★2026-08-24 (6차) — 거래 타일과 **같은 선행 계약**(아바타만)으로 맞췄다.
@@ -82,7 +83,7 @@ class TransferListTile extends StatelessWidget {
               .colorScheme
               .onSurface
               .withValues(alpha: 0.5),
-          fontSize: 12,
+          fontSize: context.bbType.label,
         ),
       ),
       trailing: Column(
@@ -101,7 +102,7 @@ class TransferListTile extends StatelessWidget {
             Text(
               '${CurrencyFormatter.format(runningTotal!)}원',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: context.bbType.caption,
                 color: Theme.of(context)
                     .colorScheme
                     .onSurface

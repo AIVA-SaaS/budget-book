@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class AppInfoPage extends StatelessWidget {
   const AppInfoPage({super.key});
@@ -18,7 +19,7 @@ class AppInfoPage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // App icon / logo
           Center(
             child: Container(
@@ -30,12 +31,12 @@ class AppInfoPage extends StatelessWidget {
               ),
               child: Icon(
                 Icons.account_balance_wallet,
-                size: 40,
+                size: context.bbType.iconLg,
                 color: theme.colorScheme.primary,
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Center(
             child: Text(
               'Budget Book',
@@ -44,7 +45,7 @@ class AppInfoPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Center(
             child: Text(
               'v$_version',
@@ -53,7 +54,7 @@ class AppInfoPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
@@ -66,22 +67,22 @@ class AppInfoPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('개인정보 처리방침'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
+            trailing: Icon(Icons.open_in_new, size: context.bbType.iconSm),
             onTap: () => _launchUrl(_privacyUrl),
           ),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('이용약관'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
+            trailing: Icon(Icons.open_in_new, size: context.bbType.iconSm),
             onTap: () => _launchUrl(_termsUrl),
           ),
           const Divider(),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -97,7 +98,7 @@ class AppInfoPage extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
         ],
       ),
     );

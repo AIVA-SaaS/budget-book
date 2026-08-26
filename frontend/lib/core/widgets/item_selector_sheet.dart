@@ -5,6 +5,7 @@ import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
+import '../../core/theme/bb_scale.dart';
 
 class SelectorItem {
   final String id;
@@ -226,7 +227,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                           ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: Icon(Icons.close, size: context.bbType.iconMd),
                       onPressed: () => Navigator.of(context).pop(),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -253,13 +254,13 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                             child: Row(
                               children: [
-                                const Icon(Icons.star, size: 16, color: Colors.amber),
+                                Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                                 const SizedBox(width: 6),
                                 Text(
                                   '즐겨찾기',
                                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                        fontSize: context.bbType.body,
                                       ),
                                 ),
                               ],
@@ -275,14 +276,14 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                                   final selected = _tempSelectedIds.contains(item.id);
                                   return FilterChip(
                                     label: Text(item.label),
-                                    avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                                    avatar: Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                                     selected: selected,
                                     onSelected: (_) => _toggleItem(item.id),
                                   );
                                 }
                                 return ActionChip(
                                   label: Text(item.label),
-                                  avatar: const Icon(Icons.star, size: 14, color: Colors.amber),
+                                  avatar: Icon(Icons.star, size: context.bbType.iconSm, color: Colors.amber),
                                   onPressed: () {
                                     widget.onSelected!(item);
                                     Navigator.of(context).pop();
@@ -300,7 +301,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                               backgroundColor: Theme.of(context)
                                   .colorScheme
                                   .surfaceContainerHighest,
-                              child: const Icon(Icons.block, size: 20),
+                              child: Icon(Icons.block, size: context.bbType.iconSm),
                             ),
                             title: Text(widget.nullLabel),
                             selected: widget.selectedId == null,
@@ -342,7 +343,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                               child: Icon(
                                 Icons.add,
                                 color: Theme.of(context).colorScheme.primary,
-                                size: 20,
+                                size: context.bbType.iconSm,
                               ),
                             ),
                             title: Text(
@@ -534,7 +535,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                   child: Icon(
                     item.leadingIcon ?? Icons.label,
                     color: item.leadingColor ?? Colors.grey,
-                    size: 20,
+                    size: context.bbType.iconSm,
                   ),
                 ),
               ],
@@ -545,7 +546,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
               child: Icon(
                 item.leadingIcon ?? Icons.label,
                 color: item.leadingColor ?? Colors.grey,
-                size: 20,
+                size: context.bbType.iconSm,
               ),
             ),
       title: Text(item.label),
@@ -571,7 +572,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                 padding: const EdgeInsets.all(4),
                 child: Icon(
                   isFavorite ? Icons.star : Icons.star_outline,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: isFavorite
                       ? Colors.amber
                       : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
@@ -589,7 +590,7 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
                 padding: const EdgeInsets.all(4),
                 child: Icon(
                   Icons.edit_outlined,
-                  size: 18,
+                  size: context.bbType.iconSm,
                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
               ),
@@ -598,14 +599,14 @@ class _ItemSelectorSheetState extends State<ItemSelectorSheet> {
             Icon(
               Icons.check,
               color: Theme.of(context).colorScheme.primary,
-              size: 20,
+              size: context.bbType.iconSm,
             ),
           // Delete button — hidden in multi mode (filter context)
           if (item.isDeletable && widget.onDelete != null && !_isMulti)
             IconButton(
               icon: Icon(
                 Icons.delete_outline,
-                size: 20,
+                size: context.bbType.iconMd,
                 color: Theme.of(context).colorScheme.error,
               ),
               tooltip: '삭제',

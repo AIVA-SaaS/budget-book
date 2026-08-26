@@ -25,6 +25,7 @@ import 'package:budget_book/features/insurance/presentation/bloc/insurance_bloc.
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_event.dart';
 import 'package:budget_book/features/insurance/presentation/bloc/insurance_state.dart';
 import 'package:budget_book/features/insurance/presentation/widgets/insurance_card.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class InsuranceFormPage extends StatefulWidget {
   final String? insuranceId;
@@ -317,7 +318,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                 prefixIcon: const Icon(Icons.play_arrow),
                 suffixIcon: _startDate != null
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: Icon(Icons.clear, size: context.bbType.iconMd),
                         onPressed: () => setState(() => _startDate = null),
                       )
                     : null,
@@ -336,7 +337,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 2. Premium amount (required)
           TextFormField(
             controller: _premiumController,
@@ -358,7 +359,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 3. Insurance name (required)
           TextFormField(
             controller: _nameController,
@@ -373,7 +374,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // 4. Insurer
           TextFormField(
             controller: _insurerController,
@@ -384,7 +385,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             ),
             maxLength: 100,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // 5. Insurance type dropdown
           DropdownButtonFormField<String>(
             initialValue: _insuranceType,
@@ -400,7 +401,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                         children: [
                           Icon(
                             insuranceTypeIcon(e.$1),
-                            size: 18,
+                            size: context.bbType.iconSm,
                             color: insuranceTypeColor(e.$1),
                           ),
                           const SizedBox(width: 8),
@@ -413,7 +414,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               if (value != null) setState(() => _insuranceType = value);
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 6. Payment day
           TextFormField(
             controller: _paymentDayController,
@@ -436,7 +437,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Payment cycle dropdown
           DropdownButtonFormField<String>(
             initialValue: _paymentCycle,
@@ -455,7 +456,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               if (value != null) setState(() => _paymentCycle = value);
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 7. Payment method selector
           ItemSelectorField(
             label: '결제수단',
@@ -466,7 +467,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             placeholder: '선택 안 함',
             onTap: () => _showPaymentMethodSelectorSheet(context, methods),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 8. Category selector
           ItemSelectorField(
             label: '카테고리',
@@ -477,7 +478,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             placeholder: '선택 안 함',
             onTap: () => _showCategorySelectorSheet(context),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 9. End date
           InkWell(
             onTap: () => _selectDate(isStart: false),
@@ -487,7 +488,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
                 prefixIcon: const Icon(Icons.stop),
                 suffixIcon: _endDate != null
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: Icon(Icons.clear, size: context.bbType.iconMd),
                         onPressed: () => setState(() => _endDate = null),
                       )
                     : null,
@@ -506,7 +507,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 10. Memo
           TextFormField(
             controller: _memoController,
@@ -516,7 +517,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // 11. Visibility
           DropdownButtonFormField<String>(
             initialValue: _visibility,
@@ -533,7 +534,7 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
               if (value != null) setState(() => _visibility = value);
             },
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Submit button
           FilledButton(
             onPressed: _isSubmitting ? null : _submit,

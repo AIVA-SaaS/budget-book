@@ -115,7 +115,7 @@ class _CouplePageState extends State<CouplePage> {
             size: 80,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '개인 가계부로 사용 중',
             textAlign: TextAlign.center,
@@ -123,7 +123,7 @@ class _CouplePageState extends State<CouplePage> {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             '파트너와 함께 사용하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요',
             textAlign: TextAlign.center,
@@ -134,7 +134,7 @@ class _CouplePageState extends State<CouplePage> {
                       .withValues(alpha: 0.6),
                 ),
           ),
-          const SizedBox(height: 40),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Generate invitation
           BbWideButton(
             label: '파트너 초대하기',
@@ -143,15 +143,15 @@ class _CouplePageState extends State<CouplePage> {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           const Divider(),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Accept invitation
           Text(
             '초대 코드 입력',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           TextField(
             controller: _codeController,
             textCapitalization: TextCapitalization.characters,
@@ -162,7 +162,7 @@ class _CouplePageState extends State<CouplePage> {
               counterText: '',
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           OutlinedButton(
             onPressed: () {
               final code = _codeController.text.trim();
@@ -177,7 +177,7 @@ class _CouplePageState extends State<CouplePage> {
             ),
             child: const Text('코드로 연결'),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Skip — go home
           TextButton(
             onPressed: () {
@@ -202,7 +202,7 @@ class _CouplePageState extends State<CouplePage> {
             size: 80,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '파트너와 연결하세요',
             textAlign: TextAlign.center,
@@ -210,7 +210,7 @@ class _CouplePageState extends State<CouplePage> {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             '초대 코드를 생성하거나 파트너의 코드를 입력하세요',
             textAlign: TextAlign.center,
@@ -221,7 +221,7 @@ class _CouplePageState extends State<CouplePage> {
                       .withValues(alpha: 0.6),
                 ),
           ),
-          const SizedBox(height: 40),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Generate invitation
           BbWideButton(
             label: '초대 코드 생성',
@@ -230,15 +230,15 @@ class _CouplePageState extends State<CouplePage> {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           const Divider(),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Accept invitation
           Text(
             '초대 코드 입력',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           TextField(
             controller: _codeController,
             textCapitalization: TextCapitalization.characters,
@@ -249,7 +249,7 @@ class _CouplePageState extends State<CouplePage> {
               counterText: '',
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           OutlinedButton(
             onPressed: () {
               final code = _codeController.text.trim();
@@ -275,9 +275,9 @@ class _CouplePageState extends State<CouplePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           InvitationCodeWidget(invitation: invitation),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '파트너에게 위 코드를 공유하세요.\n파트너가 코드를 입력하면 자동으로 연결됩니다.',
             textAlign: TextAlign.center,
@@ -288,7 +288,7 @@ class _CouplePageState extends State<CouplePage> {
                       .withValues(alpha: 0.6),
                 ),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           BbWideButton(
             label: '연결 상태 확인',
             icon: Icons.refresh,
@@ -296,7 +296,7 @@ class _CouplePageState extends State<CouplePage> {
               context.read<CoupleBloc>().add(const CheckInvitationStatus());
             },
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           TextButton(
             onPressed: () {
               context.read<CoupleBloc>().add(const GenerateInvitation());
@@ -314,13 +314,13 @@ class _CouplePageState extends State<CouplePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Icon(
             Icons.timer_off,
             size: 80,
             color: Theme.of(context).colorScheme.error.withValues(alpha: 0.7),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           Text(
             '초대 코드가 만료되었습니다',
             textAlign: TextAlign.center,
@@ -328,7 +328,7 @@ class _CouplePageState extends State<CouplePage> {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Show expired code (dimmed, strikethrough)
           Center(
             child: Container(
@@ -354,7 +354,7 @@ class _CouplePageState extends State<CouplePage> {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           BbWideButton(
             label: '새 코드 발급',
             icon: Icons.add_link,
@@ -362,15 +362,15 @@ class _CouplePageState extends State<CouplePage> {
               context.read<CoupleBloc>().add(const GenerateInvitation());
             },
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           const Divider(),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Accept invitation section (connect with partner's code)
           Text(
             '초대 코드 입력',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           TextField(
             controller: _codeController,
             textCapitalization: TextCapitalization.characters,
@@ -381,7 +381,7 @@ class _CouplePageState extends State<CouplePage> {
               counterText: '',
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           OutlinedButton(
             onPressed: () {
               final code = _codeController.text.trim();
@@ -412,7 +412,7 @@ class _CouplePageState extends State<CouplePage> {
             size: 60,
             color: Theme.of(context).colorScheme.primary,
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           Text(
             '파트너 연결 완료',
             textAlign: TextAlign.center,
@@ -420,9 +420,9 @@ class _CouplePageState extends State<CouplePage> {
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           CoupleInfoWidget(partner: couple.partner),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Navigate to home
           BbWideButton(
             label: '홈으로 이동',
@@ -433,7 +433,7 @@ class _CouplePageState extends State<CouplePage> {
               context.go('/home');
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           OutlinedButton.icon(
             onPressed: () => _showDissolveDialog(context),
             icon: const Icon(Icons.link_off, color: Colors.red),

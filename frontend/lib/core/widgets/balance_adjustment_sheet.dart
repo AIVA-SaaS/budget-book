@@ -11,6 +11,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Bottom sheet for adjusting a payment method's balance.
 ///
@@ -192,21 +193,21 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Title
             Text(
               '잔액 수정',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               widget.paymentMethodName,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 20),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Current balance (read-only)
             Text(
@@ -215,12 +216,12 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               '${CurrencyFormatter.format(widget.currentBalance)}원',
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 20),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Actual balance input
             CalculatorAmountField(
@@ -239,20 +240,20 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Mode toggle — 통계 포함(수입/지출 기록) vs 미포함(잔액만 조정)
             SegmentedButton<_AdjustmentMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _AdjustmentMode.recordAsTransaction,
-                  label: Text('수입/지출 기록', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.swap_vert, size: 16),
+                  label: Text('수입/지출 기록', style: TextStyle(fontSize: context.bbType.label)),
+                  icon: Icon(Icons.swap_vert, size: context.bbType.iconSm),
                 ),
                 ButtonSegment(
                   value: _AdjustmentMode.adjustOnly,
-                  label: Text('잔액만 조정', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.tune, size: 16),
+                  label: Text('잔액만 조정', style: TextStyle(fontSize: context.bbType.label)),
+                  icon: Icon(Icons.tune, size: context.bbType.iconSm),
                 ),
               ],
               selected: {_mode},
@@ -262,7 +263,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 }
               },
             ),
-            const SizedBox(height: 6),
+            context.bbSpace.gapV(BbSpaceToken.md),
             Text(
               _mode == _AdjustmentMode.recordAsTransaction
                   ? '월 수입/지출 통계에 반영됩니다.'
@@ -271,7 +272,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Diff preview
             if (_actualBalance != null && _diff != 0)
@@ -300,7 +301,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                       child: Text(
                         _previewText(),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: context.bbType.section,
                           fontWeight: FontWeight.w600,
                           color: _mode == _AdjustmentMode.adjustOnly
                               ? Colors.grey.shade800
@@ -321,12 +322,12 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
+                    Icon(Icons.check_circle, size: context.bbType.iconSm, color: Colors.green.shade700),
                     const SizedBox(width: 8),
                     Text(
                       '현재 잔액과 동일합니다',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.bbType.section,
                         fontWeight: FontWeight.w600,
                         color: Colors.green.shade700,
                       ),
@@ -334,7 +335,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                   ],
                 ),
               ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Memo (optional) — Dialog 통합 시 이관된 메모 입력.
             TextFormField(
@@ -348,7 +349,7 @@ class _BalanceAdjustmentSheetState extends State<BalanceAdjustmentSheet> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
 
             // Submit button
             SizedBox(
