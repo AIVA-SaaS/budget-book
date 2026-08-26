@@ -613,3 +613,360 @@
      `\xNN`** 로 인코딩된다. 처음 `·` 포함 문구가 0건으로 나와 대조군 실험으로 방법 결함을 찾았다
      (메모리 `reference_live_bundle_string_verification` 보강 대상)
 
+38. **2026-08-13** — PR #297 원격 CI 통과 → 머지 → 배포 성공 → **서버 측 검증 완료.
+   남은 것은 사용자 라이브 검증.**
+   - 원격 CI: `backend-ci` pass(4m23s) / `frontend-ci` pass(3m16s) → squash 머지 + 브랜치 삭제
+   - main `027e8f7` · deploy-nas run **31657145604 success**
+     (changes / deploy-frontend / deploy-backend / **verify-live 전부 success**;
+     nginx 변경 없어 sync-nginx skipped)
+   - **라이브 번들 측정**(`main.dart.js`, 5,495,549 B): escaped 대조 —
+     `합계 제외` 1건 · `잔액 수정은 수입·지출 합계에 포함되지 않습니다` 1건 ·
+     `카드 정산은 원본 지출로 이미 집계되었습니다` 1건. 이 세 문구는 이번 PR 에서 처음
+     생긴 것이라 **번들 신원 자체가 이번 배포임을 증명**한다. `last-modified` 01:18:30 GMT
+   - BE 컨테이너 재기동 확인(`bb_app` StartedAt 01:18:50) · 기동 로그 **에러 0건** ·
+     Flyway "Successfully validated 64 migrations / schema 65 up to date"
+     (이번 회차는 스키마 변경이 없으므로 마이그레이션 없음이 정상)
+   - **주의**: 인증이 필요한 API 는 서버에서 직접 호출해 확인하지 않았다. 수치 정확성은
+     실 PostgreSQL 계약 테스트(축 조합 15건)가 담보하며, 화면 확인은 사용자 몫이다
+
+39. **2026-08-13** — 다음 회차 **"자산 탭 모바일 가독성 + 브랜드 색상 체계" 기획 완료**(승인 대기).
+   코드 변경 0줄. #297 라이브 검증은 여전히 미완이며 이 회차는 그 검증 통과 후 착수한다.
+   - 산출물: `docs/sessions/2026-08-13_1_asset-tab-mobile-theme_plan.md`
+   - 하네스 게이트: `ui_pattern` → **STRUCTURAL_FIX_REQUIRED**(과거 인시던트 4건).
+     해제 근거는 기획서 §5 S1~S7. **acknowledge 는 승인 후 실행**(현재 frontend 편집 잠김)
+   - 측정(hard evidence):
+     ① 360dp 에서 결제수단 한 행의 고정 크롬 **236dp** / 콘텐츠 잔여 **124dp**
+     ② `Transform.scale(0.85)` 는 레이아웃 폭을 줄이지 않는다 —
+        Switch 는 여전히 52dp(`switch.dart:2370 switchWidth => 52.0`).
+        2026-05-04 의 "컴팩트화" 는 폭 압박을 전혀 완화하지 못했다
+     ③ 하드코딩 팔레트 색 **324건 / 71파일** vs 의미 토큰(`AppColors`) **3건 / 2파일**
+        → 씨드만 바꿔도 다크는 안 고쳐진다
+     ④ 반응형 헬퍼(`isMobile`/브레이크포인트) **0건**, `textScaler` 취급 0건
+     ⑤ 사용자 지정 색 경로 `UIHelpers.parseColor` **19곳**(다크 명도 보정 단일 지점 후보)
+     ⑥ "저장 & 계속" 은 `_resetFormForContinue()` 가 스크롤을 건드리지 않고 폼
+        `SingleChildScrollView` 에 컨트롤러가 없다 → 하단 위치 유지. 지출/수입 탭이
+        TabBarView 로 동시 생존하므로 컨트롤러는 탭별 1개
+   - 도달성 확인: 자산 탭(`/assets`) + 더보기(`/asset-management`) 가 **같은 페이지** →
+     한 번 수정으로 두 경로 반영. `AccountBalanceCard` 는 분석>예산에서 라이브.
+     ⚠ `PaymentMethodPage`(`/payment-methods`) 와 `CategoryPage`(`/categories`) 는
+     진입점이 죽은 홈 화면뿐이라 **도달 불가 → 작업 대상 제외**
+   - 사용자 판정 3건 확정: 메인 색상 **틸 #0F766E**(다크 #5ED3C4) / 타일 **편집 모드 분리** /
+     범위 **자산 탭 + 자산 현황 카드 + 테마 토큰(전역) + 저장&계속 fix**(나머지 68파일은 래칫)
+
+40. **2026-08-13** — 기획 **승인 확정**. 사용자가 **#297 라이브 검증을 먼저** 수행하기로 →
+   코드 변경은 그 결과 수신 후 착수(현재 0줄, frontend 게이트 LOCKED 유지 · acknowledge 미실행).
+   - 결정: 착수 전제 = #297 A1~A11 검증 결과 수신. 검증 실패 항목이 있으면 그 fix 가 우선이다
+   - **U1 선행 측정 완료(해소)**: 통계 위젯 9개 중 `colorScheme.primary` 의존은
+     `period_budget_tab.dart` **1건**뿐 → 사전 판정 기준대로 **차트는 이번 회차 미변경**.
+     씨드를 틸로 바꿔도 차트 판독성은 흔들리지 않는다
+   - **U1 부수 발견(후속 대기열로 이관)**: 차트는 시리즈 팔레트를 파일마다 복제하고
+     (`_defaultColors` 10색이 3파일 중복 + `payment_method_stats_tab` 은 별도 `_colors`),
+     **차트 수입 = 그린(#4CAF50) vs 장부 수입 = 블루** 불일치가 기존부터 있다.
+     이번 회차에서 만드는 `BbColors` 에 `series` 토큰을 얹는 것이 다음 단계
+   - **근거 정정**: 기획서 §2.3 의 "의미 토큰 3건/2파일" 은 실사용 기준으로 정정 —
+     `AppColors.primary` 2건(둘 다 씨드)만 살아 있고 `income/expense/budget/savings` 4개는
+     **참조 0건**. 의미 색 체계는 선언만 있고 화면에 연결된 적이 없다
+   - 산출물 갱신: 기획서 §3 U1 해소 · §2.3 정정 · **§13 후속 대기열 신설**(차트 색 통일 /
+     하드코딩 래칫 축소 / 죽은 화면 6개 정리)
+
+41. **2026-08-13** — 🎉 **"합계 ≠ 행" 회차 종결 — 사용자 라이브 검증 A1~A11 전부 통과 = 완료.**
+   - 산출물: `docs/sessions/2026-08-13_2_summary-row-mismatch_result.md`(결과 정본) +
+     knowledge 캐시 `ledger-summary-row-single-source.md`(재사용 패턴)
+   - 검증 범위: A1 기간 이체 누락 / A2 합계=행 / A3 결제수단 다중 / A4 금액 / A5 검색어 /
+     A6 카테고리·포켓·확인필요·개인 4축 각각 / A7 이체 단독 / A8 지출+이체 / A9 "합계 제외" 배지 /
+     A10 사이드이펙트 / A11 분석 탭 — **전부 PASS**
+   - **검증 과정 오판 1건(코드 결함 아님)**: 첫 A1 보고는 실패(이체 1,008,648원)였는데
+     스크린샷에 **"오프라인 - 실시간 동기화 중단" 배너**가 떠 있었다. 재연결 후 통과.
+     오프라인이면 이전 데이터가 그대로 보여 **배포 미반영과 증상이 동일**하고,
+     서버 측 검증(번들 last-modified·verify-live)으로는 걸러지지 않는다
+     → **재발 방지: 라이브 검증 체크리스트 0단계에 "오프라인 배너 없음 확인" 고정.**
+     메모리 `feedback_live_verification_online_precheck` 등록
+   - **문서 오류 2건 정정**(검증 지시서를 쓰다 측정으로 발견):
+     ① 기획서 §8 A10 의 "이체 목록 화면"(`/transfers`)은 **도달 불가** — 유일 진입점이 죽은
+     `PaymentMethodPage`. 대체 경로 = 장부에서 이체 행 탭(`transferEditRoute`).
+     카드정산 화면은 **거래 탭 신용카드 1개 필터 시 나타나는 "결제" FAB** 로 도달
+     ② 필터 시트 순서는 유형 → 공개 범위 → 기간 → **금액** → 카테고리 → 결제수단 → 포켓 →
+     확인/입력 필요만이고, 진입 아이콘은 깔때기가 아니라 **`tune`(슬라이더)**
+     → 메모리 `reference_dead_home_dashboard` 에 "죽은 화면이 끌고 내려간 화면들" 절 추가
+   - 후속으로 이관: `/transfers` 진입점 부활 여부 · 차트 수입 그린 vs 장부 수입 블루 불일치 ·
+     죽은 화면 6개 정리(결과 문서 §9)
+
+42. **2026-08-13** — 자산 탭 회차 **착수**: 하네스 게이트 해제 + **커밋 1(토큰/테마 기반) 완료**.
+   - 게이트: `acknowledge-gate.sh frontend <기획서>` 실행 → `ui_pattern`
+     STRUCTURAL_FIX_REQUIRED **acknowledged**(frontend 편집 허용). 브랜치
+     `feat/asset-tab-mobile-theme`
+   - 산출물: `core/theme/bb_colors.dart`(BbColors ThemeExtension — 브랜드 틸 씨드 `#0F766E` /
+     다크 `#5ED3C4` + 의미 토큰 7종의 `color·container·onContainer` 삼중쌍 + 결제수단 타입색 5종 +
+     `readable()` HSL 명도 클램프 + WCAG 명도비·색상거리 계산) / `core/theme/bb_density.dart`
+     (compact<400 / regular / wide≥840, `MediaQuery.sizeOf` 단일 독점 지점) /
+     `core/widgets/one_line_label.dart`(String 봉인 + TextPainter 이진탐색 4회 + 프레임 메모이즈,
+     **금액 축약 없음**) / `app_theme.dart`(씨드 교체 + `extensions:` 주입, light·dark primary 명시
+     override) / `app_colors.dart` `@Deprecated` 위임
+   - 게이트 결과: 신규 테스트 41건 + 기존 936건 = **`flutter test` 977건 전부 통과**
+     (씨드 변경이 기존 위젯 테스트를 하나도 깨지 않음 — R3 전역 영향 1차 확인)
+   - **측정으로 확정된 값 2건**(사전 판정 기준 §3 U3 적용):
+     ① 수입 블루는 `#2196F3`(hue 206.6°, 틸과 31.3° 차 → 기준 40° 미달)을 버리고 **`#2563EB`**
+     (hue 221.2°, 45.9° 차)로 이동
+     ② 지출 레드는 M3 `error` 와 hue 차가 0°라 **로즈 계열 `#D11440`**(hue 346°, error 와 18° 차).
+     최초 후보 `#E11D48` 은 **M3 라이트 surface 가 순백이 아니라서** 명도비 4.47:1 로
+     4.5 기준 **미달 → 자동 테스트가 반려** → 한 단계 어둡게 재선정(측정이 색을 결정한 사례)
+   - 판정 근거: `bb_colors_contrast_test.dart` 가 라이트·다크 각각 토큰 전수(본문 4.5 / 아이콘 3.0)
+     + 브랜드-수입-지출 hue 거리 + error 충돌을 **자동 측정**. 미달 토큰은 채택 불가
+
+43. **2026-08-13** — **커밋 2(공통 타일 + 편집 모드 스코프) 완료.**
+   - 산출물: `core/widgets/entity_tile_row.dart`(ListTile 을 쓰지 않는 자체 타일 —
+     `title: String` 봉인, 뱃지·메트릭·액션 전부 값 타입) /
+     `core/widgets/asset_edit_mode_scope.dart`(InheritedNotifier — 편집 모드 켜짐이
+     페이지 전체가 아니라 타일만 리빌드) / `bb_density.toggleSlotWidth` 추가
+   - **설계 판정 1건(측정 후 추가)**: 320dp·textScale 1.3 에서는 이름과 금액을 한 줄에 같이 둘 수
+     없다 → 타일이 **폭을 먼저 재고**(`OneLineLabel.measureWidth`) 안 들어가면 **금액을 아래 칩
+     줄로 내린다**. 이름을 자르지도, 금액을 축약하지도 않는 유일한 해법
+     (`feedback_financial_consistency` 준수). 편집 모드에서는 액션 레인이 우측을 차지하므로
+     금액·부제·칩을 감추고 이름+레인만 남긴다
+   - 게이트: **S4 32조합 매트릭스**(320·360·390·768 × 라이트·다크 × 1.0·1.3배 × 보기·편집)
+     통과 — 오버플로 0건 / 보기 모드에서 13자 이름 **ellipsis 0건** / 편집 모드 액션 탭 타깃 ≥40dp.
+     **S1 API 봉인 가드**(Widget 타입 필드·ListTile 사용 0건 소스 스캔) 통과.
+     `EntityTone` 전 값의 칩 배경↔전경 명도비 ≥4.5 자동 측정 통과
+   - `flutter test` **1019건 통과** / `flutter analyze` 신규 지적 **0건**(잔여 3건은 기존 파일)
+   - ⚠ **기획서 §6 대비 순서 조정 1건**: S3(ListTile·MediaQuery 직접사용 금지)·S6(parseColor→
+     readable) 가드는 대상 화면이 아직 이관 전이라 **커밋 3(이관)과 같은 커밋**에 넣는다.
+     커밋 2 에 넣으면 그 커밋이 빨간 상태로 남는다
+
+44. **2026-08-13** — **커밋 3(자산 탭 이관) 완료.**
+   - 이관: 결제수단·카테고리·포켓 **3개 탭 타일 전부** `EntityTileRow` 로 /
+     `CategoryListTile` 도 같은 타일로(자산 탭이 유일한 라이브 사용처) /
+     상단 헤더 `_AssetSummaryHeader`·`_CardSettlementCardsView`·`_SettlementCard`·
+     `_SummaryCard` 를 density·토큰으로 / `_SubChip` 은 타일 메트릭으로 흡수돼 **삭제**
+   - AppBar **편집 버튼**(아이콘 + "편집/완료" 텍스트 병기 — R1 어포던스 완화) +
+     `AssetEditModeScope` 배선. 카테고리 **그룹 헤더의 ≡·⋮ 도 편집 모드에서만** 노출
+   - 순서 변경 핸들을 **타일 밖 Row → 타일 안 편집 레인**으로 이동. 예전 구조는 보기
+     모드에서도 40dp 를 영구히 점유했다. **reorder 인덱스 계산은 무변경**(visual index
+     그대로 전달) — R2 회귀 표면을 만들지 않았다
+   - **공통 범위 감사에서 추가 발견 1건**(`feedback_common_scope_audit` 적용):
+     `paymentMethodTypeColor` 가 자산 탭 말고도 **8개 파일**(필터 시트·거래 폼·지출계획·
+     보험·반복거래·대시보드 등)에서 쓰이고 있었다. 자산 탭만 토큰으로 바꾸면 같은 결제수단이
+     화면마다 다른 색이 된다 → **헬퍼 자체의 시그니처를 `(BuildContext, String)` 으로 바꿔
+     `context.bb.paymentType` 에 위임**하고 호출부 8곳 일괄 수정. 하드코딩 5색 제거 +
+     전 화면 다크 쌍 확보
+   - 게이트: **S3 가드**(대상 파일 `ListTile(` 0건 · `MediaQuery...width` 직접 사용 0건,
+     `BbDensity` 가 앱 전체 유일 읽기 지점) + **S6 가드**(`parseColor` 결과는 반드시
+     `readable()` 통과) 신설·통과. `flutter test` **1025건 통과** /
+     `flutter analyze` 신규 지적 **0건**
+   - 대상 파일 하드코딩 팔레트 색 **0건**(`Colors.transparent` 제외 — 테마 중립)
+
+45. **2026-08-13** — **커밋 4(분석>예산 "자산 현황" 카드) 완료.**
+   - `account_balance_card.dart` 의 `_AssetItem` 을 `EntityTileRow` 로, 그룹 헤더 색
+     (현금 green / 은행 blue / 카드 purple 하드코딩)을 `context.bb.paymentType` 으로.
+     칩 3종(전월·미결제·이번달)은 타일 메트릭으로 흡수 — 하드코딩 색 **0건**
+   - **설계 추가 1건**: 이 화면에는 편집 모드가 없는데 "잔액 수정"(tune) 버튼은 살아 있는
+     기능이다. 편집 모드 전용 액션으로 넣으면 **기능이 사라진다** → 타일에
+     `EntityViewAction`(아이콘·툴팁·콜백 3개만 받는 봉인 값 타입) 슬롯을 하나 추가해
+     보기 모드에서만 노출. S1 봉인 가드에 이 슬롯도 등재
+   - 부수: 항목 끝 `chevron_right` 장식 아이콘 제거(행 전체가 이미 탭 가능, 폭 16dp 회수)
+   - 게이트: S3·S6 가드 대상 목록에 이 파일 추가 후 통과 / `flutter test` **1025건 통과** /
+     `analyze` 신규 지적 **0건**
+
+46. **2026-08-13** — **커밋 5(저장 & 계속 → 최상단) 완료.**
+   - `transaction_form_page.dart`: 폼 본문 `SingleChildScrollView` 에 **탭별
+     ScrollController** 3개(지출·수입·편집) + **탭별 금액 FocusNode** 2개.
+     `_resetFormForContinue()` 가 `animateTo(0)` + 금액 필드 포커스 요청까지 한다
+   - `CalculatorAmountField` 에 **외부 `focusNode` 주입 옵션** 추가(없으면 종전대로 내부 생성,
+     외부 주입 시 dispose 하지 않는다 — 소유권 분리)
+   - **왜 탭별인가**: 지출/수입 폼은 `TabBarView` 에서 동시에 살아 있어 하나를 공유하면
+     두 ScrollView 에 같은 컨트롤러가 붙어 런타임 예외가 난다. FocusNode 를 탭별로
+     분리해 둔 기존 선례와 같은 이유
+   - 게이트: **S7 위젯 테스트 신설** — 폼을 최하단까지 스크롤 → "저장 & 계속" →
+     `offset == 0` + 금액 포커스. **지출 탭·수입 탭 각각** + 컨트롤러 인스턴스 분리 검증.
+     이 페이지의 **첫 위젯 테스트**다(기존에는 bloc 테스트뿐)
+   - **테스트 구성 중 측정한 사실 2건**: ① 성공 리스너는 `_isSubmitting` 가드를 먼저
+     보므로 검증을 통과시켜야 경로가 돈다 → `copyFrom` 복사 등록 경로로 카테고리·결제수단·
+     금액을 채웠다 ② 탭을 옮기면 카테고리 타입이 달라져 선택이 초기화되므로,
+     수입 케이스는 탭 전환이 아니라 `initialType: 'INCOME'` 으로 **직접 진입**해야 한다
+   - `flutter test` **1029건 통과** / `analyze` 신규 지적 **0건**
+
+47. **2026-08-13** — **커밋 6(하드코딩 색 래칫 가드) 완료.**
+   - 산출물: `tool/hardcoded_color_scan.dart`(스캐너 + baseline 생성기, 주석·doc 제외,
+     `Colors.transparent` 는 테마 중립이라 제외) / `test/core/theme/hardcoded_color_baseline.json`
+     (**313건 / 73파일** — 스크립트가 생성, 손으로 쓰지 않는다) /
+     `hardcoded_color_ratchet_test.dart`
+   - 규칙 4가지: ① 파일별 상한 초과 금지 ② **신규 파일은 0** ③ baseline 이 실제보다 높으면
+     실패(가드가 헐거워진 상태를 붙잡는다 — R4 대응) ④ 이관 완료 **10개 파일은 0 고정**
+   - **가드가 실제로 무는지 역방향 확인**: `entity_tile_row.dart` 에 `Colors.red` 한 줄을
+     넣자 3개 테스트가 즉시 실패(`0 → 1`), 되돌리면 통과. 스캐너가 조용히 망가지는 경우도
+     "총합 > 0" 테스트로 잡는다
+   - ⚠ 기획서의 baseline 표기(324건/71파일)와 숫자가 다른 이유: 기획 시점 측정은 주석과
+     `Colors.transparent` 를 포함한 단순 grep 이었고, 이 스캐너는 둘 다 제외한다.
+     **이제부터의 정본은 스크립트가 만든 JSON** 이다
+
+48. **2026-08-13** — **로컬 CI 5종 전부 통과 + 번들 문자열 확인.**
+   - `flutter analyze --no-fatal-infos --no-congratulate`(전체) — 3건, **전부 기존 파일**
+     (신규 지적 0)
+   - `flutter test` — **1034건 통과**
+   - `flutter build web --release` — 성공(아이콘 폰트 트리셰이킹 37,460B)
+   - `./gradlew test` / `./gradlew build -x test` — 통과 (BE 변경 0건 확인)
+   - **번들 문자열 확인**(메모리 `reference_live_bundle_string_verification`): 한글은
+     `\uXXXX` 로 이스케이프되므로 원문 grep 은 항상 0건 → ASCII 보존 이스케이프로 대조.
+     `편집`·`완료`·`비활성`·`잔액 수정`·`저장 & 계속`·`기본 카테고리`·`전월`·`미결제`·`이번달`
+     **전부 존재**
+
+49. **2026-08-13** — **PR #298 원격 CI 실패 → 근본 원인 수정 + 재발 방지.**
+   - backend-ci 통과 / **frontend-ci 실패 — `flutter test` 1031 pass, 3 fail**
+     (전부 신규 `transaction_form_continue_scroll_test.dart`)
+   - **로컬은 통과했는데 CI 만 실패한 이유 = Flutter SDK 스큐**
+     (메모리 `feedback_flutter_sdk_skew_analyze` 재현). 로컬 **3.41.2**(2026-02 리비전),
+     CI 는 `channel: stable` 을 실행 시점에 해석 → 더 최신. 최신 SDK 에만 있는 프레임워크
+     assert 가 터졌다: **"ListTile background color or ink splashes may be invisible"**
+   - **진짜 결함이다(테스트 문제 아님)**: `ListTile` 은 **가장 가까운 Material 조상** 위에
+     배경·잉크를 그리는데, 중간에 색칠된 `Container` 가 있으면 그 뒤에 깔려 안 보인다.
+     내 S7 테스트가 **이 페이지를 처음 렌더한 위젯 테스트**라 잠복해 있던 결함이 드러난 것
+   - **전수 조사 후 일괄 수정**(`feedback_common_scope_audit`): 조상 관계까지 보는 스캐너로
+     `lib` 전체를 훑어 **2건** 확정 → ① `transaction_form_page` 메모 카드의 `SwitchListTile`
+     ② `category_group_selector_sheet` 의 "잔액 조정" 고정 항목.
+     둘 다 `Material(type: MaterialType.transparency)` 로 감쌌다
+   - **재발 방지**: `tool/listtile_ink_scan.dart` + `listtile_ink_guard_test.dart` 신설.
+     **설치된 SDK 버전과 무관하게** 소스에서 잡는다(SDK 스큐로 다시 새는 것을 막는 유일한 방법).
+     역방향 확인 완료 — 색칠된 Container 안에 ListTile 을 넣자 즉시 실패, 되돌리면 통과
+   - `flutter test` **1036건 통과** / `analyze` 신규 지적 0건
+
+50. **2026-08-13** — **원격 CI 통과 → PR #298 머지 → 배포 진입.**
+   - frontend-ci **pass**(2m35s) / backend-ci **pass** — ListTile 잉크 수정으로 해소
+   - `gh pr merge 298 --squash --delete-branch` → `main` = **9af3c85**
+   - ⚠ **머지는 완료가 아니다.** 사용자 라이브 검증 통과만 완료 (§9-5)
+
+51. **2026-08-13** — **NAS 배포 성공 + 서버 측 검증 통과. 사용자 라이브 검증만 남았다.**
+   - Deploy to NAS `31752486126` **success**(2m38s) /
+     `main.dart.js` `last-modified` = **Thu, 13 Aug 2026 23:06:18 GMT**(배포 시각으로 갱신)
+   - `verify-cache-headers.sh` **통과** — 20개 산출물 전부 `no-cache, must-revalidate` +
+     아이콘 폰트 **content hash 있음**(`MaterialIcons-Regular.754cc592fddf.otf`)
+   - 라이브 번들 문자열 확인: `편집`(신규, 1건) · `비활성`(11) · `잔액 수정`(9) ·
+     `저장 & 계속`(1) · `기본 카테고리`(1) 등 **전부 존재**
+   - ⚠ **측정 한계 1건(대조군으로 확인)**: 색 상수는 번들에서 grep 으로 확인할 수 없다.
+     10·16진수·정규화 double 성분 4가지 표기를 다 시도했는데 **구 브랜드 그린(#4CAF50)도
+     똑같이 0건**이었다 → 프로브가 무효인 것이지 색이 빠진 게 아니다.
+     **색은 서버에서 판정 불가 → 사용자 눈(C1~C6)이 유일한 판정 수단**이다
+   - **남은 것: 사용자 라이브 검증** A1~A5 / B1~B7 / C1~C6 / D1~D3 (기획서 §10)
+
+52. **2026-08-14** — 🎉 **자산 탭 회차 종결 — 사용자 라이브 검증 통과 = 완료.**
+   - 사용자 판정: **"색상도 깔끔하고 수정된거 잘 된다."** A/B/C/D 전 시나리오 통과
+   - 결과 문서(정본): `docs/sessions/2026-08-14_1_asset-tab-mobile-theme_result.md`
+   - PR #298, `main` = `9af3c85`. BE·DB·api-spec 변경 0건
+   - **같은 턴에 다음 회차 요청 2건 접수**(아래 §3 NEXT 에 고정) — 이 세션에서는 착수하지 않는다
+
+53. **2026-08-18** — **auto mode 권한 설정 정비** (개발 회차 아님 · 도구 트랙).
+   - `/auto-mode-setup`. 전 프로젝트 세션 로그 21+개·Bash 1,662건 스캔 `[측정]`
+   - **발견**: `permissions.allow` 의 블랭킷 `Bash`/`Edit`/`Write`/`WebFetch` 가 룰 단계에서
+     먼저 매칭돼 **auto mode 분류기가 사실상 안 돌고 있었다**. 특히 `Bash(git push:*)` 가
+     있어 글로벌 §1.5(main 직접 push 금지)를 `hard_deny` 에 써도 조회조차 되지 않는 구멍
+   - **조치**: `~/.claude/settings.json` 에 `autoMode.environment`(6) / `allow`(7) /
+     `soft_deny`(8) / `hard_deny`(5) 신설 + 블랭킷 룰 제거. 프로젝트
+     `.claude/settings.json` 의 블랭킷도 제거(이게 남으면 이 repo 안에선 전부 무효)
+   - 백업 `~/.claude/settings.json.bak-automode-20260818`
+   - ⚠ **미커밋**: `.claude/settings.json` 1건이 워킹트리에 남아 있다(이번 회차와 무관한 변경)
+
+54. **2026-08-18** — **분석 탭 개편 회차 착수 — 요청 갱신 + 기획서 작성. 코드 0줄.**
+   - **사용자 요청 갱신 2건**: ① 월말 점검은 축소가 아니라 **"정보 자체를 없애야"**
+     (08-14 대비 격상) ② "**아이콘이나 버튼 크기가 너무 커**" → 지목 4곳이 아니라
+     **크롬 전반 전수**로 일반화
+   - **측정 `[1차]`**(로컬 Flutter SDK 직접 확인): `kToolbarHeight=56` /
+     `_kTabHeight=46`·`_kTextAndIconTabHeight=72` / `NavigationBar height=80`
+   - **진단**: 분석>통계 크롬 546dp = 화면의 70%, 콘텐츠 234dp(30%). 예산 sub-tab 은 26.7%.
+     근본 원인은 자산 탭과 동일 — **크롬 치수가 흩어진 리터럴이라 총합을 아무도 안 본다**.
+     `BbDensity` 는 타일 전용이고 크롬 토큰이 0개 `[측정]`
+   - **전수 실측 `[측정]`**: `Tab(icon:+text:)` 9곳/3파일 · `IconButton` 70곳 ·
+     그중 `iconSize`/`visualDensity` 명시는 20곳뿐(**50곳 기본값 방치**)
+   - **도달성 사전 확인 `[측정]`**: 월말 점검 카드 호스팅은 `analysis_page.dart:93` 단 1곳이나,
+     정산 뷰는 거래 탭 `SegmentedButton` 3번째 세그먼트(`transaction_list_page.dart:1438-1440`)로
+     **독립 도달 가능** → 삭제해도 기능이 고아가 되지 않는다
+   - **하네스 Step 1.5**: `ui_pattern`·`navigation_state` 둘 다 🚫 **STRUCTURAL_FIX_REQUIRED**
+     (각 5건). 게이트 LOCKED. 구조적 수정 S1~S4 를 기획서에 포함
+   - **총괄 검토(독립 검증)에서 2건 정정**:
+     ① `Tab(child: Row(...))` 는 `icon == null` 이라 46dp — 아이콘 유지하며 감축 가능하고,
+     `Tab.height` 파라미터가 이미 있어 **토큰 주입이 프레임워크 지원 경로**임을 SDK 소스로 확인
+     ② `NavigationBar` 64dp 는 `SizedBox` 하드 박스라 **오버플로 위험** → §8-6 미해결로 격리 +
+     사전 판정 기준(오버플로 시 72dp, 결론 불변) 명시
+   - 산출물: **`docs/sessions/2026-08-18_1_analysis-tab-density_plan.md`**
+   - **게이트: 사용자 승인 대기.** 승인 전 코드 편집 금지
+
+55. **2026-08-18** — **요구 확대: calynda UI 크기 체계를 budget-book 에 이식 + 전 앱 기본값으로 승격.** 기획서 개정. 코드 0줄.
+   - **사용자 지시**: "calynda 에서 진행했던 모바일과 웹(화면 크기·비율 차이) 기반 사이즈 변동을
+     budget book 에도 적용" / "모바일에서 글씨·버튼이 **웹 그대로**라 사용하기 어려운 수준" /
+     "가독성 고려해 크기별 동적 크기 설정" / **"앞으로 앱 작업, budget book 은 물론 calynda 나
+     다른 추가 앱 작업에는 이게 항상 기본이어야 한다"**
+   - **★근본 진단 정정 `[측정]`**: `core/theme/app_theme.dart` 가 **60줄이고
+     `useMaterial3: true` 하나뿐** — `TextTheme`·밀도·컴포넌트 테마가 **전무**하다.
+     앱 전체가 Material 기본 타이포 한 벌로 320px~2560px 를 똑같이 그린다.
+     **"웹 그대로"가 문자 그대로 맞았다.** 크기 리터럴 **1,458건**
+     (fontSize 115 · EdgeInsets 446 · SizedBox 747 · radius 150 / dart 416파일)
+   - **calynda 측정 `[1차: 코드·문서 직접 확인]`**: 같은 병을 2026-08-14~17 에 이미 해결.
+     `fe/lib/ui/shared/themes/ui_scale.dart`(301줄) + `tool/check_ui_scaling.py` +
+     `test/ui/responsive_sweep_test.dart`(31건). 리터럴 509→405, PR fe#197, 배포 게이트 배선 완료
+   - **★내 원안 폐기**: `BbChrome` 3단 계단 토큰은 calynda 가 **실측으로 틀렸다고 판정한 모양**이었다.
+     ①비율 clamp 는 하한에 닿는 순간 전 축이 굳는다(`sqrt(W/1440).clamp(0.9,1.8)` 이
+     **320~1024px 전 구간 0.900 붙박이** = 폭 3.2배에 반응 0) ②**화면 폭 판정은 틀린다** —
+     최악이 모바일이 아니라 900px 였다(352px 패널에서 데스크톱 폰트 → 22.49자 < 390px 의 27.81자).
+     **`BbDensity.of` 가 정확히 이 안티패턴**(`bb_density.dart:131-133`) ③여백이 폰트를
+     안 따라가면 이름만 바뀐다
+   - **기획서 개정** `docs/sessions/2026-08-18_1_analysis-tab-density_plan.md` (474줄):
+     §2.5·2.6 신설(근본 진단 정정 + calynda 선례) · §4 구조적 수정 **S1~S6 전면 교체**
+     (`BbType`/`BbSpace` 이식 · `app_theme` 배선 · `BbDensity` 흡수 · ratchet · 스윕 · 도달성 이관) ·
+     §5 를 5단계로 재구성 · §8 미해결 7~9 추가
+   - **★전 앱 승격(사용자 지시 이행)** — 이 회차 밖 영구 산출물:
+     · **`~/.claude/domains/12-ui-scaling.md` 신설**(164줄) — 4층 모델 L0~L4 · 핵심 규칙 5종
+       (clamp 는 가독 px / 컨테이너 폭 판정 / 폰트→여백→밀도 순서 / 여백은 제곱근 결합 /
+       작은 화면에서 본문 안 줄임) · 강제 3종 · 체크리스트 · 계측 함정
+     · `~/.claude/domains/INDEX.md` 매핑·트리거·목록 3곳 배선
+     · `~/.claude/CLAUDE.md` §3 라우팅 표 등재
+     · **`~/.claude/harness/scripts/classify-route.py` 키워드 규칙 신설** — 이번 요청이
+       `01-diagnosis` 로 **오분류**됐던 걸 확인하고 등록. 스모크 테스트로 정상 라우팅 검증
+   - **범위 결정**: calynda 가 검증한 스코프(**토큰 + 게이트 + 시범 1영역**)를 따른다.
+     시범 = 분석 탭. 1,458건 전수는 이 회차가 아니고 **ratchet 이 회차마다 낮춘다**
+   - **게이트: 사용자 승인 대기**(개정판 기준). 승인 전 코드 편집 금지
+
+56. **2026-08-18** — **승인("승인") → UI 크기 토큰 + 게이트 + 분석 탭 이관 구현 완료.** 브랜치 `feat/ui-scaling-tokens`.
+   - 하네스 게이트 해제: `acknowledge-gate.sh frontend <기획서>` (지문 `8:2026-08-11`)
+   - **★대조군 실험으로 진단 확정** `[측정]`. 같은 크롬 구성을 이관 전/후 두 벌로 렌더:
+     **legacy 는 320px 과 960px 에서 콘텐츠가 완전히 동일한 496dp(63.6%)** = 폭 반응 0 이
+     추론이 아니라 대조군으로 확정. 토큰 적용 후 **620dp(79.5%)** — 크롬 284 → 160dp(**−43.7%**)
+   - 토큰 실측(360px): `body 14.0`(유지) · `title 18.0`(22 → −18%) · `iconMd 19.0`(24 → −21%) ·
+     `navBar 66`(80 → −18%). 960px 에선 `title 19.9`·`iconMd 21.7` — **계단 아닌 연속 변화**
+   - **산출물**: `bb_scale.dart`(신설, `BbType`/`BbSpace`/`BbScaleScope`) ·
+     `app_theme.responsive()`(Material 15슬롯 TextTheme + visualDensity + 7개 컴포넌트 테마) ·
+     `app.dart` 유효 콘텐츠 폭 주입 · `bb_tab.dart`(신설, 탭 9곳 이관) ·
+     `bb_density` 폭 조회 위임 · `tool/check_ui_scaling.py`+baseline(신설) ·
+     `responsive_sweep_test.dart`(신설 **30건**) · 월말 점검 4파일 삭제 · 자산 카드 2줄화
+   - **★`textTheme.*` 450 호출부가 코드 변경 0으로 반응형이 됐다** — `app_theme` 배선이
+     최고 레버리지였다(raw `fontSize` 는 115곳뿐)
+   - **★웹 960 칼럼 결함 원천 차단**: `app.dart` 가 본문을 `maxWidth: 960` 으로 감싸는데
+     `MediaQuery` 는 2560 을 준다. `BbScaleScope` 가 `min(maxWidth, 960)` 를 단일 소스로
+     심어, calynda 가 실측한 "화면은 넓고 컨테이너는 좁은" 결함을 구조적으로 막았다
+   - **★가드가 실제로 막았다**: 기존 S3(폭 읽기 단일 지점)가 `bb_scale.dart` 를 즉시 잡아
+     실패 → 설계대로 `BbDensity` 를 `BbType` 아래로 흡수하고 소유자 이관. **토큰만 추가하고
+     옛 경로를 남겼다면 여기서 걸렸을 것**이고 그게 이 가드의 목적이다
+   - **기획 대비 정정 4건**(기획서 §12.2): ①§2.1 의 546dp 는 페이지 전체 추정이고 크롬
+     프레임만은 실측 284dp — SDK 상수 산술이 **1.4% 오차**로 맞았다(범위가 다른 것이지 모순 아님)
+     ②ratchet baseline 1,458 → **1,699**(도구 패턴 집합이 더 넓다) ③**§8-6 NavigationBar
+     오버플로 위험 해소** — 66dp 로 21조합 전부 예외 0, 72dp 폴백 불필요 ④가드 임계 55% → **70%** 상향
+   - **게이트 4+1 전부 통과** `[측정]`: analyze **3 issues(전부 기존 테스트 info, 신규 0)** /
+     `flutter test` **1058 pass**(1036 → −8 삭제 +30 스윕) / `./gradlew test` BUILD SUCCESSFUL /
+     `build web --release` **EXIT=0** / UI 크기 게이트 **통과**(total=1699=기준선, 시범 3파일 0)
+   - BE·DB·`api-spec.md` 변경 **0건**. 다음: PR → 머지 → 배포 → **사용자 라이브 검증**
+
+57. **2026-08-18** — **PR #299 머지 → 배포 완료(1회 실패 후 재실행). 라이브 검증 대기.**
+   - 원격 CI: `backend-ci` pass 7s / `frontend-ci` pass 2m11s. ⚠ **CI Flutter 3.47.0 vs 로컬
+     3.41.2** — 큰 skew 인데도 통과(`feedback_flutter_sdk_skew_analyze` 위험 미발현)
+   - `gh pr merge --squash --delete-branch` → `main` = **`6bc3c86`**
+   - **배포 1차 실패 인시던트**: `deploy-frontend` 의 "Package and deploy to NAS" 에서
+     `ssh: connect to host *** port ***: Connection timed out` (exit 255). 빌드·아이콘 해시
+     단계는 통과했고 **NAS 도달만 실패**. 로컬에서 `ssh tiggle` 확인 → `NAS_OK`,
+     uptime 144일, site 200 = **NAS 는 정상, 러너→NAS 일시 도달 실패**.
+     `gh run rerun --failed` 로 해소(2차 1m44s 통과)
+   - **★내 판독 실수 1건(기록)**: `gh run watch --exit-status 2>&1 | tail -5` 로 실행해
+     `$?` 가 **`tail` 의 상태**를 읽어 EXIT=0 을 "배포 성공" 으로 잘못 보고했다. 실제로는
+     `deploy-frontend` 가 실패였다. 잡아낸 것은 **번들 신선도 확인**(`last-modified` 가
+     8/13 = 5일 전)이었다. → 교훈: **파이프라인 종료 코드를 파이프 뒤에서 읽지 마라.**
+     그리고 **배포 성공 판정은 워크플로 상태가 아니라 산출물 신선도로 한다**
+   - **배포 후 게이트 통과** `[측정]`: 번들 `last-modified` **Tue, 18 Aug 2026 05:29:51 GMT** ·
+     content-length **5505837 → 5506572**(내용이 실제로 바뀜) ·
+     `verify-cache-headers.sh` 전 항목 OK · 아이콘 폰트 content hash `754cc592fddf` 존재 · site **200**
+   - **남은 것: 사용자 라이브 검증** — 기획서 §9 시나리오 0/A/B/C/D
+
