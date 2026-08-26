@@ -115,7 +115,8 @@ class PaymentMethodStatsTab extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         // List of payment methods
-        ...stats.asMap().entries.map((entry) {
+        // ★항목 사이는 **호스트**가 소유한다(카드는 자기 밖을 소유하지 않는다).
+        ...bbCardItems(context, stats.asMap().entries.map((entry) {
           final index = entry.key;
           final stat = entry.value;
           final color = _colors[index % _colors.length];
@@ -185,7 +186,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
               ],
             ),
           );
-        }),
+        }).toList()),
       ],
     );
   }

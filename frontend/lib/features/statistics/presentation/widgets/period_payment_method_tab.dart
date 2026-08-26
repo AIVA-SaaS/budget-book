@@ -48,7 +48,10 @@ class PeriodPaymentMethodTab extends StatelessWidget {
       ..sort((a, b) => b.amount.compareTo(a.amount));
     final totalAmount = sorted.fold(0, (sum, item) => sum + item.amount);
 
-    return ListView.builder(
+    // ★항목 사이는 **호스트**가 소유한다 — 카드는 자기 밖을 소유하지 않으므로
+    // `.builder` 가 아니라 `.separated` 로 사이를 명시한다.
+    return ListView.separated(
+      separatorBuilder: (_, __) => const BbCardGap(),
       padding: const EdgeInsets.all(16),
       itemCount: sorted.length,
       itemBuilder: (context, index) {

@@ -25,6 +25,7 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budget_state.dart';
 import 'package:budget_book/features/weekly_budget/presentation/widgets/week_summary_card.dart';
 import 'package:budget_book/features/weekly_budget/domain/entities/current_week_summary.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 class BudgetListPage extends StatefulWidget {
   /// Phase 25 Step 11 — 분석 탭 wrapper 에서는 false. 자체 진입(/budgets) 시 true.
@@ -328,14 +329,13 @@ class _BudgetListPageState extends State<BudgetListPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ...state.overview!.weeks.map((week) {
+                  // ★항목 사이는 **호스트**가 소유한다(카드는 자기 밖을 소유하지 않는다).
+                  ...bbCardItems(context, state.overview!.weeks.map((week) {
                     final isCurrent = state.currentWeek != null &&
                         week.weekNumber == state.currentWeek!.weekNumber;
                     final parts = state.overview!.yearMonth.split('-');
                     final year = int.parse(parts[0]);
                     final month = int.parse(parts[1]);
-                    // 세로 리듬은 WeekSummaryCard 안의 BbCardTile 이 소유한다 —
-                    // 호스트가 여백을 더 얹으면 승인값(20.0/25.0)을 지나가지 않는다.
                     return WeekSummaryCard(
                       weekSummary: week,
                       isCurrentWeek: isCurrent,
@@ -381,7 +381,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         );
                       },
                     );
-                  }),
+                  }).toList()),
                 ],
                 if (state.overview == null && state.currentWeek == null)
                   Center(

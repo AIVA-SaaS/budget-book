@@ -42,7 +42,9 @@ class PeriodDailyTab extends StatelessWidget {
         children: [
           _buildBarChart(context),
           const SizedBox(height: 24),
-          ...items.map((item) => _DailyListItem(item: item)),
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context,
+              items.map((item) => _DailyListItem(item: item)).toList()),
         ],
       ),
     );

@@ -73,7 +73,8 @@ class SummaryTab extends StatelessWidget {
     return SingleChildScrollView(
       padding: context.bbSpace.all(BbSpaceToken.xl),
       child: Column(
-        children: [
+        // ★항목 사이는 **호스트**가 소유한다.
+        children: bbCardItems(context, [
           _SummaryCard(
             title: '수입',
             amount: summary!.totalIncome,
@@ -107,7 +108,7 @@ class SummaryTab extends StatelessWidget {
               ],
             ),
           ),
-        ],
+        ]),
       ),
     );
   }

@@ -79,12 +79,13 @@ class PeriodCategoryTab extends StatelessWidget {
             )),
           ),
           const SizedBox(height: 24),
-          ...sorted.asMap().entries.map((entry) {
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context, sorted.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
             final color = _defaultColors[index % _defaultColors.length];
             return _CategoryListItem(item: item, color: color);
-          }),
+          }).toList()),
         ],
       ),
     );

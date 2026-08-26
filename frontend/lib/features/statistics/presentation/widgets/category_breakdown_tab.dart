@@ -221,7 +221,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
             )),
           ),
           context.bbSpace.gapV(BbSpaceToken.xxl),
-          ...groups.asMap().entries.map((entry) {
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context, groups.asMap().entries.map((entry) {
             final index = entry.key;
             final g = entry.value;
             final color = _defaultColors[index % _defaultColors.length];
@@ -238,7 +239,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                 _selectedGroupName = g.name;
               }),
             );
-          }),
+          }).toList()),
         ],
       ),
     );
@@ -285,7 +286,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
             )),
           ),
           context.bbSpace.gapV(BbSpaceToken.xxl),
-          ...filtered.asMap().entries.map((entry) {
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context, filtered.asMap().entries.map((entry) {
             final stat = entry.value;
             final color = _getStatColor(stat, entry.key);
             final pct = totalAmount > 0 ? stat.amount / totalAmount * 100 : 0.0;
@@ -302,7 +304,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                     '/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
-          }),
+          }).toList()),
         ],
       ),
     );
@@ -341,7 +343,8 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
             )),
           ),
           context.bbSpace.gapV(BbSpaceToken.xxl),
-          ...sorted.asMap().entries.map((entry) {
+          // ★항목 사이는 **호스트**가 소유한다.
+          ...bbCardItems(context, sorted.asMap().entries.map((entry) {
             final stat = entry.value;
             final color = _getStatColor(stat, entry.key);
             return _buildListItem(
@@ -357,7 +360,7 @@ class _CategoryBreakdownTabState extends State<CategoryBreakdownTab> {
                     '/transactions?year=${widget.year}&month=${widget.month}&categoryId=${stat.category.id}&categoryName=$catName');
               },
             );
-          }),
+          }).toList()),
         ],
       ),
     );

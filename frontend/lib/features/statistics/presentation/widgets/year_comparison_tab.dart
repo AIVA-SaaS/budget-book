@@ -70,7 +70,8 @@ class YearComparisonTab extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        children: [
+        // ★항목 사이는 **호스트**가 소유한다.
+        children: bbCardItems(context, [
           _ComparisonCard(
             title: '수입',
             currentAmount: currentYear!.totalIncome,
@@ -104,7 +105,7 @@ class YearComparisonTab extends StatelessWidget {
             year: year,
             isCount: true,
           ),
-        ],
+        ]),
       ),
     );
   }

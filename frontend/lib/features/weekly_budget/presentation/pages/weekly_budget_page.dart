@@ -10,6 +10,7 @@ import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_budg
 import 'package:budget_book/features/weekly_budget/presentation/widgets/week_summary_card.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 class WeeklyBudgetPage extends StatefulWidget {
   const WeeklyBudgetPage({super.key});
@@ -104,15 +105,15 @@ class _WeeklyBudgetPageState extends State<WeeklyBudgetPage> {
               ),
             ),
             const SizedBox(height: 12),
-            ...state.overview!.weeks.map((week) {
+            // ★항목 사이는 **호스트**가 소유한다.
+            ...bbCardItems(context, state.overview!.weeks.map((week) {
               final isCurrent = state.currentWeek != null &&
                   week.weekNumber == state.currentWeek!.weekNumber;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child:
-                    WeekSummaryCard(weekSummary: week, isCurrentWeek: isCurrent),
-              );
-            }),
+              // ★사이는 bbCardItems 가 소유한다 — 종전의 `Padding(bottom: 8)` 은
+              // 카드 margin 과 겹쳐 사이를 부풀리던 **경쟁 경로**였다.
+              return WeekSummaryCard(
+                  weekSummary: week, isCurrentWeek: isCurrent);
+            }).toList()),
           ],
           if (state.overview == null && state.currentWeek == null)
             Center(

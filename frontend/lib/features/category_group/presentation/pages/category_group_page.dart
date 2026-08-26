@@ -10,6 +10,8 @@ import 'package:budget_book/features/category_group/presentation/widgets/categor
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
 import 'package:budget_book/core/widgets/reorderable_entity_list.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 const _virtualGroupId = '00000000-0000-0000-0000-000000000000';
 
@@ -84,8 +86,10 @@ class CategoryGroupPage extends StatelessWidget {
               ReorderCategoryGroups(reordered.map((g) => g.id).toList()),
             );
       },
+      // ★항목 사이는 **호스트**가 소유한다 — 재정렬 목록은 구분자 슬롯이 없어
+      // `BbCardItem` 으로 감싼다(카드가 세로 margin 을 갖지 않는다).
       itemBuilder: (context, group, index) =>
-          _buildGroupTile(context, group),
+          BbCardItem(child: _buildGroupTile(context, group)),
     );
   }
 
@@ -94,7 +98,8 @@ class CategoryGroupPage extends StatelessWidget {
     final budgetTypeLabel = _budgetTypeLabel(group.budgetType);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // ★세로는 호스트(`BbCardItem`)가 갖는다. 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xl),
       child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.15),

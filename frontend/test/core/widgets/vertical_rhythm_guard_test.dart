@@ -202,10 +202,18 @@ void main() {
         home: Scaffold(
           body: BbScaleScope(
             width: w,
-            child: const Column(children: [
-              BbCardTile(child: Text('카드 항목 1')),
-              BbCardTile(child: Text('카드 항목 2')),
-            ]),
+            // ★사이를 넣는 것은 **목록**이다(2026-08-26 개정). 카드는 자기 밖을
+            // 소유하지 않는다 — 카드가 세로 margin 을 가지면 블록 사이 간격이
+            // `spacer + 위 margin + 아래 margin` 의 합이 되어 같은 리터럴이
+            // 16.00·26.00·36.00 으로 갈린다 `[측정]`.
+            child: Builder(
+              builder: (context) => Column(
+                children: bbCardItems(context, const [
+                  BbCardTile(child: Text('카드 항목 1')),
+                  BbCardTile(child: Text('카드 항목 2')),
+                ]),
+              ),
+            ),
           ),
         ),
       ));
@@ -228,7 +236,7 @@ void main() {
     // ⚠ 폭마다 테스트를 나눈다 — 한 테스트에서 폭을 바꾸면 `AnimatedTheme` 가 옛 값을
     // 읽는다(V1-b 에서 기록한 계측 함정).
     void anatomyCase(double w) {
-      testWidgets('w=$w — 세로는 두 곳뿐(margin xs + cardRowPadV)', (tester) async {
+      testWidgets('w=$w — 세로 소유자는 호스트 + cardRowPadV 둘뿐', (tester) async {
         await pumpCards(tester, w);
         final card = tester.widgetList<Card>(find.byType(Card)).first;
         final margin = card.margin! as EdgeInsets;
@@ -244,15 +252,21 @@ void main() {
             .resolve(TextDirection.ltr);
         final space = BbSpace.forWidth(w);
         final box = BbBox.forWidth(w);
-        expect(margin.top, closeTo(space.xs, 1e-9),
-            reason: 'w=$w 카드 margin 세로가 xs 에서 벗어났다');
-        expect(margin.bottom, closeTo(space.xs, 1e-9));
+        // ★카드는 자기 밖을 소유하지 않는다 — 세로 margin 은 **0** 이어야 한다.
+        // 이 단정이 원인 ⓿(블록 간격 오염)을 봉인한다.
+        expect(margin.top, closeTo(0, 1e-9),
+            reason: 'w=\$w 카드가 세로 margin 을 되찾았다 — 블록 사이 간격이 다시 '
+                '`spacer + 위 margin + 아래 margin` 의 합이 되어 갈라진다');
+        expect(margin.bottom, closeTo(0, 1e-9));
         expect(padding.top, closeTo(box.cardRowPadV, 1e-9),
-            reason: 'w=$w 카드 내부 세로 여백이 cardRowPadV 에서 벗어났다');
+            reason: 'w=\$w 카드 내부 세로 여백이 cardRowPadV 에서 벗어났다');
         expect(padding.bottom, closeTo(box.cardRowPadV, 1e-9));
-        // 항등식: 사이 = 2 × (margin 세로 + 내부 세로). 이 식이 승인값을 만든다.
-        expect(2 * (margin.top + padding.top),
-            closeTo(2 * (space.xs + box.cardRowPadV), 1e-9));
+        // 항등식: 사이 = 호스트 간격 + 2 × 내부 세로. `space` 는 더 이상 이 식에
+        // 들어오지 않는다 — 카드가 밖을 소유하지 않기 때문이다.
+        expect(box.cardItemGap + 2 * padding.top,
+            closeTo(box.cardItemGap + 2 * box.cardRowPadV, 1e-9));
+        expect(space.xs, closeTo(4, 1e-9),
+            reason: 'xs 가 폭 상수 4.0 이 아니면 cardItemGap(8.0) 유도가 깨진다');
       });
     }
 
@@ -264,8 +278,11 @@ void main() {
       final src = File('lib/core/widgets/bb_card_tile.dart').readAsStringSync();
       expect(src.contains('vertical: box.cardRowPadV'), isTrue,
           reason: '내부 세로 여백의 단일 소스가 사라졌다');
-      expect(src.contains('vertical: space.xs'), isTrue,
-          reason: 'margin 세로의 단일 소스가 사라졌다');
+      // ★역봉인: 세로 margin 을 되돌리면 원인 ⓿(블록 간격 오염)이 재발한다.
+      expect(src.contains('vertical: space.xs'), isFalse,
+          reason: '카드가 세로 margin 을 되찾았다 — 블록 사이 간격이 다시 오염된다');
+      expect(src.contains('class BbCardGap'), isTrue,
+          reason: '항목 사이의 소유자(호스트 간격)가 사라졌다');
       for (final leak in ['vPadding', 'vMargin', 'verticalPadding']) {
         expect(src.contains(leak), isFalse,
             reason: '세로 축을 호출부에 되돌려주면 카드 169곳이 다시 갈라진다 ($leak)');

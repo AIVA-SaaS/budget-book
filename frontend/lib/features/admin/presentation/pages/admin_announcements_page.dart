@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 /// Admin announcement management page.
 class AdminAnnouncementsPage extends StatefulWidget {
@@ -202,7 +203,9 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                             Center(child: Text('공지사항이 없습니다')),
                           ],
                         )
-                      : ListView.builder(
+                      // ★항목 사이는 **호스트**가 소유한다.
+                      : ListView.separated(
+                          separatorBuilder: (_, __) => const BbCardGap(),
                           itemCount: _announcements.length + 1,
                           itemBuilder: (context, index) {
                             if (index == _announcements.length) {

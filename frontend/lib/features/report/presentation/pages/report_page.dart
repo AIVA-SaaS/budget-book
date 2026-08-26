@@ -17,6 +17,7 @@ import 'package:budget_book/features/ai/presentation/bloc/ai_insight_bloc.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart';
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
 import 'package:budget_book/features/ai/domain/entities/ai_insight.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -585,7 +586,9 @@ class _ReportPageState extends State<ReportPage> {
           if (state.insights.isEmpty) {
             return _buildEmptyTab(context, '이번 달 인사이트가 없습니다');
           }
-          return ListView.builder(
+          // ★항목 사이는 **호스트**가 소유한다.
+          return ListView.separated(
+            separatorBuilder: (_, __) => const BbCardGap(),
             padding: const EdgeInsets.all(16),
             itemCount: state.insights.length,
             itemBuilder: (context, index) =>

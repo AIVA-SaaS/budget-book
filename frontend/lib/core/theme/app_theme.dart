@@ -181,7 +181,11 @@ class AppTheme {
       ),
       cardTheme: base.cardTheme.copyWith(
         shape: RoundedRectangleBorder(borderRadius: radiusMd),
-        margin: space.symmetric(h: BbSpaceToken.md, v: BbSpaceToken.sm),
+        // ★세로 margin 은 **0** 이다 — 카드는 자기 밖의 간격을 소유하지 않는다
+        // `[측정 2026-08-26]`. 세로를 두면 보이는 블록 간격이 `spacer + 위 margin +
+        // 아래 margin` 의 합이 되어 같은 리터럴이 16.00·26.00·36.00 으로 갈린다.
+        // 항목 사이는 목록 호스트(`box.cardItemGap`)가, 블록 사이는 `gapV(block)` 이 갖는다.
+        margin: space.symmetric(h: BbSpaceToken.md),
       ),
       dividerTheme: base.dividerTheme.copyWith(space: space.lg),
       dialogTheme: base.dialogTheme.copyWith(
