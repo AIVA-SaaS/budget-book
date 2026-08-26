@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A shimmer-effect loading placeholder that mimics list items.
 class SkeletonLoader extends StatefulWidget {
@@ -111,7 +112,7 @@ class _SkeletonItem extends StatelessWidget {
                     gradient: gradient,
                   ),
                 ),
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 Container(
                   height: 12,
                   width: 150,

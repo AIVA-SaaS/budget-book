@@ -131,14 +131,14 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 isEditing ? '포켓 수정' : '포켓 추가',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               // Name field
               TextFormField(
                 controller: _nameController,
@@ -154,7 +154,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Type dropdown
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
@@ -176,7 +176,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Amount field
               TextFormField(
                 controller: _amountController,
@@ -198,7 +198,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Goal amount field (optional)
               TextFormField(
                 controller: _goalAmountController,
@@ -220,7 +220,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Target date field (optional)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -252,13 +252,13 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Icon selector
               Text(
                 '아이콘',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 8,
                 children: _iconOptions.map((iconName) {
@@ -281,13 +281,13 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Color selector
               Text(
                 '색상',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 8,
                 children: _colorOptions.map((hex) {
@@ -316,7 +316,7 @@ class _PocketFormSheetState extends State<PocketFormSheet> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(

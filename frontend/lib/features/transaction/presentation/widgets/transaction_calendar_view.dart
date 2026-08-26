@@ -9,6 +9,7 @@ import 'package:budget_book/features/transaction/presentation/widgets/transactio
 import 'package:budget_book/features/transaction/presentation/widgets/transfer_list_tile.dart';
 import 'package:budget_book/core/widgets/reconciled_badge.dart';
 import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Phase 25 Step 7 — 거래 탭 달력 뷰.
 ///
@@ -274,7 +275,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 Center(
                   child: Container(
                     width: 36,
@@ -345,7 +346,7 @@ class _TransactionCalendarViewState extends State<TransactionCalendarView> {
                               // 시트가 FAB 을 가리므로(모달 배리어) 추가 진입이 시트
                               // 안에 반드시 있어야 한다.
                               if (widget.onAddTap != null) ...[
-                                const SizedBox(height: 12),
+                                context.bbSpace.gapV(BbSpaceToken.xl),
                                 FilledButton.tonalIcon(
                                   onPressed: () => _addForDay(ctx, day),
                                   icon: const Icon(Icons.add, size: 18),

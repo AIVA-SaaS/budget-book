@@ -32,6 +32,7 @@ import 'package:budget_book/features/spending_plan/presentation/bloc/spending_pl
 import 'package:budget_book/features/spending_plan/presentation/widgets/assign_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/complete_plan_dialog.dart';
 import 'package:budget_book/features/spending_plan/presentation/widgets/spending_plan_card.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class SpendingPlanFormPage extends StatefulWidget {
   final String? planId;
@@ -383,7 +384,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // 2. Price range fields
             Row(
@@ -410,7 +411,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Or single amount
             AmountInputField(
@@ -420,7 +421,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               helperText: '최소/최대를 입력하면 생략 가능',
               filterDigitsOnly: true,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 3. Category selector
             ItemSelectorField(
@@ -432,14 +433,14 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               placeholder: '선택 안 함',
               onTap: () => _showCategorySelectorSheet(context),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 4. Priority selector
             Text(
               '우선순위',
               style: Theme.of(context).textTheme.labelLarge,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'HIGH', label: Text('높음')),
@@ -451,7 +452,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 setState(() => _priority = selection.first);
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 5. Tags input
             Row(
@@ -476,7 +477,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               ],
             ),
             if (_tags.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -487,7 +488,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 )).toList(),
               ),
             ],
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 6. Memo
             TextFormField(
@@ -498,7 +499,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ] else ...[
             // Regular PLAN mode order: 목표일 -> 금액 -> 계획명 -> 카테고리 -> 결제수단 -> 예산연결 -> 메모
 
@@ -515,7 +516,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 2. Amount (required)
             AmountInputField(
@@ -532,7 +533,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 3. Plan name (required)
             TextFormField(
@@ -550,7 +551,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // 4. Category selector
             ItemSelectorField(
@@ -562,7 +563,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               placeholder: '선택 안 함',
               onTap: () => _showCategorySelectorSheet(context),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 5. Payment method selector
             ItemSelectorField(
@@ -574,7 +575,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               placeholder: '선택 안 함',
               onTap: () => _showPaymentMethodSelectorSheet(context, methods),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 6. Budget link dropdown — filter by target date's month
             // Weekly budgets are expanded into per-week items with pro-rata amounts
@@ -644,7 +645,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 },
               );
             }),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 7. Memo
             TextFormField(
@@ -655,7 +656,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Recurring toggle
             SwitchListTile(
@@ -671,7 +672,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               },
             ),
             if (_isRecurring) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               DropdownButtonFormField<String>(
                 initialValue: _frequency ?? 'MONTHLY',
                 decoration: const InputDecoration(
@@ -690,7 +691,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
                 },
               ),
             ],
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
 
           // Visibility (common to both modes)
@@ -709,7 +710,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
               if (value != null) setState(() => _visibility = value);
             },
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Submit button
           FilledButton(
             onPressed: _isSubmitting ? null : _submit,
@@ -723,16 +724,16 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
           ),
           // Status action buttons (edit mode only)
           if (isEditing && _existingPlan != null) ...[
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.block),
             const Divider(),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Text(
               '상태 변경',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             _buildStatusActions(context),
           ],
         ],
@@ -796,7 +797,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        context.bbSpace.gapV(BbSpaceToken.xl),
         // WISHLIST → assign (날짜 배정)
         if (status == 'WISHLIST')
           OutlinedButton.icon(
@@ -835,7 +836,7 @@ class _SpendingPlanFormPageState extends State<SpendingPlanFormPage> {
             icon: const Icon(Icons.check_circle, color: Colors.green),
             label: const Text('완료 처리'),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           OutlinedButton.icon(
             onPressed: () {
               getIt<SpendingPlanBloc>().add(SkipPlan(plan.id));

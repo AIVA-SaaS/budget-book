@@ -230,7 +230,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             PeriodSelector(
               initialSelection: _periodSelection,
               enabled: true,
@@ -255,10 +255,10 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 });
               },
             ),
-            const SizedBox(height: 24),
+            context.bbSpace.gapV(BbSpaceToken.block),
             // Category / Group selector (optional)
             _buildCategoryPicker(context),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             // Pocket selector (optional)
             BlocBuilder<PocketBloc, PocketState>(
               builder: (context, pocketState) {
@@ -282,7 +282,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             // Amount input - show different field based on period
             if (_budgetPeriod == 'WEEKLY')
               CalculatorAmountField(
@@ -325,7 +325,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                   return null;
                 },
               ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
@@ -340,7 +340,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
               value: _applyToFuture,
               onChanged: (v) => setState(() => _applyToFuture = v ?? false),
             ),
-            const SizedBox(height: 32),
+            context.bbSpace.gapV(BbSpaceToken.block),
             // Submit button
             FilledButton(
               onPressed: _isSubmitting ? null : _onSubmit,
@@ -603,7 +603,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('이 예산을 삭제하시겠습니까?'),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,

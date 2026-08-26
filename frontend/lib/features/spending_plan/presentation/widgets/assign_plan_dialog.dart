@@ -8,6 +8,7 @@ import 'package:budget_book/features/budget/presentation/bloc/budget_event.dart'
 import 'package:budget_book/features/budget/presentation/bloc/budget_state.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/spending_plan/domain/entities/spending_plan.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Result returned from the assign plan dialog.
 class AssignResult {
@@ -129,14 +130,14 @@ class _AssignPlanDialogState extends State<_AssignPlanDialog> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Quick options
             Text(
               '빠른 선택',
               style: theme.textTheme.labelMedium,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Wrap(
               spacing: 8,
               children: [
@@ -164,7 +165,7 @@ class _AssignPlanDialogState extends State<_AssignPlanDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Custom date picker
             OutlinedButton.icon(
@@ -174,7 +175,7 @@ class _AssignPlanDialogState extends State<_AssignPlanDialog> {
                   ? DateFormat('yyyy년 M월 d일', 'ko').format(_selectedDate!)
                   : '날짜 직접 선택'),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Budget selection
             if (_budgets.isNotEmpty) ...[

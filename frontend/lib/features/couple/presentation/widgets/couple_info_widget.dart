@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/couple/domain/entities/user_summary.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class CoupleInfoWidget extends StatelessWidget {
   final UserSummary partner;
@@ -38,7 +39,7 @@ class CoupleInfoWidget extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     '연결됨',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

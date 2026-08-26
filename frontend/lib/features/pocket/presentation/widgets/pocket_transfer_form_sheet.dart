@@ -77,14 +77,14 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 '포켓 이체',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               // From pocket
               DropdownButtonFormField<String>(
                 initialValue: _fromPocketId,
@@ -106,7 +106,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                   setState(() => _fromPocketId = value);
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // To pocket
               DropdownButtonFormField<String>(
                 initialValue: _toPocketId,
@@ -129,7 +129,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                   setState(() => _toPocketId = value);
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Amount
               TextFormField(
                 controller: _amountController,
@@ -151,7 +151,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Description
               TextFormField(
                 controller: _descriptionController,
@@ -162,7 +162,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                 ),
                 maxLength: 255,
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Date
               InkWell(
                 onTap: () async {
@@ -184,7 +184,7 @@ class _PocketTransferFormSheetState extends State<PocketTransferFormSheet> {
                   child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
                 ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(

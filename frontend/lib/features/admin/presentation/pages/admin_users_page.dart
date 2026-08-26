@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Admin user management page.
 class AdminUsersPage extends StatefulWidget {
@@ -157,7 +158,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('오류: $_error'),
-                        const SizedBox(height: 16),
+                        context.bbSpace.gapV(BbSpaceToken.xxl),
                         FilledButton(
                           onPressed: _loadUsers,
                           child: const Text('재시도'),
@@ -169,9 +170,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     onRefresh: _loadUsers,
                     child: _users.isEmpty && !_loading
                         ? ListView(
-                            children: const [
-                              SizedBox(height: 100),
-                              Center(child: Text('사용자가 없습니다')),
+                            // ★`gapV` 는 토큰을 읽으므로 const 목록에서 나와야 한다.
+                            children: [
+                              context.bbSpace.gapV(BbSpaceToken.block),
+                              const Center(child: Text('사용자가 없습니다')),
                             ],
                           )
                         : ListView.builder(

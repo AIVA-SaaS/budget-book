@@ -9,6 +9,8 @@ import 'package:budget_book/features/weekly_budget/domain/entities/weekly_settle
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_bloc.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_event.dart';
 import 'package:budget_book/features/weekly_budget/presentation/bloc/weekly_settlement_state.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class WeeklySettlementPage extends StatefulWidget {
   const WeeklySettlementPage({super.key});
@@ -139,7 +141,7 @@ class _WeeklySettlementPageState extends State<WeeklySettlementPage> {
                     .onSurface
                     .withValues(alpha: 0.3),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 '정산 정보가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -161,7 +163,9 @@ class _WeeklySettlementPageState extends State<WeeklySettlementPage> {
             .read<WeeklySettlementBloc>()
             .add(LoadSettlements(year: _year, month: _month));
       },
-      child: ListView.builder(
+      // ★항목 사이는 **호스트**가 소유한다.
+      child: ListView.separated(
+        separatorBuilder: (_, __) => const BbCardGap(),
         padding: const EdgeInsets.all(16),
         itemCount: overview.weeks.length,
         itemBuilder: (context, index) {
@@ -210,7 +214,8 @@ class _WeekSettlementCardState extends State<_WeekSettlementCard> {
     final hasPendingItems = week.items.any((item) => !item.isSettled);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      // ★세로는 호스트가 갖는다(`BbCardGap`). 카드는 자기 밖을 소유하지 않는다.
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
@@ -309,7 +314,7 @@ class _WeekSettlementCardState extends State<_WeekSettlementCard> {
                   ],
                 ),
               ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
           ],
         ],
       ),

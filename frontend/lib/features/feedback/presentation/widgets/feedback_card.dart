@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/feedback/domain/entities/feedback_post.dart';
 import 'package:budget_book/features/feedback/presentation/widgets/feedback_status_badge.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class FeedbackCard extends StatelessWidget {
   final FeedbackPost feedback;
@@ -19,7 +20,8 @@ class FeedbackCard extends StatelessWidget {
     final dateFormat = DateFormat('yyyy.MM.dd');
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // ★세로는 호스트가 갖는다(`BbCardGap`). 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -35,7 +37,7 @@ class FeedbackCard extends StatelessWidget {
                   FeedbackStatusBadge(status: feedback.status),
                 ],
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Text(
                 feedback.title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -44,7 +46,7 @@ class FeedbackCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              context.bbSpace.gapV(BbSpaceToken.xs),
               Text(
                 feedback.content,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -53,7 +55,7 @@ class FeedbackCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 children: [
                   Text(

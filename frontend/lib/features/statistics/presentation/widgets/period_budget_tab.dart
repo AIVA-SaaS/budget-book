@@ -22,7 +22,7 @@ class PeriodBudgetTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 예산 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -90,7 +90,7 @@ class PeriodBudgetTab extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
@@ -100,7 +100,7 @@ class PeriodBudgetTab extends StatelessWidget {
                   minHeight: 8,
                 ),
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -114,7 +114,7 @@ class PeriodBudgetTab extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              context.bbSpace.gapV(BbSpaceToken.xs),
               Text(
                 '남은 금액: ${CurrencyFormatter.format(item.remaining)}원',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

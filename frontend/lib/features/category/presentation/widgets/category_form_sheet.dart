@@ -85,14 +85,14 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 isEditing ? '카테고리 수정' : '카테고리 추가',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               // Preview of selected icon and color
               Center(
                 child: CircleAvatar(
@@ -109,7 +109,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Name field
               TextFormField(
                 controller: _nameController,
@@ -125,14 +125,14 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Type selector (only for new categories)
               if (!isEditing) ...[
                 Text(
                   '유형',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
@@ -168,22 +168,22 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                     });
                   },
                 ),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
               ],
               // Group selector
               Text(
                 '카테고리 그룹',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               _buildGroupSelector(context),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Icon picker button
               Text(
                 '아이콘',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               OutlinedButton.icon(
                 onPressed: () async {
                   final result = await showIconPicker(
@@ -204,13 +204,13 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   _selectedIcon ?? '아이콘을 선택하세요',
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Color picker button
               Text(
                 '색상',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               OutlinedButton.icon(
                 onPressed: () async {
                   final result = await showColorPicker(
@@ -243,7 +243,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   _selectedColor ?? '색상을 선택하세요',
                 ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               FilledButton(
                 onPressed: _isSubmitting ? null : _onSubmit,
                 style: FilledButton.styleFrom(

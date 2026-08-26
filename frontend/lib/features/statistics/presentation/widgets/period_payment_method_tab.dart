@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:budget_book/core/widgets/bb_card_tile.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:budget_book/features/statistics/domain/entities/period_summary.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class PeriodPaymentMethodTab extends StatelessWidget {
   final List<PeriodPaymentMethodItem> items;
@@ -32,7 +33,7 @@ class PeriodPaymentMethodTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 결제 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -76,7 +77,7 @@ class PeriodPaymentMethodTab extends StatelessWidget {
                   children: [
                     Text(item.methodName,
                         style: Theme.of(context).textTheme.bodyLarge),
-                    const SizedBox(height: 4),
+                    context.bbSpace.gapV(BbSpaceToken.xs),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(

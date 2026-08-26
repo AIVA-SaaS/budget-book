@@ -11,6 +11,7 @@ import 'package:budget_book/features/pocket/presentation/bloc/pocket_state.dart'
 import 'package:budget_book/features/pocket/presentation/widgets/pocket_form_sheet.dart';
 import 'package:budget_book/core/widgets/error_widget.dart';
 import 'package:budget_book/core/widgets/empty_state_widget.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class PocketPage extends StatelessWidget {
   const PocketPage({super.key});
@@ -90,7 +91,7 @@ class PocketPage extends StatelessWidget {
       children: [
         // Total balance card
         _TotalBalanceCard(totalBalance: state.totalBalance),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.block),
         // Pocket cards
         ...pockets.map((pocket) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -101,7 +102,7 @@ class PocketPage extends StatelessWidget {
                 onDelete: () => _showDeleteDialog(context, pocket),
               ),
             )),
-        const SizedBox(height: 88),
+        const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
       ],
     );
   }
@@ -199,7 +200,7 @@ class _TotalBalanceCard extends StatelessWidget {
                         Theme.of(context).colorScheme.onPrimaryContainer,
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Text(
               '${formatter.format(totalBalance)}원',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -297,7 +298,7 @@ class _PocketCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        context.bbSpace.gapV(BbSpaceToken.xs),
                         Text(
                           '할당: ${formatter.format(pocket.allocatedAmount)}원',
                           style:
@@ -359,7 +360,7 @@ class _PocketCard extends StatelessWidget {
               ),
               // Goal progress section
               if (goalProgress != null) ...[
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 _GoalProgressSection(
                   pocket: pocket,
                   progress: goalProgress,
@@ -368,7 +369,7 @@ class _PocketCard extends StatelessWidget {
               ],
               // Target date
               if (pocket.targetDate != null) ...[
-                const SizedBox(height: 4),
+                context.bbSpace.gapV(BbSpaceToken.xs),
                 Text(
                   '목표일: ${pocket.targetDate}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -438,7 +439,7 @@ class _GoalProgressSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(

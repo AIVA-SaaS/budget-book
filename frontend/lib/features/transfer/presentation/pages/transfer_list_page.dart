@@ -116,7 +116,7 @@ class TransferListPage extends StatelessWidget {
       key: const PageStorageKey('transfer_list'),
       itemCount: sortedDates.length + 1,
       itemBuilder: (context, index) {
-        if (index == sortedDates.length) return const SizedBox(height: 88);
+        if (index == sortedDates.length) return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         final date = sortedDates[index];
         final transfers = grouped[date]!;
         return Column(

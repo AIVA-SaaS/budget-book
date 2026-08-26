@@ -17,6 +17,7 @@ import 'package:budget_book/features/transfer/domain/entities/transfer.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class TransferFormPage extends StatefulWidget {
   final String? transferId;
@@ -441,7 +442,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Amount
           AmountInputField(
             controller: _amountController,
@@ -455,7 +456,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Source payment method
           DropdownButtonFormField<String>(
             key: ValueKey('source_$_swapCounter'),
@@ -489,7 +490,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
             },
             validator: (value) => value == null ? '출금 결제수단을 선택하세요' : null,
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           // Swap button
           Center(
             child: IconButton(
@@ -508,7 +509,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
               tooltip: '출금/입금 교환',
             ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           // Destination payment method
           DropdownButtonFormField<String>(
             key: ValueKey('dest_$_swapCounter'),
@@ -543,7 +544,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
             },
             validator: (value) => value == null ? '입금 결제수단을 선택하세요' : null,
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Transfer kind (Phase 22 §2.1) — user can override the default.
           // Card settlement (BANK→CREDIT) is handled via a dedicated card
           // settlement flow, so it is intentionally not offered here.
@@ -577,7 +578,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
               });
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Description
           TextFormField(
             controller: _descriptionController,
@@ -588,7 +589,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
             ),
             maxLength: 255,
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           // Memo
           TextFormField(
             controller: _memoController,
@@ -598,7 +599,7 @@ class _TransferFormPageState extends State<TransferFormPage> {
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Submit button
           FilledButton(
             onPressed: _isSubmitting ? null : _submit,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/budget/domain/entities/budget.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class BudgetSummaryCard extends StatelessWidget {
   final BudgetSummary summary;
@@ -72,7 +73,7 @@ class BudgetSummaryCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
@@ -84,7 +85,7 @@ class BudgetSummaryCard extends StatelessWidget {
                 color: _getProgressColor(summary.usageRate),
               ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -114,7 +115,8 @@ class BudgetSummaryCard extends StatelessWidget {
 
     if (embedded) return content;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      // ★세로는 블록 축(`gapV(block)`)이 갖는다 — 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
       child: content,
     );
   }

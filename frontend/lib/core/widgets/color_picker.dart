@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Extended color palette — Material Design colors.
 const List<String> presetColors = [
@@ -134,14 +135,14 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           Text(
             '색상 선택',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Recent colors
           if (_recentColors.isNotEmpty) ...[
             Align(
@@ -153,7 +154,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -167,7 +168,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
           // Preset palette
           Align(
@@ -179,7 +180,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -193,7 +194,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Custom hex input
           Row(
             children: [
@@ -238,7 +239,7 @@ class _ColorPickerSheetState extends State<_ColorPickerSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
         ],
       ),
     );

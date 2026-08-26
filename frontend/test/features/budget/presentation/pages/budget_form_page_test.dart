@@ -178,7 +178,12 @@ void main() {
 
     testWidgets('validates empty amount', (tester) async {
       await tester.pumpWidget(buildTestWidget());
-      // Tap submit without entering amount
+      // Tap submit without entering amount.
+      // ⚠ 2026-08-26: 여백 토큰 이관으로 넓은 폭(테스트 뷰 800dp)에서 폼이 길어졌다
+      // — 토큰이 리터럴보다 크다(xxl 21.9 vs 16 · block 29.2 vs 24 @800). 설계된
+      // 곡선이므로 테스트가 스크롤해서 버튼을 보이게 한다(가드를 낮추는 것이 아니다).
+      await tester.ensureVisible(find.text('저장'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(find.text('금액을 입력하세요'), findsOneWidget);
@@ -189,6 +194,8 @@ void main() {
       // Find the amount TextFormField (first one after month selector)
       final amountFields = find.byType(TextFormField);
       await tester.enterText(amountFields.first, '0');
+      await tester.ensureVisible(find.text('저장'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(find.text('0보다 큰 금액을 입력하세요'), findsOneWidget);

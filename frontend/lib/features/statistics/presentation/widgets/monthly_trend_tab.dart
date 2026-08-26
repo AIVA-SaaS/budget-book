@@ -2,6 +2,7 @@ import 'package:budget_book/core/utils/currency_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:budget_book/features/statistics/domain/entities/monthly_trend.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class MonthlyTrendTab extends StatelessWidget {
   final List<MonthlyTrend> trends;
@@ -29,7 +30,7 @@ class MonthlyTrendTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(error!, textAlign: TextAlign.center),
           ],
         ),
@@ -48,7 +49,7 @@ class MonthlyTrendTab extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '추이 데이터가 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -76,13 +77,13 @@ class MonthlyTrendTab extends StatelessWidget {
               _LegendItem(color: _expenseColor, label: '지출'),
             ],
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Line chart
           SizedBox(
             height: 250,
             child: LineChart(_buildLineChartData(context)),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Monthly table
           _buildTable(context),
         ],

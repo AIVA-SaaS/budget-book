@@ -260,7 +260,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '주간 예산이 설정되지 않았습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -270,7 +270,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         .withValues(alpha: 0.5),
                   ),
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             Text(
               '월간 예산 추가 시 "주간" 기간을 선택하면\n주간 예산이 자동으로 생성됩니다',
               textAlign: TextAlign.center,
@@ -318,7 +318,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 if (state.currentWeek != null) ...[
                   _buildCurrentWeekHero(
                       context, state.currentWeek!, numberFormat),
-                  const SizedBox(height: 24),
+                  context.bbSpace.gapV(BbSpaceToken.block),
                 ],
                 // Weekly overview
                 if (state.overview != null) ...[
@@ -328,7 +328,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   // ★항목 사이는 **호스트**가 소유한다(카드는 자기 밖을 소유하지 않는다).
                   ...bbCardItems(context, state.overview!.weeks.map((week) {
                     final isCurrent = state.currentWeek != null &&
@@ -395,7 +395,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.3),
                           ),
-                          const SizedBox(height: 16),
+                          context.bbSpace.gapV(BbSpaceToken.xxl),
                           Text(
                             '주간 예산 정보가 없습니다',
                             style: theme.textTheme.bodyLarge?.copyWith(
@@ -407,7 +407,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 88),
+                const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
               ],
             ),
           ),
@@ -445,7 +445,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               '${currentWeek.weekStart} ~ ${currentWeek.weekEnd}',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -454,7 +454,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
               ),
             ),
             if (currentWeek.items.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -469,9 +469,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
                           : Colors.red.shade700),
                 ],
               ),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               const Divider(height: 1),
-              const SizedBox(height: 12),
+              context.bbSpace.gapV(BbSpaceToken.xl),
               ...currentWeek.items.map((item) {
                 final progress = (item.usageRate / 100).clamp(0.0, 1.0);
                 final statusColor = item.usageRate > 100
@@ -522,7 +522,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      context.bbSpace.gapV(BbSpaceToken.md),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
@@ -598,7 +598,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
           child: state.budgets.isEmpty
               ? ListView(
                   children: [
-                    const SizedBox(height: 48),
+                    context.bbSpace.gapV(BbSpaceToken.block),
                     Center(
                       child: Text(
                         '이 달에 설정된 예산이 없습니다',
@@ -628,7 +628,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 88),
+                    const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
                   ],
                 )
               : _buildBudgetList(context, state),
@@ -697,7 +697,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
       allItems.insert(
         0,
         Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // ★세로는 블록 축(`gapV(block)`)이 갖는다 — 가로만 남긴다.
+          margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -748,7 +749,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
       ),
     );
 
-    allItems.add(const SizedBox(height: 88));
+    allItems.add(const SizedBox(height: 88));  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
     return ListView(
         key: const PageStorageKey('budget_monthly_list'), children: allItems);
   }
@@ -870,7 +871,7 @@ class _BudgetListPageState extends State<BudgetListPage> {
             color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
           ),
         ),
-        const SizedBox(height: 2),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           value,
           style: theme.textTheme.bodySmall?.copyWith(

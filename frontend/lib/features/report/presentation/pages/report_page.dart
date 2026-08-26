@@ -18,6 +18,7 @@ import 'package:budget_book/features/ai/presentation/bloc/ai_insight_event.dart'
 import 'package:budget_book/features/ai/presentation/bloc/ai_insight_state.dart';
 import 'package:budget_book/features/ai/domain/entities/ai_insight.dart';
 import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -141,7 +142,7 @@ class _ReportPageState extends State<ReportPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 Row(
                   children: [
                     Expanded(
@@ -173,7 +174,7 @@ class _ReportPageState extends State<ReportPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -184,7 +185,7 @@ class _ReportPageState extends State<ReportPage> {
                     valueColor: AlwaysStoppedAnimation<Color>(statusColor),
                   ),
                 ),
-                const SizedBox(height: 4),
+                context.bbSpace.gapV(BbSpaceToken.xs),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
@@ -199,7 +200,7 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
         // Top overspend categories
         if (report.topOverspendCategories.isNotEmpty) ...[
           Text(
@@ -207,7 +208,7 @@ class _ReportPageState extends State<ReportPage> {
             style: theme.textTheme.titleSmall
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Card(
             child: Column(
               children: report.topOverspendCategories
@@ -215,7 +216,7 @@ class _ReportPageState extends State<ReportPage> {
                   .toList(),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
         ],
         // Daily spending chart
         if (report.dailySpending.isNotEmpty)
@@ -246,7 +247,7 @@ class _ReportPageState extends State<ReportPage> {
                   style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 Row(
                   children: [
                     Expanded(
@@ -282,7 +283,7 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
         // Group summaries
         if (report.groupSummaries.isNotEmpty) ...[
           Text(
@@ -290,7 +291,7 @@ class _ReportPageState extends State<ReportPage> {
             style: theme.textTheme.titleSmall
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Card(
             child: Column(
               children: report.groupSummaries
@@ -298,7 +299,7 @@ class _ReportPageState extends State<ReportPage> {
                   .toList(),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
         ],
         // Top categories
         if (report.topCategories.isNotEmpty) ...[
@@ -307,7 +308,7 @@ class _ReportPageState extends State<ReportPage> {
             style: theme.textTheme.titleSmall
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Card(
             child: Column(
               children: report.topCategories.map((c) {
@@ -354,12 +355,12 @@ class _ReportPageState extends State<ReportPage> {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
         ],
         // Month comparison
         if (report.previousMonthComparison != null) ...[
           MonthComparisonCard(comparison: report.previousMonthComparison!),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.block),
         ],
         // Card pending badge
         if (report.cardPendingSummary != null) ...[
@@ -379,7 +380,7 @@ class _ReportPageState extends State<ReportPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
         ],
         // Day of week heatmap
         if (report.dayOfWeekPattern.isNotEmpty) ...[
@@ -405,7 +406,7 @@ class _ReportPageState extends State<ReportPage> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
-        const SizedBox(height: 4),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           '${numberFormat.format(amount)}원',
           style: TextStyle(
@@ -463,7 +464,7 @@ class _ReportPageState extends State<ReportPage> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          context.bbSpace.gapV(BbSpaceToken.md),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -474,7 +475,7 @@ class _ReportPageState extends State<ReportPage> {
               valueColor: AlwaysStoppedAnimation<Color>(statusColor),
             ),
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Text(
             '${numberFormat.format(group.totalSpent)}원 / ${numberFormat.format(group.totalBudget)}원',
             style: Theme.of(context).textTheme.bodySmall,
@@ -502,7 +503,7 @@ class _ReportPageState extends State<ReportPage> {
               style: theme.textTheme.titleSmall
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: report.dayOfWeekPattern.map((day) {
@@ -530,7 +531,7 @@ class _ReportPageState extends State<ReportPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    context.bbSpace.gapV(BbSpaceToken.xs),
                     Text(
                       numberFormat.format(day.averageSpending),
                       style: const TextStyle(fontSize: 9),
@@ -554,13 +555,14 @@ class _ReportPageState extends State<ReportPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (state is AiInsightLoading) {
-          return const Center(
+          // ★`gapV` 는 토큰을 읽으므로 const 트리에서 나와야 한다.
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('AI가 분석 중...'),
+                const CircularProgressIndicator(),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
+                const Text('AI가 분석 중...'),
               ],
             ),
           );
@@ -571,7 +573,7 @@ class _ReportPageState extends State<ReportPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(state.message),
-                const SizedBox(height: 12),
+                context.bbSpace.gapV(BbSpaceToken.xl),
                 FilledButton.icon(
                   onPressed: () => getIt<AiInsightBloc>()
                       .add(LoadInsights(year: _year, month: _month)),
@@ -603,7 +605,8 @@ class _ReportPageState extends State<ReportPage> {
   Widget _buildInsightCard(BuildContext context, AiInsight insight) {
     final (icon, color) = _insightSeverityStyle(insight.severity);
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      // ★항목 사이는 호스트(`ListView.separated` + `BbCardGap`)가 갖는다.
+      margin: EdgeInsets.zero,
       child: ListTile(
         leading: Icon(icon, color: color, size: 28),
         title: Text(

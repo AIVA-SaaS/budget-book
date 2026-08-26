@@ -18,6 +18,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/core/widgets/item_selector_sheet.dart';
 import 'package:budget_book/core/widgets/category_group_selector_sheet.dart';
 import 'package:budget_book/features/payment_method/presentation/widgets/payment_method_form_sheet.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class RecurringFormPage extends StatefulWidget {
   /// If editing, pass the recurring transaction ID (from URL path parameter).
@@ -154,7 +155,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 setState(() => _type = value.first);
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
           if (isEdit) ...[
             ListTile(
@@ -171,7 +172,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
           // Amount
           TextFormField(
@@ -189,7 +190,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Description
           TextFormField(
             controller: _descriptionController,
@@ -204,7 +205,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Memo
           TextFormField(
             controller: _memoController,
@@ -214,7 +215,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Frequency
           if (!isEdit) ...[
             DropdownButtonFormField<String>(
@@ -237,7 +238,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 });
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
           ],
           // Day selector based on frequency
           if (_frequency == 'MONTHLY' || _frequency == 'YEARLY')
@@ -286,7 +287,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
                 return null;
               },
             ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Category picker
           BlocBuilder<CategoryBloc, CategoryState>(
             builder: (context, state) {
@@ -305,7 +306,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Payment method picker
           BlocBuilder<PaymentMethodBloc, PaymentMethodState>(
             builder: (context, state) {
@@ -329,7 +330,7 @@ class _RecurringFormPageState extends State<RecurringFormPage> {
               );
             },
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Submit button
           FilledButton(
             onPressed: _isSubmitting ? null : _submit,

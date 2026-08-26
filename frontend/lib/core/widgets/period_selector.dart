@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/core/widgets/calendar_picker_dialog.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Period type enum for budget period selection.
 enum PeriodType { none, daily, weekly, monthly }
@@ -117,7 +118,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
       children: [
         // Period type segmented button
         _buildTypeSelector(context),
-        const SizedBox(height: 16),
+        context.bbSpace.gapV(BbSpaceToken.xxl),
         // Conditional UI based on selected type
         _buildTypeSpecificUI(context),
       ],
@@ -221,7 +222,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                 }
               : null,
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // End date
         _buildDateTile(
           context,
@@ -323,7 +324,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // Week breakdown preview
         Card(
           child: Padding(
@@ -337,7 +338,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 8),
+                context.bbSpace.gapV(BbSpaceToken.lg),
                 ...weekRanges.asMap().entries.map((entry) {
                   final weekNum = entry.key + 1;
                   final (start, end) = entry.value;
@@ -400,7 +401,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
                 }
               : null,
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         // End month
         _buildDateTile(
           context,

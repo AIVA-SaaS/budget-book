@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budget_book/features/report/domain/entities/weekly_report.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class DailySpendingChart extends StatelessWidget {
   final List<DailySpending> dailySpending;
@@ -53,7 +54,7 @@ class DailySpendingChart extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             ...dailySpending.map((day) {
               final ratio = maxAmount > 0 ? day.amount / maxAmount : 0.0;
               final isPeak = day.dayOfWeek == peakSpendingDay;

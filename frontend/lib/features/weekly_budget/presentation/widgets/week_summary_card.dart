@@ -87,14 +87,14 @@ class WeekSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Text(
             '${weekSummary.weekStart} ~ ${weekSummary.weekEnd}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           // Total summary row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -112,9 +112,9 @@ class WeekSummaryCard extends StatelessWidget {
           ),
           // Per-item breakdown
           if (weekSummary.items.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             const Divider(height: 1),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             ...weekSummary.items.asMap().entries.map((entry) {
               final item = entry.value;
               // ★마지막 항목은 꼬리 여백 0 — 카드 밑변까지의 빈 공간이 두 번
@@ -166,7 +166,7 @@ class WeekSummaryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    context.bbSpace.gapV(BbSpaceToken.xs),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
@@ -202,7 +202,7 @@ class WeekSummaryCard extends StatelessWidget {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
         ),
-        const SizedBox(height: 2),
+        context.bbSpace.gapV(BbSpaceToken.xs),
         Text(
           '$value원',
           style: theme.textTheme.bodySmall?.copyWith(

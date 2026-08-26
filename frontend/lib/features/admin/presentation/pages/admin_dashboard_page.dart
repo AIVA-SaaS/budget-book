@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budget_book/core/di/injection.dart';
 import 'package:budget_book/core/network/api_client.dart';
 import 'package:budget_book/core/constants/api_endpoints.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Admin dashboard page showing system statistics.
 class AdminDashboardPage extends StatefulWidget {
@@ -99,7 +100,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('오류: $_error'),
-                      const SizedBox(height: 16),
+                      context.bbSpace.gapV(BbSpaceToken.xxl),
                       FilledButton(
                         onPressed: _loadStats,
                         child: const Text('재시도'),
@@ -205,7 +206,7 @@ class _StatCard extends StatelessWidget {
                               .withValues(alpha: 0.6),
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     '$count',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(

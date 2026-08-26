@@ -119,14 +119,14 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               Text(
                 isEditing ? '그룹 수정' : '그룹 추가',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               // Name field
               TextFormField(
                 controller: _nameController,
@@ -142,13 +142,13 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Budget type dropdown
               Text(
                 '예산 주기',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               SegmentedButton<String>(
                 segments: _budgetTypeLabels.entries
                     .map((entry) => ButtonSegment(
@@ -163,13 +163,13 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Icon picker
               Text(
                 '아이콘',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -213,13 +213,13 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               // Color picker
               Text(
                 '색상',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -257,7 +257,7 @@ class _CategoryGroupFormSheetState extends State<CategoryGroupFormSheet> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
               FilledButton(
                 onPressed: _onSubmit,
                 style: FilledButton.styleFrom(

@@ -21,6 +21,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class CardSettlementPage extends StatefulWidget {
   final String? initialCardId;
@@ -321,7 +322,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                 _loadSettlement();
               },
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // 2. Month selector
             Row(
@@ -363,7 +364,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
 
             // Content based on state
             if (state is CardSettlementLoading)
@@ -390,7 +391,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                                   .withValues(alpha: 0.6),
                             ),
                       ),
-                      const SizedBox(height: 4),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         '${CurrencyFormatter.format(state.totalAmount)}원',
                         style:
@@ -398,7 +399,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
-                      const SizedBox(height: 8),
+                      context.bbSpace.gapV(BbSpaceToken.lg),
                       Text(
                         '선택 금액: ${CurrencyFormatter.format(state.selectedAmount)}원 (${state.selectedIds.length}건)',
                         style: Theme.of(context).textTheme.bodyMedium,
@@ -407,7 +408,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
 
               // 4. Settlement amount (auto or custom)
               Row(
@@ -462,7 +463,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
 
               // 5. Source bank account
               DropdownButtonFormField<String>(
@@ -482,7 +483,7 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                   setState(() => _selectedBankId = value);
                 },
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
 
               // 6. Settlement date
               InkWell(
@@ -498,11 +499,11 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
 
               // 7. Transaction list (expandable)
               _buildTransactionList(context, state),
-              const SizedBox(height: 24),
+              context.bbSpace.gapV(BbSpaceToken.block),
 
               // 8. Submit button
               FilledButton.icon(
@@ -516,14 +517,14 @@ class _CardSettlementPageState extends State<CardSettlementPage> {
               Center(
                 child: Column(
                   children: [
-                    const SizedBox(height: 32),
+                    context.bbSpace.gapV(BbSpaceToken.block),
                     Text(
                       state.message,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    context.bbSpace.gapV(BbSpaceToken.xxl),
                     FilledButton(
                       onPressed: _loadSettlement,
                       child: const Text('다시 시도'),

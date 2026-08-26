@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A reusable error widget that displays an error icon, message,
 /// an optional retry button, and an optional "go home" button.
@@ -39,7 +40,7 @@ class AppErrorWidget extends StatelessWidget {
               size: 48,
               color: theme.colorScheme.error,
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               message,
               textAlign: TextAlign.center,
@@ -48,7 +49,7 @@ class AppErrorWidget extends StatelessWidget {
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 16),
+              context.bbSpace.gapV(BbSpaceToken.xxl),
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
@@ -56,7 +57,7 @@ class AppErrorWidget extends StatelessWidget {
               ),
             ],
             if (showHomeButton) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               TextButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.home_outlined, size: 18),

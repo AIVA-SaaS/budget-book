@@ -33,7 +33,7 @@ class YearComparisonTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(error!, textAlign: TextAlign.center),
           ],
         ),
@@ -52,7 +52,7 @@ class YearComparisonTab extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text(
               '비교할 데이터가 없습니다',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -191,7 +191,7 @@ class _ComparisonCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          context.bbSpace.gapV(BbSpaceToken.xxl),
           // Current year
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

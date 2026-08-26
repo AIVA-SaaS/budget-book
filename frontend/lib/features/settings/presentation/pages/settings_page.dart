@@ -11,6 +11,7 @@ import 'package:budget_book/features/payment_method/presentation/bloc/payment_me
 import 'package:budget_book/features/settings/presentation/cubit/theme_cubit.dart';
 import 'package:budget_book/features/settings/presentation/cubit/locale_cubit.dart';
 import 'package:budget_book/core/di/injection.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -82,7 +83,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (state is AuthAuthenticated) {
                   final user = state.user;
                   return Card(
-                    margin: const EdgeInsets.all(16),
+                    // ★세로는 블록 축(`gapV(block)`)이 갖는다 — 가로만 남긴다.
+                    margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xxl),
                     child: ListTile(
                       leading: CircleAvatar(
                         radius: 24,

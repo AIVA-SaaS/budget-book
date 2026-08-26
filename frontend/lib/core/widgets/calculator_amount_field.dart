@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:budget_book/core/utils/currency_formatter.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// A TextFormField for amount input that supports arithmetic (+ - * /) with
 /// parentheses, and a calculator popup for mobile (where number-only keyboards
@@ -469,7 +470,7 @@ class _CalculatorPopupState extends State<_CalculatorPopup> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  context.bbSpace.gapV(BbSpaceToken.xs),
                   Text(
                     previewText,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -482,7 +483,7 @@ class _CalculatorPopupState extends State<_CalculatorPopup> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             _buildButtonGrid(),
           ],
         ),

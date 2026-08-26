@@ -17,6 +17,7 @@ import 'package:budget_book/features/transaction/presentation/bloc/transaction_b
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_bloc.dart';
 import 'package:budget_book/features/transfer/presentation/bloc/transfer_event.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// 정산 뷰 — 상단 "미기록", 하단 "스냅샷별 기록".
 ///
@@ -110,7 +111,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(state.message, textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   TextButton(
                     onPressed: () => context.read<ReconciliationBloc>().add(
                         LoadReconciliations(
@@ -218,7 +219,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                 onRemoveItems: (itemIds) =>
                     _confirmRemoveItems(context, s, itemIds),
               )),
-        const SizedBox(height: 88),
+        const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
       ],
     );
   }
@@ -426,7 +427,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
           children: [
             Text('선택한 $_selectedCount건을 정산 스냅샷으로 기록합니다.'),
             if (needsReviewCount > 0) ...[
-              const SizedBox(height: 8),
+              context.bbSpace.gapV(BbSpaceToken.lg),
               Row(
                 children: [
                   Icon(Icons.warning_amber,
@@ -442,7 +443,7 @@ class _ReconciliationViewState extends State<ReconciliationView> {
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             TextField(
               controller: controller,
               maxLength: 100,
@@ -638,7 +639,7 @@ class _FullyReconciledBanner extends StatelessWidget {
       child: Column(
         children: [
           const Icon(Icons.verified, size: 36, color: Color(0xFF2E7D32)),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
           Text(
             '이 달 정산 완료',
             style: Theme.of(context)
@@ -646,7 +647,7 @@ class _FullyReconciledBanner extends StatelessWidget {
                 .titleSmall
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 2),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Text(
             '미기록 항목이 없습니다',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

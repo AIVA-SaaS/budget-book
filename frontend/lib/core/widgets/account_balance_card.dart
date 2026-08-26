@@ -54,7 +54,7 @@ class AccountBalanceCard extends StatelessWidget {
                   child: const Text('관리')),
             ],
           ),
-          const SizedBox(height: 8),
+          context.bbSpace.gapV(BbSpaceToken.lg),
         ] else ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -120,7 +120,8 @@ class _AssetGroup extends StatelessWidget {
     // 종전 `margin: only(bottom: 8) + padding: all(12)` 는 경계에서 91.0dp 였다.
     // 가로(12)는 이번 축이 아니므로 그대로 둔다.
     return Container(
-      margin: EdgeInsets.symmetric(vertical: context.bbSpace.xs),
+      // ★세로는 호스트/블록 축이 갖는다 — 카드는 자기 밖을 소유하지 않는다.
+      margin: EdgeInsets.zero,
       padding: EdgeInsets.symmetric(
           horizontal: 12, vertical: context.bbBox.cardRowPadV),
       decoration: BoxDecoration(

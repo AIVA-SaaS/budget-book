@@ -16,6 +16,7 @@ import 'package:budget_book/features/category_group/presentation/bloc/category_g
 import 'package:budget_book/features/preference/presentation/bloc/favorites_bloc.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_event.dart';
 import 'package:budget_book/features/preference/presentation/bloc/favorites_state.dart';
+import '../../core/theme/bb_scale.dart';
 
 /// Sentinel identifier used for the virtual "잔액 조정" (balance adjustment)
 /// category option (회차 4 — Phase 23 PR-X3 복원).
@@ -458,7 +459,7 @@ class _CategoryGroupSelectorSheetState
         // Private section (couple mode only)
         if (coupled && (privateGroups.isNotEmpty || true)) {
           // Always show private section for discoverability in couple mode
-          children.add(const SizedBox(height: 8));
+          children.add(context.bbSpace.gapV(BbSpaceToken.lg));
           children.add(
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -493,7 +494,7 @@ class _CategoryGroupSelectorSheetState
               ),
             ),
           );
-          children.add(const SizedBox(height: 4));
+          children.add(context.bbSpace.gapV(BbSpaceToken.xs));
         }
 
         // Private groups — show all (including empty) for the same reason.
@@ -812,7 +813,8 @@ class _CategoryGroupSelectorSheetState
     );
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      // ★세로는 호스트가 갖는다. 가로만 남긴다.
+      margin: EdgeInsets.symmetric(horizontal: context.bbSpace.xl),
       decoration: BoxDecoration(
         color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),

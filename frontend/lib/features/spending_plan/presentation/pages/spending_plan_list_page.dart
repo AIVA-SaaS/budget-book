@@ -203,7 +203,7 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
       key: const PageStorageKey('spending_plan_list'),
       itemCount: dates.length + 1,
       itemBuilder: (context, index) {
-        if (index == dates.length) return const SizedBox(height: 88);
+        if (index == dates.length) return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         final dateStr = dates[index];
         final plans = grouped[dateStr]!;
         return Column(
@@ -380,7 +380,7 @@ class _SpendingPlanListPageState extends State<SpendingPlanListPage>
       key: const PageStorageKey('wishlist_list'),
       itemCount: priorities.length + 1,
       itemBuilder: (context, index) {
-        if (index == priorities.length) return const SizedBox(height: 88);
+        if (index == priorities.length) return const SizedBox(height: 88);  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         final priority = priorities[index];
         final items = grouped[priority]!;
         return Column(

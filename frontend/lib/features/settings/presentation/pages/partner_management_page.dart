@@ -67,14 +67,14 @@ class PartnerManagementPage extends StatelessWidget {
                     size: 48,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   Text(
                     '개인 가계부',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  const SizedBox(height: 8),
+                  context.bbSpace.gapV(BbSpaceToken.lg),
                   Text(
                     '파트너와 함께 사용하면 수입/지출을 공유하고\n함께 예산을 관리할 수 있어요',
                     textAlign: TextAlign.center,
@@ -89,7 +89,7 @@ class PartnerManagementPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Invite partner
           FilledButton.icon(
             onPressed: () => context.push('/couple'),
@@ -100,7 +100,7 @@ class PartnerManagementPage extends StatelessWidget {
                   .symmetric(h: BbSpaceToken.md, v: BbSpaceToken.xl),
             ),
           ),
-          const SizedBox(height: 12),
+          context.bbSpace.gapV(BbSpaceToken.xl),
           // Accept invitation
           OutlinedButton.icon(
             onPressed: () => context.push('/couple'),
@@ -136,7 +136,7 @@ class PartnerManagementPage extends StatelessWidget {
                     size: 48,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   Text(
                     '함께 사용 중',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -147,7 +147,7 @@ class PartnerManagementPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Partner info
           Card(
             child: Padding(
@@ -180,7 +180,7 @@ class PartnerManagementPage extends StatelessWidget {
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 4),
+                        context.bbSpace.gapV(BbSpaceToken.xs),
                         Text(
                           '연결일: ${dateFormat.format(couple.createdAt)}',
                           style:
@@ -198,7 +198,7 @@ class PartnerManagementPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // Dissolve button
           OutlinedButton.icon(
             onPressed: () => _showDissolveDialog(context),

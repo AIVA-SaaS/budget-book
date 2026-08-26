@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budget_book/features/ai/domain/entities/budget_suggestion.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Card showing a budget adjustment suggestion from the smart analysis engine.
 class BudgetSuggestionCard extends StatelessWidget {
@@ -34,7 +35,7 @@ class BudgetSuggestionCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             ...suggestions.map((s) => _SuggestionItem(
                   suggestion: s,
                   formatter: formatter,
@@ -94,7 +95,7 @@ class _SuggestionItem extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           // Current vs suggested bar
           Row(
             children: [
@@ -116,7 +117,7 @@ class _SuggestionItem extends StatelessWidget {
             ],
           ),
           if (suggestion.reason.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            context.bbSpace.gapV(BbSpaceToken.xs),
             Text(
               suggestion.reason,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -127,7 +128,7 @@ class _SuggestionItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          const SizedBox(height: 4),
+          context.bbSpace.gapV(BbSpaceToken.xs),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(

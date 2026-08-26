@@ -140,7 +140,7 @@ class RecurringListPage extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 88),
+          const SizedBox(height: 88),  // ui-fixed: FAB(56) 회피 — 스크롤 꼬리 여백
         ],
       ),
     );

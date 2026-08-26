@@ -11,6 +11,8 @@ import 'package:budget_book/features/feedback/presentation/widgets/feedback_card
 import 'package:budget_book/features/feedback/presentation/widgets/release_note_card.dart';
 import 'package:budget_book/features/feedback/presentation/pages/public_feedback_board_page.dart';
 import 'package:budget_book/core/widgets/announcement_banner.dart';
+import '../../../../core/widgets/bb_card_tile.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class FeedbackHubPage extends StatefulWidget {
   const FeedbackHubPage({super.key});
@@ -114,7 +116,7 @@ class _MyFeedbackTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(state.message),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 FilledButton(
                   onPressed: () =>
                       context.read<FeedbackBloc>().add(const LoadFeedbacks()),
@@ -135,12 +137,12 @@ class _MyFeedbackTab extends StatelessWidget {
                     size: 64,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   Text(
                     '아직 요청한 피드백이 없습니다',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
-                  const SizedBox(height: 8),
+                  context.bbSpace.gapV(BbSpaceToken.lg),
                   FilledButton.icon(
                     onPressed: onCreateTap,
                     icon: const Icon(Icons.add),
@@ -156,7 +158,9 @@ class _MyFeedbackTab extends StatelessWidget {
                 onRefresh: () async {
                   context.read<FeedbackBloc>().add(const LoadFeedbacks());
                 },
-                child: ListView.builder(
+                // ★항목 사이는 **호스트**가 소유한다.
+                child: ListView.separated(
+                  separatorBuilder: (_, __) => const BbCardGap(),
                   padding: const EdgeInsets.only(top: 8, bottom: 80),
                   itemCount: state.feedbacks.length,
                   itemBuilder: (context, index) {
@@ -201,7 +205,7 @@ class _ReleaseNotesTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(state.message),
-                const SizedBox(height: 16),
+                context.bbSpace.gapV(BbSpaceToken.xxl),
                 FilledButton(
                   onPressed: () => context
                       .read<ReleaseNoteBloc>()
@@ -223,7 +227,7 @@ class _ReleaseNotesTab extends StatelessWidget {
                     size: 64,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   Text(
                     '아직 업데이트 노트가 없습니다',
                     style: Theme.of(context).textTheme.bodyLarge,
@@ -236,7 +240,9 @@ class _ReleaseNotesTab extends StatelessWidget {
             onRefresh: () async {
               context.read<ReleaseNoteBloc>().add(const LoadReleaseNotes());
             },
-            child: ListView.builder(
+            // ★항목 사이는 **호스트**가 소유한다.
+            child: ListView.separated(
+              separatorBuilder: (_, __) => const BbCardGap(),
               padding: const EdgeInsets.only(top: 8, bottom: 16),
               itemCount: state.releaseNotes.length,
               itemBuilder: (context, index) {

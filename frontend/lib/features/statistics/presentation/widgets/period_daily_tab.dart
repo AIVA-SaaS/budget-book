@@ -24,7 +24,7 @@ class PeriodDailyTab extends StatelessWidget {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            context.bbSpace.gapV(BbSpaceToken.xxl),
             Text('해당 기간에 일별 데이터가 없습니다',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context)
@@ -41,7 +41,7 @@ class PeriodDailyTab extends StatelessWidget {
       child: Column(
         children: [
           _buildBarChart(context),
-          const SizedBox(height: 24),
+          context.bbSpace.gapV(BbSpaceToken.block),
           // ★항목 사이는 **호스트**가 소유한다.
           ...bbCardItems(context,
               items.map((item) => _DailyListItem(item: item)).toList()),

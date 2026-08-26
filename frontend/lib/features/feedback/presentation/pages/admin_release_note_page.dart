@@ -5,6 +5,7 @@ import 'package:budget_book/features/feedback/presentation/bloc/release_note_blo
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_event.dart';
 import 'package:budget_book/features/feedback/presentation/bloc/release_note_state.dart';
 import 'package:budget_book/features/feedback/domain/entities/release_note.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class AdminReleaseNotePage extends StatelessWidget {
   const AdminReleaseNotePage({super.key});
@@ -191,7 +192,7 @@ class AdminReleaseNotePage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   TextFormField(
                     controller: versionController,
                     decoration: const InputDecoration(
@@ -202,7 +203,7 @@ class AdminReleaseNotePage extends StatelessWidget {
                     validator: (v) =>
                         v == null || v.trim().isEmpty ? '버전을 입력해주세요' : null,
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   TextFormField(
                     controller: titleController,
                     decoration: const InputDecoration(
@@ -212,7 +213,7 @@ class AdminReleaseNotePage extends StatelessWidget {
                     validator: (v) =>
                         v == null || v.trim().isEmpty ? '제목을 입력해주세요' : null,
                   ),
-                  const SizedBox(height: 12),
+                  context.bbSpace.gapV(BbSpaceToken.xl),
                   TextFormField(
                     controller: contentController,
                     decoration: const InputDecoration(
@@ -225,7 +226,7 @@ class AdminReleaseNotePage extends StatelessWidget {
                     validator: (v) =>
                         v == null || v.trim().isEmpty ? '내용을 입력해주세요' : null,
                   ),
-                  const SizedBox(height: 16),
+                  context.bbSpace.gapV(BbSpaceToken.xxl),
                   FilledButton(
                     onPressed: () {
                       if (!formKey.currentState!.validate()) return;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budget_book/features/statistics/domain/entities/payment_method_statistics.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 class PaymentMethodStatsTab extends StatelessWidget {
   final List<PaymentMethodStatistics> stats;
@@ -47,7 +48,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
           children: [
             Icon(Icons.error_outline,
                 size: 48, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(error!, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
@@ -67,7 +68,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                   .onSurface
                   .withValues(alpha: 0.3),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
             Text(
               '결제수단별 통계가 없습니다',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -113,7 +114,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        context.bbSpace.gapV(BbSpaceToken.block),
         // List of payment methods
         // ★항목 사이는 **호스트**가 소유한다(카드는 자기 밖을 소유하지 않는다).
         ...bbCardItems(context, stats.asMap().entries.map((entry) {
@@ -151,7 +152,7 @@ class PaymentMethodStatsTab extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                       ),
-                      const SizedBox(height: 2),
+                      context.bbSpace.gapV(BbSpaceToken.xs),
                       Text(
                         '${stat.transactionCount}건',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(

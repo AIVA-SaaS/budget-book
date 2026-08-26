@@ -23,6 +23,7 @@ import 'package:budget_book/features/spending_plan/domain/entities/spending_plan
 import 'package:budget_book/features/transaction/domain/entities/transaction.dart' as tx;
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:budget_book/features/transaction/presentation/bloc/transaction_state.dart';
+import '../../../../core/theme/bb_scale.dart';
 
 /// Result from the complete plan dialog.
 class CompletePlanResult {
@@ -386,7 +387,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Toggle: new transaction vs link existing
             SegmentedButton<bool>(
@@ -400,7 +401,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 _linkedTransaction = null;
               }),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             if (_linkExisting) ...[
               // Transaction search/select
@@ -427,7 +428,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Description
             TextFormField(
@@ -445,7 +446,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Date picker
             InkWell(
@@ -461,7 +462,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            context.bbSpace.gapV(BbSpaceToken.xl),
 
             // Payment method selector
             ItemSelectorField(
@@ -471,7 +472,7 @@ class _CompletePlanDialogState extends State<_CompletePlanDialog> {
               placeholder: '선택 안 함',
               onTap: _showPaymentMethodSelectorSheet,
             ),
-            const SizedBox(height: 8),
+            context.bbSpace.gapV(BbSpaceToken.lg),
             // Category selector
             ItemSelectorField(
               label: '카테고리',

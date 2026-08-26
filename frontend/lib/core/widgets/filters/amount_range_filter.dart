@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/bb_scale.dart';
 
 /// Amount range input fields (min/max) for use within filter sheets.
 class AmountRangeFilter extends StatelessWidget {
@@ -20,7 +21,7 @@ class AmountRangeFilter extends StatelessWidget {
           '금액 범위',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 8),
+        context.bbSpace.gapV(BbSpaceToken.lg),
         Row(
           children: [
             Expanded(
