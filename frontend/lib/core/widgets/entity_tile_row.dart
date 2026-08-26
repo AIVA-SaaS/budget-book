@@ -7,6 +7,9 @@ import 'package:budget_book/core/widgets/one_line_label.dart';
 
 /// Semantic tone for a badge or a metric. Resolved against [BbColors] — a
 /// caller can never pass a raw palette color for these.
+/// 진행 트랙 높이 — 값 유무와 무관하게 고정이다(행 간 높이 동일성).
+const double kEntityProgressHeight = 6.0;
+
 enum EntityTone {
   neutral,
   income,
@@ -52,6 +55,38 @@ class EntityMetric {
   final EntityTone tone;
 
   String get display => label == null ? value : '$label $value';
+}
+
+
+/// A progress track shown between the title row and the subtitle.
+///
+/// ★값 타입이다 — 호출부가 임의 위젯을 끼워 넣지 못한다(가드 S1). 과거
+/// `ui_pattern` 실패가 전부 "한 곳에 얹기" 형태였기 때문이다.
+@immutable
+class EntityProgress {
+  const EntityProgress({
+    required this.value,
+    this.tone = EntityTone.neutral,
+  });
+
+  /// 0.0 ~ 1.0. 값이 없는 행도 **자리를 비우지 말고 0 을 넘겨라** — 자리를 비우면
+  /// 그 행만 잉크가 낮아져 `박스 = max(잉크 + 2 × xs, 슬롯 44)` 가 행마다 갈린다.
+  /// 2026-08-26 예산 화면의 "위아래 항목 높이가 다르다" 가 정확히 그 결함이었다.
+  final double value;
+
+  final EntityTone tone;
+}
+
+/// An always-visible overflow (⋮) menu placed in the trailing slot.
+///
+/// 슬롯은 세로 흐름 **밖**이라 행 높이를 늘리지 않는다(2026-08-24 계약).
+/// [EntityTileActions] 와 달리 편집 모드가 아니어도 보인다.
+@immutable
+class EntityOverflowMenu {
+  const EntityOverflowMenu({required this.items, required this.onSelected});
+
+  final List<EntityMenuAction> items;
+  final ValueChanged<String> onSelected;
 }
 
 /// One entry of the tile's overflow menu.
@@ -133,6 +168,9 @@ class EntityTileRow extends StatelessWidget {
     this.onTap,
     this.actions,
     this.viewAction,
+    this.progress,
+    this.overflowMenu,
+    this.keepMetricInline = false,
   });
 
   final String title;
@@ -166,6 +204,18 @@ class EntityTileRow extends StatelessWidget {
 
   /// An always-visible icon action, shown only in view mode.
   final EntityViewAction? viewAction;
+
+  /// ★진행 표시 슬롯 (2026-08-26 신설 — 예산 타일 이관).
+  ///
+  /// 제목과 부제목 **사이**에 들어간다. 이 슬롯을 쓰는 화면은 **모든 행에
+  /// 빠짐없이** 넘겨야 한다 — 어떤 행에만 넘기면 그 행만 잉크가 낮아져
+  /// 행 높이가 갈린다.
+  final EntityProgress? progress;
+
+  /// 항상 보이는 ⋮ 메뉴. 슬롯(세로 흐름 밖)이라 행 높이에 관여하지 않는다.
+  final EntityOverflowMenu? overflowMenu;
+
+  final bool keepMetricInline;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +265,8 @@ class EntityTileRow extends StatelessWidget {
           );
           // Squeezing both would truncate the name — the name wins and the
           // amount drops to the chip strip (still exact, never abbreviated).
-          if (titleFloor + space.md + metricWidth > available) {
+          if (!keepMetricInline &&
+              titleFloor + space.md + metricWidth > available) {
             inlineMetric = false;
             metricWidth = 0;
           }
@@ -264,6 +315,18 @@ class EntityTileRow extends StatelessWidget {
                 ],
               ],
             ),
+            if (!editing && progress != null) ...[
+              SizedBox(height: space.md / 2),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(space.xs / 2),
+                child: LinearProgressIndicator(
+                  value: progress!.value.clamp(0.0, 1.0),
+                  minHeight: kEntityProgressHeight,
+                  backgroundColor: scheme.surfaceContainerHighest,
+                  color: _toneForeground(bb, scheme, progress!.tone),
+                ),
+              ),
+            ],
             if (!editing && subtitle != null) ...[
               SizedBox(height: space.md / 2),
               OneLineLabel(
@@ -304,7 +367,42 @@ class EntityTileRow extends StatelessWidget {
     //                 (종전 액션 16.0 / 무액션 18.0 — 같은 위젯이 두 리듬을 가졌다)
     final Widget? trailingSlot = editing
         ? _ActionLane(actions: actions!)
-        : (viewAction != null
+        : (overflowMenu != null
+            ? SizedBox(
+                width: box.actionSlot,
+                height: box.actionSlot,
+                child: PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  icon: Icon(Icons.more_vert, size: box.actionIcon),
+                  onSelected: overflowMenu!.onSelected,
+                  itemBuilder: (_) => [
+                    for (final item in overflowMenu!.items)
+                      PopupMenuItem<String>(
+                        value: item.value,
+                        child: Row(children: [
+                          if (item.icon != null) ...[
+                            Icon(item.icon,
+                                size: box.actionIcon,
+                                color: item.destructive
+                                    ? _toneForeground(
+                                        bb, scheme, EntityTone.negative)
+                                    : null),
+                            SizedBox(width: space.md),
+                          ],
+                          Text(
+                            item.label,
+                            style: item.destructive
+                                ? TextStyle(
+                                    color: _toneForeground(
+                                        bb, scheme, EntityTone.negative))
+                                : null,
+                          ),
+                        ]),
+                      ),
+                  ],
+                ),
+              )
+            : viewAction != null
             ? SizedBox(
                 width: box.actionSlot,
                 height: box.actionSlot,

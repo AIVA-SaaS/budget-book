@@ -17,7 +17,7 @@
   "lib/features/auth/presentation/pages/login_page.dart": 3,
   "lib/features/auth/presentation/widgets/social_login_button.dart": 2,
   "lib/features/budget/presentation/pages/budget_form_page.dart": 1,
-  "lib/features/budget/presentation/pages/budget_list_page.dart": 11,
+  "lib/features/budget/presentation/pages/budget_list_page.dart": 7,
   "lib/features/budget/presentation/widgets/budget_alert_widget.dart": 2,
   "lib/features/budget/presentation/widgets/budget_row_actions.dart": 2,
   "lib/features/budget/presentation/widgets/budget_suggestion_card.dart": 2,
