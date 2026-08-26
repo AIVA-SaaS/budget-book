@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_book/core/theme/bb_scale.dart';
 import 'package:budget_book/core/utils/couple_mode.dart';
 import 'package:budget_book/core/utils/dialog_helpers.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -44,6 +45,11 @@ class BudgetListPage extends StatefulWidget {
 }
 
 class _BudgetListPageState extends State<BudgetListPage> {
+  /// ★상위 총 예산 카드의 접힘 여부 — **단일 소유자**(8차 S2).
+  /// 헤더 chevron 과 항목 렌더가 이 값 하나를 읽는다(두 곳에서 판정하지 않는다).
+  /// 세션 간 기억은 하지 않는다(1차 결정 — 매번 펼침, 기획 §8-1).
+  bool _totalExpanded = true;
+
   bool _isWeeklyView = false;
 
   @override
@@ -585,7 +591,9 @@ class _BudgetListPageState extends State<BudgetListPage> {
         // MonthNavigator는 MonthCubit.state를 자동으로 watch하여 표시/업데이트.
         // 회차 12 follow-up — 분석 탭 wrapper 에서는 부모가 단일 표시 (hide).
         if (widget.showMonthNavigator) const MonthNavigator(),
-        if (state.summary != null) BudgetSummaryCard(summary: state.summary!),
+        // ★총 예산 카드는 이제 리스트 **안**에 있다(8차 S1). 형제로 두면
+        //   항목과의 관계가 끊겨 "별도로 떨어진 것"으로 읽힌다 — 그리고
+        //   카드가 항목을 품으므로 함께 스크롤돼야 한다.
         Expanded(
           child: state.budgets.isEmpty
               ? ListView(
@@ -634,6 +642,8 @@ class _BudgetListPageState extends State<BudgetListPage> {
     final summaryItems = state.summary?.items ?? [];
     final coupled = isCoupleMode();
 
+    // 상위 총 예산 카드 **안**에 들어갈 항목들. `allItems`(리스트 최상위)와 구분한다.
+    final grouped = <Widget>[];
     final allItems = <Widget>[];
 
     if (coupled) {
@@ -642,12 +652,12 @@ class _BudgetListPageState extends State<BudgetListPage> {
       final privateBudgets = state.budgets.where((b) => b.isPrivate).toList();
 
       for (final budget in sharedBudgets) {
-        allItems
+        grouped
             .add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
       }
 
       if (privateBudgets.isNotEmpty) {
-        allItems.add(
+        grouped.add(
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
@@ -669,16 +679,53 @@ class _BudgetListPageState extends State<BudgetListPage> {
           ),
         );
         for (final budget in privateBudgets) {
-          allItems.add(
+          grouped.add(
               _buildBudgetTile(context, budget, summaryItems, numberFormat));
         }
       }
     } else {
       // Personal mode: show all budgets without visibility split
       for (final budget in state.budgets) {
-        allItems
+        grouped
             .add(_buildBudgetTile(context, budget, summaryItems, numberFormat));
       }
+    }
+
+    // ★상위 총 예산 카드 — 헤더 + (펼침 시) 구분선 + 항목들을 **하나의 Card** 가 품는다.
+    //   관계를 여백으로 흉내내지 않고 컨테이너가 소유한다(8차 S1).
+    if (state.summary != null) {
+      allItems.insert(
+        0,
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BudgetSummaryCard(
+                summary: state.summary!,
+                embedded: true,
+                expanded: _totalExpanded,
+                onToggle: () =>
+                    setState(() => _totalExpanded = !_totalExpanded),
+              ),
+              if (_totalExpanded) ...[
+                const Divider(height: 1),
+                // ★항목 인셋 = 카드 내부 padding(16) − 타일 자체 인셋(space.xl).
+                //   리터럴로 박지 않는다 — 토큰이 바뀌면 정렬도 따라가야 한다(S3).
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: (16 - context.bbSpace.xl).clamp(0.0, 16.0),
+                    vertical: 8,
+                  ),
+                  child: Column(children: grouped),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    } else {
+      allItems.insertAll(0, grouped);
     }
 
     // Payment method asset summary at bottom
